@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
-import { getDiscordUser, getAnonymousPreference } from '../../../../../lib/session';
-import { decodeBuildParam } from '../../../../_src/utils/builder/buildUrlCodec';
+import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
+import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 
 export async function GET(request, { params }) {
@@ -12,11 +12,11 @@ export async function GET(request, { params }) {
         return NextResponse.json({ error: 'build not found' }, { status: 404 });
     }
 
-    // Keep the redirect working from both deepa.cat/sts/... and sts.deepa.cat/...
-    const hostname = new URL(request.url).hostname.split('.');
-    const base = hostname.length > 2 ? '' : '/sts';
-
-    return NextResponse.redirect(new URL(base + '/builder/' + encodeURIComponent(row.token), request.url));
+    // Redirect to the canonical short link. appUrl pins the public origin
+    // (STS_PUBLIC_BASE_URL) so the redirect never leaks a proxy host
+    // (e.g. localhost:6678) to the client.
+    const tokenVersion = getBuildTokenVersion(row.token) ?? '';
+    return NextResponse.redirect(appUrl(request.url, `/b/v${tokenVersion}/${p.id}`));
 }
 
 export async function PATCH(request, { params }) {
