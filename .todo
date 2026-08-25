@@ -22,7 +22,7 @@ generalise all buttons to use same size/height
 [x] add curse of the vail as a stat toggle
 [x] make the text on likes slightly bigger
 - add user name and avatar to build embed
-- add a discription on hover for build abbreviations in the database
+- add a discription on hover for build abbreviations in the public build database
 - add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeeky noise
 [ ] integrate sts-mod spritesheet dump (sts-itemsheet.png/json) into the site, replacing spritesheetmaker pipeline
 [ ] animate animated item textures on the site (frame strips + CSS keyframes, from sts-itemsheet.json "frames")
@@ -31,3 +31,5 @@ generalise all buttons to use same size/height
 - remove rarity on cz/dd abils
 - custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
 - move stat toggles up somewhere
+- some ex items default to default textures
+- let people select skins for items (need to be signed in with discord) (later update)
