@@ -21,17 +21,27 @@ generalise all buttons to use same size/height
 [x] remove Charms text entry from embed when region 1 or 2 is selected
 [x] add curse of the vail as a stat toggle
 [x] make the text on likes slightly bigger
-- add user name and avatar to build embed
-- add a description on hover for build abbreviations in the public build database
+[x] add user name and avatar to build embed
+[x] add a description on hover for build abbreviations in the public build database
 - add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise
 - fix older builds not loading when there's no timestamp
 - remove rarity on cz/dd abils
 - custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
 - move stat toggles up somewhere
 - some ex items default to default textures
-- let people select skins for items (need to be signed in with discord) (later update)
 - add option to disable animations for textures
 - add option to hide quest items
 - add search option for quest item IDs
 - fix scaling for big textures
+- text overlaps on spec class and spec dropdowns
+        when u swap to cz skills off of a class
+        then swap back to a region with class
+        itll overlap text and show the class abils
+        without a class selected
 - site freezes on trying to hide skinned items
+- fix steadfast calculations
+- add a current health % bar on the left of max health? bc certain enchants like steadfast/second wind only apply on lower hp so you can see what ur ehp/dr is on lower hp values with it 
+- add tooltips for multipliers and stat toggles
+
+- add actual 3d model of the blobcat on deepa.cat
+- let people select skins for items (need to be signed in with discord) (later update)

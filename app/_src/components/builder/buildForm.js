@@ -1143,6 +1143,9 @@ export default function BuildForm({
                 })
                 .then((result) => {
                     if (typeof result === 'string') return result; // fork already completed
+                    // The row got saved to (or claimed onto) the signed-in
+                    // account: reveal the publicise/anonymity options.
+                    if (result.savedToAccount) setOwnsBuild(true);
                     const link =
                         window.location.origin +
                         getStsBase() +

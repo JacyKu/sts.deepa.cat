@@ -260,8 +260,10 @@ console.log(`\n${ok}/${builds.length} images written to ${OUT}`);
 // are visible at a glance.
 const dbPath = process.env.STS_DB_PATH || path.join(__dirname, '..', 'data', 'sts-builds.db');
 const debugDb = new Database(dbPath);
-// Wipe rows left behind by a previous (crashed) run.
-debugDb.prepare(`DELETE FROM builds WHERE id LIKE 'debug-%'`).run();
+// Wipe rows left behind by a previous (crashed) run. The seeded ids are
+// "debugauth..." / "debuganon..." (no hyphen: build ids must be alphanumeric).
+const wipeDebugRows = () => debugDb.prepare(`DELETE FROM builds WHERE id LIKE 'debug%'`).run();
+wipeDebugRows();
 
 function seedPairRow(name, build, anonymous) {
     const id = `debug${anonymous ? 'anon' : 'auth'}${name.replace(/[^A-Za-z0-9]/g, '')}`;
@@ -329,7 +331,7 @@ for (const { name, build, note } of pairTargets) {
     }
 }
 
-debugDb.prepare(`DELETE FROM builds WHERE id LIKE 'debug-%'`).run();
+wipeDebugRows();
 debugDb.close();
 
 await fs.appendFile(path.join(OUT, 'manifest.txt'), '\n-- author/anonymous pairs --\n' + pairManifest.join('\n') + '\n');

@@ -81,7 +81,10 @@ export async function PATCH(request, { params }) {
                 summary,
             });
         }
-        return NextResponse.json({ ok: true });
+        // savedToAccount tells the client the build is (now) attached to the
+        // signed-in account — an anonymous row edited with its creator token
+        // gets claimed onto the account by the update above.
+        return NextResponse.json({ ok: true, savedToAccount: Boolean(user) });
     }
 
     // Publicise / de-publicise a build. Requires a signed-in Discord user who

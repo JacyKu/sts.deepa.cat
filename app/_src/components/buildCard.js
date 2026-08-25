@@ -13,6 +13,92 @@ import CharmFormatter from '../utils/items/charmFormatter';
 // Per-build-item detail lookup cache, shared across cards.
 const itemDetailCache = new Map();
 
+// Tooltips for the card chips need the skills/CZ data (full names +
+// descriptions). Fetched once per page load and shared across cards.
+let buildDetailPromise = null;
+
+// Strip the formatting glyphs the raw skill/class descriptions use.
+function cleanDescription(desc) {
+    return String(desc || '')
+        .replace(/[\u25B6\u25AA\u25CF\u2022\u25A0\u25C6\u2605\u2606]/g, '\n')
+        .replace(/[\u{1F5E1}]/gu, '')
+        .replace(/\(\s*\)/g, '')
+        .split('\n')
+        .map((line) => line.replace(/^[\u25C6\u00B7\u2013\u2014\s]+/, '').trim())
+        .filter(Boolean)
+        .join('\n');
+}
+
+// Replaces #{Common|Uncommon|...} rarity templates in CZ/Depths ability
+// descriptions with the value for the selected rarity index (0-5).
+function formatCzDescription(desc, rarity) {
+    const KEYBINDS = {
+        'key.attack': 'Left Button',
+        'key.use': 'Right Button',
+        'key.swapOffhand': 'Swap',
+        'key.drop': 'Drop',
+    };
+    return String(desc || '')
+        .replace(/#\{([^}]+)\}/g, (match, group) => {
+            const values = group.split('|');
+            const v = values[rarity] ?? values[values.length - 1];
+            return v === undefined ? match : v;
+        })
+        .replace(/key\.\w+/g, (match) => KEYBINDS[match] || match);
+}
+
+function loadBuildDetails() {
+    if (!buildDetailPromise) {
+        buildDetailPromise = Promise.all([
+            fetch('/api/v1/skills').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+            fetch('/api/v1/cz').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        ]).then(([skills, cz]) => {
+            const skill = new Map();
+            const klass = new Map();
+            const spec = new Map();
+            for (const c of (skills && skills.classes) || []) {
+                if (c.className) {
+                    const passive = c.classPassive;
+                    klass.set(
+                        c.className,
+                        cleanDescription(passive && Array.isArray(passive.descriptions) ? passive.descriptions[0] : '')
+                    );
+                }
+                for (const s of c.skills || []) {
+                    if (s.name && !skill.has(s.name)) {
+                        skill.set(s.name, {
+                            displayName: s.displayName || s.name,
+                            description: cleanDescription(s.simpleDescription),
+                        });
+                    }
+                }
+                for (const sp of c.specs || []) {
+                    const first = (sp.specSkills || [])[0];
+                    if (sp.specName && !spec.has(sp.specName)) {
+                        spec.set(sp.specName, first ? cleanDescription(first.simpleDescription) : '');
+                    }
+                    for (const s of sp.specSkills || []) {
+                        if (s.name && !skill.has(s.name)) {
+                            skill.set(s.name, {
+                                displayName: s.displayName || s.name,
+                                description: cleanDescription(s.simpleDescription),
+                            });
+                        }
+                    }
+                }
+            }
+            const czAbilities = new Map();
+            for (const t of (cz && cz.trees) || []) {
+                for (const a of t.skills || []) {
+                    czAbilities.set(a.name, { zenith: a.zenith_description, depths: a.depths_description });
+                }
+            }
+            return { skill, klass, spec, cz: czAbilities };
+        });
+    }
+    return buildDetailPromise;
+}
+
 // One build card in the public database / favourites grid.
 export default function BuildCard({ build, user, base, onToggleFavourite }) {
     const [favBusy, setFavBusy] = React.useState(false);
@@ -22,6 +108,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
     const [spriteMap, setSpriteMap] = React.useState(null);
     const [openItem, setOpenItem] = React.useState(null);
     const [detail, setDetail] = React.useState(null);
+    const [buildDetails, setBuildDetails] = React.useState(null);
     const hoverTimer = React.useRef(null);
     const cardRef = React.useRef(null);
 
@@ -29,6 +116,16 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
         let active = true;
         loadItemSpriteMap().then((map) => {
             if (active) setSpriteMap(map);
+        });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    React.useEffect(() => {
+        let active = true;
+        loadBuildDetails().then((d) => {
+            if (active) setBuildDetails(d);
         });
         return () => {
             active = false;
@@ -115,6 +212,20 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
 
     const displayName = build.name || 'Unnamed build';
     const avatar = avatarUrl(build.authorId, build.authorAvatar);
+
+    // Chip hover tooltips: full name + description for the class, spec and
+    // ability chips (abilities are stored as abbreviations).
+    const chipTooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
+    const classInfo = buildDetails && build.class ? buildDetails.klass.get(build.class) : null;
+    const specInfo = buildDetails && build.spec ? buildDetails.spec.get(build.spec) : null;
+    const skillInfo = (s) => (buildDetails ? buildDetails.skill.get(s.f) : null);
+    const czInfo = (s) => (buildDetails ? buildDetails.cz.get(s.f) : null);
+    const czDescription = (s) => {
+        const info = czInfo(s);
+        if (!info) return null;
+        const raw = build.region === 'Darkest Depths' ? info.depths : info.zenith;
+        return formatCzDescription(raw, s.r);
+    };
 
     let skills = [];
     if (build.skillsJson || build.skills_json) {
@@ -289,30 +400,68 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
             <div className={styles.cardTags}>
                 {build.class && (
                     <span className={styles.classTag} style={{ color: 'var(--accent, #9C59D1)' }}>
-                        <img
-                            className={styles.classIcon}
-                            src={`${base}/images/classes/${build.class.toLowerCase()}.png`}
-                            alt=""
-                            width={24}
-                            height={24}
-                        />
-                        {build.class}
+                        <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                            <img
+                                className={styles.classIcon}
+                                src={`${base}/images/classes/${build.class.toLowerCase()}.png`}
+                                alt=""
+                                width={24}
+                                height={24}
+                            />
+                            {build.class}
+                            {classInfo && (
+                                <span className={itemsStyles.enchantTooltipText}>
+                                    <span style={{ fontWeight: 600 }}>{build.class}</span>
+                                    {classInfo && (
+                                        <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
+                                            {classInfo}
+                                        </span>
+                                    )}
+                                </span>
+                            )}
+                        </span>
                         {build.spec && (
                             <>
                                 <span className={styles.tagSep}>·</span>
-                                <img
-                                    className={styles.classIcon}
-                                    src={`${base}/images/classes/${build.spec.toLowerCase()}.png`}
-                                    alt=""
-                                    width={24}
-                                    height={24}
-                                />
-                                {build.spec}
+                                <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                                    <img
+                                        className={styles.classIcon}
+                                        src={`${base}/images/classes/${build.spec.toLowerCase()}.png`}
+                                        alt=""
+                                        width={24}
+                                        height={24}
+                                    />
+                                    {build.spec}
+                                    {specInfo && (
+                                        <span className={itemsStyles.enchantTooltipText}>
+                                            <span style={{ fontWeight: 600 }}>{build.spec}</span>
+                                            {specInfo && (
+                                                <span
+                                                    style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}
+                                                >
+                                                    {specInfo}
+                                                </span>
+                                            )}
+                                        </span>
+                                    )}
+                                </span>
                             </>
                         )}
                     </span>
                 )}
-                {!build.class && build.spec && <span className={styles.tag}>{build.spec}</span>}
+                {!build.class && build.spec && (
+                    <span className={`${styles.tag} ${itemsStyles.enchantTooltip}`} style={chipTooltipStyle}>
+                        {build.spec}
+                        {specInfo && (
+                            <span className={itemsStyles.enchantTooltipText}>
+                                <span style={{ fontWeight: 600 }}>{build.spec}</span>
+                                <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
+                                    {specInfo}
+                                </span>
+                            </span>
+                        )}
+                    </span>
+                )}
                 {build.region && <span className={styles.tag}>{build.region}</span>}
                 {build.tree && (
                     <span className={styles.classTag}>
@@ -370,9 +519,16 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                                 </span>
                             )}
                             <span className={itemsStyles.enchantTooltipText}>
-                                {s.g === 'c'
-                                    ? `${s.f} · ${CZ_RARITY_NAMES[s.r] || ''}`.trim()
-                                    : s.f}
+                                <span style={{ fontWeight: 600 }}>
+                                    {s.g === 'c'
+                                        ? `${s.f} · ${CZ_RARITY_NAMES[s.r] || ''}`.trim()
+                                        : s.f}
+                                </span>
+                                {(s.g === 'c' ? czDescription(s) : skillInfo(s)?.description) && (
+                                    <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
+                                        {s.g === 'c' ? czDescription(s) : skillInfo(s).description}
+                                    </span>
+                                )}
                             </span>
                         </span>
                     ))}
