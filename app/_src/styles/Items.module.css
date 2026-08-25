@@ -343,6 +343,25 @@
     color: #4a78fc;
 }
 
+/* Stat colors matching the Monumenta plugin's item lore: armor/agility light
+   cyan, mainhand attributes dark green, other attributes blue, enchantments
+   gray. */
+.statArmorAgility {
+    color: #33ccff;
+}
+
+.statMainhand {
+    color: #00aa00;
+}
+
+.statAttribute {
+    color: #5555ff;
+}
+
+.statEnchant {
+    color: #aaaaaa;
+}
+
 .baseStats {
     color: #00a800;
 }
