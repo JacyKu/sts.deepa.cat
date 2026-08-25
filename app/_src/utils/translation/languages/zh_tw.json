@@ -34,6 +34,7 @@
     "items.searchForm.charmClass": "護符所屬職業",
     "items.searchForm.charmStat": "護符屬性",
     "items.searchForm.baseItem": "基礎道具類型",
+    "items.searchForm.questId": "任務 ID",
     "items.searchForm.itemsFound": "符合的道具數量：",
     "items.enchant.meleeProt": "使玩家受到的近戰傷害減少 [1 - 0.96 ^ (2 * 附魔等級數)]。",
     "items.enchant.projectileProt": "使玩家受到的投射物傷害減少 [1 - 0.96 ^ (2 * 附魔等級數)]。",

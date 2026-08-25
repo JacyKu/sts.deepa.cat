@@ -34,6 +34,7 @@
     "items.searchForm.charmClass": "Charme de classe",
     "items.searchForm.charmStat": "Statistique de charme",
     "items.searchForm.baseItem": "Objet de base",
+    "items.searchForm.questId": "ID de quête",
     "items.searchForm.itemsFound": "Objet trouvés:",
     "items.enchant.meleeProt": "Réduit les dégâts de mélée par 1 - 0.96 ^(2*niveau).",
     "items.enchant.projectileProt": "Réduit les dégâts de projectiles par 1 - 0.96 ^(2*niveau).",

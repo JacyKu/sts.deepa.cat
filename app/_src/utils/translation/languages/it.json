@@ -36,6 +36,7 @@
     "items.searchForm.charmClass": "Classe dell'Amuleto",
     "items.searchForm.charmStat": "Attributo dell'Amuleto",
     "items.searchForm.baseItem": "Oggetto Base",
+    "items.searchForm.questId": "ID missione",
     "items.searchForm.itemsFound": "Oggetti Trovati:",
     "items.enchant.meleeProt": "Riduce il danno corpo a corpo ricevuto, di 1 - 0.96 ^ (2 * livello).",
     "items.enchant.projectileProt": "Riduce il danno da proiettili ricevuto, di 1 - 0.96 ^ (2 * livello).",

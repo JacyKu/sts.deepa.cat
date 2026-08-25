@@ -40,6 +40,25 @@ const SKIN_EXCEPTIONS = new Set([
     'Sacrificial Dagger',
 ]);
 
+// Quest items carry a "* Quest Item *" lore marker and a "#Q<id>I<index>"
+// code. The id can be decimal (Q154), hex (QAF), carry letter suffixes
+// (Q103n), omit the I separator (Q22801), or be wrapped in <obfuscated> tags.
+const QUEST_ID_RE = /#Q([A-Za-z0-9]+?)(?:I\d+)?(?![A-Za-z0-9])/g;
+
+function isQuestItem(item) {
+    const text = (item.mmlore || []).join('\n') + '\n' + (item.lore || '');
+    return text.includes('* Quest Item *');
+}
+
+function getQuestIds(item) {
+    const text = ((item.mmlore || []).join('\n') + '\n' + (item.lore || '')).replace(/<[^>]+>/g, '');
+    const ids = [];
+    let m;
+    QUEST_ID_RE.lastIndex = 0;
+    while ((m = QUEST_ID_RE.exec(text))) ids.push(m[1]);
+    return ids;
+}
+
 function extractFilterValues(data, baseKey) {
     return Object.keys(data)
         .filter((key) => key.includes(baseKey))
@@ -156,6 +175,23 @@ function getRelevantItems(data, itemData, hideSkins) {
 
     if (data.searchLore) {
         items = items.filter((name) => itemData[name].lore?.toLowerCase().includes(data.searchLore.toLowerCase()));
+    }
+
+    // Quest ID filter: the query matches a substring of any "#Q<id>I<index>"
+    // code on the item (e.g. "154", "Q154", "q154i01", "AF").
+    let wantedQuestIds = extractFilterValues(data, 'questIdSelect');
+    if (wantedQuestIds.length > 0) {
+        const query = String(wantedQuestIds[0])
+            .trim()
+            .toLowerCase()
+            .replace(/^#/, '')
+            .replace(/^q/, '')
+            .replace(/i\d+$/, '');
+        if (query) {
+            items = items.filter((name) =>
+                getQuestIds(itemData[name]).some((id) => id.toLowerCase().includes(query))
+            );
+        }
     }
 
     let wantedItemTypes = extractFilterValues(data, 'itemTypeSelect');
@@ -280,6 +316,11 @@ function getRelevantItems(data, itemData, hideSkins) {
             const item = itemData[name];
             return item.tier !== 'Key' && item.tier !== 'Obfuscated' && item.location !== 'Arena of Terth';
         });
+    }
+
+    // Quick-hide quest items (lore-marked "* Quest Item *").
+    if (data.hideQuestItems) {
+        items = items.filter((name) => !isQuestItem(itemData[name]));
     }
 
     // Quick-hide non-gear items: items with no enchants or stats.

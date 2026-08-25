@@ -1,4 +1,5 @@
 import Enchants from './enchants';
+import LoreText from './loreText';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -154,7 +155,7 @@ export default function ItemTile(data) {
                 <span className={styles[camelCase(item.tier)]}>{item.tier}</span>
             </span>
             <span className={styles[camelCase(item.location)]}>{item.location}</span>
-            {item.lore && !hideLore ? <span className={styles.infoText}>{item.lore}</span> : ''}
+            {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (
                 <>
                     {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}

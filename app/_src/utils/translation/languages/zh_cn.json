@@ -34,6 +34,7 @@
     "items.searchForm.charmClass": "护符所属职业",
     "items.searchForm.charmStat": "护符属性",
     "items.searchForm.baseItem": "物品原型",
+    "items.searchForm.questId": "任务 ID",
     "items.searchForm.itemsFound": "符合条件的物品数量：",
     "items.enchant.meleeProt": "受到的近战伤害比率降低1-0.96^(2X)",
     "items.enchant.projectileProt": "受到的弹射物伤害比率降低1-0.96^(2X)",

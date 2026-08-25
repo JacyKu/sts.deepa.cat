@@ -224,6 +224,31 @@
     min-width: 0;
 }
 
+.questIdInput {
+    flex: 2 1 220px;
+    min-width: 180px;
+    height: var(--control-height, 42px);
+    box-sizing: border-box;
+    background: var(--glass-1);
+    border: 1px solid var(--control-border);
+    color: var(--text-1);
+    padding-inline: 10px;
+    font-size: 14px;
+    border-radius: 0;
+    transition:
+        border-color 150ms ease,
+        color 150ms ease;
+}
+
+.questIdInput:hover {
+    border-color: var(--control-border-hover);
+}
+
+.questIdInput:focus {
+    outline: none;
+    border-color: var(--control-border-hover);
+}
+
 .toggleRow {
     display: flex;
     gap: 8px;

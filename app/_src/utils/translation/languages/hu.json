@@ -34,6 +34,7 @@
     "items.searchForm.charmClass": "Talizmán Klassz",
     "items.searchForm.charmStat": "Talizmán Statisztika",
     "items.searchForm.baseItem": "Alap Tárgy",
+    "items.searchForm.questId": "Küldetés azonosító",
     "items.searchForm.itemsFound": "Tárgyak Találva:",
     "items.enchant.absorbingBarrier": "75% feletti életerőnél elnyelő pajzsot kapsz a maximális életerőd 10% * level részéig, ami 4 másodperc sebzésmentesség után újratöltődik.",
     "items.enchant.ailmentFragility": "A kapott betegség-sebzést 0.96 ^ (-2 * level)-lel szorozza.",

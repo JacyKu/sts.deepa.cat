@@ -178,6 +178,18 @@ export default function SearchForm({ update, itemData }) {
                 />
             );
         }),
+        new SearchCategory('Quest ID', 'items.searchForm.questId', (uniqueKey, defaultValue) => {
+            return (
+                <input
+                    type="text"
+                    name={`questIdSelect-${uniqueKey}`}
+                    className={styles.questIdInput}
+                    defaultValue={(defaultValue && defaultValue['questIdSelect']) || ''}
+                    placeholder="e.g. 154, Q154, q154i01"
+                    aria-label="Search by quest item ID"
+                />
+            );
+        }),
         new SearchCategory('Charm Power', 'items.searchForm.charmPower', (uniqueKey, defaultValue) => {
             return (
                 <div className={styles.powerFilterRow}>
@@ -262,6 +274,7 @@ export default function SearchForm({ update, itemData }) {
         charmStatSelect: 'Charm Stat',
         classSelect: 'Charm Class',
         baseItemSelect: 'Base Item',
+        questIdSelect: 'Quest ID',
         charmPowerOperatorSelect: 'Charm Power',
         charmPowerValueSelect: 'Charm Power',
         notCategorySelect: 'Not',
@@ -295,6 +308,7 @@ export default function SearchForm({ update, itemData }) {
                     searchLore: entries.searchLore || '',
                     hideUnobtainable: entries.hideUnobtainable === 'on',
                     hideNonGear: entries.hideNonGear === 'on',
+                    hideQuestItems: entries.hideQuestItems === 'on',
                 })
             );
         } catch (e) {}
@@ -324,6 +338,9 @@ export default function SearchForm({ update, itemData }) {
         }
         if (form.current.elements.hideNonGear) {
             form.current.elements.hideNonGear.checked = Boolean(cache.hideNonGear);
+        }
+        if (form.current.elements.hideQuestItems) {
+            form.current.elements.hideQuestItems.checked = Boolean(cache.hideQuestItems);
         }
 
         if (cache.rows && cache.rows.length > 0) {
@@ -356,6 +373,7 @@ export default function SearchForm({ update, itemData }) {
         entries.searchLore = cache.searchLore || '';
         if (cache.hideUnobtainable) entries.hideUnobtainable = 'on';
         if (cache.hideNonGear) entries.hideNonGear = 'on';
+        if (cache.hideQuestItems) entries.hideQuestItems = 'on';
         update(entries);
     }, [restored]);
 
@@ -462,6 +480,9 @@ export default function SearchForm({ update, itemData }) {
                 </label>
                 <label className={styles.toggleLabel}>
                     <input type="checkbox" name="hideNonGear" onChange={sendUpdate} /> Hide non-gear items
+                </label>
+                <label className={styles.toggleLabel}>
+                    <input type="checkbox" name="hideQuestItems" onChange={sendUpdate} /> Hide quest items
                 </label>
             </div>
         </form>

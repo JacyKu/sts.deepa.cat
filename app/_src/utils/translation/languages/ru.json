@@ -34,6 +34,7 @@
     "items.searchForm.charmClass": "Класс Амулета",
     "items.searchForm.charmStat": "Характеристика Амулета",
     "items.searchForm.baseItem": "Базовый Предмет",
+    "items.searchForm.questId": "ID квеста",
     "items.searchForm.itemsFound": "Предметов Найдено:",
     "items.enchant.absorbingBarrier": "Пока у вас более 75% здоровья, вы получаете барьер поглощения размером до 10% * level от максимального здоровья, который вновь заряжается через 4 секунды без получения урона.",
     "items.enchant.meleeProt": "Снижает урон от ударов на 1 - 0.96 ^ (2 * уровень).",

@@ -1,4 +1,5 @@
 import Enchants from './enchants';
+import LoreText from './loreText';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
@@ -375,7 +376,11 @@ export default function MasterworkableItemTile(data) {
             <span className={styles[camelCase(activeItem.location)]}>{activeItem.location}</span>
             {!activeItem.undiscovered ? (
                 <div>
-                    {activeItem.lore && !hideLore ? <span className={styles.infoText}>{activeItem.lore}</span> : ''}
+                    {activeItem.lore ? (
+                        <LoreText text={activeItem.lore} className={styles.infoText} questOnly={hideLore} />
+                    ) : (
+                        ''
+                    )}
                     {!hideObtainment && activeItem.extras?.poi ? (
                         <p className={`${styles.infoText} m-0`}>{`Found in ${activeItem.extras.poi}`}</p>
                     ) : (

@@ -37,6 +37,7 @@
     "items.searchForm.charmClass": "Charm Class",
     "items.searchForm.charmStat": "Charm Stat",
     "items.searchForm.baseItem": "Base Item",
+    "items.searchForm.questId": "Quest ID",
     "items.searchForm.itemsFound": "Items Found:",
     "items.enchant.meleeProtection": "Multiplies melee damage taken by 0.96 ^ (2 * level).",
     "items.enchant.projectileProtection": "Multiplies projectile damage taken by 0.96 ^ (2 * level).",
