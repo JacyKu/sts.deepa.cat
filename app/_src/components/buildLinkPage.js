@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { headers, cookies } from 'next/headers';
-import { getBuild } from '../../../lib/sts-builds';
+import { getBuild, mergeCustomItems } from '../../../lib/sts-builds';
 import { getDiscordUser } from '../../../lib/session';
 import { getItemData, getSkillsData } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
@@ -63,9 +63,9 @@ export async function BuildLinkPageView(id) {
         redirect(base + '/builder');
     }
 
-    const itemData = await getItemData();
-    // The build opens in place; saves update the DB row, they don't rewrite URLs.
     const user = await getDiscordUser();
+    const itemData = mergeCustomItems(await getItemData(), user ? user.id : null);
+    // The build opens in place; saves update the DB row, they don't rewrite URLs.
     const isOwner = Boolean(user && row.user_id && user.id === row.user_id);
     // Anonymous rows are editable + publicisable by whoever holds their
     // creator cookie (the browser that created them), even after logging in.

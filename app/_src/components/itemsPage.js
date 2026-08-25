@@ -430,8 +430,8 @@ export default function ItemsPage({ itemData }) {
     const itemsToLoad = 20;
 
     // Re-apply the list when the hide-skins toggle flips. The mount pass is
-    // skipped (the useState initializer — or the search restored by SearchForm
-    // right after mount — already set the list); every toggle after that
+    // skipped (the useState initializer - or the search restored by SearchForm
+    // right after mount - already set the list); every toggle after that
     // recomputes from scratch so enabling AND disabling both reset correctly.
     const prevHideSkins = React.useRef(hideSkins);
     React.useEffect(() => {

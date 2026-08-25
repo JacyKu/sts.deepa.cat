@@ -9,7 +9,7 @@ import React from 'react';
 // regardless of which element actually scrolls. The check only fires when the
 // container bottom is within ~300px of the viewport bottom, and each fire
 // grows the content (the parents' `next` always adds items), so it terminates
-// as soon as the container extends past that margin — re-renders alone (e.g.
+// as soon as the container extends past that margin - re-renders alone (e.g.
 // filter toggles) can never loop it.
 export default function InfiniteScroll({ className, children, next, hasMore = true, loader }) {
     const containerRef = React.useRef(null);

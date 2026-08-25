@@ -43,6 +43,7 @@ export function AccountChip({ session }) {
     const checked = session?.checked ?? false;
     const setUser = session?.setUser;
     const [base, setBase] = React.useState('/sts');
+    const [open, setOpen] = React.useState(false);
 
     React.useEffect(() => {
         setBase(getStsBase());
@@ -71,31 +72,34 @@ export function AccountChip({ session }) {
                     </svg>
                 </a>
             ) : (
-                <>
-                    <Link
-                        className={styles.accountBtn}
-                        href={base + '/builds'}
-                        title={user.globalName || user.username}
-                    >
-                        {user.avatarUrl && (
-                            <img className={styles.avatar} src={user.avatarUrl} alt="" width={22} height={22} />
-                        )}
-                        <span className={styles.accountName}>
-                            <TranslatableText identifier="auth.myBuilds" />
-                        </span>
-                    </Link>
+                <div className={styles.accountMenu}>
                     <button
                         type="button"
-                        className={styles.accountBtn}
-                        onClick={logout}
-                        title="Sign out"
-                        aria-label="Sign out"
+                        className={styles.accountAvatar}
+                        onClick={() => setOpen((o) => !o)}
+                        title={user.globalName || user.username}
+                        aria-label="Account menu"
+                        aria-expanded={open}
                     >
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-                            <path d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
-                        </svg>
+                        {user.avatarUrl && <img className={styles.avatar} src={user.avatarUrl} alt="" />}
                     </button>
-                </>
+                    {open && <div className={styles.menuBackdrop} onClick={() => setOpen(false)} />}
+                    <div className={`${styles.menuPanel}${open ? ` ${styles.menuOpen}` : ''}`}>
+                        <Link
+                            className={styles.navButton}
+                            href={base + '/builds'}
+                            onClick={() => setOpen(false)}
+                        >
+                            <TranslatableText identifier="auth.myBuilds" />
+                        </Link>
+                        <button type="button" className={styles.navButton} onClick={logout}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                                <path d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
+                            </svg>
+                            Sign out
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -166,23 +170,56 @@ function HeaderSelect({ options, value, onChange, instanceId, className, formatO
 }
 
 // The STS nav links, rendered in the center of the shared SiteNav top bar.
+// On small screens the inline links collapse into a hamburger menu (the top
+// bar has too little room for the brand, four links, the account and the
+// settings button at once).
 export function HeaderNav() {
     const [base, setBase] = React.useState('/sts');
+    const [open, setOpen] = React.useState(false);
     React.useEffect(() => {
         setBase(getStsBase());
     }, []);
+
+    const links = [
+        { href: base + '/items', translation: 'index.pages.items.title' },
+        { href: base + '/builder', translation: 'index.pages.builder.title' },
+        { href: base + '/database', translation: 'index.pages.database.title' },
+        { href: base + '/custom-items', label: 'Custom Items' },
+    ];
+
+    const close = () => setOpen(false);
+
     return (
-        <nav className={styles.nav} aria-label="Primary">
-            <Link className={styles.navButton} href={base + '/items'}>
-                <TranslatableText identifier="index.pages.items.title" />
-            </Link>
-            <Link className={styles.navButton} href={base + '/builder'}>
-                <TranslatableText identifier="index.pages.builder.title" />
-            </Link>
-            <Link className={styles.navButton} href={base + '/database'}>
-                <TranslatableText identifier="index.pages.database.title" />
-            </Link>
-        </nav>
+        <>
+            <nav className={styles.nav} aria-label="Primary">
+                {links.map((link) => (
+                    <Link key={link.href} className={styles.navButton} href={link.href}>
+                        {link.label ? link.label : <TranslatableText identifier={link.translation} />}
+                    </Link>
+                ))}
+            </nav>
+            <div className={styles.mobileNav}>
+                <button
+                    type="button"
+                    className={styles.menuBtn}
+                    onClick={() => setOpen((o) => !o)}
+                    aria-label="Navigation"
+                    aria-expanded={open}
+                >
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+                        <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+                    </svg>
+                </button>
+                {open && <div className={styles.menuBackdrop} onClick={close} />}
+                <div className={`${styles.menuPanel}${open ? ` ${styles.menuOpen}` : ''}`}>
+                    {links.map((link) => (
+                        <Link key={link.href} className={styles.navButton} href={link.href} onClick={close}>
+                            {link.label ? link.label : <TranslatableText identifier={link.translation} />}
+                        </Link>
+                    ))}
+                </div>
+            </div>
+        </>
     );
 }
 
@@ -273,7 +310,7 @@ export default function Header() {
                 aria-expanded={menuOpen}
             >
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-                    <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+                    <path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.2 7.2 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.24-1.12.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.4.31.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96c.21.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z" />
                 </svg>
             </button>
             {menuOpen && <div className={styles.menuBackdrop} onClick={closeMenu} />}

@@ -26,7 +26,7 @@ export async function PATCH(request, { params }) {
 
     // Editing a saved build keeps the same link: the state (token + infusions
     // + revelation) is written in place. Only the owner of an owned row, or
-    // the creator (cookie) of an anonymous row, may do this — anyone else
+    // the creator (cookie) of an anonymous row, may do this - anyone else
     // gets a 403 so the client forks into a new build instead of overwriting
     // someone else's.
     if (body?.state) {
@@ -82,7 +82,7 @@ export async function PATCH(request, { params }) {
             });
         }
         // savedToAccount tells the client the build is (now) attached to the
-        // signed-in account — an anonymous row edited with its creator token
+        // signed-in account - an anonymous row edited with its creator token
         // gets claimed onto the account by the update above.
         return NextResponse.json({ ok: true, savedToAccount: Boolean(user) });
     }

@@ -158,7 +158,7 @@ html a:hover {
 
 /* Keep the footer at the bottom of the screen when a page is short: the
    layout column fills the viewport and the content area grows, pushing the
-   footer down. Nothing is sticky — long pages scroll normally. */
+   footer down. Nothing is sticky - long pages scroll normally. */
 .site-content {
     display: flex;
     flex-direction: column;

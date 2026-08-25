@@ -311,7 +311,7 @@ export function decodeBuildParam(build, itemData) {
                 }
 
                 // v4 extras: Celestial Zenith / Depths abilities. The rarity
-                // byte is read for format compatibility only — rarity is
+                // byte is read for format compatibility only - rarity is
                 // always Twisted now, so it is never emitted.
                 if (offset < bytes.length) {
                     const czCount = readVarint(bytes, offset);
@@ -404,7 +404,7 @@ export function encodeBuildParam(legacyBuildString) {
             }
         }
         // Celestial Zenith / Depths abilities: names only (legacy
-        // "Name:rarity" suffixes are accepted and the rarity dropped —
+        // "Name:rarity" suffixes are accepted and the rarity dropped -
         // everything is always Twisted).
         const czAbilities = [];
         const czRaw = params.get('cz');

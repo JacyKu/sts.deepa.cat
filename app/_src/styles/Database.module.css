@@ -277,6 +277,17 @@
     background: #f5f5f5;
 }
 
+/* Touch devices: the expanded card shows its items inline below the card
+   content instead of the hover side panel. */
+.mobileItems {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid var(--glass-border);
+    margin-top: 2px;
+    padding-top: 10px;
+}
+
 .cardSide {
     position: absolute;
     top: -2px;

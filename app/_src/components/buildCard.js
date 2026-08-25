@@ -30,7 +30,7 @@ function cleanDescription(desc) {
 }
 
 // Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
-// with the value for the Twisted level — rarity is gone, everything is Twisted.
+// with the value for the Twisted level - rarity is gone, everything is Twisted.
 function formatCzDescription(desc) {
     const KEYBINDS = {
         'key.attack': 'Left Button',
@@ -109,8 +109,18 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
     const [openItem, setOpenItem] = React.useState(null);
     const [detail, setDetail] = React.useState(null);
     const [buildDetails, setBuildDetails] = React.useState(null);
+    const [isTouch, setIsTouch] = React.useState(false);
     const hoverTimer = React.useRef(null);
     const cardRef = React.useRef(null);
+
+    React.useEffect(() => {
+        // Touch devices have no hover: the card expands on the first tap and
+        // shows its items inline instead of the hover side panel.
+        setIsTouch(
+            typeof window !== 'undefined' &&
+                Boolean(window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches)
+        );
+    }, []);
 
     React.useEffect(() => {
         let active = true;
@@ -143,6 +153,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
     }, [expanded]);
 
     function onCardEnter() {
+        if (isTouch) return;
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         hoverTimer.current = setTimeout(() => {
             const rect = cardRef.current?.getBoundingClientRect();
@@ -152,11 +163,22 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
     }
 
     function onCardLeave() {
+        if (isTouch) return;
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         hoverTimer.current = null;
         setExpanded(false);
         setOpenItem(null);
         setDetail(null);
+    }
+
+    // Touch devices: the first tap on the card expands the items instead of
+    // navigating; once expanded, tapping the card's upper area follows the
+    // link (item rows stop propagation in their own click handler).
+    function onCardClick(event) {
+        if (!isTouch || expanded) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setExpanded(true);
     }
 
     function onRowClick(i, item) {
@@ -233,7 +255,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
             const parsed = JSON.parse(build.skillsJson || build.skills_json);
             skills = (Array.isArray(parsed) ? parsed : []).map((s) => {
                 if (typeof s === 'string') {
-                    // Legacy rows stored plain skill names — abbreviate them.
+                    // Legacy rows stored plain skill names - abbreviate them.
                     const words = s.split(/\s+/).filter(Boolean);
                     const n =
                         words.length >= 2
@@ -355,6 +377,66 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
         return null;
     };
 
+    function renderItemRow(item, i) {
+        const cls = itemSprite(item);
+        return (
+            <div key={i} className={styles.previewRowWrap}>
+                <div
+                    className={`${styles.previewRow}${openItem === i ? ` ${styles.previewRowOpen}` : ''}`}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onRowClick(i, item);
+                    }}
+                >
+                    <span className={styles.previewIcon}>
+                        {cls ? (
+                            <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
+                        ) : null}
+                    </span>
+                    <span className={styles.previewInfo}>
+                        <span className={styles.previewName}>{item.n}</span>
+                        {itemStars(item)}
+                    </span>
+                </div>
+                {openItem === i && detail && (
+                    <div className={styles.itemDetail}>
+                        <div className={styles.itemDetailName}>
+                            {detail.name || item.n}
+                        </div>
+                        <div className={styles.itemDetailInfo}>
+                            {detail.type ? detail.type.replace('<M>', '') : ''}
+                            {detail.type && detail.base_item ? ' - ' : ''}
+                            {detail.base_item || ''}
+                        </div>
+                        {detail.type === 'Charm' ? (
+                            <>
+                                <div className={styles.itemDetailInfo}>
+                                    <span className={styles.previewStars}>
+                                        {'★'.repeat(Number(item.pw) || 0)}
+                                    </span>
+                                    {detail.class_name
+                                        ? ` - ${detail.class_name}`
+                                        : ''}
+                                </div>
+                                {CharmFormatter.formatCharm(detail.stats)}
+                            </>
+                        ) : (
+                            <Enchants item={detail} />
+                        )}
+                        <div className={styles.itemDetailInfo}>
+                            {detail.region ? `${detail.region} ` : ''}
+                            {detail.tier || ''}
+                        </div>
+                        <div className={styles.itemDetailInfo}>
+                            {detail.location || ''}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <Link
             ref={cardRef}
@@ -362,6 +444,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
             className={`${styles.card}${expanded ? ` ${styles.cardExpanded}` : ''}`}
             onMouseEnter={onCardEnter}
             onMouseLeave={onCardLeave}
+            onClick={onCardClick}
         >
             <div className={styles.cardTop}>
                 <div className={styles.cardTitle} title={displayName}>
@@ -542,76 +625,15 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                 </span>
             </div>
 
-            {expanded && items.length > 0 && (
+            {isTouch && expanded && items.length > 0 && (
+                <div className={styles.mobileItems}>{items.map(renderItemRow)}</div>
+            )}
+
+            {!isTouch && expanded && items.length > 0 && (
                 <div
                     className={`${styles.cardSide} ${side === 'left' ? styles.cardSideLeft : styles.cardSideRight}${sideOpen ? ` ${styles.cardSideOpen}` : ''}`}
                 >
-                    {items.map((item, i) => {
-                        const cls = itemSprite(item);
-                        return (
-                            <div
-                                key={i}
-                                className={styles.previewRowWrap}
-                                style={{ animationDelay: `${i * 30}ms` }}
-                            >
-                                <div
-                                    className={`${styles.previewRow}${openItem === i ? ` ${styles.previewRowOpen}` : ''}`}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        onRowClick(i, item);
-                                    }}
-                                >
-                                    <span className={styles.previewIcon}>
-                                        {cls ? (
-                                            <span
-                                                className={`${styles.previewSprite} ${cls}`}
-                                                aria-hidden="true"
-                                            />
-                                        ) : null}
-                                    </span>
-                                    <span className={styles.previewInfo}>
-                                        <span className={styles.previewName}>{item.n}</span>
-                                        {itemStars(item)}
-                                    </span>
-                                </div>
-                                {openItem === i && detail && (
-                                    <div className={styles.itemDetail}>
-                                        <div className={styles.itemDetailName}>
-                                            {detail.name || item.n}
-                                        </div>
-                                        <div className={styles.itemDetailInfo}>
-                                            {detail.type ? detail.type.replace('<M>', '') : ''}
-                                            {detail.type && detail.base_item ? ' - ' : ''}
-                                            {detail.base_item || ''}
-                                        </div>
-                                        {detail.type === 'Charm' ? (
-                                            <>
-                                                <div className={styles.itemDetailInfo}>
-                                                    <span className={styles.previewStars}>
-                                                        {'★'.repeat(Number(item.pw) || 0)}
-                                                    </span>
-                                                    {detail.class_name
-                                                        ? ` - ${detail.class_name}`
-                                                        : ''}
-                                                </div>
-                                                {CharmFormatter.formatCharm(detail.stats)}
-                                            </>
-                                        ) : (
-                                            <Enchants item={detail} />
-                                        )}
-                                        <div className={styles.itemDetailInfo}>
-                                            {detail.region ? `${detail.region} ` : ''}
-                                            {detail.tier || ''}
-                                        </div>
-                                        <div className={styles.itemDetailInfo}>
-                                            {detail.location || ''}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                    {items.map(renderItemRow)}
                 </div>
             )}
         </Link>

@@ -26,24 +26,24 @@ generalise all buttons to use same size/height
 - add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise
 [x] fix older builds not loading when there's no timestamp
 [x] remove rarity on cz/dd abils
-- custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
+[x] custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
 [x] move stat toggles up somewhere
 [x] some ex items default to default textures
 [x] add option to disable animations for textures
 [x] add option to hide quest items
 [x] add search option for quest item IDs
-- fix scaling for big textures
+[x] fix scaling for big textures
 [x] text overlaps on spec class and spec dropdowns
         when u swap to cz skills off of a class
         then swap back to a region with class
         itll overlap text and show the class abils
         without a class selected
 [x] site freezes on trying to hide skinned items
-- fix steadfast calculations (might not be anything to fix)
-- add a current health % bar on the left of max health? bc certain enchants like steadfast/second wind only apply on lower hp so you can see what ur ehp/dr is on lower hp values with it
+[x] fix steadfast calculations (might not be anything to fix)
+[x] add a current health % bar on the left of max health? bc certain enchants like steadfast/second wind only apply on lower hp so you can see what ur ehp/dr is on lower hp values with it
 [x] add tooltips for multipliers and stat toggles
 [x] render checkboxes in menu to the left and text to the right
-- fix stat colors correctly
+[x] fix stat colors correctly
 - add discord application to quickshare builds/search for items and maybe some other misc (must connect, works as independent app, doesnt need to be in a discord server)
 - add actual 3d model of the blobcat on deepa.cat
 - let people select skins for items (need to be signed in with discord) (later update)

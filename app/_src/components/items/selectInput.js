@@ -38,7 +38,7 @@ const SelectInput = (data) => {
 
     // Cached restores pass the selected value (a plain string); resolve it to
     // the matching option object, defaulting to the first option otherwise.
-    // Object defaults ({ value, label }) are accepted too — the builder's
+    // Object defaults ({ value, label }) are accepted too - the builder's
     // class/spec selects pass them, and the option value is compared against
     // default.value (an object would never match a string option value).
     const defaultVal = data.default !== null && typeof data.default === 'object' ? data.default.value : data.default;

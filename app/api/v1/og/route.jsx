@@ -431,7 +431,7 @@ export async function GET(request) {
               })
           )
         : null;
-    // Valley (1) and Isles (2) — including Darkest Depths — have no charms.
+    // Valley (1) and Isles (2) - including Darkest Depths - have no charms.
     // Never show the charms panel (or reserve its space) for those regions.
     const charmNames = region > 2 ? data?.charms.items || [] : [];
     const hasCharms = charmNames.length > 0;

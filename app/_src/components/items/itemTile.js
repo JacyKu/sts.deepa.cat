@@ -83,8 +83,11 @@ export default function ItemTile(data) {
     }, []);
 
     React.useEffect(() => {
-        // Prefer the explicit mapping generated from the texture pack.
-        const mappedClass = getMappedSpriteClass(spriteMap, item.name);
+        // Custom items carry their chosen texture directly; regular items go
+        // through the sprite map (preferred) or the legacy name heuristic.
+        const mappedClass = item.textureToken
+            ? `monumenta-${item.textureToken}`
+            : getMappedSpriteClass(spriteMap, item.name);
         if (mappedClass) {
             setBaseBackgroundClass('monumenta-items');
             setCssClass(mappedClass);

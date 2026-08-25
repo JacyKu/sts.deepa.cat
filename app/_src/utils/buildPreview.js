@@ -76,7 +76,7 @@ export function getLinkPreviewData(build, itemData, skillsData) {
         const className = params.get('cl') || null;
         // The binary token omits stats at their defaults, so a Ring build has
         // no region param at all. Number(null) would be 0, which would break
-        // every region check — default to 3 when absent.
+        // every region check - default to 3 when absent.
         const regionRaw = params.get('region');
         const region =
             regionRaw === null || regionRaw === ''
@@ -113,7 +113,7 @@ export function getLinkPreviewData(build, itemData, skillsData) {
                 if (key) enhancements.push(key);
             }
         }
-        // Celestial Zenith / Depths abilities (names only — rarity is gone,
+        // Celestial Zenith / Depths abilities (names only - rarity is gone,
         // everything is always Twisted; legacy "Name:rarity" parses to name).
         const czAbilities = [];
         const czRaw = params.get('cz');
@@ -212,7 +212,7 @@ export function getLinkPreviewDescription(build, itemData, skillsData, infusions
         `${EMOJI.boots} ${formatItem(i.boots)}`,
     ];
 
-    // Valley (1) and Isles (2) — including Darkest Depths — have no charms.
+    // Valley (1) and Isles (2) - including Darkest Depths - have no charms.
     if (data.region > 2) {
         parts.push(charmInline);
     }

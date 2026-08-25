@@ -527,7 +527,7 @@ function cleanDescription(desc) {
 }
 
 // Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
-// with the value for the Twisted level — rarity is gone, everything is Twisted.
+// with the value for the Twisted level - rarity is gone, everything is Twisted.
 function formatCzDescription(desc) {
     const KEYBINDS = {
         'key.attack': 'Left Button',
@@ -557,7 +557,7 @@ const CZ_MAIN_TREES = [
 ];
 
 // Resource-pack icons: class/spec skills live in images/skills (unofficial
-// mod textures where available — those are transparent), CZ abilities in
+// mod textures where available - those are transparent), CZ abilities in
 // images/cz. Both are keyed by the snake_case of the skill name.
 const toSnakeName = (name) =>
     String(name || '')
@@ -1326,7 +1326,7 @@ export default function BuildForm({
     React.useEffect(() => {
         if (!parentLoaded) return;
         // Source of truth for this page: the URL build (saved build), or the
-        // session draft when there is none — unless the draft belongs to a
+        // session draft when there is none - unless the draft belongs to a
         // different saved build. A matching draft wins over the DB row: it may
         // hold edits the user hasn't saved yet.
         const isLoadedBuild = Boolean(build);
@@ -1446,7 +1446,7 @@ export default function BuildForm({
                 decodeURIComponent(czPart.split('cz=')[1])
                     .split(',')
                     .forEach((part) => {
-                        // Legacy "Name:rarity" suffixes are dropped — abilities
+                        // Legacy "Name:rarity" suffixes are dropped - abilities
                         // are always Twisted.
                         const name = part.split(':')[0];
                         if (name) parsedCz[name] = true;
