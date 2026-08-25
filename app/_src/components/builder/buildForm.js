@@ -727,7 +727,7 @@ export default function BuildForm({
     function statInputChanged(name, event) {
         const next = { ...statInputs, [name]: event.target.value };
         setStatInputs(next);
-        recalcAndSyncUrl();
+        recalcBuildStats();
     }
 
     function revelationChanged(event) {
@@ -3029,6 +3029,14 @@ export default function BuildForm({
                         <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
                     </h5>
                     <h6 className="text-center fw-bold">&nbsp;</h6>
+                    <div className={styles.healthBar}>
+                        <div
+                            className={styles.healthBarFill}
+                            style={{
+                                width: `${Math.max(0, Math.min(100, Number(statInputs.health) || 100))}%`,
+                            }}
+                        />
+                    </div>
                     {healthStats.map((stat) =>
                         itemsToDisplay[stat.type] !== undefined ? (
                             <div key={stat.type}>
