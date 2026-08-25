@@ -429,11 +429,16 @@ export default function ItemsPage({ itemData }) {
     const [itemsToShow, setItemsToShow] = React.useState(20);
     const itemsToLoad = 20;
 
-    // Re-apply the list when the hide-skins toggle flips.
+    // Re-apply the list when the hide-skins toggle flips. The mount pass is
+    // skipped (the useState initializer — or the search restored by SearchForm
+    // right after mount — already set the list); every toggle after that
+    // recomputes from scratch so enabling AND disabling both reset correctly.
+    const prevHideSkins = React.useRef(hideSkins);
     React.useEffect(() => {
-        setRelevantItems((prev) =>
-            prev.length > 0 && !hideSkins ? prev : getRelevantItems({}, itemData, hideSkins)
-        );
+        if (prevHideSkins.current === hideSkins) return;
+        prevHideSkins.current = hideSkins;
+        setRelevantItems(getRelevantItems({}, itemData, hideSkins));
+        setItemsToShow(itemsToLoad);
     }, [hideSkins, itemData]);
 
     function handleChange(data) {
@@ -441,9 +446,9 @@ export default function ItemsPage({ itemData }) {
         setItemsToShow(itemsToLoad);
     }
 
-    function showMoreItems() {
-        setItemsToShow(itemsToShow + itemsToLoad);
-    }
+    const showMoreItems = React.useCallback(() => {
+        setItemsToShow((s) => s + itemsToLoad);
+    }, []);
 
     return (
         <div className={styles.container}>
@@ -466,7 +471,7 @@ export default function ItemsPage({ itemData }) {
                         className={styles.itemsContainer}
                         dataLength={itemsToShow}
                         next={showMoreItems}
-                        hasMore={true}
+                        hasMore={itemsToShow < relevantItems.length}
                         loader={<h4>No items found</h4>}
                     >
                         {relevantItems.slice(0, itemsToShow).map((name) => {

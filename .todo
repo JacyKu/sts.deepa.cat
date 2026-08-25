@@ -33,7 +33,7 @@ generalise all buttons to use same size/height
 [x] add option to hide quest items
 [x] add search option for quest item IDs
 - fix scaling for big textures
-- text overlaps on spec class and spec dropdowns
+[x] text overlaps on spec class and spec dropdowns
         when u swap to cz skills off of a class
         then swap back to a region with class
         itll overlap text and show the class abils
@@ -43,5 +43,6 @@ generalise all buttons to use same size/height
 - add a current health % bar on the left of max health? bc certain enchants like steadfast/second wind only apply on lower hp so you can see what ur ehp/dr is on lower hp values with it 
 - add tooltips for multipliers and stat toggles
 - render checkboxes in menu to the left and text to the right
+- add discord application to quickshare builds/search for items and maybe some other misc (must connect, works as independent app, doesnt need to be in a discord server)
 - add actual 3d model of the blobcat on deepa.cat
 - let people select skins for items (need to be signed in with discord) (later update)
