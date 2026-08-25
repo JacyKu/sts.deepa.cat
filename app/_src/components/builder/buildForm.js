@@ -2015,6 +2015,8 @@ export default function BuildForm({
         { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
+    // Current health as a % of max health (1-100), clamped for the slider.
+    const healthPercentInput = Math.max(1, Math.min(100, Number(statInputs.health) || 100));
     const healthStats = [
         { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
         { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },
@@ -3029,14 +3031,6 @@ export default function BuildForm({
                         <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
                     </h5>
                     <h6 className="text-center fw-bold">&nbsp;</h6>
-                    <div className={styles.healthBar}>
-                        <div
-                            className={styles.healthBarFill}
-                            style={{
-                                width: `${Math.max(0, Math.min(100, Number(statInputs.health) || 100))}%`,
-                            }}
-                        />
-                    </div>
                     {healthStats.map((stat) =>
                         itemsToDisplay[stat.type] !== undefined ? (
                             <div key={stat.type}>
@@ -3275,25 +3269,42 @@ export default function BuildForm({
                 </div>
             </div>
              <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
-                 <div className="text-center mx-2">
-                     <div className={styles.enchantTooltip}>
-                         <p className="mb-1">
-                             <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
-                         </p>
-                         <span className={styles.enchantTooltipText}>
-                             Current health as a % of your max health. Lower values preview low-HP effects
-                             (Steadfast, Second Wind, ...).
-                         </span>
+                     <div className="text-center mx-2">
+                         <div className={styles.enchantTooltip}>
+                             <p className="mb-1">
+                                 <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
+                             </p>
+                             <span className={styles.enchantTooltipText}>
+                                 Current health as a % of your max health. Lower values preview low-HP effects
+                                 (Steadfast, Second Wind, ...).
+                             </span>
+                         </div>
+                         <div className={styles.healthSliderRow}>
+                             <input
+                                 type="range"
+                                 name="health"
+                                 min="1"
+                                 max="100"
+                                 step="1"
+                                 value={healthPercentInput}
+                                 onChange={(e) => statInputChanged('health', e)}
+                                 className={styles.healthSlider}
+                                 style={{
+                                     '--slider-color': `hsl(${((healthPercentInput - 1) / 99) * 120} 70% 45%)`,
+                                     '--slider-pct': `${healthPercentInput}%`,
+                                 }}
+                             />
+                             <span className={styles.healthPoints}>
+                                 {Number.isFinite(itemsToDisplay.currentHealth)
+                                     ? Math.round(itemsToDisplay.currentHealth)
+                                     : '–'}
+                                 {' / '}
+                                 {Number.isFinite(itemsToDisplay.healthFinal)
+                                     ? Math.round(itemsToDisplay.healthFinal)
+                                     : '–'}
+                             </span>
+                         </div>
                      </div>
-                     <input
-                         type="number"
-                         name="health"
-                         min="1"
-                         value={statInputs.health}
-                         onChange={(e) => statInputChanged('health', e)}
-                         className={styles.builderCompactInput}
-                     />
-                 </div>
                  <div className="text-center mx-2">
                      <div className={styles.enchantTooltip}>
                          <p className="mb-1">Tenacity</p>

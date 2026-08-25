@@ -1,0 +1,378 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 12px 48px;
+    color: var(--text-1);
+    flex: 1 0 auto;
+    width: 100%;
+}
+
+.main {
+    width: 100%;
+    max-width: 1080px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.title {
+    color: var(--text-1);
+    text-align: center;
+    margin: 8px 0 12px;
+}
+
+.muted {
+    color: var(--text-2);
+}
+
+.form {
+    padding: 12px 0;
+    margin: 8px 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 720px;
+    width: 100%;
+}
+
+.formTitle {
+    margin: 4px 0;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fieldLabel {
+    font-weight: 600;
+}
+
+.form input[type='text'],
+.form input[type='number'],
+.form select {
+    background: var(--glass-1);
+    border: 2px solid var(--control-border);
+    color: var(--text-1);
+    padding: 8px 10px;
+    border-radius: 0;
+    width: 100%;
+    height: 42px;
+    box-sizing: border-box;
+}
+
+.form input[type='text']:focus,
+.form input[type='number']:focus,
+.form select:focus {
+    outline: none;
+    border-color: var(--control-border-focus);
+    box-shadow: 0 0 0 1px var(--control-focus-ring);
+}
+
+.addBtn {
+    padding: 8px 14px;
+    border: 2px solid var(--control-border);
+    background: var(--glass-1);
+    color: var(--text-1);
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.95em;
+    text-decoration: none;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        transform 75ms ease;
+}
+
+.addBtn:hover {
+    background: var(--glass-2);
+    border-color: var(--control-border-hover);
+}
+
+.addBtn:active {
+    transform: translateY(1px);
+}
+
+.addBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.loginPrompt {
+    max-width: 720px;
+    margin: 24px 0;
+}
+
+.loginBtn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: 2px solid var(--control-border);
+    background: var(--glass-1);
+    color: var(--text-1);
+    font-weight: bold;
+    text-decoration: none;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.loginBtn:hover {
+    background: var(--glass-2);
+    border-color: var(--control-border-hover);
+}
+
+.errorText {
+    color: #fc5454;
+    margin: 0;
+}
+
+/* Texture picker ------------------------------------------------------- */
+
+.texturePicker {
+    position: relative;
+}
+
+.textureRow {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.textureRow input {
+    flex: 1;
+}
+
+.texturePreview {
+    flex-shrink: 0;
+}
+
+.textureList {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--glass-1);
+    border: 2px solid var(--glass-border);
+    z-index: 10;
+}
+
+.textureOption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    background: none;
+    color: var(--text-1);
+    text-align: left;
+    cursor: pointer;
+}
+
+.textureOption:hover,
+.textureOptionActive {
+    background: var(--glass-2);
+}
+
+.textureName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.textureMini {
+    flex-shrink: 0;
+}
+
+.textureEmpty {
+    padding: 10px;
+    color: var(--text-2);
+}
+
+/* Stat rows ------------------------------------------------------------ */
+
+.statRow {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+}
+
+.statRow > div {
+    flex: 2;
+    min-width: 0;
+}
+
+.statRow input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+}
+
+.iconBtn {
+    flex-shrink: 0;
+    height: var(--control-height, 42px);
+    width: var(--control-height, 42px);
+    color: #9d0d29;
+    font-weight: bold;
+    border: 2px solid rgba(157, 13, 41, 0.9);
+    background: var(--glass-1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 0;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        background-color 150ms ease,
+        color 150ms ease,
+        border-color 150ms ease,
+        transform 75ms ease;
+}
+
+.iconBtn:hover {
+    background-color: #ad0f2e;
+    color: var(--text-on-accent, #fff);
+}
+
+.iconBtn:active {
+    transform: translateY(1px);
+}
+
+.iconBtn:hover {
+    color: var(--text-1);
+    border-color: #fc5454;
+}
+
+/* Saved items ---------------------------------------------------------- */
+
+.listHeader {
+    margin-top: 12px;
+    width: 100%;
+    max-width: 720px;
+    text-align: center;
+}
+
+.itemGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+    width: 100%;
+    max-width: 760px;
+}
+
+/* Card format mirrors the public build database cards (Database.module.css):
+   square corners, dark card background, title row, tag row, content, then the
+   author/date meta row. */
+.customItem {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 360px;
+    max-width: 100%;
+    padding: 18px;
+    background: #111111;
+    border: 2px solid var(--glass-border);
+    color: var(--text-1);
+    box-shadow: var(--shadow-elevated);
+}
+
+:global(html[data-theme='light']) .customItem {
+    background: #ffffff;
+}
+
+.cardTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cardTitle {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 17px;
+}
+
+.cardTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tag {
+    padding: 3px 10px;
+    border: 1px solid var(--glass-border);
+    background: var(--surface-2);
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+.cardBody {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.cardBottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.author {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-2);
+    font-size: 14px;
+}
+
+.avatar {
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.date {
+    color: var(--text-2);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.imageIcon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.9em;
+}
+
+.itemActions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}

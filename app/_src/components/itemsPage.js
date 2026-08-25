@@ -472,7 +472,6 @@ export default function ItemsPage({ itemData }) {
                         dataLength={itemsToShow}
                         next={showMoreItems}
                         hasMore={itemsToShow < relevantItems.length}
-                        loader={<h4>No items found</h4>}
                     >
                         {relevantItems.slice(0, itemsToShow).map((name) => {
                             if (typeof name == 'object') {

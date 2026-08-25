@@ -19,6 +19,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
+const sharp = require("sharp");
 
 const OUTPUT_DIR = path.join(__dirname, "..", "..", "public", "spritesheets");
 const ITEM_DATA_PATH = path.join(__dirname, "..", "..", "public", "items", "items.json");
@@ -29,6 +30,10 @@ const DEFAULT_DUMP_DIR = path.join(
 const SHEET_NAME = "itemsheet";
 const CLASS_PREFIX = "monumenta";
 const SPRITE_SIZE = 64;
+// The site's sprite tiles are zoomed by Items.module.css (.imageIcon > .monumenta-items
+// scale(1.15)); scaled-up cells keep the same zoom so their artwork matches the
+// other tiles' rendered size.
+const ICON_ZOOM = 1.15;
 
 function normalizeBaseToken(value) {
     return String(value || "")
@@ -105,6 +110,42 @@ function reducedMotionRule(token) {
             `\t}\n` +
         `}`
     );
+}
+
+// The mod fits each icon's artwork inside its 64px cell; cells whose painted
+// content is smaller than the cell (content that was scaled down to fit, or
+// awkward integer-fit sizes) render smaller than full cells on the site.
+// Measure the painted content of every frame's own cell (animated strips lay
+// frames side by side, so a strip-wide scan would span many cells), then emit
+// a per-token scale so the content fills the same rendered size as full cells.
+// !important beats the tile zoom rule in Items.module.css.
+function measureContentMax(sheet, entry) {
+    const framesPerRow = entry.cols > 1 ? entry.cols : entry.frameCount;
+    let maxContent = 0;
+    for (let frame = 0; frame < entry.frameCount; frame++) {
+        const fx = entry.x + (frame % framesPerRow) * entry.pitch;
+        const fy = entry.y + Math.floor(frame / framesPerRow) * entry.rowPitch;
+        const x1 = Math.min(sheet.width, fx + entry.width);
+        const y1 = Math.min(sheet.height, fy + entry.height);
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -1;
+        let maxY = -1;
+        for (let y = fy; y < y1; y++) {
+            for (let x = fx; x < x1; x++) {
+                if (sheet.data[(y * sheet.width + x) * 4 + 3] > 0) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (maxX >= minX) {
+            maxContent = Math.max(maxContent, Math.max(maxX - minX + 1, maxY - minY + 1));
+        }
+    }
+    return maxContent;
 }
 
 async function main() {
@@ -275,11 +316,43 @@ async function main() {
             path.join(OUTPUT_DIR, `${SHEET_NAME}-anim.png`)
         );
     }
+
+    // Decode both sheets and measure the painted content of every cell/strip,
+    // then scale up the cells whose content is smaller than the cell so the
+    // artwork renders at the same size as full cells on the site.
+    const sheets = {};
+    for (const name of ["main", "anim"]) {
+        const file = path.join(dumpDir, name === "main" ? `${SHEET_NAME}.png` : `${SHEET_NAME}-anim.png`);
+        const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
+        sheets[name] = { width: info.width, height: info.height, data };
+    }
+    const scaledByToken = new Map();
+    const seenTokens = new Set();
+    for (const entry of manifest.entries) {
+        const token = tokenForName(entry.key);
+        if (seenTokens.has(token)) {
+            continue;
+        }
+        seenTokens.add(token);
+        const sheet = sheets[entry.sheet];
+        const contentMax = sheet ? measureContentMax(sheet, entry) : 0;
+        if (contentMax > 0 && contentMax < SPRITE_SIZE) {
+            scaledByToken.set(token, contentMax);
+        }
+    }
+    for (const [token, contentMax] of scaledByToken) {
+        const scale = (ICON_ZOOM * SPRITE_SIZE) / contentMax;
+        if (scale > ICON_ZOOM) {
+            stylesFile += `.${CLASS_PREFIX}-${token} {\n\ttransform: scale(${scale.toFixed(3)}) !important;\n}\n\n`;
+        }
+    }
+
     await fs.writeFile(path.join(OUTPUT_DIR, `_${SHEET_NAME}.css`), stylesFile);
     await fs.writeFile(path.join(OUTPUT_DIR, `${SHEET_NAME}-map.json`), JSON.stringify(itemMap, null, 2));
 
     console.log(`[spritesheet-import] ${manifest.entries.length} manifest entries, ${rulesByToken.size} unique tokens (${specialByToken.size} special), ${SPRITE_SIZE}px sprites${hasAnimSheet ? ", separate animated sheet" : ""}`);
     console.log(`[spritesheet-import] ${Object.keys(itemMap).length} item map keys (${Object.keys(itemData).length} from items.json)`);
+    console.log(`[spritesheet-import] Scaled up ${scaledByToken.size} under-filled cells`);
     console.log(`[spritesheet-import] Wrote itemsheet.png, _itemsheet.css, itemsheet-map.json${hasAnimSheet ? ", itemsheet-anim.png" : ""}`);
 }
 
