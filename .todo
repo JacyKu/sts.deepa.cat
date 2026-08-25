@@ -30,8 +30,8 @@ generalise all buttons to use same size/height
 [x] move stat toggles up somewhere
 [x] some ex items default to default textures
 [x] add option to disable animations for textures
-- add option to hide quest items
-- add search option for quest item IDs
+[x] add option to hide quest items
+[x] add search option for quest item IDs
 - fix scaling for big textures
 - text overlaps on spec class and spec dropdowns
         when u swap to cz skills off of a class
