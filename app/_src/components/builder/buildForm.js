@@ -526,9 +526,9 @@ function cleanDescription(desc) {
     );
 }
 
-// Replaces #{Common|Uncommon|Rare|Epic|Legendary|Twisted} templates in CZ/Depths
-// ability descriptions with the value for the selected rarity index (0-5).
-function formatCzDescription(desc, rarity) {
+// Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
+// with the value for the Twisted level — rarity is gone, everything is Twisted.
+function formatCzDescription(desc) {
     const KEYBINDS = {
         'key.attack': 'Left Button',
         'key.use': 'Right Button',
@@ -538,7 +538,7 @@ function formatCzDescription(desc, rarity) {
     return String(desc || '')
         .replace(/#\{([^}]+)\}/g, (match, group) => {
             const values = group.split('|');
-            const v = values[rarity] ?? values[values.length - 1];
+            const v = values[values.length - 1];
             return v === undefined ? match : v;
         })
         .replace(/key\.\w+/g, (match) => KEYBINDS[match] || match);
@@ -614,11 +614,10 @@ export default function BuildForm({
     const [spec, setSpec] = React.useState(null); // specialization name
     const [specSelectKey, setSpecSelectKey] = React.useState(0);
     const [specSkillPoints, setSpecSkillPoints] = React.useState({});
-    const [czAbilities, setCzAbilities] = React.useState({}); // ability name -> rarity index
+    const [czAbilities, setCzAbilities] = React.useState({}); // ability name -> selected (always Twisted)
     const [czData, setCzData] = React.useState(null);
     const [czOpen, setCzOpen] = React.useState(false);
     const [czSelectedTree, setCzSelectedTree] = React.useState(CZ_MAIN_TREES[0]);
-    const [czRarityOpen, setCzRarityOpen] = React.useState(null); // ability name with the rarity menu open
     const [charmStatsOpen, setCharmStatsOpen] = React.useState(false);
     const [delveOpen, setDelveOpen] = React.useState(false);
     const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (always level IV)
@@ -984,11 +983,11 @@ export default function BuildForm({
         recalcBuildStats();
     }
 
-    function czChanged(abilityName, rarity) {
-        // rarity null/undefined deselects; otherwise 0-5 (Common..Twisted).
+    function czChanged(abilityName, checked) {
+        // checked true selects; false deselects. Abilities are always Twisted.
         const next = { ...czAbilities };
-        if (rarity === null || rarity === undefined) delete next[abilityName];
-        else next[abilityName] = rarity;
+        if (checked) next[abilityName] = true;
+        else delete next[abilityName];
         setCzAbilities(next);
     }
 
@@ -1318,18 +1317,6 @@ export default function BuildForm({
         if (treeOf && treeOf.tree !== czSelectedTree) setCzSelectedTree(treeOf.tree);
     }, [czData, czOpen, czAbilities, regionValue]);
 
-    // Close the open rarity menu when clicking elsewhere (but not inside the
-    // menu or its button — a mousedown there must survive until the click).
-    React.useEffect(() => {
-        if (!czRarityOpen) return;
-        const close = (e) => {
-            if (e.target && e.target.closest && e.target.closest('[class*="czRarityWrap"]')) return;
-            setCzRarityOpen(null);
-        };
-        document.addEventListener('mousedown', close);
-        return () => document.removeEventListener('mousedown', close);
-    }, [czRarityOpen]);
-
     function sendUpdate(event) {
         event.preventDefault();
         const itemNames = Object.fromEntries(new FormData(event.target).entries());
@@ -1459,11 +1446,10 @@ export default function BuildForm({
                 decodeURIComponent(czPart.split('cz=')[1])
                     .split(',')
                     .forEach((part) => {
-                        const [name, rarityRaw] = part.split(':');
-                        const rarity = rarityRaw === undefined ? 0 : Number(rarityRaw);
-                        if (name && Number.isInteger(rarity) && rarity >= 0 && rarity < 6) {
-                            parsedCz[name] = rarity;
-                        }
+                        // Legacy "Name:rarity" suffixes are dropped — abilities
+                        // are always Twisted.
+                        const name = part.split(':')[0];
+                        if (name) parsedCz[name] = true;
                     });
                 nextCz = parsedCz;
                 setCzAbilities(parsedCz);
@@ -1911,9 +1897,7 @@ export default function BuildForm({
             ? Object.entries(stateOverride.czAbilities)
             : Object.entries(czAbilities);
         if (czForUrl.length > 0) {
-            legacy += `&cz=${encodeURIComponent(
-                czForUrl.map(([name, r]) => (r > 0 ? `${name}:${r}` : name)).join(',')
-            )}`;
+            legacy += `&cz=${encodeURIComponent(czForUrl.map(([name]) => name).join(','))}`;
         }
 
         return encodeBuildParam(legacy);
@@ -2610,7 +2594,6 @@ export default function BuildForm({
                                     <div className={styles.czTreeSkills}>
                                         {czSkillList.map((ability) => {
                                             const selected = czAbilities[ability.name] !== undefined;
-                                            const rarity = czAbilities[ability.name] ?? 0;
                                             const desc =
                                                 (regionValue === 2
                                                     ? ability.depths_description
@@ -2631,8 +2614,7 @@ export default function BuildForm({
                                                 );
                                             const tooltip = [
                                                 `${ability.name} (${ability.trigger})`,
-                                                czData.rarities[rarity],
-                                                formatCzDescription(desc, rarity),
+                                                formatCzDescription(desc),
                                                 triggerTaken
                                                     ? 'Already using another ability with this trigger!'
                                                     : null,
@@ -2688,7 +2670,7 @@ export default function BuildForm({
                                                         checked={selected}
                                                         disabled={triggerTaken && !selected}
                                                         onChange={(e) =>
-                                                            czChanged(ability.name, e.target.checked ? rarity : null)
+                                                            czChanged(ability.name, e.target.checked)
                                                         }
                                                         aria-label={`${ability.name} (${ability.trigger})`}
                                                     />
@@ -2704,44 +2686,6 @@ export default function BuildForm({
                                                     />
                                                     <span className={styles.skillName}>{ability.name}</span>
                                                     <span className={styles.czTrigger}>{ability.trigger}</span>
-                                                    <div className={styles.czRarityWrap}>
-                                                        <button
-                                                            type="button"
-                                                            className={`${styles.czRarity}${
-                                                                !selected ? ` ${styles.czRarityDisabled}` : ''
-                                                            }`}
-                                                            disabled={!selected}
-                                                            onClick={() =>
-                                                                setCzRarityOpen((cur) =>
-                                                                    cur === ability.name ? null : ability.name
-                                                                )
-                                                            }
-                                                            title="Rarity"
-                                                        >
-                                                            {czData.rarities[rarity]}
-                                                            <span className={styles.czRarityCaret}>▾</span>
-                                                        </button>
-                                                        {czRarityOpen === ability.name && (
-                                                            <div className={styles.czRarityMenu}>
-                                                                {czData.rarities.map((r, i) => (
-                                                                    <div
-                                                                        key={r}
-                                                                        className={`${styles.czRarityOption}${
-                                                                            i === rarity
-                                                                                ? ` ${styles.czRarityOptionActive}`
-                                                                                : ''
-                                                                        }`}
-                                                                        onClick={() => {
-                                                                            czChanged(ability.name, i);
-                                                                            setCzRarityOpen(null);
-                                                                        }}
-                                                                    >
-                                                                        {r}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
                                                 </div>
                                             );
                                         })}

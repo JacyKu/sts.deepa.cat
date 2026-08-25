@@ -29,9 +29,9 @@ function cleanDescription(desc) {
         .join('\n');
 }
 
-// Replaces #{Common|Uncommon|...} rarity templates in CZ/Depths ability
-// descriptions with the value for the selected rarity index (0-5).
-function formatCzDescription(desc, rarity) {
+// Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
+// with the value for the Twisted level — rarity is gone, everything is Twisted.
+function formatCzDescription(desc) {
     const KEYBINDS = {
         'key.attack': 'Left Button',
         'key.use': 'Right Button',
@@ -41,7 +41,7 @@ function formatCzDescription(desc, rarity) {
     return String(desc || '')
         .replace(/#\{([^}]+)\}/g, (match, group) => {
             const values = group.split('|');
-            const v = values[rarity] ?? values[values.length - 1];
+            const v = values[values.length - 1];
             return v === undefined ? match : v;
         })
         .replace(/key\.\w+/g, (match) => KEYBINDS[match] || match);
@@ -224,7 +224,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
         const info = czInfo(s);
         if (!info) return null;
         const raw = build.region === 'Darkest Depths' ? info.depths : info.zenith;
-        return formatCzDescription(raw, s.r);
+        return formatCzDescription(raw);
     };
 
     let skills = [];
@@ -248,16 +248,11 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
         }
     }
 
-    // Embed chip colors: base / spec / enhanced / CZ rarity (common->twisted).
+    // Embed chip colors: base / spec / enhanced / CZ (always Twisted).
     const SKILL_COLORS = { b: '#C084FC', s: '#7CC4FF' };
-    const CZ_RARITY_COLORS = ['#9f929c', '#70bc6d', '#705eca', '#cd5eca', '#e49b20', '#703663'];
-    const CZ_RARITY_NAMES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Twisted'];
+    const CZ_COLOR = '#703663';
     const skillColor = (s) =>
-        s.g === 'c'
-            ? CZ_RARITY_COLORS[s.r] || CZ_RARITY_COLORS[0]
-            : s.e
-              ? '#7EE787'
-              : SKILL_COLORS[s.g] || SKILL_COLORS.b;
+        s.g === 'c' ? CZ_COLOR : s.e ? '#7EE787' : SKILL_COLORS[s.g] || SKILL_COLORS.b;
     const czIcon = (s) =>
         `${base}/images/cz/${String(s.f || s.n)
             .toLowerCase()
@@ -519,11 +514,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                                 </span>
                             )}
                             <span className={itemsStyles.enchantTooltipText}>
-                                <span style={{ fontWeight: 600 }}>
-                                    {s.g === 'c'
-                                        ? `${s.f} · ${CZ_RARITY_NAMES[s.r] || ''}`.trim()
-                                        : s.f}
-                                </span>
+                                <span style={{ fontWeight: 600 }}>{s.f}</span>
                                 {(s.g === 'c' ? czDescription(s) : skillInfo(s)?.description) && (
                                     <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
                                         {s.g === 'c' ? czDescription(s) : skillInfo(s).description}

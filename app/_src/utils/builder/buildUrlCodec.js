@@ -310,7 +310,9 @@ export function decodeBuildParam(build, itemData) {
                     if (enKeys.length > 0) legacy += `&en=${enKeys.join(',')}`;
                 }
 
-                // v4 extras: Celestial Zenith / Depths abilities (name + rarity).
+                // v4 extras: Celestial Zenith / Depths abilities. The rarity
+                // byte is read for format compatibility only — rarity is
+                // always Twisted now, so it is never emitted.
                 if (offset < bytes.length) {
                     const czCount = readVarint(bytes, offset);
                     offset = czCount.offset;
@@ -321,8 +323,8 @@ export function decodeBuildParam(build, itemData) {
                         if (offset + nameLen.value > bytes.length) break;
                         const abilityName = decoder.decode(bytes.slice(offset, offset + nameLen.value));
                         offset += nameLen.value;
-                        const rarity = bytes[offset++];
-                        czEntries.push(rarity > 0 ? `${abilityName}:${rarity}` : abilityName);
+                        offset += 1; // rarity byte (always Twisted)
+                        czEntries.push(abilityName);
                     }
                     if (czEntries.length > 0) legacy += `&cz=${encodeURIComponent(czEntries.join(','))}`;
 
@@ -401,17 +403,15 @@ export function encodeBuildParam(legacyBuildString) {
                 if (key) enhancements.push(key);
             }
         }
-        // Celestial Zenith / Depths abilities: "Name" or "Name:rarity" (0-5).
+        // Celestial Zenith / Depths abilities: names only (legacy
+        // "Name:rarity" suffixes are accepted and the rarity dropped —
+        // everything is always Twisted).
         const czAbilities = [];
         const czRaw = params.get('cz');
         if (czRaw) {
             for (const part of czRaw.split(',')) {
-                const [name, rarityRaw] = part.split(':');
-                if (!name) continue;
-                const rarity = rarityRaw === undefined ? 0 : Number(rarityRaw);
-                if (Number.isInteger(rarity) && rarity >= 0 && rarity < 6) {
-                    czAbilities.push({ name, rarity });
-                }
+                const name = part.split(':')[0];
+                if (name) czAbilities.push({ name });
             }
         }
         // Celestial Zenith ascension level (0-18).
@@ -533,11 +533,8 @@ export function encodeBuildParamBinaryV2({
     const czParts = [];
     for (const ability of czAbilities || []) {
         const nameBytes = encoder.encode(String(ability.name));
-        czParts.push(
-            writeVarint(nameBytes.length),
-            nameBytes,
-            Uint8Array.from([Math.max(0, Math.min(5, Number(ability.rarity) || 0))])
-        );
+        // Rarity is always Twisted (5); kept as a byte for format compatibility.
+        czParts.push(writeVarint(nameBytes.length), nameBytes, Uint8Array.from([5]));
     }
     const czCount = writeVarint(czParts.length / 3);
 

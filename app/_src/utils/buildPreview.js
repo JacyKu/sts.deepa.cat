@@ -113,16 +113,14 @@ export function getLinkPreviewData(build, itemData, skillsData) {
                 if (key) enhancements.push(key);
             }
         }
-        // Celestial Zenith / Depths abilities (name + rarity index).
+        // Celestial Zenith / Depths abilities (names only — rarity is gone,
+        // everything is always Twisted; legacy "Name:rarity" parses to name).
         const czAbilities = [];
         const czRaw = params.get('cz');
         if (czRaw) {
             for (const part of czRaw.split(',')) {
-                const [name, rarityRaw] = part.split(':');
-                const rarity = rarityRaw === undefined ? 0 : Number(rarityRaw);
-                if (name && Number.isInteger(rarity) && rarity >= 0 && rarity < 6) {
-                    czAbilities.push({ name, rarity });
-                }
+                const name = part.split(':')[0];
+                if (name) czAbilities.push(name);
             }
         }
         // resolve display names from the skills data when available
@@ -220,10 +218,7 @@ export function getLinkPreviewDescription(build, itemData, skillsData, infusions
     }
 
     if (data.czAbilities.length > 0) {
-        const rarityLabel = (r) => ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Twisted'][r] || '';
-        parts.push(
-            `🔮 CZ: ${data.czAbilities.map((a) => (a.rarity > 0 ? `${a.name} (${rarityLabel(a.rarity)})` : a.name)).join(', ')}`
-        );
+        parts.push(`🔮 CZ: ${data.czAbilities.join(', ')}`);
     }
 
     if (data.ascension > 0) {

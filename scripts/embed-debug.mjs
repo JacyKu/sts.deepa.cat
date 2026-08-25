@@ -65,7 +65,6 @@ function mulberry32(seed) {
 const SEED = Number(process.env.STS_DEBUG_SEED) || 20260817;
 const rng = mulberry32(SEED);
 const pick = (arr) => arr[Math.floor(rng() * arr.length)];
-const randomRarity = () => Math.floor(rng() * 6);
 
 const SLOT_TYPES = {
     m: ['Mainhand Sword', 'Axe', 'Wand', 'Bow', 'Scythe', 'Crossbow', 'Trident', 'Mainhand', 'Mainhand Shield'],
@@ -101,7 +100,8 @@ function randomCharms() {
 }
 
 // Every passive plus one random ability per non-passive trigger (one per
-// activation is the only legal constraint), with random rarities.
+// activation is the only legal constraint). Abilities have no rarity — they
+// are always Twisted.
 function randomCzAbilities(includePrismatic) {
     const trees = czData.trees.filter(
         (t) => CZ_MAIN_TREES.includes(t.tree) && (includePrismatic || t.tree !== 'Prismatic')
@@ -118,8 +118,8 @@ function randomCzAbilities(includePrismatic) {
             }
         }
     }
-    const selected = passives.map((name) => `${name}:${randomRarity()}`);
-    for (const [, names] of byTrigger) selected.push(`${pick(names)}:${randomRarity()}`);
+    const selected = [...passives];
+    for (const [, names] of byTrigger) selected.push(pick(names));
     return selected;
 }
 

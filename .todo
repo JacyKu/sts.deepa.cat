@@ -24,8 +24,8 @@ generalise all buttons to use same size/height
 [x] add user name and avatar to build embed
 [x] add a description on hover for build abbreviations in the public build database
 - add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise
-- fix older builds not loading when there's no timestamp
-- remove rarity on cz/dd abils
+[x] fix older builds not loading when there's no timestamp
+[x] remove rarity on cz/dd abils
 - custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
 - move stat toggles up somewhere
 - some ex items default to default textures
