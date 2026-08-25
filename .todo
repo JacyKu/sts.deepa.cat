@@ -1,4 +1,33 @@
-- add tooltips to skills , specs and abils for build cards
-- automatically center on page
-- expanded visibility like selected items on hover?
-
+[x] add tooltips to skills , specs and abils for build cards @done(26-08-22 14:01)
+[x] automatically center on page
+[x] expanded visibility like selected items on hover?
+[x] some items show every frame on the spritesheet
+[x] health min is not hard stopped at 1
+[x] people without discord account logged in cant like builds
+[x] charm lore doesnt get hidden
+[x] switching to cz/dd should remove spec
+[x] add toggle to set default masterwork to max for all items
+[x] EX items show double prefix on embed
+[x] charms filter according to selected class and spec (only show charms if EITHER they contain a stat affecting the class' or subclass' skill OR they're Generalist charms)
+[x] make hide texture toggle affect all textures, not just the ones on items
+[x] hide skinned items toggle (use wiki)
+generalise all buttons to use same size/height
+[x] remove class message on cz and dd
+[x] improve dragging on skills and abils
+[x] improve mobile performance @done(26-08-22 14:08)
+[x] cache search when switching page
+[x] slightly enlarge textures on items page
+[x] ability to make a build list that can be sent to build page
+[x] remove Charms text entry from embed when region 1 or 2 is selected
+[x] add curse of the vail as a stat toggle
+[x] make the text on likes slightly bigger
+- add user name and avatar to build embed
+- add a discription on hover for build abbreviations in the database
+- add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeeky noise
+[ ] integrate sts-mod spritesheet dump (sts-itemsheet.png/json) into the site, replacing spritesheetmaker pipeline
+[ ] animate animated item textures on the site (frame strips + CSS keyframes, from sts-itemsheet.json "frames")
+[ ] verify oversized items (e.g. Plate of Nessi) render without clipping after the mod dump
+- fix older builds not loading when there's no timestamp
+- remove rarity on cz/dd abils
+- custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
+- move stat toggles up somewhere
