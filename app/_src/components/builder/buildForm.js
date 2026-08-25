@@ -3274,81 +3274,115 @@ export default function BuildForm({
                     })}
                 </div>
             </div>
-            <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
-                <div className="text-center mx-2">
-                    <p className="mb-1">
-                        <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
-                    </p>
-                    <input
-                        type="number"
-                        name="health"
-                        min="1"
-                        value={statInputs.health}
-                        onChange={(e) => statInputChanged('health', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <p className="mb-1">Tenacity</p>
-                    <input
-                        type="number"
-                        name="tenacity"
-                        min="0"
-                        max="30"
-                        value={statInputs.tenacity}
-                        onChange={(e) => statInputChanged('tenacity', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <p className="mb-1">Vitality</p>
-                    <input
-                        type="number"
-                        name="vitality"
-                        min="0"
-                        max="30"
-                        value={statInputs.vitality}
-                        onChange={(e) => statInputChanged('vitality', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <p className="mb-1">Vigor</p>
-                    <input
-                        type="number"
-                        name="vigor"
-                        min="0"
-                        max="30"
-                        value={statInputs.vigor}
-                        onChange={(e) => statInputChanged('vigor', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <p className="mb-1">Focus</p>
-                    <input
-                        type="number"
-                        name="focus"
-                        min="0"
-                        max="30"
-                        value={statInputs.focus}
-                        onChange={(e) => statInputChanged('focus', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <p className="mb-1">Perspicacity</p>
-                    <input
-                        type="number"
-                        name="perspicacity"
-                        min="0"
-                        max="30"
-                        value={statInputs.perspicacity}
-                        onChange={(e) => statInputChanged('perspicacity', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-            </div>
+             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
+                 <div className="text-center mx-2">
+                     <div className={styles.enchantTooltip}>
+                         <p className="mb-1">
+                             <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
+                         </p>
+                         <span className={styles.enchantTooltipText}>
+                             Current health as a % of your max health. Lower values preview low-HP effects
+                             (Steadfast, Second Wind, ...).
+                         </span>
+                     </div>
+                     <input
+                         type="number"
+                         name="health"
+                         min="1"
+                         value={statInputs.health}
+                         onChange={(e) => statInputChanged('health', e)}
+                         className={styles.builderCompactInput}
+                     />
+                 </div>
+                 <div className="text-center mx-2">
+                     <div className={styles.enchantTooltip}>
+                         <p className="mb-1">Tenacity</p>
+                         <span className={styles.enchantTooltipText}>
+                             Basic Infusion: take (0.5% × level) less damage.
+                         </span>
+                     </div>
+                     <input
+                         type="number"
+                         name="tenacity"
+                         min="0"
+                         max="30"
+                         value={statInputs.tenacity}
+                         onChange={(e) => statInputChanged('tenacity', e)}
+                         className={styles.builderCompactInput}
+                     />
+                 </div>
+                 <div className="text-center mx-2">
+                     <div className={styles.enchantTooltip}>
+                         <p className="mb-1">Vitality</p>
+                         <span className={styles.enchantTooltipText}>
+                             Basic Infusion: gain (1% × level) max health.
+                         </span>
+                     </div>
+                     <input
+                         type="number"
+                         name="vitality"
+                         min="0"
+                         max="30"
+                         value={statInputs.vitality}
+                         onChange={(e) => statInputChanged('vitality', e)}
+                         className={styles.builderCompactInput}
+                     />
+                 </div>
+                 <div className="text-center mx-2">
+                     <div className={styles.enchantTooltip}>
+                         <p className="mb-1">Vigor</p>
+                         <span className={styles.enchantTooltipText}>
+                             Basic Infusion: deal (1% / 1.25% / 1.5% × level) more melee damage in Valley / Isles /
+                             Ring.
+                         </span>
+                     </div>
+                     <input
+                         type="number"
+                         name="vigor"
+                         min="0"
+                         max="30"
+                         value={statInputs.vigor}
+                         onChange={(e) => statInputChanged('vigor', e)}
+                         className={styles.builderCompactInput}
+                     />
+                 </div>
+                 <div className="text-center mx-2">
+                     <div className={styles.enchantTooltip}>
+                         <p className="mb-1">Focus</p>
+                         <span className={styles.enchantTooltipText}>
+                             Basic Infusion: deal (1% / 1.25% / 1.5% × level) more projectile damage in Valley /
+                             Isles / Ring.
+                         </span>
+                     </div>
+                     <input
+                         type="number"
+                         name="focus"
+                         min="0"
+                         max="30"
+                         value={statInputs.focus}
+                         onChange={(e) => statInputChanged('focus', e)}
+                         className={styles.builderCompactInput}
+                     />
+                 </div>
+                 <div className="text-center mx-2">
+                     <div className={styles.enchantTooltip}>
+                         <p className="mb-1">Perspicacity</p>
+                         <span className={styles.enchantTooltipText}>
+                             Basic Infusion: deal (1% / 1.25% / 1.5% × level) more magic damage in Valley / Isles /
+                             Ring.
+                         </span>
+                     </div>
+                     <input
+                         type="number"
+                         name="perspicacity"
+                         min="0"
+                         max="30"
+                         value={statInputs.perspicacity}
+                         onChange={(e) => statInputChanged('perspicacity', e)}
+                         className={styles.builderCompactInput}
+                     />
+                 </div>
+             </div>
             <div className="row pt-1">
                 <span className="text-center text-danger fs-2 fw-bold">
                     {stats.corruption > 1 ? (
@@ -3373,6 +3407,7 @@ export default function BuildForm({
                         key={`damage-${multiplierListKey}`}
                         update={damageMultipliersChanged}
                         translatableName="builder.multipliers.damage"
+                        description="Extra multiplier applied to your outgoing damage (1.10 = +10%)."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3380,6 +3415,7 @@ export default function BuildForm({
                         key={`resistance-${multiplierListKey}`}
                         update={resistanceMultipliersChanged}
                         translatableName="builder.multipliers.resistance"
+                        description="Extra multiplier applied to damage you take (0.90 = 10% less damage taken)."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3387,6 +3423,7 @@ export default function BuildForm({
                         key={`health-${multiplierListKey}`}
                         update={healthMultipliersChanged}
                         translatableName="builder.multipliers.health"
+                        description="Extra multiplier applied to your max health (1.10 = +10% health)."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3394,6 +3431,7 @@ export default function BuildForm({
                         key={`speed-${multiplierListKey}`}
                         update={speedMultipliersChanged}
                         translatableName="builder.multipliers.speed"
+                        description="Extra multiplier applied to your movement speed."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3401,6 +3439,7 @@ export default function BuildForm({
                         key={`attackSpeed-${multiplierListKey}`}
                         update={attackSpeedMultipliersChanged}
                         translatableName="builder.multipliers.attackSpeed"
+                        description="Extra multiplier applied to your attack speed."
                     ></ListSelector>
                 </div>
             </div>

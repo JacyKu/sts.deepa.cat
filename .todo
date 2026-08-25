@@ -41,7 +41,7 @@ generalise all buttons to use same size/height
 [x] site freezes on trying to hide skinned items
 - fix steadfast calculations (might not be anything to fix)
 - add a current health % bar on the left of max health? bc certain enchants like steadfast/second wind only apply on lower hp so you can see what ur ehp/dr is on lower hp values with it
-- add tooltips for multipliers and stat toggles
+[x] add tooltips for multipliers and stat toggles
 - render checkboxes in menu to the left and text to the right
 - add discord application to quickshare builds/search for items and maybe some other misc (must connect, works as independent app, doesnt need to be in a discord server)
 - add actual 3d model of the blobcat on deepa.cat
