@@ -8,6 +8,7 @@ import ObtainmentToggle from './items/obtainmentToggle';
 import HideSkinsToggle from './items/hideSkinsToggle';
 import MaxMasterworkToggle from './items/maxMasterworkToggle';
 import BuildListToggle from './items/buildListToggle';
+import AnimationsToggle from './items/animationsToggle';
 import styles from '../styles/Header.module.css';
 import Link from 'next/link';
 import { getStsBase } from '../utils/base';
@@ -292,6 +293,7 @@ export default function Header() {
                     <input type="checkbox" checked={lowRes} onChange={toggleLowRes} aria-label="Hide textures" />
                     Hide Textures
                 </label>
+                <AnimationsToggle className={styles.loreToggle} />
                 <LoreToggle className={styles.loreToggle} />
                 <ObtainmentToggle className={styles.loreToggle} />
                 <HideSkinsToggle className={styles.loreToggle} />

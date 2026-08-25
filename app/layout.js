@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import './globals.css';
 import { LanguageContextProvider } from './_src/components/languageContext';
 import { LowResourceProvider } from './_src/components/lowResourceContext';
+import { AnimationsProvider } from './_src/components/animationsContext';
 import { HideLoreProvider } from './_src/components/items/hideLoreContext';
 import { HideObtainmentProvider } from './_src/components/items/hideObtainmentContext';
 import { HideSkinsProvider } from './_src/components/items/hideSkinsContext';
@@ -62,6 +63,7 @@ export default async function StsLayout({ children }) {
                 />
                 <div className="site-content" id="top">
                     <LowResourceProvider>
+                        <AnimationsProvider>
                         <LanguageContextProvider>
                             <HideLoreProvider>
                                 <HideObtainmentProvider>
@@ -81,6 +83,7 @@ export default async function StsLayout({ children }) {
                                 </HideObtainmentProvider>
                             </HideLoreProvider>
                         </LanguageContextProvider>
+                        </AnimationsProvider>
                     </LowResourceProvider>
                 </div>
             </body>

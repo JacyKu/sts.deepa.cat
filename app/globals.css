@@ -194,6 +194,14 @@ html.low-res .previewSprite {
     display: none;
 }
 
+/* "Animate item textures" mode: freeze the spritesheet frame-strip animations
+   (the generated _itemsheet.css animates the .monumenta-* classes). The
+   generator already ships a prefers-reduced-motion equivalent; this is the
+   explicit user-facing toggle. */
+html.anim-off [class*='monumenta-'] {
+    animation: none !important;
+}
+
 /* Phone: keep headings readable without dominating the small viewport. */
 @media (max-width: 700px) {
     html h1 {
