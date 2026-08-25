@@ -23,6 +23,8 @@ export function getMappedSpriteClass(map, itemName) {
     if (!map || !itemName) {
         return null;
     }
-    const mapped = map[itemName];
+    // EX items ("EX Wand of Spring") don't have their own spritesheet entry;
+    // they share the texture of the base item ("Wand of Spring").
+    const mapped = map[itemName] || map[itemName.replace(/^EX\s+/, '')];
     return mapped ? `monumenta-${mapped}` : null;
 }

@@ -28,7 +28,7 @@ generalise all buttons to use same size/height
 [x] remove rarity on cz/dd abils
 - custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
 [x] move stat toggles up somewhere
-- some ex items default to default textures
+[x] some ex items default to default textures
 - add option to disable animations for textures
 - add option to hide quest items
 - add search option for quest item IDs

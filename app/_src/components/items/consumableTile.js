@@ -30,6 +30,7 @@ function getItemType(item) {
 
 function getItemsheetClass(itemName) {
     return `monumenta-${itemName
+        .replace(/^EX\s+/, '') // EX items share the base item's texture
         .replace(/\(.*\)/g, '')
         .replaceAll(' ', '-')
         .replaceAll('_', '-')

@@ -109,7 +109,7 @@ function getItemsheetClass(itemName) {
     return `monumenta-${camelCase(
         itemName
             .replace(/\(.*\)/g, '')
-            .replace('EX ', '')
+            .replace(/^EX\s+/, '') // EX items share the base item's texture
             .replaceAll("'", '')
             .replaceAll('.', '')
             .trim()
