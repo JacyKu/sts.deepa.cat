@@ -363,6 +363,7 @@
     "items.enchant.iceaspect": "Applies (level * 10)% Slowness for 4 seconds when dealing melee or projectile damage. Deals 1 extra damage to Blazes.",
     "auth.loginWithDiscord": "Log in with Discord",
     "auth.myBuilds": "My Builds",
+    "auth.anonymizeMe": "Anonymize me",
     "builds.title": "My Builds",
     "builds.loading": "Loading...",
     "builds.loginRequired": "Log in with Discord to see and manage your saved builds.",

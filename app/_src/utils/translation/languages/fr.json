@@ -214,6 +214,7 @@
     "items.searchForm.not": "Négation",
     "auth.loginWithDiscord": "Se connecter avec Discord",
     "auth.myBuilds": "Mes builds",
+    "auth.anonymizeMe": "M'anonymiser",
     "builds.title": "Mes builds",
     "builds.loading": "Chargement...",
     "builds.loginRequired": "Connectez-vous avec Discord pour voir et gérer vos builds sauvegardés.",

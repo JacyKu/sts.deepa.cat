@@ -27,9 +27,10 @@ export async function buildLinkMetadata(id) {
     const title = row.name || getLinkPreviewTitle(row.token, itemData, null, skillsData);
     const description = getLinkPreviewDescription(row.token, itemData, skillsData, row.parsedState?.infusions);
     // The DB-backed image carries the delve infusions, which the token alone can't.
-    // The &v cache-buster (the row's updated_at) changes on every edit, so Discord
-    // fetches a fresh image instead of serving its cached embed.
-    const imageUrl = '/api/v1/og?id=' + id + '&v=' + encodeURIComponent(row.updated_at || '');
+    // The &v cache-buster (the row's updated_at + publicized_at) changes on
+    // every edit and on publicise/anonymity changes, so Discord fetches a fresh
+    // image instead of serving its cached embed (e.g. the author bar).
+    const imageUrl = '/api/v1/og?id=' + id + '&v=' + encodeURIComponent((row.updated_at || '') + '|' + (row.publicized_at || ''));
 
     return {
         metadataBase: new URL('https://' + requestHost),

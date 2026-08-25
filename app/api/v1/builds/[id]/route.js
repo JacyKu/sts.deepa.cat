@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
-import { getDiscordUser } from '../../../../../lib/session';
+import { getDiscordUser, getAnonymousPreference } from '../../../../../lib/session';
 import { decodeBuildParam } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 
@@ -70,9 +70,12 @@ export async function PATCH(request, { params }) {
         }
         // Publicise / adjust anonymity as part of the same save when asked.
         if (body.publicise !== undefined && user) {
+            // Account-wide anonymity preference is the default unless the
+            // request explicitly overrides it per build.
+            const anonymous = body.anonymous !== undefined ? Boolean(body.anonymous) : await getAnonymousPreference();
             setBuildPublic(p.id, user.id, creatorToken, {
                 isPublic: Boolean(body.publicise),
-                anonymous: Boolean(body.anonymous),
+                anonymous,
                 authorName: user.globalName || user.username,
                 authorAvatar: user.avatar || null,
                 summary,
@@ -93,7 +96,9 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ error: 'build not found' }, { status: 404 });
         }
         const isPublic = Boolean(body.publicise);
-        const anonymous = Boolean(body.anonymous);
+        // Account-wide anonymity preference is the default unless the request
+        // explicitly overrides it per build.
+        const anonymous = body.anonymous !== undefined ? Boolean(body.anonymous) : await getAnonymousPreference();
         if (isPublic) {
             // Never surface builds whose name/notes carry blocked words.
             if (hasProfanity({ name: row.name, notes: row.notes, token: row.token, itemData: await getItemData() })) {

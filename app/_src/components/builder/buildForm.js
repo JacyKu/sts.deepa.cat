@@ -1002,7 +1002,15 @@ export default function BuildForm({
     React.useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => (r.ok ? r.json() : null))
-            .then((d) => setLoggedIn(Boolean(d && d.user)))
+            .then((d) => {
+                setLoggedIn(Boolean(d && d.user));
+                // New builds pick up the account-wide anonymity preference
+                // from the top-right settings menu; existing builds keep the
+                // anonymity flag saved on their own row.
+                if (d && d.user && !activeBuildId) {
+                    setPublicState((prev) => ({ ...prev, anonymous: Boolean(d.user.anonymous) }));
+                }
+            })
             .catch(() => setLoggedIn(false));
     }, []);
 

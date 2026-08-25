@@ -3,7 +3,7 @@ import { saveBuild, setBuildPublic } from '../../../../lib/sts-builds';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
-import { getDiscordUser } from '../../../../lib/session';
+import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
 
 export async function POST(request) {
     const body = await request.json().catch(() => null);
@@ -43,9 +43,12 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
     if (user && body.publicise) {
+        // Unless the request says otherwise, posts default to the user's
+        // account-wide anonymity preference (top-right menu toggle).
+        const anonymous = body.anonymous !== undefined ? Boolean(body.anonymous) : await getAnonymousPreference();
         setBuildPublic(result.id, user.id, null, {
             isPublic: true,
-            anonymous: Boolean(body.anonymous),
+            anonymous,
             authorName: user.globalName || user.username,
             authorAvatar: user.avatar || null,
             summary,

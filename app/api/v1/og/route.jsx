@@ -39,6 +39,9 @@ const STAR_PATH =
 
 let spriteInfoCache = null;
 let faviconCache = null;
+// Discord CDN avatars fetched for the embed author bar, keyed by URL so
+// repeated fetches (Discord re-fetches og images with each preview) stay cheap.
+const avatarCache = new Map();
 
 async function getFaviconDataUrl() {
     if (faviconCache) return faviconCache;
@@ -52,6 +55,24 @@ async function getFaviconDataUrl() {
         faviconCache = null;
     }
     return faviconCache;
+}
+
+// Fetch a Discord CDN avatar and re-encode it as a PNG data URL for embedding
+// in the card image. Returns null when the fetch fails (e.g. deleted avatar).
+async function getAvatarDataUrl(url) {
+    if (avatarCache.has(url)) return avatarCache.get(url);
+    let dataUrl = null;
+    try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+            const buf = await sharp(await res.arrayBuffer()).resize(64, 64).png().toBuffer();
+            dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+        }
+    } catch (e) {
+        dataUrl = null;
+    }
+    avatarCache.set(url, dataUrl);
+    return dataUrl;
 }
 
 // Parses the spritesheet maps + CSS positions once; crops 64x64 item textures on demand.
@@ -316,12 +337,21 @@ export async function GET(request) {
     // Saved builds can be rendered by DB id: the token alone can't carry the
     // delve infusions, which live in the DB state.
     let savedState = null;
+    // The build author (name + Discord avatar) for the embed, from the author
+    // snapshot taken at publicise time. Hidden entirely for anonymous posts.
+    let author = null;
     const token = (() => {
         if (build) return build;
         if (buildId) {
             const row = getBuild(buildId);
             if (!row) return null;
             savedState = row.parsedState;
+            if (row.is_public === 1 && row.anonymous !== 1 && row.author_name) {
+                author = { name: row.author_name };
+                if (row.user_id && row.author_avatar) {
+                    author.avatarUrl = `https://cdn.discordapp.com/avatars/${row.user_id}/${row.author_avatar}.png?size=128&format=png`;
+                }
+            }
             return row.token;
         }
         return null;
@@ -378,6 +408,7 @@ export async function GET(request) {
     );
 
     const spriteInfo = await getSpriteInfo();
+    const avatarDataUrl = author?.avatarUrl ? await getAvatarDataUrl(author.avatarUrl) : null;
     const itemLines = data
         ? await Promise.all(
               Object.entries(SLOT_LABELS).map(async ([slot, label]) => {
@@ -571,6 +602,32 @@ export async function GET(request) {
                     </div>
                 )}
             </div>
+
+            {author && (
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginTop: 12,
+                        paddingTop: 10,
+                        borderTop: `1px solid ${BORDER}`,
+                    }}
+                >
+                    {avatarDataUrl && (
+                        <img
+                            src={avatarDataUrl}
+                            width={26}
+                            height={26}
+                            style={{ borderRadius: 999, objectFit: 'cover' }}
+                        />
+                    )}
+                    <div style={{ fontSize: 14, color: MUTED, fontWeight: 600 }}>{author.name}</div>
+                    <div style={{ fontSize: 10, letterSpacing: 2, color: DIM, fontWeight: 700, marginLeft: 4 }}>
+                        BUILD AUTHOR
+                    </div>
+                </div>
+            )}
         </div>,
         { width: 1200, height: 630 }
     );

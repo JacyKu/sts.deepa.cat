@@ -14,21 +14,37 @@ import { getStsBase } from '../utils/base';
 import { useLowResource } from './lowResourceContext';
 
 // Discord login state chip: "Log in" when logged out, avatar + "My Builds"
-// + logout when logged in. Fetches /api/auth/session once on mount.
-export function AccountChip() {
+// + logout when logged in. Session state lives in the shared useSessionState
+// hook so the settings menu (Header) can show the same user.
+export function useSessionState() {
     const [user, setUser] = React.useState(null);
+    const [anonymous, setAnonymous] = React.useState(false);
     const [checked, setChecked] = React.useState(false);
+
+    React.useEffect(() => {
+        fetch('/api/auth/session')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+                if (d && d.user) {
+                    setUser(d.user);
+                    setAnonymous(Boolean(d.user.anonymous));
+                }
+            })
+            .catch(() => {})
+            .finally(() => setChecked(true));
+    }, []);
+
+    return { user, setUser, anonymous, setAnonymous, checked };
+}
+
+export function AccountChip({ session }) {
+    const user = session?.user ?? null;
+    const checked = session?.checked ?? false;
+    const setUser = session?.setUser;
     const [base, setBase] = React.useState('/sts');
 
     React.useEffect(() => {
         setBase(getStsBase());
-        fetch('/api/auth/session')
-            .then((r) => (r.ok ? r.json() : null))
-            .then((d) => {
-                if (d && d.user) setUser(d.user);
-            })
-            .catch(() => {})
-            .finally(() => setChecked(true));
     }, []);
 
     function logout() {
@@ -174,6 +190,21 @@ export default function Header() {
     const [theme, setTheme] = React.useState('dark');
     const [font, setFont] = React.useState('ubuntu');
     const { lowRes, toggle: toggleLowRes } = useLowResource();
+    const session = useSessionState();
+
+    function toggleAnonymize(event) {
+        const next = Boolean(event.target.checked);
+        const prev = session.anonymous;
+        session.setAnonymous(next);
+        fetch('/api/auth/anonymity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ anonymous: next }),
+        })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => session.setAnonymous(Boolean(d.anonymous)))
+            .catch(() => session.setAnonymous(prev));
+    }
 
     React.useEffect(() => {
         const current = document.documentElement.dataset.theme;
@@ -232,7 +263,7 @@ export default function Header() {
 
     return (
         <div className={styles.controls}>
-            <AccountChip />
+            <AccountChip session={session} />
             <button
                 type="button"
                 className={styles.menuBtn}
@@ -246,6 +277,17 @@ export default function Header() {
             </button>
             {menuOpen && <div className={styles.menuBackdrop} onClick={closeMenu} />}
             <div className={`${styles.menuPanel}${menuOpen ? ` ${styles.menuOpen}` : ''}`}>
+                {session.user && (
+                    <label className={`${styles.toggle} ${styles.loreToggle}`}>
+                        <input
+                            type="checkbox"
+                            checked={session.anonymous}
+                            onChange={toggleAnonymize}
+                            aria-label="Anonymize me"
+                        />
+                        <TranslatableText identifier="auth.anonymizeMe" />
+                    </label>
+                )}
                 <label className={`${styles.toggle} ${styles.loreToggle}`}>
                     <input type="checkbox" checked={lowRes} onChange={toggleLowRes} aria-label="Hide textures" />
                     Hide Textures

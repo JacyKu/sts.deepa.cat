@@ -1,12 +1,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import sharp from 'sharp';
 import { encodeBuildParam, encodeBuildParamLegacyCompressed } from '../app/_src/utils/builder/buildUrlCodec.js';
 import CharmShortener from '../app/_src/utils/builder/charmShortener.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, '..', 'embed-debug');
 const BASE = process.env.STS_DEV_URL || 'http://localhost:3001';
+
+// Author snapshot used for the author/anonymity pair debug. Override
+// STS_DEBUG_AUTHOR_ID / STS_DEBUG_AUTHOR_AVATAR with a real Discord user id +
+// avatar hash to see an actual avatar in the "author" variant.
+const AUTHOR_ID = process.env.STS_DEBUG_AUTHOR_ID || '000000000000000000';
+const AUTHOR_AVATAR = process.env.STS_DEBUG_AUTHOR_AVATAR || 'a_deadbeef0000000000000000000000';
+const AUTHOR_NAME = process.env.STS_DEBUG_AUTHOR_NAME || 'Debug Author';
 
 const itemData = JSON.parse(await fs.readFile(path.join(__dirname, '..', 'public', 'items', 'items.json'), 'utf8'));
 
@@ -241,4 +250,88 @@ for (const { name, build, note } of builds) {
 
 await fs.writeFile(path.join(OUT, 'manifest.txt'), manifest.join('\n') + '\n');
 console.log(`\n${ok}/${builds.length} images written to ${OUT}`);
+
+// --- author / anonymous pair debug ---------------------------------------
+// The ?build= URL above can't exercise the embed author bar: it only renders
+// for DB-backed rows (the build's author snapshot + anonymous flag live in
+// the row). So seed each build twice in the builds DB — one public row with
+// an author snapshot, one public + anonymous row — hit the same og endpoint
+// Discord previews, and stitch the two variants side by side so both embeds
+// are visible at a glance.
+const dbPath = process.env.STS_DB_PATH || path.join(__dirname, '..', 'data', 'sts-builds.db');
+const debugDb = new Database(dbPath);
+// Wipe rows left behind by a previous (crashed) run.
+debugDb.prepare(`DELETE FROM builds WHERE id LIKE 'debug-%'`).run();
+
+function seedPairRow(name, build, anonymous) {
+    const id = `debug${anonymous ? 'anon' : 'auth'}${name.replace(/[^A-Za-z0-9]/g, '')}`;
+    debugDb
+        .prepare(
+            `INSERT INTO builds (id, token, user_id, state, name, notes, is_public, anonymous, author_name, author_avatar, created_at, updated_at, publicized_at)
+             VALUES (?, ?, ?, ?, NULL, NULL, 1, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`
+        )
+        .run(
+            id,
+            build,
+            anonymous ? null : AUTHOR_ID,
+            JSON.stringify({ token: build, infusions: {}, revelation: false }),
+            anonymous ? 1 : 0,
+            anonymous ? null : AUTHOR_NAME,
+            anonymous ? null : AUTHOR_AVATAR
+        );
+    return id;
+}
+
+const labelSvg = (label) =>
+    Buffer.from(
+        `<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1200" height="42" fill="rgba(0,0,0,0.65)"/>
+  <text x="600" y="29" font-family="sans-serif" font-size="22" font-weight="700" fill="#ffffff" text-anchor="middle">${label}</text>
+</svg>`
+    );
+
+let pairOk = 0;
+const pairManifest = [];
+const pairTargets = builds.filter((b) => b.build);
+for (const { name, build, note } of pairTargets) {
+    const authId = seedPairRow(name, build, false);
+    const anonId = seedPairRow(name, build, true);
+    try {
+        const fetchPng = async (url) => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return Buffer.from(await res.arrayBuffer());
+        };
+        const [authorBuf, anonBuf] = await Promise.all([
+            fetchPng(`${BASE}/api/v1/og?id=${authId}&v=debug`),
+            fetchPng(`${BASE}/api/v1/og?id=${anonId}&v=debug`),
+        ]);
+        await fs.writeFile(path.join(OUT, `${name}-author.png`), authorBuf);
+        await fs.writeFile(path.join(OUT, `${name}-anon.png`), anonBuf);
+        const bothFile = path.join(OUT, `${name}-both.png`);
+        await sharp({
+            create: { width: 2400, height: 630, channels: 4, background: '#0e0e14' },
+        })
+            .composite([
+                { input: authorBuf, left: 0, top: 0 },
+                { input: anonBuf, left: 1200, top: 0 },
+                { input: labelSvg('AUTHORED'), left: 0, top: 0 },
+                { input: labelSvg('ANONYMOUS'), left: 1200, top: 0 },
+            ])
+            .png()
+            .toFile(bothFile);
+        pairOk++;
+        console.log(`ok   ${name}-both.png  author | anonymous  (${note})`);
+        pairManifest.push(`${name}-both.png  ${note}`);
+    } catch (e) {
+        console.log(`FAIL ${name} pair: ${e.message}`);
+        pairManifest.push(`FAIL ${name} pair: ${e.message}`);
+    }
+}
+
+debugDb.prepare(`DELETE FROM builds WHERE id LIKE 'debug-%'`).run();
+debugDb.close();
+
+await fs.appendFile(path.join(OUT, 'manifest.txt'), '\n-- author/anonymous pairs --\n' + pairManifest.join('\n') + '\n');
+console.log(`\n${pairOk}/${pairTargets.length} author/anonymous pairs written to ${OUT}`);
 console.log('(folder is gitignored)');

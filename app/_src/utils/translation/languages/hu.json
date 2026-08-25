@@ -240,6 +240,7 @@
     "items.searchForm.not": "Nem",
     "auth.loginWithDiscord": "Bejelentkezés Discorddal",
     "auth.myBuilds": "Az építményeim",
+    "auth.anonymizeMe": "Névtelenítés",
     "builds.title": "Az építményeim",
     "builds.loading": "Betöltés...",
     "builds.loginRequired": "Jelentkezz be Discorddal a mentett építményeid megtekintéséhez és kezeléséhez.",

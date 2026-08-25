@@ -240,6 +240,7 @@
     "items.searchForm.not": "Не",
     "auth.loginWithDiscord": "Войти через Discord",
     "auth.myBuilds": "Мои сборки",
+    "auth.anonymizeMe": "Скрыть моё имя",
     "builds.title": "Мои сборки",
     "builds.loading": "Загрузка...",
     "builds.loginRequired": "Войдите через Discord, чтобы просматривать и управлять сохранёнными сборками.",

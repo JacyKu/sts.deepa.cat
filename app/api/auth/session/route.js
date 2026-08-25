@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getDiscordUser, discordAvatarUrl } from '../../../../lib/session';
+import { getDiscordUser, getAnonymousPreference, discordAvatarUrl } from '../../../../lib/session';
 
 export async function GET() {
     const user = await getDiscordUser();
+    const anonymous = await getAnonymousPreference();
     return NextResponse.json({
         user: user
             ? {
@@ -10,6 +11,7 @@ export async function GET() {
                   username: user.username,
                   globalName: user.globalName,
                   avatarUrl: discordAvatarUrl(user),
+                  anonymous,
               }
             : null,
     });
