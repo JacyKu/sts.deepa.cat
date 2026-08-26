@@ -2707,13 +2707,6 @@ export default function BuildForm({
                     </div>
                 </div>
             )}
-            <div className="row justify-content-center pt-1 mb-1 g-1">
-                <TranslatableText
-                    identifier="builder.misc.situationals"
-                    className="text-center mb-1"
-                ></TranslatableText>
-                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions)}
-            </div>
             <div className="row justify-content-center mb-1">
                 <div className="col-4 col-md-3 col-lg-2 text-center">
                     <button type="submit" className={styles.recalcButton} value="Recalculate">
@@ -3276,6 +3269,13 @@ export default function BuildForm({
                         );
                     })}
                 </div>
+            </div>
+            <div className="row justify-content-center pt-1 mb-1 g-1">
+                <TranslatableText
+                    identifier="builder.misc.situationals"
+                    className="text-center mb-1"
+                ></TranslatableText>
+                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions)}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
                 <div className="text-center mx-2">
