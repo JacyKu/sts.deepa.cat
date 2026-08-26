@@ -64,7 +64,10 @@ async function getAvatarDataUrl(url) {
     try {
         const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
-            const buf = await sharp(await res.arrayBuffer()).resize(64, 64).png().toBuffer();
+            const buf = await sharp(await res.arrayBuffer())
+                .resize(64, 64)
+                .png()
+                .toBuffer();
             dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
         }
     } catch (e) {
@@ -176,12 +179,7 @@ function EquipmentGrid({ itemLines, size = 56 }) {
                     {pair.map(({ label, name, img, ex, tier, masterwork }) => (
                         <div key={label} style={{ display: 'flex', width: CELL_W, marginRight: 10 }}>
                             {img ? (
-                                <img
-                                    src={img}
-                                    width={size}
-                                    height={size}
-                                    style={{ imageRendering: 'pixelated' }}
-                                />
+                                <img src={img} width={size} height={size} style={{ imageRendering: 'pixelated' }} />
                             ) : (
                                 <div style={{ width: size, height: size, border: `1px solid ${BORDER}` }} />
                             )}
@@ -285,10 +283,10 @@ function SkillPanel({ data }) {
     );
 }
 
-// Delve infusion chips (slot label + infusion name), rendered from DB state.
+// Delve infusion chips (slot label + infusion name), rendered from DB state
+// in slot order MH > OH > Helm > Chest > Legs > Boots (the saved state stores
+// them alphabetically, so the panel reorders instead of trusting key order).
 function InfusionPanel({ infusions }) {
-    const entries = Object.entries(infusions || {}).filter(([, v]) => v && v !== 'None');
-    if (entries.length === 0) return null;
     const SLOT_SHORT = {
         mainhand: 'MH',
         offhand: 'OH',
@@ -297,6 +295,9 @@ function InfusionPanel({ infusions }) {
         leggings: 'LEGS',
         boots: 'BOOTS',
     };
+    const SLOT_ORDER = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+    const entries = SLOT_ORDER.map((slot) => [slot, infusions && infusions[slot]]).filter(([, v]) => v && v !== 'None');
+    if (entries.length === 0) return null;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10 }}>
             <div style={{ fontSize: 12, letterSpacing: 2, color: DIM, fontWeight: 700, marginBottom: 4 }}>

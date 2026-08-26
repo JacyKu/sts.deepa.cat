@@ -34,11 +34,7 @@ const SKIN_LOCATIONS = new Set([
 ]);
 
 // Skinned items whose location looks ordinary (checked against the wiki).
-const SKIN_EXCEPTIONS = new Set([
-    'Phantasm',
-    "Refit King's Crown",
-    'Sacrificial Dagger',
-]);
+const SKIN_EXCEPTIONS = new Set(['Phantasm', "Refit King's Crown", 'Sacrificial Dagger']);
 
 // Quest items carry a "* Quest Item *" lore marker and a "#Q<id>I<index>"
 // code. The id can be decimal (Q154), hex (QAF), carry letter suffixes
@@ -188,9 +184,7 @@ function getRelevantItems(data, itemData, hideSkins) {
             .replace(/^q/, '')
             .replace(/i\d+$/, '');
         if (query) {
-            items = items.filter((name) =>
-                getQuestIds(itemData[name]).some((id) => id.toLowerCase().includes(query))
-            );
+            items = items.filter((name) => getQuestIds(itemData[name]).some((id) => id.toLowerCase().includes(query)));
         }
     }
 
@@ -428,20 +422,24 @@ export default function ItemsPage({ itemData }) {
     const [relevantItems, setRelevantItems] = React.useState(() => getRelevantItems({}, itemData, false));
     const [itemsToShow, setItemsToShow] = React.useState(20);
     const itemsToLoad = 20;
+    // The latest search form data (name/lore/filters/toggles), so toggling
+    // "hide skinned items" re-applies the current search instead of resetting.
+    const filterDataRef = React.useRef({});
 
     // Re-apply the list when the hide-skins toggle flips. The mount pass is
     // skipped (the useState initializer - or the search restored by SearchForm
     // right after mount - already set the list); every toggle after that
-    // recomputes from scratch so enabling AND disabling both reset correctly.
+    // recomputes with the current search filters.
     const prevHideSkins = React.useRef(hideSkins);
     React.useEffect(() => {
         if (prevHideSkins.current === hideSkins) return;
         prevHideSkins.current = hideSkins;
-        setRelevantItems(getRelevantItems({}, itemData, hideSkins));
+        setRelevantItems(getRelevantItems(filterDataRef.current, itemData, hideSkins));
         setItemsToShow(itemsToLoad);
     }, [hideSkins, itemData]);
 
     function handleChange(data) {
+        filterDataRef.current = data;
         setRelevantItems(getRelevantItems(data, itemData, hideSkins));
         setItemsToShow(itemsToLoad);
     }
@@ -505,14 +503,7 @@ export default function ItemsPage({ itemData }) {
                                     ></ConsumableTile>
                                 );
                             }
-                            return (
-                                <ItemTile
-                                    key={name}
-                                    name={name}
-                                    item={itemData[name]}
-                                    showListButton
-                                ></ItemTile>
-                            );
+                            return <ItemTile key={name} name={name} item={itemData[name]} showListButton></ItemTile>;
                         })}
                     </InfiniteScroll>
                 )}
