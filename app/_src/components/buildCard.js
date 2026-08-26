@@ -50,8 +50,12 @@ function formatCzDescription(desc) {
 function loadBuildDetails() {
     if (!buildDetailPromise) {
         buildDetailPromise = Promise.all([
-            fetch('/api/v1/skills').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-            fetch('/api/v1/cz').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+            fetch('/api/v1/skills')
+                .then((r) => (r.ok ? r.json() : null))
+                .catch(() => null),
+            fetch('/api/v1/cz')
+                .then((r) => (r.ok ? r.json() : null))
+                .catch(() => null),
         ]).then(([skills, cz]) => {
             const skill = new Map();
             const klass = new Map();
@@ -99,8 +103,10 @@ function loadBuildDetails() {
     return buildDetailPromise;
 }
 
-// One build card in the public database / favourites grid.
-export default function BuildCard({ build, user, base, onToggleFavourite }) {
+// One build card in the public database / favourites / my-builds grids.
+// The optional children render inside the card (after the bottom row), so
+// pages like "My Builds" can embed management buttons in the card itself.
+export default function BuildCard({ build, user, base, onToggleFavourite, children }) {
     const [favBusy, setFavBusy] = React.useState(false);
     const [expanded, setExpanded] = React.useState(false);
     const [sideOpen, setSideOpen] = React.useState(false);
@@ -273,8 +279,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
     // Embed chip colors: base / spec / enhanced / CZ (always Twisted).
     const SKILL_COLORS = { b: '#C084FC', s: '#7CC4FF' };
     const CZ_COLOR = '#703663';
-    const skillColor = (s) =>
-        s.g === 'c' ? CZ_COLOR : s.e ? '#7EE787' : SKILL_COLORS[s.g] || SKILL_COLORS.b;
+    const skillColor = (s) => (s.g === 'c' ? CZ_COLOR : s.e ? '#7EE787' : SKILL_COLORS[s.g] || SKILL_COLORS.b);
     const czIcon = (s) =>
         `${base}/images/cz/${String(s.f || s.n)
             .toLowerCase()
@@ -285,19 +290,13 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
             .toLowerCase()
             .replace(/ /g, '_')
             .replace(/'/g, '')}.png`;
-    const treeIcon = (t) =>
-        `${base}/images/cz/${String(t)
-            .toLowerCase()
-            .replace(/ /g, '_')
-            .replace(/'/g, '')}.png`;
+    const treeIcon = (t) => `${base}/images/cz/${String(t).toLowerCase().replace(/ /g, '_').replace(/'/g, '')}.png`;
 
     let items = [];
     if (build.itemsJson || build.items_json) {
         try {
             const parsed = JSON.parse(build.itemsJson || build.items_json);
-            items = (Array.isArray(parsed) ? parsed : []).map((s) =>
-                typeof s === 'string' ? { n: s } : s
-            );
+            items = (Array.isArray(parsed) ? parsed : []).map((s) => (typeof s === 'string' ? { n: s } : s));
         } catch (e) {
             items = [];
         }
@@ -342,8 +341,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
         if (tier === 'Epic') {
             image = `Epic-Charm-${power}`;
         } else {
-            const prefix =
-                cls === 'Alchemist' ? 'Alch' : cls === 'Generalist' ? 'Gen' : cls;
+            const prefix = cls === 'Alchemist' ? 'Alch' : cls === 'Generalist' ? 'Gen' : cls;
             image = `${prefix}-Charm${tier === 'Base' ? '' : `-${tier}`}-${power}`;
         }
         return `monumenta-${image}`;
@@ -390,9 +388,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                     }}
                 >
                     <span className={styles.previewIcon}>
-                        {cls ? (
-                            <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
-                        ) : null}
+                        {cls ? <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" /> : null}
                     </span>
                     <span className={styles.previewInfo}>
                         <span className={styles.previewName}>{item.n}</span>
@@ -401,9 +397,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                 </div>
                 {openItem === i && detail && (
                     <div className={styles.itemDetail}>
-                        <div className={styles.itemDetailName}>
-                            {detail.name || item.n}
-                        </div>
+                        <div className={styles.itemDetailName}>{detail.name || item.n}</div>
                         <div className={styles.itemDetailInfo}>
                             {detail.type ? detail.type.replace('<M>', '') : ''}
                             {detail.type && detail.base_item ? ' - ' : ''}
@@ -412,12 +406,8 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                         {detail.type === 'Charm' ? (
                             <>
                                 <div className={styles.itemDetailInfo}>
-                                    <span className={styles.previewStars}>
-                                        {'★'.repeat(Number(item.pw) || 0)}
-                                    </span>
-                                    {detail.class_name
-                                        ? ` - ${detail.class_name}`
-                                        : ''}
+                                    <span className={styles.previewStars}>{'★'.repeat(Number(item.pw) || 0)}</span>
+                                    {detail.class_name ? ` - ${detail.class_name}` : ''}
                                 </div>
                                 {CharmFormatter.formatCharm(detail.stats)}
                             </>
@@ -428,9 +418,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                             {detail.region ? `${detail.region} ` : ''}
                             {detail.tier || ''}
                         </div>
-                        <div className={styles.itemDetailInfo}>
-                            {detail.location || ''}
-                        </div>
+                        <div className={styles.itemDetailInfo}>{detail.location || ''}</div>
                     </div>
                 )}
             </div>
@@ -610,9 +598,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
             )}
 
             <div className={styles.cardMeta}>
-                {build.ascension > 0 && (
-                    <span className={styles.metaItem}>Ascension {build.ascension}</span>
-                )}
+                {build.ascension > 0 && <span className={styles.metaItem}>Ascension {build.ascension}</span>}
             </div>
 
             <div className={styles.cardBottom}>
@@ -624,6 +610,8 @@ export default function BuildCard({ build, user, base, onToggleFavourite }) {
                     {new Date((build.updatedAt || build.createdAt) + 'Z').toLocaleDateString()}
                 </span>
             </div>
+
+            {children}
 
             {isTouch && expanded && items.length > 0 && (
                 <div className={styles.mobileItems}>{items.map(renderItemRow)}</div>
