@@ -1452,7 +1452,8 @@
     font-weight: bold;
     color: var(--text-1);
     font-size: 14px;
-}.listPanelEmpty {
+}
+.listPanelEmpty {
     color: var(--text-2);
     font-size: 13px;
     font-style: italic;
@@ -1907,6 +1908,37 @@ div.builderStatCard {
     font-size: 0.85rem;
     color: var(--text-1);
     white-space: nowrap;
+}
+
+/* Manual number entry for the Max Health Percent slider. */
+.healthPercentInput {
+    width: 56px;
+    height: 24px;
+    padding: 0 4px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-1);
+    background: var(--glass-1);
+    border: 1px solid var(--control-border);
+    border-radius: 0;
+    -moz-appearance: textfield;
+}
+
+.healthPercentInput:hover {
+    border-color: var(--control-border-hover);
+}
+
+.healthPercentInput:focus {
+    outline: none;
+    border-color: var(--control-border-focus);
+    box-shadow: 0 0 0 1px var(--control-border-focus);
+}
+
+.healthPercentInput::-webkit-outer-spin-button,
+.healthPercentInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .resetButton:hover {

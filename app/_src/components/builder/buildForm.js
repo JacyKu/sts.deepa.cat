@@ -600,7 +600,10 @@ export default function BuildForm({
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const [notesDraft, setNotesDraft] = React.useState(notes || '');
     const [notesSaveState, setNotesSaveState] = React.useState(null); // 'saving' | 'saved' | 'error'
-    const [publicState, setPublicState] = React.useState({ isPublic: Boolean(isPublic), anonymous: Boolean(isAnonymous) });
+    const [publicState, setPublicState] = React.useState({
+        isPublic: Boolean(isPublic),
+        anonymous: Boolean(isAnonymous),
+    });
     const [publiciseState, setPubliciseState] = React.useState(null); // null | 'saving' | 'error' | 'profanity'
     const [ownsBuild, setOwnsBuild] = React.useState(Boolean(canPublicise));
     const [favState, setFavState] = React.useState(null); // null | {favourite, count}
@@ -728,6 +731,14 @@ export default function BuildForm({
         const next = { ...statInputs, [name]: event.target.value };
         setStatInputs(next);
         recalcBuildStats();
+    }
+
+    // Typed values snap back into the 0-100 range (and to the default when
+    // the box is left empty), so the slider and the saved build stay valid.
+    function healthPercentBlur() {
+        const raw = Number(statInputs.health);
+        const value = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 100;
+        statInputChanged('health', { target: { value: String(value) } });
     }
 
     function revelationChanged(event) {
@@ -1146,9 +1157,7 @@ export default function BuildForm({
                     // account: reveal the publicise/anonymity options.
                     if (result.savedToAccount) setOwnsBuild(true);
                     const link =
-                        window.location.origin +
-                        getStsBase() +
-                        `/b/v${tokenVersion}/${activeBuildId}?v=${Date.now()}`;
+                        window.location.origin + getStsBase() + `/b/v${tokenVersion}/${activeBuildId}?v=${Date.now()}`;
                     setSaveState('copied');
                     setSavedAnonymous(false);
                     if (navigator.clipboard) {
@@ -1308,9 +1317,7 @@ export default function BuildForm({
         if (!czData || !czOpen || Object.keys(czAbilities).length === 0) return;
         const loadedNames = new Set(Object.keys(czAbilities));
         const hasAny = (t) => t.skills.some((s) => loadedNames.has(s.name));
-        const currentHasAny = czSelectedTree
-            ? czData.trees.some((t) => t.tree === czSelectedTree && hasAny(t))
-            : false;
+        const currentHasAny = czSelectedTree ? czData.trees.some((t) => t.tree === czSelectedTree && hasAny(t)) : false;
         if (currentHasAny) return;
         const allowed = CZ_MAIN_TREES.filter((t) => !(regionValue === 2 && t === 'Prismatic'));
         const treeOf = czData.trees.find((t) => allowed.includes(t.tree) && hasAny(t));
@@ -1335,250 +1342,247 @@ export default function BuildForm({
         if (!loadToken) return;
         const decoded = decodeBuildParam(loadToken, itemData);
         if (!decoded) return;
-            let buildParts = decodeURI(decoded).split('&');
-            let itemNames = {
-                mainhand: buildParts.find((str) => str.includes('m='))?.split('m=')[1],
-                offhand: buildParts.find((str) => str.includes('o='))?.split('o=')[1],
-                helmet: buildParts.find((str) => str.includes('h='))?.split('h=')[1],
-                chestplate: buildParts.find((str) => str.includes('c='))?.split('c=')[1],
-                leggings: buildParts.find((str) => str.includes('l='))?.split('l=')[1],
-                boots: buildParts.find((str) => str.includes('b='))?.split('b=')[1],
-            };
-            Object.keys(itemNames).forEach((type) => {
-                if (itemNames[type] === undefined || !Object.keys(itemData).includes(itemNames[type])) {
-                    itemNames[type] = 'None';
+        let buildParts = decodeURI(decoded).split('&');
+        let itemNames = {
+            mainhand: buildParts.find((str) => str.includes('m='))?.split('m=')[1],
+            offhand: buildParts.find((str) => str.includes('o='))?.split('o=')[1],
+            helmet: buildParts.find((str) => str.includes('h='))?.split('h=')[1],
+            chestplate: buildParts.find((str) => str.includes('c='))?.split('c=')[1],
+            leggings: buildParts.find((str) => str.includes('l='))?.split('l=')[1],
+            boots: buildParts.find((str) => str.includes('b='))?.split('b=')[1],
+        };
+        Object.keys(itemNames).forEach((type) => {
+            if (itemNames[type] === undefined || !Object.keys(itemData).includes(itemNames[type])) {
+                itemNames[type] = 'None';
+            }
+        });
+        // Drive the (uncontrolled) item selects explicitly: the build prop
+        // is present from the first render, but a restored draft arrives
+        // after mount, so defaultValue alone can't show the items.
+        Object.keys(itemNames).forEach((type) => {
+            itemRefs[type].current.setValue({
+                value: itemNames[type],
+                label: removeMasterworkFromName(itemNames[type]),
+            });
+        });
+        let charmString = buildParts.find((str) => str.includes('charm='));
+        if (charmString) {
+            // decodeURIComponent: decodeURI leaves %2C (comma) encoded since it's a reserved char
+            let charmList = CharmShortener.parseCharmData(decodeURIComponent(charmString.split('charm=')[1]), itemData);
+
+            // Cap the restored list to the 12-power charm limit.
+            let cappedList = [];
+            let powerCount = 0;
+            charmList.forEach((name) => {
+                if (powerCount + (itemData[name]?.power || 0) <= 12) {
+                    powerCount += itemData[name]?.power || 0;
+                    cappedList.push(name);
                 }
             });
-            // Drive the (uncontrolled) item selects explicitly: the build prop
-            // is present from the first render, but a restored draft arrives
-            // after mount, so defaultValue alone can't show the items.
-            Object.keys(itemNames).forEach((type) => {
-                itemRefs[type].current.setValue({
-                    value: itemNames[type],
-                    label: removeMasterworkFromName(itemNames[type]),
+
+            // dunno what happened here but i needed to change this to have the map()
+            // so it's passing a list of charm objects, not charm names
+            // idk why it worked before and stopped working now, but this fixes it
+            setCharms(cappedList.map((name) => itemData[name]));
+        }
+
+        // class + skill points from the URL
+        let classPart = buildParts.find((str) => str.includes('cl='));
+        if (classPart) {
+            const cls = classPart.split('cl=')[1];
+            if (cls) {
+                setGameClass(cls.toLowerCase());
+                setClassSelectKey((k) => k + 1);
+            }
+        }
+        let skPart = buildParts.find((str) => str.includes('sk='));
+        let loadedSkillPoints = {};
+        if (skPart) {
+            const nextPoints = {};
+            decodeURIComponent(skPart.split('sk=')[1])
+                .split(',')
+                .forEach((part) => {
+                    const [id, pts] = part.split(':');
+                    const points = Number(pts);
+                    if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
                 });
-            });
-            let charmString = buildParts.find((str) => str.includes('charm='));
-            if (charmString) {
-                // decodeURIComponent: decodeURI leaves %2C (comma) encoded since it's a reserved char
-                let charmList = CharmShortener.parseCharmData(
-                    decodeURIComponent(charmString.split('charm=')[1]),
-                    itemData
-                );
-
-                // Cap the restored list to the 12-power charm limit.
-                let cappedList = [];
-                let powerCount = 0;
-                charmList.forEach((name) => {
-                    if (powerCount + (itemData[name]?.power || 0) <= 12) {
-                        powerCount += itemData[name]?.power || 0;
-                        cappedList.push(name);
-                    }
-                });
-
-                // dunno what happened here but i needed to change this to have the map()
-                // so it's passing a list of charm objects, not charm names
-                // idk why it worked before and stopped working now, but this fixes it
-                setCharms(cappedList.map((name) => itemData[name]));
-            }
-
-            // class + skill points from the URL
-            let classPart = buildParts.find((str) => str.includes('cl='));
-            if (classPart) {
-                const cls = classPart.split('cl=')[1];
-                if (cls) {
-                    setGameClass(cls.toLowerCase());
-                    setClassSelectKey((k) => k + 1);
-                }
-            }
-            let skPart = buildParts.find((str) => str.includes('sk='));
-            let loadedSkillPoints = {};
-            if (skPart) {
-                const nextPoints = {};
-                decodeURIComponent(skPart.split('sk=')[1])
-                    .split(',')
-                    .forEach((part) => {
-                        const [id, pts] = part.split(':');
-                        const points = Number(pts);
-                        if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
-                    });
-                loadedSkillPoints = nextPoints;
-                setSkillPoints(nextPoints);
-            }
-            let spPart = buildParts.find((str) => str.includes('sp='));
-            if (spPart) {
-                const specName = decodeURIComponent(spPart.split('sp=')[1]);
-                if (specName) {
-                    setSpec(specName);
-                    setSpecSelectKey((k) => k + 1);
-                }
-            }
-            let sskPart = buildParts.find((str) => str.includes('ssk='));
-            let loadedSpecPoints = {};
-            if (sskPart) {
-                const nextPoints = {};
-                decodeURIComponent(sskPart.split('ssk=')[1])
-                    .split(',')
-                    .forEach((part) => {
-                        const [id, pts] = part.split(':');
-                        const points = Number(pts);
-                        if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
-                    });
-                loadedSpecPoints = nextPoints;
-                setSpecSkillPoints(nextPoints);
-            }
-            let enPart = buildParts.find((str) => str.includes('en='));
-            let loadedEnhancements = {};
-            if (enPart) {
-                const nextEnhancements = {};
-                decodeURIComponent(enPart.split('en=')[1])
-                    .split(',')
-                    .forEach((key) => {
-                        if (key) nextEnhancements[key] = true;
-                    });
-                loadedEnhancements = nextEnhancements;
-                setEnhancements(nextEnhancements);
-            }
-            let czPart = buildParts.find((str) => str.includes('cz='));
-            let nextCz = {};
-            if (czPart) {
-                const parsedCz = {};
-                decodeURIComponent(czPart.split('cz=')[1])
-                    .split(',')
-                    .forEach((part) => {
-                        // Legacy "Name:rarity" suffixes are dropped - abilities
-                        // are always Twisted.
-                        const name = part.split(':')[0];
-                        if (name) parsedCz[name] = true;
-                    });
-                nextCz = parsedCz;
-                setCzAbilities(parsedCz);
-                setCzOpen(true);
-            }
-            // Skills that were removed from the API: drop their points from the
-            // form so the counters stay honest (the original URL is untouched
-            // until the user edits and the link is rewritten).
-            // Only filter when the skills data is already loaded: parentLoaded
-            // fires before the /api/v1/skills fetch resolves, and filtering
-            // against an empty skill set would wipe every loaded point. The
-            // cleanup effect below re-filters once the data arrives.
-            const loadedClass = classPart?.split('cl=')[1] || null;
-            const loadedSpec = spPart ? decodeURIComponent(spPart.split('sp=')[1]) : null;
-            const classData = skillsData?.classes?.find(
-                (c) => (c.className || '').toLowerCase() == (loadedClass || '').toLowerCase()
-            );
-            if (skillsData && classData) {
-                const knownSkillIds = new Set((classData.skills || []).map((s) => s.scoreboardId));
-                const specData = loadedSpec ? classData.specs?.find((s) => s.specName == loadedSpec) : null;
-                const knownSpecSkillIds = new Set((specData?.specSkills || []).map((s) => s.scoreboardId));
-                loadedSkillPoints = Object.fromEntries(
-                    Object.entries(loadedSkillPoints).filter(([id]) => knownSkillIds.has(id))
-                );
-                loadedSpecPoints = Object.fromEntries(
-                    Object.entries(loadedSpecPoints).filter(([id]) => knownSpecSkillIds.has(id))
-                );
-                setSkillPoints(loadedSkillPoints);
-                setSpecSkillPoints(loadedSpecPoints);
-            }
-
-            refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements);
-            // extra stat inputs (health/tenacity/vitality/vigor/focus/perspicacity/region)
-            const statValues = {};
-            for (const key of STAT_KEYS) {
-                const part = buildParts.find((str) => str.startsWith(`${key}=`));
-                if (part) statValues[key] = part.split('=')[1];
-            }
-            if (statValues.health !== undefined) {
-                statValues.health = String(Math.max(1, Number(statValues.health)));
-            }
-            if (Object.keys(statValues).length > 0) {
-                setStatInputs((prev) => ({ ...DEFAULT_STAT_INPUTS, ...statValues }));
-                if (statValues.region !== undefined) {
-                    const regionNum = Number(statValues.region);
-                    if ([1, 2, 3].includes(regionNum)) {
-                        setRegionValue(regionNum);
-                        setRegionSelectKey((k) => k + 1);
-                    }
-                }
-            }
-
-            // Saved builds carry the delve infusions + Revelation checkbox in
-            // the DB (they are not part of the URL token); restore them here.
-            // Drafts carry them inline the same way.
-            const effSavedState = isLoadedBuild ? savedState : effDraft;
-            const loadedDelve = {};
-            if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
-                const loadedRegion = Number(statValues.region) || 3;
-                for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
-                    const ok = DELVE_INFUSIONS.some((i) => i.name === infusion && i.region <= loadedRegion);
-                    if (ok) loadedDelve[slot] = infusion;
-                }
-                if (Object.keys(loadedDelve).length > 0) {
-                    setDelveInfusions(loadedDelve);
-                    setDelveOpen(true);
-                }
-            }
-            const loadedRevelation = Boolean(effSavedState && effSavedState.revelation);
-            if (loadedRevelation) setRevelation(true);
-
-            // A build renamed on the "My Builds" page stores its display name in
-            // the DB; surface it in the header so re-saving keeps the new name.
-            if (effDraft && effDraft.name) {
-                setBuildName(effDraft.name);
-            } else if (isLoadedBuild && savedName) {
-                setBuildName(savedName);
-            }
-
-            // Drafts also restore the notes text and remember the row they
-            // belong to, so saves keep updating that same build.
-            if (effDraft) {
-                if (effDraft.notes != null) setNotesDraft(effDraft.notes);
-                if (effDraft.buildId) setActiveBuildId(effDraft.buildId);
-            }
-
-            const delveEntries = {};
-            for (const [slot, infusion] of Object.entries(loadedDelve)) {
-                delveEntries[`delveInfusion-${slot}`] = infusion;
-            }
-
-            applyStatsUpdate(
-                {
-                    ...itemNames,
-                    ...statValues,
-                    ...delveEntries,
-                    ...(loadedRevelation ? { revelation: '1' } : {}),
-                },
-                itemData,
-                setStats,
-                update
-            );
-
-            // Region gating: drop whatever the loaded region forbids (see regionChanged).
-            const loadedRegion = Number(statValues.region) || 3;
-            if (loadedRegion === 1) {
-                setSpec(null);
+            loadedSkillPoints = nextPoints;
+            setSkillPoints(nextPoints);
+        }
+        let spPart = buildParts.find((str) => str.includes('sp='));
+        if (spPart) {
+            const specName = decodeURIComponent(spPart.split('sp=')[1]);
+            if (specName) {
+                setSpec(specName);
                 setSpecSelectKey((k) => k + 1);
-                setSpecSkillPoints({});
-                setEnhancements({});
-                setCharms([]);
-                setCzAbilities({});
-                setCzOpen(false);
-                refreshClassBuffs({}, {}, {});
-            } else if (loadedRegion < 3) {
-                setEnhancements({});
-                setCharms([]);
-                refreshClassBuffs(skillPoints, specSkillPoints, {});
             }
-            if (loadedRegion === 2) {
-                const prismaticOnly = Object.keys(nextCz).filter((name) =>
-                    czData?.trees?.some((t) => t.tree === 'Prismatic' && t.skills.some((s) => s.name === name))
-                );
-                if (prismaticOnly.length > 0) {
-                    const cleaned = { ...nextCz };
-                    prismaticOnly.forEach((name) => delete cleaned[name]);
-                    setCzAbilities(cleaned);
+        }
+        let sskPart = buildParts.find((str) => str.includes('ssk='));
+        let loadedSpecPoints = {};
+        if (sskPart) {
+            const nextPoints = {};
+            decodeURIComponent(sskPart.split('ssk=')[1])
+                .split(',')
+                .forEach((part) => {
+                    const [id, pts] = part.split(':');
+                    const points = Number(pts);
+                    if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
+                });
+            loadedSpecPoints = nextPoints;
+            setSpecSkillPoints(nextPoints);
+        }
+        let enPart = buildParts.find((str) => str.includes('en='));
+        let loadedEnhancements = {};
+        if (enPart) {
+            const nextEnhancements = {};
+            decodeURIComponent(enPart.split('en=')[1])
+                .split(',')
+                .forEach((key) => {
+                    if (key) nextEnhancements[key] = true;
+                });
+            loadedEnhancements = nextEnhancements;
+            setEnhancements(nextEnhancements);
+        }
+        let czPart = buildParts.find((str) => str.includes('cz='));
+        let nextCz = {};
+        if (czPart) {
+            const parsedCz = {};
+            decodeURIComponent(czPart.split('cz=')[1])
+                .split(',')
+                .forEach((part) => {
+                    // Legacy "Name:rarity" suffixes are dropped - abilities
+                    // are always Twisted.
+                    const name = part.split(':')[0];
+                    if (name) parsedCz[name] = true;
+                });
+            nextCz = parsedCz;
+            setCzAbilities(parsedCz);
+            setCzOpen(true);
+        }
+        // Skills that were removed from the API: drop their points from the
+        // form so the counters stay honest (the original URL is untouched
+        // until the user edits and the link is rewritten).
+        // Only filter when the skills data is already loaded: parentLoaded
+        // fires before the /api/v1/skills fetch resolves, and filtering
+        // against an empty skill set would wipe every loaded point. The
+        // cleanup effect below re-filters once the data arrives.
+        const loadedClass = classPart?.split('cl=')[1] || null;
+        const loadedSpec = spPart ? decodeURIComponent(spPart.split('sp=')[1]) : null;
+        const classData = skillsData?.classes?.find(
+            (c) => (c.className || '').toLowerCase() == (loadedClass || '').toLowerCase()
+        );
+        if (skillsData && classData) {
+            const knownSkillIds = new Set((classData.skills || []).map((s) => s.scoreboardId));
+            const specData = loadedSpec ? classData.specs?.find((s) => s.specName == loadedSpec) : null;
+            const knownSpecSkillIds = new Set((specData?.specSkills || []).map((s) => s.scoreboardId));
+            loadedSkillPoints = Object.fromEntries(
+                Object.entries(loadedSkillPoints).filter(([id]) => knownSkillIds.has(id))
+            );
+            loadedSpecPoints = Object.fromEntries(
+                Object.entries(loadedSpecPoints).filter(([id]) => knownSpecSkillIds.has(id))
+            );
+            setSkillPoints(loadedSkillPoints);
+            setSpecSkillPoints(loadedSpecPoints);
+        }
+
+        refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements);
+        // extra stat inputs (health/tenacity/vitality/vigor/focus/perspicacity/region)
+        const statValues = {};
+        for (const key of STAT_KEYS) {
+            const part = buildParts.find((str) => str.startsWith(`${key}=`));
+            if (part) statValues[key] = part.split('=')[1];
+        }
+        if (statValues.health !== undefined) {
+            statValues.health = String(Math.max(0, Number(statValues.health)));
+        }
+        if (Object.keys(statValues).length > 0) {
+            setStatInputs((prev) => ({ ...DEFAULT_STAT_INPUTS, ...statValues }));
+            if (statValues.region !== undefined) {
+                const regionNum = Number(statValues.region);
+                if ([1, 2, 3].includes(regionNum)) {
+                    setRegionValue(regionNum);
+                    setRegionSelectKey((k) => k + 1);
                 }
             }
+        }
+
+        // Saved builds carry the delve infusions + Revelation checkbox in
+        // the DB (they are not part of the URL token); restore them here.
+        // Drafts carry them inline the same way.
+        const effSavedState = isLoadedBuild ? savedState : effDraft;
+        const loadedDelve = {};
+        if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
+            const loadedRegion = Number(statValues.region) || 3;
+            for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
+                const ok = DELVE_INFUSIONS.some((i) => i.name === infusion && i.region <= loadedRegion);
+                if (ok) loadedDelve[slot] = infusion;
+            }
+            if (Object.keys(loadedDelve).length > 0) {
+                setDelveInfusions(loadedDelve);
+                setDelveOpen(true);
+            }
+        }
+        const loadedRevelation = Boolean(effSavedState && effSavedState.revelation);
+        if (loadedRevelation) setRevelation(true);
+
+        // A build renamed on the "My Builds" page stores its display name in
+        // the DB; surface it in the header so re-saving keeps the new name.
+        if (effDraft && effDraft.name) {
+            setBuildName(effDraft.name);
+        } else if (isLoadedBuild && savedName) {
+            setBuildName(savedName);
+        }
+
+        // Drafts also restore the notes text and remember the row they
+        // belong to, so saves keep updating that same build.
+        if (effDraft) {
+            if (effDraft.notes != null) setNotesDraft(effDraft.notes);
+            if (effDraft.buildId) setActiveBuildId(effDraft.buildId);
+        }
+
+        const delveEntries = {};
+        for (const [slot, infusion] of Object.entries(loadedDelve)) {
+            delveEntries[`delveInfusion-${slot}`] = infusion;
+        }
+
+        applyStatsUpdate(
+            {
+                ...itemNames,
+                ...statValues,
+                ...delveEntries,
+                ...(loadedRevelation ? { revelation: '1' } : {}),
+            },
+            itemData,
+            setStats,
+            update
+        );
+
+        // Region gating: drop whatever the loaded region forbids (see regionChanged).
+        const loadedRegion = Number(statValues.region) || 3;
+        if (loadedRegion === 1) {
+            setSpec(null);
+            setSpecSelectKey((k) => k + 1);
+            setSpecSkillPoints({});
+            setEnhancements({});
+            setCharms([]);
+            setCzAbilities({});
+            setCzOpen(false);
+            refreshClassBuffs({}, {}, {});
+        } else if (loadedRegion < 3) {
+            setEnhancements({});
+            setCharms([]);
+            refreshClassBuffs(skillPoints, specSkillPoints, {});
+        }
+        if (loadedRegion === 2) {
+            const prismaticOnly = Object.keys(nextCz).filter((name) =>
+                czData?.trees?.some((t) => t.tree === 'Prismatic' && t.skills.some((s) => s.name === name))
+            );
+            if (prismaticOnly.length > 0) {
+                const cleaned = { ...nextCz };
+                prismaticOnly.forEach((name) => delete cleaned[name]);
+                setCzAbilities(cleaned);
+            }
+        }
     }, [parentLoaded, draft]);
 
     // Import the build list (items collected on the items page) into empty
@@ -1598,7 +1602,14 @@ export default function BuildForm({
         const isLoadedBuild = Boolean(build);
         const effDraft = draft && (!isLoadedBuild || draft.buildId === buildId) ? draft : null;
         const loadToken = effDraft ? effDraft.token : build;
-        const itemNames = { mainhand: 'None', offhand: 'None', helmet: 'None', chestplate: 'None', leggings: 'None', boots: 'None' };
+        const itemNames = {
+            mainhand: 'None',
+            offhand: 'None',
+            helmet: 'None',
+            chestplate: 'None',
+            leggings: 'None',
+            boots: 'None',
+        };
         if (loadToken) {
             const decoded = decodeBuildParam(loadToken, itemData);
             if (decoded) {
@@ -2015,8 +2026,8 @@ export default function BuildForm({
         { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
-    // Current health as a % of max health (1-100), clamped for the slider.
-    const healthPercentInput = Math.max(1, Math.min(100, Number(statInputs.health) || 100));
+    // Current health as a % of max health (0-100), clamped for the slider.
+    const healthPercentInput = Math.max(0, Math.min(100, Number(statInputs.health) || 100));
     const healthStats = [
         { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
         { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },
@@ -2671,9 +2682,7 @@ export default function BuildForm({
                                                         type="checkbox"
                                                         checked={selected}
                                                         disabled={triggerTaken && !selected}
-                                                        onChange={(e) =>
-                                                            czChanged(ability.name, e.target.checked)
-                                                        }
+                                                        onChange={(e) => czChanged(ability.name, e.target.checked)}
                                                         aria-label={`${ability.name} (${ability.trigger})`}
                                                     />
                                                     <img
@@ -2694,23 +2703,23 @@ export default function BuildForm({
                                     </div>
                                 )
                             )}
-                         </div>
-                     </div>
-                 </div>
-             )}
-             <div className="row justify-content-center pt-1 mb-1 g-1">
-                 <TranslatableText
-                     identifier="builder.misc.situationals"
-                     className="text-center mb-1"
-                 ></TranslatableText>
-                 {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions)}
-             </div>
-             <div className="row justify-content-center mb-1">
-                 <div className="col-4 col-md-3 col-lg-2 text-center">
-                     <button type="submit" className={styles.recalcButton} value="Recalculate">
-                         <TranslatableText identifier="builder.buttons.recalculate"></TranslatableText>
-                     </button>
-                 </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            <div className="row justify-content-center pt-1 mb-1 g-1">
+                <TranslatableText
+                    identifier="builder.misc.situationals"
+                    className="text-center mb-1"
+                ></TranslatableText>
+                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions)}
+            </div>
+            <div className="row justify-content-center mb-1">
+                <div className="col-4 col-md-3 col-lg-2 text-center">
+                    <button type="submit" className={styles.recalcButton} value="Recalculate">
+                        <TranslatableText identifier="builder.buttons.recalculate"></TranslatableText>
+                    </button>
+                </div>
                 <div className="col-4 col-md-3 col-lg-2 text-center">
                     <button
                         type="button"
@@ -2742,7 +2751,7 @@ export default function BuildForm({
                     />
                 </div>
             </div>
-            {(loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
+            {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
                     <button
                         type="button"
@@ -2797,7 +2806,7 @@ export default function BuildForm({
                         </span>
                     )}
                 </div>
-            ))}
+            )}
             {(saveState === 'copied' || saveState === 'error' || savedAnonymous) && (
                 <div
                     className={`${styles.copyToast}${
@@ -2952,7 +2961,7 @@ export default function BuildForm({
                             ></CharmSelector>
                         </div>
                     </div>
-            <div className="row justify-content-center mb-1">
+                    <div className="row justify-content-center mb-1">
                         {charms.map((charm) => (
                             <div
                                 className={`col-auto ${styles.builderCol}`}
@@ -3268,132 +3277,138 @@ export default function BuildForm({
                     })}
                 </div>
             </div>
-             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
-                     <div className="text-center mx-2">
-                         <div className={styles.enchantTooltip}>
-                             <p className="mb-1">
-                                 <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
-                             </p>
-                             <span className={styles.enchantTooltipText}>
-                                 Current health as a % of your max health. Lower values preview low-HP effects
-                                 (Steadfast, Second Wind, ...).
-                             </span>
-                         </div>
-                         <div className={styles.healthSliderRow}>
-                             <input
-                                 type="range"
-                                 name="health"
-                                 min="1"
-                                 max="100"
-                                 step="1"
-                                 value={healthPercentInput}
-                                 onChange={(e) => statInputChanged('health', e)}
-                                 className={styles.healthSlider}
-                                 style={{
-                                     '--slider-color': `hsl(${((healthPercentInput - 1) / 99) * 120} 70% 45%)`,
-                                     '--slider-pct': `${healthPercentInput}%`,
-                                 }}
-                             />
-                             <span className={styles.healthPoints}>
-                                 {Number.isFinite(itemsToDisplay.currentHealth)
-                                     ? Math.round(itemsToDisplay.currentHealth)
-                                     : '–'}
-                                 {' / '}
-                                 {Number.isFinite(itemsToDisplay.healthFinal)
-                                     ? Math.round(itemsToDisplay.healthFinal)
-                                     : '–'}
-                             </span>
-                         </div>
-                     </div>
-                 <div className="text-center mx-2">
-                     <div className={styles.enchantTooltip}>
-                         <p className="mb-1">Tenacity</p>
-                         <span className={styles.enchantTooltipText}>
-                             Basic Infusion: take (0.5% × level) less damage.
-                         </span>
-                     </div>
-                     <input
-                         type="number"
-                         name="tenacity"
-                         min="0"
-                         max="30"
-                         value={statInputs.tenacity}
-                         onChange={(e) => statInputChanged('tenacity', e)}
-                         className={styles.builderCompactInput}
-                     />
-                 </div>
-                 <div className="text-center mx-2">
-                     <div className={styles.enchantTooltip}>
-                         <p className="mb-1">Vitality</p>
-                         <span className={styles.enchantTooltipText}>
-                             Basic Infusion: gain (1% × level) max health.
-                         </span>
-                     </div>
-                     <input
-                         type="number"
-                         name="vitality"
-                         min="0"
-                         max="30"
-                         value={statInputs.vitality}
-                         onChange={(e) => statInputChanged('vitality', e)}
-                         className={styles.builderCompactInput}
-                     />
-                 </div>
-                 <div className="text-center mx-2">
-                     <div className={styles.enchantTooltip}>
-                         <p className="mb-1">Vigor</p>
-                         <span className={styles.enchantTooltipText}>
-                             Basic Infusion: deal (1% / 1.25% / 1.5% × level) more melee damage in Valley / Isles /
-                             Ring.
-                         </span>
-                     </div>
-                     <input
-                         type="number"
-                         name="vigor"
-                         min="0"
-                         max="30"
-                         value={statInputs.vigor}
-                         onChange={(e) => statInputChanged('vigor', e)}
-                         className={styles.builderCompactInput}
-                     />
-                 </div>
-                 <div className="text-center mx-2">
-                     <div className={styles.enchantTooltip}>
-                         <p className="mb-1">Focus</p>
-                         <span className={styles.enchantTooltipText}>
-                             Basic Infusion: deal (1% / 1.25% / 1.5% × level) more projectile damage in Valley /
-                             Isles / Ring.
-                         </span>
-                     </div>
-                     <input
-                         type="number"
-                         name="focus"
-                         min="0"
-                         max="30"
-                         value={statInputs.focus}
-                         onChange={(e) => statInputChanged('focus', e)}
-                         className={styles.builderCompactInput}
-                     />
-                 </div>
-                 <div className="text-center mx-2">
-                     <div className={styles.enchantTooltip}>
-                         <p className="mb-1">Perspicacity</p>
-                         <span className={styles.enchantTooltipText}>
-                             Basic Infusion: deal (1% / 1.25% / 1.5% × level) more magic damage in Valley / Isles /
-                             Ring.
-                         </span>
-                     </div>
-                     <input
-                         type="number"
-                         name="perspicacity"
-                         min="0"
-                         max="30"
-                         value={statInputs.perspicacity}
-                         onChange={(e) => statInputChanged('perspicacity', e)}
-                         className={styles.builderCompactInput}
-                     />
-                 </div>
-             </div>
+            <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
+                <div className="text-center mx-2">
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">
+                            <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
+                        </p>
+                        <span className={styles.enchantTooltipText}>
+                            Current health as a % of your max health. Lower values preview low-HP effects (Steadfast,
+                            Second Wind, ...).
+                        </span>
+                    </div>
+                    <div className={styles.healthSliderRow}>
+                        <input
+                            type="range"
+                            name="health"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={healthPercentInput}
+                            onChange={(e) => statInputChanged('health', e)}
+                            className={styles.healthSlider}
+                            style={{
+                                '--slider-color': `hsl(${(healthPercentInput / 100) * 120} 70% 45%)`,
+                                '--slider-pct': `${healthPercentInput}%`,
+                            }}
+                        />
+                        <input
+                            type="number"
+                            name="health"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={statInputs.health}
+                            onChange={(e) => statInputChanged('health', e)}
+                            onBlur={healthPercentBlur}
+                            className={styles.healthPercentInput}
+                            aria-label="Max health percent"
+                        />
+                        <span className={styles.healthPoints}>
+                            {Number.isFinite(itemsToDisplay.currentHealth)
+                                ? Math.round(itemsToDisplay.currentHealth)
+                                : '–'}
+                            {' / '}
+                            {Number.isFinite(itemsToDisplay.healthFinal) ? Math.round(itemsToDisplay.healthFinal) : '–'}
+                        </span>
+                    </div>
+                </div>
+                <div className="text-center mx-2">
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Tenacity</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: take (0.5% × level) less damage.
+                        </span>
+                    </div>
+                    <input
+                        type="number"
+                        name="tenacity"
+                        min="0"
+                        max="30"
+                        value={statInputs.tenacity}
+                        onChange={(e) => statInputChanged('tenacity', e)}
+                        className={styles.builderCompactInput}
+                    />
+                </div>
+                <div className="text-center mx-2">
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Vitality</p>
+                        <span className={styles.enchantTooltipText}>Basic Infusion: gain (1% × level) max health.</span>
+                    </div>
+                    <input
+                        type="number"
+                        name="vitality"
+                        min="0"
+                        max="30"
+                        value={statInputs.vitality}
+                        onChange={(e) => statInputChanged('vitality', e)}
+                        className={styles.builderCompactInput}
+                    />
+                </div>
+                <div className="text-center mx-2">
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Vigor</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more melee damage in Valley / Isles / Ring.
+                        </span>
+                    </div>
+                    <input
+                        type="number"
+                        name="vigor"
+                        min="0"
+                        max="30"
+                        value={statInputs.vigor}
+                        onChange={(e) => statInputChanged('vigor', e)}
+                        className={styles.builderCompactInput}
+                    />
+                </div>
+                <div className="text-center mx-2">
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Focus</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more projectile damage in Valley / Isles /
+                            Ring.
+                        </span>
+                    </div>
+                    <input
+                        type="number"
+                        name="focus"
+                        min="0"
+                        max="30"
+                        value={statInputs.focus}
+                        onChange={(e) => statInputChanged('focus', e)}
+                        className={styles.builderCompactInput}
+                    />
+                </div>
+                <div className="text-center mx-2">
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Perspicacity</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more magic damage in Valley / Isles / Ring.
+                        </span>
+                    </div>
+                    <input
+                        type="number"
+                        name="perspicacity"
+                        min="0"
+                        max="30"
+                        value={statInputs.perspicacity}
+                        onChange={(e) => statInputChanged('perspicacity', e)}
+                        className={styles.builderCompactInput}
+                    />
+                </div>
+            </div>
             <div className="row pt-1">
                 <span className="text-center text-danger fs-2 fw-bold">
                     {stats.corruption > 1 ? (
