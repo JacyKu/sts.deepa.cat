@@ -1857,6 +1857,7 @@ export default function BuildForm({
         setCzAbilities({});
         setCzSelectedTree(CZ_MAIN_TREES[0]);
         setBuildName('Monumenta Builder');
+        setNotesDraft('');
         setActiveBuildId(null);
         for (let box in enabledBoxes) {
             enabledBoxes[box] = false;
