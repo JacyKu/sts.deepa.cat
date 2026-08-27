@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { getItemData, getSkillsData } from '../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../_src/utils/buildPreview';
+import { mergeCustomItems } from '../../lib/sts-builds';
+import { getDiscordUser } from '../../lib/session';
 import BuilderPage from '../_src/components/builderPage';
 import BuilderSkeleton from '../_src/components/builderSkeleton';
 
@@ -69,5 +71,6 @@ export default async function Page({ searchParams }) {
 
 async function BuilderView({ build }) {
     const itemData = await getItemData();
-    return <BuilderPage build={build} itemData={itemData} />;
+    const user = await getDiscordUser();
+    return <BuilderPage build={build} itemData={mergeCustomItems(itemData, user ? user.id : null)} />;
 }

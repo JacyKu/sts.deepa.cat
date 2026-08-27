@@ -392,11 +392,6 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
                     className={styles.grid}
                     hasMore={hasMore}
                     next={() => loadPage(pageRef.current + 1, false)}
-                    loader={
-                        <p className={styles.muted}>
-                            <TranslatableText identifier="database.end" />
-                        </p>
-                    }
                 >
                     {builds.map((build) => (
                         <BuildCard

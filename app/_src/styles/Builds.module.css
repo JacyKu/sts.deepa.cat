@@ -62,6 +62,26 @@
     gap: 10px;
 }
 
+/* One card in the grid. */
+.cell {
+    display: flex;
+    flex-direction: column;
+    width: 360px;
+    max-width: 100%;
+}
+
+/* Management buttons embedded at the bottom of the card itself. */
+.cardActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--glass-border);
+}
+
 .row {
     display: flex;
     align-items: center;

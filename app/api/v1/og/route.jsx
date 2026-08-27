@@ -31,14 +31,16 @@ const SKILL_SPEC = '#7CC4FF';
 const SKILL_ENH = '#7EE787';
 const PANEL = 'rgba(255,255,255,0.05)';
 const BORDER = 'rgba(255,255,255,0.12)';
-const CZ_RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Twisted'];
-const CZ_RARITY_COLORS = ['#9f929c', '#70bc6d', '#705eca', '#cd5eca', '#e49b20', '#703663'];
+const CZ_COLOR = '#703663'; // CZ/Depths abilities are always Twisted.
 
 const STAR_PATH =
     'M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z';
 
 let spriteInfoCache = null;
 let faviconCache = null;
+// Discord CDN avatars fetched for the embed author bar, keyed by URL so
+// repeated fetches (Discord re-fetches og images with each preview) stay cheap.
+const avatarCache = new Map();
 
 async function getFaviconDataUrl() {
     if (faviconCache) return faviconCache;
@@ -52,6 +54,27 @@ async function getFaviconDataUrl() {
         faviconCache = null;
     }
     return faviconCache;
+}
+
+// Fetch a Discord CDN avatar and re-encode it as a PNG data URL for embedding
+// in the card image. Returns null when the fetch fails (e.g. deleted avatar).
+async function getAvatarDataUrl(url) {
+    if (avatarCache.has(url)) return avatarCache.get(url);
+    let dataUrl = null;
+    try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+            const buf = await sharp(await res.arrayBuffer())
+                .resize(64, 64)
+                .png()
+                .toBuffer();
+            dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+        }
+    } catch (e) {
+        dataUrl = null;
+    }
+    avatarCache.set(url, dataUrl);
+    return dataUrl;
 }
 
 // Parses the spritesheet maps + CSS positions once; crops 64x64 item textures on demand.
@@ -75,13 +98,21 @@ async function getSpriteInfo() {
         positions[match[1]] = { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) };
     }
 
+    // Tokens whose sprite lives on the animated sheet (strips of frames).
+    const animTokens = new Set();
+    const animRe =
+        /\.monumenta-([\w-]+)\s*\{\s*background-position:[^}]*background-image:\s*url\("\.\/itemsheet-anim\.png"\)/g;
+    while ((match = animRe.exec(cssRaw))) {
+        animTokens.add(match[1]);
+    }
+
     const mcPositions = {};
     const mcRe = /\.minecraft-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)px\s+(-?\d+)(?:px)?/g;
     while ((match = mcRe.exec(mcCssRaw))) {
         mcPositions[match[1]] = { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) };
     }
 
-    spriteInfoCache = { map, positions, sheet, mcPositions, mcSheet };
+    spriteInfoCache = { map, positions, animTokens, sheet, mcPositions, mcSheet };
     return spriteInfoCache;
 }
 
@@ -111,10 +142,32 @@ async function cropSprite(sheet, pos) {
     }
 }
 
-async function itemSpriteDataUrl({ map, positions, sheet, mcPositions, mcSheet }, itemKey, itemName, baseItem) {
+async function itemSpriteDataUrl(
+    { map, positions, animTokens, sheet, mcPositions, mcSheet },
+    itemKey,
+    itemName,
+    baseItem
+) {
     const spriteKey = findSpriteKey(map, itemKey, itemName);
     const pos = spriteKey && positions[spriteKey];
-    if (pos) return cropSprite(sheet, pos);
+    if (pos) {
+        // Animated items come from the prerendered GIFs only (the same files
+        // the texture endpoint and the bot serve): their first frame is the
+        // strip start, identical to the animated sheet's cell. `animated:
+        // true` would load the whole frame stack as one tall canvas, so it is
+        // left off to extract a single 64x64 page.
+        if (animTokens.has(spriteKey)) {
+            try {
+                const pre = path.join(process.cwd(), 'public', 'spritesheets', 'textures', `${spriteKey}.gif`);
+                const gif = await fs.readFile(pre);
+                const frame = await sharp(gif, { page: 0 }).png().toBuffer();
+                return `data:image/png;base64,${frame.toString('base64')}`;
+            } catch (e) {
+                return null;
+            }
+        }
+        return cropSprite(sheet, pos);
+    }
     // Fall back to the vanilla Minecraft texture for the item's base material.
     if (baseItem) {
         const mcKey = getMinecraftTextureKey(baseItem);
@@ -156,12 +209,7 @@ function EquipmentGrid({ itemLines, size = 56 }) {
                     {pair.map(({ label, name, img, ex, tier, masterwork }) => (
                         <div key={label} style={{ display: 'flex', width: CELL_W, marginRight: 10 }}>
                             {img ? (
-                                <img
-                                    src={img}
-                                    width={size}
-                                    height={size}
-                                    style={{ imageRendering: 'pixelated' }}
-                                />
+                                <img src={img} width={size} height={size} style={{ imageRendering: 'pixelated' }} />
                             ) : (
                                 <div style={{ width: size, height: size, border: `1px solid ${BORDER}` }} />
                             )}
@@ -265,10 +313,10 @@ function SkillPanel({ data }) {
     );
 }
 
-// Delve infusion chips (slot label + infusion name), rendered from DB state.
+// Delve infusion chips (slot label + infusion name), rendered from DB state
+// in slot order MH > OH > Helm > Chest > Legs > Boots (the saved state stores
+// them alphabetically, so the panel reorders instead of trusting key order).
 function InfusionPanel({ infusions }) {
-    const entries = Object.entries(infusions || {}).filter(([, v]) => v && v !== 'None');
-    if (entries.length === 0) return null;
     const SLOT_SHORT = {
         mainhand: 'MH',
         offhand: 'OH',
@@ -277,6 +325,9 @@ function InfusionPanel({ infusions }) {
         leggings: 'LEGS',
         boots: 'BOOTS',
     };
+    const SLOT_ORDER = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+    const entries = SLOT_ORDER.map((slot) => [slot, infusions && infusions[slot]]).filter(([, v]) => v && v !== 'None');
+    if (entries.length === 0) return null;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10 }}>
             <div style={{ fontSize: 12, letterSpacing: 2, color: DIM, fontWeight: 700, marginBottom: 4 }}>
@@ -316,12 +367,21 @@ export async function GET(request) {
     // Saved builds can be rendered by DB id: the token alone can't carry the
     // delve infusions, which live in the DB state.
     let savedState = null;
+    // The build author (name + Discord avatar) for the embed, from the author
+    // snapshot taken at publicise time. Hidden entirely for anonymous posts.
+    let author = null;
     const token = (() => {
         if (build) return build;
         if (buildId) {
             const row = getBuild(buildId);
             if (!row) return null;
             savedState = row.parsedState;
+            if (row.is_public === 1 && row.anonymous !== 1 && row.author_name) {
+                author = { name: row.author_name };
+                if (row.user_id && row.author_avatar) {
+                    author.avatarUrl = `https://cdn.discordapp.com/avatars/${row.user_id}/${row.author_avatar}.png?size=128&format=png`;
+                }
+            }
             return row.token;
         }
         return null;
@@ -378,6 +438,7 @@ export async function GET(request) {
     );
 
     const spriteInfo = await getSpriteInfo();
+    const avatarDataUrl = author?.avatarUrl ? await getAvatarDataUrl(author.avatarUrl) : null;
     const itemLines = data
         ? await Promise.all(
               Object.entries(SLOT_LABELS).map(async ([slot, label]) => {
@@ -385,21 +446,25 @@ export async function GET(request) {
                   if (key === 'None')
                       return { label, name: null, key: null, img: null, ex: false, tier: null, masterwork: 0 };
                   const item = itemData[key];
-                  const name = item?.name || key;
-                  const img = await itemSpriteDataUrl(spriteInfo, key, name, item?.base_item);
+                  const rawName = item?.name || key;
+                  const ex = Boolean(rawName?.startsWith('EX '));
+                  const name = ex ? rawName.replace(/^EX\s+/, '') : rawName;
+                  const img = await itemSpriteDataUrl(spriteInfo, key, rawName, item?.base_item);
                   return {
                       label,
                       name,
                       key,
                       img,
-                      ex: Boolean(item?.name?.startsWith('EX ')),
+                      ex,
                       tier: item?.tier || null,
                       masterwork: item && item.masterwork != null ? item.masterwork : null,
                   };
               })
           )
         : null;
-    const charmNames = data?.charms.items || [];
+    // Valley (1) and Isles (2) - including Darkest Depths - have no charms.
+    // Never show the charms panel (or reserve its space) for those regions.
+    const charmNames = region > 2 ? data?.charms.items || [] : [];
     const hasCharms = charmNames.length > 0;
     const hasAnyItem = (itemLines || []).some((l) => l.name);
     const hasAnyExtra =
@@ -456,30 +521,19 @@ export async function GET(request) {
                         {region === 2 ? 'DARKEST DEPTHS' : 'CELESTIAL ZENITH'}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {data.czAbilities.map((a) => (
+                        {data.czAbilities.map((name) => (
                             <div
-                                key={a.name}
+                                key={name}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 6,
-                                    border: `2px solid ${BORDER}`,
+                                    border: `2px solid ${CZ_COLOR}`,
                                     background: PANEL,
                                     padding: '3px 8px',
                                 }}
                             >
-                                <span style={{ fontSize: 13, color: TEXT, fontWeight: 700 }}>{a.name}</span>
-                                {a.rarity > 0 && (
-                                    <span
-                                        style={{
-                                            fontSize: 11,
-                                            color: CZ_RARITY_COLORS[a.rarity] || MUTED,
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        {CZ_RARITIES[a.rarity]}
-                                    </span>
-                                )}
+                                <span style={{ fontSize: 13, color: TEXT, fontWeight: 700 }}>{name}</span>
                             </div>
                         ))}
                     </div>
@@ -567,6 +621,32 @@ export async function GET(request) {
                     </div>
                 )}
             </div>
+
+            {author && (
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginTop: 12,
+                        paddingTop: 10,
+                        borderTop: `1px solid ${BORDER}`,
+                    }}
+                >
+                    {avatarDataUrl && (
+                        <img
+                            src={avatarDataUrl}
+                            width={26}
+                            height={26}
+                            style={{ borderRadius: 999, objectFit: 'cover' }}
+                        />
+                    )}
+                    <div style={{ fontSize: 14, color: MUTED, fontWeight: 600 }}>{author.name}</div>
+                    <div style={{ fontSize: 10, letterSpacing: 2, color: DIM, fontWeight: 700, marginLeft: 4 }}>
+                        BUILD AUTHOR
+                    </div>
+                </div>
+            )}
         </div>,
         { width: 1200, height: 630 }
     );

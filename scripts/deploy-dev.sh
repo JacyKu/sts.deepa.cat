@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-# Deploy the STS dev environment (dev.sts.deepa.cat).
+﻿#!/usr/bin/env bash
+# Deploy the STS dev environment (dev.deepa.cat).
 #
 # Run on the server as the app user:
 #   bash scripts/deploy-dev.sh
@@ -8,10 +8,10 @@
 #   - a checkout of JacyKu/sts.deepa.cat at /root/sts-dev (default; override
 #     with STS_DEV_DIR) with the `dev` branch checked out
 #   - /root/sts-dev/.env containing the dev environment variables
-#     (STS_PUBLIC_BASE_URL=https://dev.sts.deepa.cat, STS_SESSION_SECRET,
+#     (STS_PUBLIC_BASE_URL=https://dev.deepa.cat, STS_SESSION_SECRET,
 #     STS_DISCORD_CLIENT_ID, STS_DISCORD_CLIENT_SECRET)
 #   - a PM2 app named `sts-dev` (see ecosystem.config.cjs in deepa.cat)
-#   - nginx routing dev.sts.deepa.cat -> 127.0.0.1:6679 (see nginx.conf)
+#   - nginx routing dev.deepa.cat -> 127.0.0.1:6679 (see nginx.conf)
 #
 # The dev checkout keeps its own SQLite database (data/sts-builds.db), so
 # dev builds/favourites never touch production data.
@@ -51,4 +51,4 @@ npm run build
 pm2 restart sts-dev --update-env 2>/dev/null || \
     pm2 start node_modules/next/dist/bin/next --name sts-dev -- start -p 6679
 
-echo "dev.sts.deepa.cat deployed from origin/dev ($(git rev-parse --short HEAD))"
+echo "dev.deepa.cat deployed from origin/dev ($(git rev-parse --short HEAD))"

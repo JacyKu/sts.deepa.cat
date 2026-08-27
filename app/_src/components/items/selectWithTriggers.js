@@ -8,6 +8,7 @@ const SelectWithTriggers = (props) => {
     const [firstChild, setFirstChild] = React.useState();
     const { lang } = useLanguageContext();
     const container = React.useRef();
+    const spawnedRef = React.useRef(false);
     const opt = props.opts.map((o) => {
         return {
             value: o.name,
@@ -25,6 +26,18 @@ const SelectWithTriggers = (props) => {
         let child = props.opts.find((o) => o.name == selectedValue).select(props.index);
         setFirstChild(child);
     }
+
+    // Restored searches come in with the category + selected value already set:
+    // spawn the value select immediately (with its cached default) instead of
+    // waiting for the user to pick a category.
+    React.useEffect(() => {
+        if (spawnedRef.current) return;
+        spawnedRef.current = true;
+        if (!selectedDefault) return;
+        const category = props.opts.find((o) => o.name === selectedDefault.value);
+        if (!category) return;
+        setFirstChild(category.select(props.index, props.childDefault));
+    }, []);
 
     const handleDeleteItem = React.useCallback(() => {
         props.deleteCallback(props.index);

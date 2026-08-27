@@ -36,13 +36,23 @@ const SelectInput = (data) => {
         options.unshift({ value: 'None', label: 'None' });
     }
 
+    // Cached restores pass the selected value (a plain string); resolve it to
+    // the matching option object, defaulting to the first option otherwise.
+    // Object defaults ({ value, label }) are accepted too - the builder's
+    // class/spec selects pass them, and the option value is compared against
+    // default.value (an object would never match a string option value).
+    const defaultVal = data.default !== null && typeof data.default === 'object' ? data.default.value : data.default;
+    const defaultOption = defaultVal
+        ? options.find((o) => (typeof o === 'object' ? o.value === defaultVal : o === defaultVal)) || null
+        : options[0];
+
     const select = (
         <Select
             ref={data.reference}
             instanceId={data.name}
             name={data.name}
             options={options}
-            defaultValue={data.default ? data.default : options[0]}
+            defaultValue={defaultOption}
             menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
             menuPosition="fixed"
             theme={(theme) => ({

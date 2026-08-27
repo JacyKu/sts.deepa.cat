@@ -1,9 +1,10 @@
 import styles from '../../styles/ListSelector.module.css';
+import itemsStyles from '../../styles/Items.module.css';
 import Percentage from '../../utils/builder/percentage';
 import TranslatableText from '../translatableText';
 import React from 'react';
 
-export default function ListSelector({ update, translatableName }) {
+export default function ListSelector({ update, translatableName, description }) {
     const [entries, setEntries] = React.useState([]);
 
     const inputRef = React.useRef();
@@ -31,7 +32,10 @@ export default function ListSelector({ update, translatableName }) {
     return (
         <div className={`${styles.listSelectorContainer} p-1`}>
             <p className={`${styles.name} m-0 mb-1`}>
-                <TranslatableText identifier={translatableName}></TranslatableText>
+                <span className={itemsStyles.enchantTooltip}>
+                    <TranslatableText identifier={translatableName}></TranslatableText>
+                    {description && <span className={itemsStyles.enchantTooltipText}>{description}</span>}
+                </span>
             </p>
             <div className={`${styles.listSelectorInputs} justify-content-center`}>
                 <input className={styles.entryInput} type="text" ref={inputRef}></input>

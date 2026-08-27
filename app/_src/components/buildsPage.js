@@ -3,7 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import TranslatableText from './translatableText';
+import BuildCard from './buildCard';
 import styles from '../styles/Builds.module.css';
+import dbStyles from '../styles/Database.module.css';
 import { getStsBase } from '../utils/base';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
 
@@ -104,6 +106,18 @@ export default function BuildsPage() {
             .catch(() => setError('publicise'));
     }
 
+    function toggleFavourite(buildId, favourite) {
+        setBuilds((prev) => prev.map((b) => (b.id === buildId ? { ...b, myFavourite: favourite } : b)));
+    }
+
+    // The buttons live inside the card, which is a link - stop the click
+    // from navigating (or, on touch, from expanding the card first).
+    const stop = (fn) => (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        fn();
+    };
+
     function clearError() {
         setError(null);
     }
@@ -154,73 +168,76 @@ export default function BuildsPage() {
                         <TranslatableText identifier="builds.empty" />
                     </p>
                 ) : (
-                    <ul className={styles.list}>
+                    <div className={dbStyles.grid}>
                         {builds.map((build) => (
-                            <li key={build.id} className={styles.row}>
-                                {editingId === build.id ? (
-                                    <input
-                                        type="text"
-                                        className={styles.nameInput}
-                                        value={editName}
-                                        onChange={(e) => setEditName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') submitRename(build);
-                                            if (e.key === 'Escape') setEditingId(null);
-                                        }}
-                                        onBlur={() => submitRename(build)}
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <Link className={styles.name} href={base + (build.url || `/b/${build.id}`)}>
-                                        {displayName(build)}
-                                    </Link>
-                                )}
-                                <span className={styles.date}>
-                                    {new Date((build.updatedAt || build.createdAt) + 'Z').toLocaleString()}
-                                </span>
-                                <button
-                                    type="button"
-                                    className={`${styles.rowBtn}${
-                                        build.isPublic ? ` ${styles.rowBtnPublic}` : ''
-                                    }`}
-                                    onClick={() => togglePublic(build)}
-                                    disabled={build.publicBusy}
-                                    title={build.isPublic ? 'Make private' : 'Publicise'}
-                                >
-                                    {build.isPublic ? (
-                                        <TranslatableText identifier="database.publicBadge" />
-                                    ) : (
-                                        <TranslatableText identifier="database.publicise" />
-                                    )}
-                                    {build.isPublic && build.anonymous && (
-                                        <span className={styles.anonBadge}>
-                                            <TranslatableText identifier="database.anonBadge" />
-                                        </span>
-                                    )}
-                                </button>
-                                <button
-                                    type="button"
-                                    className={styles.rowBtn}
-                                    onClick={() => startRename(build)}
-                                    title="Rename"
-                                >
-                                    <TranslatableText identifier="builds.rename" />
-                                </button>
-                                <button
-                                    type="button"
-                                    className={styles.rowBtn}
-                                    onClick={() => requestDelete(build)}
-                                    title="Delete"
-                                >
-                                    {confirmDeleteId === build.id ? (
-                                        <TranslatableText identifier="builds.confirmDelete" />
-                                    ) : (
-                                        <TranslatableText identifier="builds.delete" />
-                                    )}
-                                </button>
-                            </li>
+                            <div key={build.id} className={styles.cell}>
+                                <BuildCard build={build} user={user} base={base} onToggleFavourite={toggleFavourite}>
+                                    <div className={styles.cardActions}>
+                                        {editingId === build.id ? (
+                                            <input
+                                                type="text"
+                                                className={styles.nameInput}
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        submitRename(build);
+                                                    }
+                                                    if (e.key === 'Escape') setEditingId(null);
+                                                }}
+                                                onBlur={() => submitRename(build)}
+                                                autoFocus
+                                            />
+                                        ) : (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.rowBtn}${
+                                                        build.isPublic ? ` ${styles.rowBtnPublic}` : ''
+                                                    }`}
+                                                    onClick={stop(() => togglePublic(build))}
+                                                    disabled={build.publicBusy}
+                                                    title={build.isPublic ? 'Make private' : 'Publicise'}
+                                                >
+                                                    {build.isPublic ? (
+                                                        <TranslatableText identifier="database.publicBadge" />
+                                                    ) : (
+                                                        <TranslatableText identifier="database.publicise" />
+                                                    )}
+                                                    {build.isPublic && build.anonymous && (
+                                                        <span className={styles.anonBadge}>
+                                                            <TranslatableText identifier="database.anonBadge" />
+                                                        </span>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={styles.rowBtn}
+                                                    onClick={stop(() => startRename(build))}
+                                                    title="Rename"
+                                                >
+                                                    <TranslatableText identifier="builds.rename" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={styles.rowBtn}
+                                                    onClick={stop(() => requestDelete(build))}
+                                                    title="Delete"
+                                                >
+                                                    {confirmDeleteId === build.id ? (
+                                                        <TranslatableText identifier="builds.confirmDelete" />
+                                                    ) : (
+                                                        <TranslatableText identifier="builds.delete" />
+                                                    )}
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </BuildCard>
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
             </main>
         </div>

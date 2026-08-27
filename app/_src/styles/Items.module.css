@@ -29,6 +29,7 @@
     padding: 8px;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 :global(html[data-theme='light']) .itemTile {
@@ -87,6 +88,18 @@
     padding: 20px;
 }
 
+/* Slightly enlarge the 64px spritesheet tiles (scale keeps the layout box,
+   so the artwork grows into the surrounding padding without cropping).
+   The upscale resamples the bitmap; pixel-art sprites stay sharp with
+   nearest-neighbour rendering instead of the default blurry bilinear. */
+.imageIcon > :global(.monumenta-items),
+.imageIcon > :global(.monumenta-charms),
+.imageIcon > :global(.minecraft) {
+    transform: scale(1.15);
+    image-rendering: pixelated;
+    -webkit-optimize-contrast: pixelated;
+}
+
 .lowResIcon {
     width: 64px;
     height: 64px;
@@ -104,6 +117,38 @@
    tiles/stat-cards size by their own margins (keeps 6 tiles on one line at 1920x1080). */
 .builderCol {
     padding: 0 !important;
+}
+
+/* Equipped charm card: the x button overlays the tile's top-right corner. */
+.charmCardWrap {
+    position: relative;
+    display: inline-block;
+}
+
+.charmRemoveButton {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--glass-2);
+    border: 1px solid var(--control-border);
+    color: var(--text-2);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 3;
+    transition:
+        border-color 150ms ease,
+        color 150ms ease;
+}
+
+.charmRemoveButton:hover {
+    border-color: #e25454;
+    color: #e25454;
 }
 
 .builderStatCol {
@@ -330,6 +375,25 @@
     color: #4a78fc;
 }
 
+/* Stat colors matching the Monumenta plugin's item lore: armor/agility light
+   cyan, mainhand attributes dark green, other attributes blue, enchantments
+   gray. */
+.statArmorAgility {
+    color: #33ccff;
+}
+
+.statMainhand {
+    color: #00aa00;
+}
+
+.statAttribute {
+    color: #5555ff;
+}
+
+.statEnchant {
+    color: #aaaaaa;
+}
+
 .baseStats {
     color: #00a800;
 }
@@ -396,7 +460,7 @@
     left: 50%;
     transform: translateX(-50%);
     width: max-content;
-    max-width: 300px;
+    max-width: min(300px, calc(100vw - 16px));
     background: #15151f;
     border: 1px solid #45456b;
     border-radius: 4px;
@@ -974,6 +1038,7 @@
     color: var(--text-2);
     cursor: pointer;
     font-weight: 700;
+    font-size: 14px;
     transition:
         color 150ms ease,
         border-color 150ms ease;
@@ -1065,6 +1130,16 @@
     flex-shrink: 0;
 }
 
+/* Animated texture-pack icons are vertical frame strips (e.g. 16x160); the
+   browser would render every frame at once, so crop to the first frame.
+   aspect-ratio counters Tailwind's preflight `img { height: auto }`, which
+   would otherwise keep the strip's tall box (object-fit can't crop then). */
+.frameCrop {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: top;
+}
+
 .skillRow:hover {
     border-color: var(--control-border-hover);
 }
@@ -1073,9 +1148,18 @@
     cursor: grab;
     user-select: none;
     color: var(--text-2);
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1;
-    padding: 0 2px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition:
+        color 120ms ease,
+        background-color 120ms ease;
+}
+
+.dragHandle:hover {
+    color: var(--text-1);
+    background: #ffffff18;
 }
 
 .dragHandle:active {
@@ -1084,6 +1168,14 @@
 
 .skillDragging {
     opacity: 0.35;
+    border-style: dashed;
+    border-color: var(--accent, #9c59d1);
+}
+
+.skillDragOver {
+    outline: 2px solid var(--accent, #9c59d1);
+    outline-offset: -2px;
+    background: #9c59d12a;
 }
 
 .redXOverlay {
@@ -1217,74 +1309,6 @@
     white-space: nowrap;
 }
 
-.czRarityWrap {
-    position: relative;
-}
-
-.czRarity {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    min-width: 96px;
-    background: var(--glass-2);
-    color: var(--text-1);
-    border: 2px solid var(--control-border);
-    font-size: 12px;
-    padding: 1px 6px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.czRarity:hover {
-    border-color: var(--control-border-hover);
-}
-
-.czRarityDisabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.czRarityCaret {
-    color: var(--text-2);
-    font-size: 9px;
-}
-
-.czRarityMenu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    box-sizing: border-box;
-    z-index: 50;
-    background: var(--glass-1);
-    border: 2px solid var(--control-border);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.czRarityOption {
-    padding: 2px 10px;
-    cursor: pointer;
-    white-space: nowrap;
-    font-size: 12px;
-    color: var(--text-1);
-    background: var(--glass-2);
-}
-
-.czRarityOption:hover {
-    background: var(--surface-2);
-}
-
-.czRarityOptionActive {
-    background: var(--surface-2);
-    font-weight: bold;
-}
-
-.czRarity:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
 .czDisabled {
     opacity: 0.45;
 }
@@ -1371,6 +1395,174 @@
     font-size: 13px;
     text-align: center;
     margin-top: 4px;
+}
+
+/* Build list ("shopping list"): small + / check button on each item tile. */
+.listAddButton {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--glass-2);
+    border: 1px solid var(--control-border);
+    color: var(--text-2);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 3;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.listAddButton:hover {
+    border-color: var(--control-border-hover);
+    color: var(--text-1);
+}
+
+.listAddButtonOn {
+    background: #2c0860;
+    border-color: #7a4fd0;
+    color: #fff;
+}
+
+/* Build list panel pinned top-left of the items page (collapsible). */
+.listPanelWrap {
+    position: fixed;
+    top: 110px;
+    left: 20px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: min(320px, calc(100vw - 40px));
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--glass-1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 2px solid var(--glass-border);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    padding: 12px;
+}
+
+:global(html[data-theme='light']) .listPanelWrap {
+    background: #fff;
+}
+
+.listPanelHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.listCollapseBtn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--control-border);
+    color: var(--text-2);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.listCollapseBtn:hover {
+    border-color: var(--control-border-hover);
+    color: var(--text-1);
+}
+
+.listPanelTitle {
+    font-weight: bold;
+    color: var(--text-1);
+    font-size: 14px;
+}
+.listPanelEmpty {
+    color: var(--text-2);
+    font-size: 13px;
+    font-style: italic;
+}
+
+.listRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.listRowName {
+    flex: 1;
+    color: var(--text-2);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.listRowRemove {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--control-border);
+    color: var(--text-2);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.listRowRemove:hover {
+    border-color: #e0526b;
+    color: #e0526b;
+}
+
+.listPanelActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.listClearButton {
+    padding: 8px 20px;
+    border: 2px solid var(--control-border);
+    border-radius: 0;
+    background: var(--glass-1);
+    color: var(--text-1);
+    font-weight: bold;
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.listClearButton:hover {
+    border-color: var(--control-border-hover);
+    background: var(--glass-2);
+}
+
+.listRowInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.listRowDesc {
+    color: var(--text-2);
+    font-size: 12px;
+    opacity: 0.75;
 }
 
 /* Total charm stats (effect summary) shown after the builder stat cards. */
@@ -1677,6 +1869,159 @@ div.builderStatCard {
     color: var(--text-1);
     max-width: 160px;
     font-family: monospace;
+    -moz-appearance: textfield;
+}
+
+.builderCompactInput::-webkit-outer-spin-button,
+.builderCompactInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Current-health slider next to the Max Health Percent input: drag to sweep
+   low-HP values and preview Steadfast / Second Wind / ... on the live stats. */
+.healthSliderRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.healthSlider {
+    width: 150px;
+    height: 12px;
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    background: linear-gradient(
+        to right,
+        var(--slider-color, var(--accent, #9c59d1)) 0%,
+        var(--slider-color, var(--accent, #9c59d1)) var(--slider-pct, 50%),
+        var(--glass-2) var(--slider-pct, 50%)
+    );
+    border: 1px solid var(--control-border);
+}
+
+.healthSlider:hover {
+    border-color: var(--control-border-hover);
+}
+
+.healthSlider:focus {
+    border-color: var(--control-border-focus);
+    box-shadow: 0 0 0 1px var(--control-border-focus);
+}
+
+.healthSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 0;
+    background: var(--text-1);
+    border: 1px solid var(--slider-color, var(--accent, #9c59d1));
+    cursor: pointer;
+}
+
+.healthSlider::-webkit-slider-thumb:hover {
+    border-width: 2px;
+}
+
+.healthSlider::-moz-range-track {
+    background: transparent;
+}
+
+.healthSlider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 0;
+    background: var(--text-1);
+    border: 1px solid var(--slider-color, var(--accent, #9c59d1));
+    cursor: pointer;
+}
+
+.healthPoints {
+    min-width: 88px;
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-1);
+    white-space: nowrap;
+}
+
+/* Manual number entry for the Max Health Percent slider. */
+.healthPercentInput {
+    width: 56px;
+    height: 24px;
+    padding: 0 4px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-1);
+    background: var(--glass-1);
+    border: 1px solid var(--control-border);
+    border-radius: 0;
+    -moz-appearance: textfield;
+}
+
+.healthPercentInput:hover {
+    border-color: var(--control-border-hover);
+}
+
+.healthPercentInput:focus {
+    outline: none;
+    border-color: var(--control-border-focus);
+    box-shadow: 0 0 0 1px var(--control-border-focus);
+}
+
+.healthPercentInput::-webkit-outer-spin-button,
+.healthPercentInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Delve infusion slot: the infusion picker plus its point input. */
+.delveSlotRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.delvePointsInput {
+    width: 56px;
+    height: 38px;
+    flex-shrink: 0;
+    padding: 0 4px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--text-1);
+    background: var(--glass-1);
+    border: 1px solid var(--control-border);
+    border-radius: 0;
+    -moz-appearance: textfield;
+}
+
+.delvePointsInput:hover {
+    border-color: var(--control-border-hover);
+}
+
+.delvePointsInput:focus {
+    outline: none;
+    border-color: var(--control-border-focus);
+    box-shadow: 0 0 0 1px var(--control-border-focus);
+}
+
+.delvePointsInput:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.delvePointsInput::-webkit-outer-spin-button,
+.delvePointsInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .resetButton:hover {

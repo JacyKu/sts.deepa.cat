@@ -1,4 +1,53 @@
-- add tooltips to skills , specs and abils for build cards
-- automatically center on page
-- expanded visibility like selected items on hover?
-
+[x] add tooltips to skills , specs and abils for build cards @done(26-08-22 14:01)
+[x] automatically center on page
+[x] expanded visibility like selected items on hover?
+[x] some items show every frame on the spritesheet
+[x] health min is not hard stopped at 1
+[x] people without discord account logged in cant like builds
+[x] charm lore doesnt get hidden
+[x] switching to cz/dd should remove spec
+[x] add toggle to set default masterwork to max for all items
+[x] EX items show double prefix on embed
+[x] charms filter according to selected class and spec (only show charms if EITHER they contain a stat affecting the class' or subclass' skill OR they're Generalist charms)
+[x] make hide texture toggle affect all textures, not just the ones on items
+[x] hide skinned items toggle (use wiki)
+generalise all buttons to use same size/height
+[x] remove class message on cz and dd
+[x] improve dragging on skills and abils
+[x] improve mobile performance @done(26-08-22 14:08)
+[x] cache search when switching page
+[x] slightly enlarge textures on items page
+[x] ability to make a build list that can be sent to build page
+[x] remove Charms text entry from embed when region 1 or 2 is selected
+[x] add curse of the vail as a stat toggle
+[x] make the text on likes slightly bigger
+[x] add user name and avatar to build embed
+[x] add a description on hover for build abbreviations in the public build database
+[x] fix older builds not loading when there's no timestamp
+[x] remove rarity on cz/dd abils
+[x] custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
+[x] move stat toggles up somewhere
+[x] some ex items default to default textures
+[x] add option to disable animations for textures
+[x] add option to hide quest items
+[x] add search option for quest item IDs
+[x] fix scaling for big textures
+[x] text overlaps on spec class and spec dropdowns
+        when u swap to cz skills off of a class
+        then swap back to a region with class
+        itll overlap text and show the class abils
+        without a class selected
+[x] site freezes on trying to hide skinned items
+[x] fix steadfast calculations (might not be anything to fix)
+[x] add a current health % bar on the left of max health? bc certain enchants like steadfast/second wind only apply on lower hp so you can see what ur ehp/dr is on lower hp values with it
+[x] add tooltips for multipliers and stat toggles
+[x] render checkboxes in menu to the left and text to the right
+[x] fix stat colors correctly
+- add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise
+[x] add discord application to quickshare builds/search for items and maybe some other misc (must connect, works as independent app, doesnt need to be in a discord server)
+- add actual 3d model of the blobcat on deepa.cat
+- let people select skins for items (need to be signed in with discord) (later update)
+- items (at least animated ones) dont render properly for discord app icons
+- move stat toggles back to where they were
+- maybe generate gifs for animated items in embeds/discord bot embeds?
+- show texture of items in item sharing embed

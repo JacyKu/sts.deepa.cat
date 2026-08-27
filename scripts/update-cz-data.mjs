@@ -3,7 +3,7 @@
 // public/items/czAbilities.json.
 //
 // Descriptions contain rarity-scaled values as #{Common|Uncommon|Rare|Epic|Legendary|Twisted}
-// templates; the app substitutes the selected rarity when displaying them.
+// templates; the app always shows the last (Twisted) value — rarity is gone.
 
 import fs from 'node:fs';
 import path from 'node:path';

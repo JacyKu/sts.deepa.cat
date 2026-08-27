@@ -29,6 +29,26 @@ const PLAIN_ATTRIBUTES = new Set(['armor', 'agility']);
 const PLAIN_CURSES = new Set(['two_handed', 'starvation', 'ineptitude', 'cumbersome', 'oversized']);
 const HIDDEN_STATS = new Set(['noglint']); // internal flag with no display meaning
 
+// Display colors match the Monumenta plugin (AttributeType.getDisplay /
+// EnchantmentType.getDisplay): armor and agility are a light cyan, the
+// mainhand attributes dark green, other attributes blue, enchantments gray,
+// and anything negative red.
+const ARMOR_AGILITY_STATS = new Set(['armor', 'agility']);
+const MAINHAND_ATTRIBUTES = new Set([
+    'attack_damage',
+    'attack_speed',
+    'projectile_damage',
+    'projectile_speed',
+    'throw_rate',
+    'potion_damage',
+    'potion_radius',
+    'potion_recharge_rate',
+]);
+
+function attributeBaseName(name) {
+    return name.replace(/_percent$/, '').replace(/_flat$/, '').replace(/_base$/, '');
+}
+
 function inferFormat(name, value) {
     if (PLAIN_ATTRIBUTES.has(name)) return Formats.ATTRIBUTE;
     if (name.startsWith('curse_')) return Formats.CURSE;
@@ -106,7 +126,11 @@ class StatFormatter {
     static statStyle(stat, value, type) {
         switch (stat.format) {
             case Formats.ATTRIBUTE: {
-                return value < 0 ? 'negativeStat' : 'positiveStat';
+                if (value < 0) return 'negativeStat';
+                const base = attributeBaseName(stat.name);
+                if (ARMOR_AGILITY_STATS.has(base)) return 'statArmorAgility';
+                if (MAINHAND_ATTRIBUTES.has(base)) return 'statMainhand';
+                return 'statAttribute';
             }
             case Formats.CURSE:
             case Formats.SINGLE_CURSE: {
@@ -116,7 +140,7 @@ class StatFormatter {
                 return 'baseStats';
             }
             default: {
-                return 'none';
+                return 'statEnchant';
             }
         }
     }

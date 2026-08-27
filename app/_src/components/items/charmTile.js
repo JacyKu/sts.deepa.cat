@@ -3,6 +3,9 @@ import CharmFormatter from '../../utils/items/charmFormatter';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { useLowResource } from '../lowResourceContext';
+import { useBuildList } from './buildListContext';
+import { useBuildListEnabled } from './buildListEnabledContext';
+import { useHideObtainment } from './hideObtainmentContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 
 function camelCase(str) {
@@ -74,6 +77,9 @@ export default function CharmTile(data) {
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
     const [spriteMap, setSpriteMap] = React.useState(null);
     const { lowRes } = useLowResource();
+    const { hidden: hideObtainment } = useHideObtainment();
+    const { items: listItems, toggleItem } = useBuildList();
+    const { enabled: buildListEnabled } = useBuildListEnabled();
 
     let formattedCharm = CharmFormatter.formatCharm(item.stats);
 
@@ -116,6 +122,20 @@ export default function CharmTile(data) {
 
     return (
         <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+            {buildListEnabled && data.showListButton && (
+                <button
+                    type="button"
+                    className={`${styles.listAddButton}${listItems.includes(item.name) ? ` ${styles.listAddButtonOn}` : ''}`}
+                    onClick={() => toggleItem(item.name, item.type)}
+                    aria-label={
+                        listItems.includes(item.name)
+                            ? `Remove ${item.name} from build list`
+                            : `Add ${item.name} to build list`
+                    }
+                >
+                    {listItems.includes(item.name) ? '✓' : '+'}
+                </button>
+            )}
             <div className={styles.imageIcon}>
                 {lowRes ? (
                     <div className={styles.lowResIcon}></div>
@@ -152,8 +172,12 @@ export default function CharmTile(data) {
                 <span className={styles[camelCase(item.tier)]}>{item.tier != 'Base' ? `${item.tier} ` : ''}Charm</span>
             </span>
             <span className={styles[camelCase(item.location)]}>{item.location}</span>
-            {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
-            {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{`${item.extras.notes}`}</p> : ''}
+            {!hideObtainment && (
+                <>
+                    {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
+                    {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{`${item.extras.notes}`}</p> : ''}
+                </>
+            )}
         </div>
     );
 }

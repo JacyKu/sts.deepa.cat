@@ -229,30 +229,215 @@
 .grid {
     width: 100%;
     max-width: 1100px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+    gap: 10px;
     margin-top: 28px;
 }
 
 .card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    width: 360px;
     padding: 18px;
-    background: var(--glass-1);
+    background: #111111;
     border: 2px solid var(--glass-border);
     color: var(--text-1);
     text-decoration: none;
     transition:
         border-color 150ms ease,
-        background-color 150ms ease;
+        background-color 150ms ease,
+        transform 150ms ease;
+}
+
+:global(html[data-theme='light']) .card {
+    background: #ffffff;
 }
 
 .card:hover {
     border-color: var(--control-border-hover);
-    background: var(--glass-2);
+    background: #1a1a1a;
     text-decoration: none;
+}
+
+:global(html[data-theme='light']) .card:hover {
+    background: #f5f5f5;
+}
+
+.cardExpanded {
+    z-index: 20;
+    background: #1a1a1a;
+    border-color: var(--control-border-hover);
+}
+
+:global(html[data-theme='light']) .cardExpanded {
+    background: #f5f5f5;
+}
+
+/* Touch devices: the expanded card shows its items inline below the card
+   content instead of the hover side panel. */
+.mobileItems {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid var(--glass-border);
+    margin-top: 2px;
+    padding-top: 10px;
+}
+
+.cardSide {
+    position: absolute;
+    top: -2px;
+    height: calc(100% + 4px);
+    width: 0;
+    opacity: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    background: #1a1a1a;
+    border: 2px solid var(--glass-border);
+    border-left: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition:
+        width 220ms ease,
+        opacity 180ms ease;
+}
+
+:global(html[data-theme='light']) .cardSide {
+    background: #f5f5f5;
+}
+
+.cardSideRight {
+    left: calc(100% - 2px);
+}
+
+.cardSideLeft {
+    right: calc(100% - 2px);
+    border-left: 2px solid var(--glass-border);
+    border-right: none;
+}
+
+.cardExpanded .cardSide {
+    border-color: var(--control-border-hover);
+}
+
+.cardSideOpen {
+    width: 340px;
+    opacity: 1;
+}
+
+@keyframes sideIn {
+    from {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.cardSideOpen .previewRowWrap {
+    animation: sideIn 250ms ease both;
+}
+
+.previewRowWrap {
+    display: flex;
+    flex-direction: column;
+}
+
+.previewRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.previewRowOpen {
+    background: #ffffff14;
+    outline: 1px solid var(--glass-border);
+}
+
+.itemDetail {
+    margin-top: 6px;
+    padding: 10px;
+    background: #110110;
+    border: 3px solid #2c0860;
+    color: var(--text-1);
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: detailIn 180ms ease;
+}
+
+:global(html[data-theme='light']) .itemDetail {
+    background: #6639622d;
+}
+
+.itemDetailName {
+    font-weight: 700;
+    color: #fcfcfc;
+}
+
+.itemDetailInfo {
+    color: var(--text-2);
+}
+
+@keyframes detailIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.previewIcon {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.previewSprite {
+    image-rendering: pixelated;
+}
+
+.previewInfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.previewName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.previewStars {
+    color: #fcb23d;
+    letter-spacing: 1px;
+}
+
+.previewSlot {
+    color: var(--text-2);
+    font-size: 11px;
+    font-style: italic;
 }
 
 .cardTop {
@@ -301,6 +486,7 @@
 
 .favCount {
     font-weight: 700;
+    font-size: 14px;
 }
 
 .cardTags {
@@ -329,6 +515,16 @@
 .classIcon {
     image-rendering: pixelated;
     flex-shrink: 0;
+}
+
+/* Animated texture-pack icons are vertical frame strips (e.g. 16x160); the
+   browser would render every frame at once, so crop to the first frame.
+   aspect-ratio counters Tailwind's preflight `img { height: auto }`, which
+   would otherwise keep the strip's tall box (object-fit can't crop then). */
+.frameCrop {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: top;
 }
 
 .tagSep {

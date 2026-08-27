@@ -1,11 +1,15 @@
 import Enchants from './enchants';
+import LoreText from './loreText';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { useHideLore } from './hideLoreContext';
+import { useHideObtainment } from './hideObtainmentContext';
 import { useLowResource } from '../lowResourceContext';
+import { useBuildList } from './buildListContext';
+import { useBuildListEnabled } from './buildListEnabledContext';
 
 function camelCase(str, upper) {
     if (!str) return '';
@@ -27,6 +31,7 @@ function getItemType(item) {
 function getItemsheetClass(itemName) {
     return `monumenta-${camelCase(
         itemName
+            .replace(/^EX\s+/, '') // EX items share the base item's texture
             .replaceAll('-', '')
             .replaceAll('.', '')
             .replaceAll("'", '')
@@ -51,7 +56,10 @@ function doesNameContainNonASCII(name) {
 export default function ItemTile(data) {
     const item = data.item;
     const { hidden: hideLore } = useHideLore();
+    const { hidden: hideObtainment } = useHideObtainment();
     const { lowRes } = useLowResource();
+    const { items: listItems, toggleItem } = useBuildList();
+    const { enabled: buildListEnabled } = useBuildListEnabled();
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
@@ -75,8 +83,11 @@ export default function ItemTile(data) {
     }, []);
 
     React.useEffect(() => {
-        // Prefer the explicit mapping generated from the texture pack.
-        const mappedClass = getMappedSpriteClass(spriteMap, item.name);
+        // Custom items carry their chosen texture directly; regular items go
+        // through the sprite map (preferred) or the legacy name heuristic.
+        const mappedClass = item.textureToken
+            ? `monumenta-${item.textureToken}`
+            : getMappedSpriteClass(spriteMap, item.name);
         if (mappedClass) {
             setBaseBackgroundClass('monumenta-items');
             setCssClass(mappedClass);
@@ -97,6 +108,20 @@ export default function ItemTile(data) {
 
     return (
         <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+            {buildListEnabled && data.showListButton && (
+                <button
+                    type="button"
+                    className={`${styles.listAddButton}${listItems.includes(item.name) ? ` ${styles.listAddButtonOn}` : ''}`}
+                    onClick={() => toggleItem(item.name, item.type)}
+                    aria-label={
+                        listItems.includes(item.name)
+                            ? `Remove ${item.name} from build list`
+                            : `Add ${item.name} to build list`
+                    }
+                >
+                    {listItems.includes(item.name) ? '✓' : '+'}
+                </button>
+            )}
             <div className={styles.imageIcon}>
                 {lowRes ? (
                     <div className={styles.lowResIcon}></div>
@@ -133,9 +158,13 @@ export default function ItemTile(data) {
                 <span className={styles[camelCase(item.tier)]}>{item.tier}</span>
             </span>
             <span className={styles[camelCase(item.location)]}>{item.location}</span>
-            {item.lore && !hideLore ? <span className={styles.infoText}>{item.lore}</span> : ''}
-            {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
-            {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
+            {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
+            {!hideObtainment && (
+                <>
+                    {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
+                    {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
+                </>
+            )}
         </div>
     );
 }

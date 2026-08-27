@@ -93,6 +93,38 @@
     object-fit: cover;
 }
 
+.accountMenu {
+    position: relative;
+    display: inline-flex;
+}
+
+.accountAvatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-1);
+    overflow: hidden;
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.accountAvatar:hover {
+    border-color: var(--control-border-hover);
+    background: var(--glass-2);
+}
+
+.accountAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .accountName {
     max-width: 140px;
     overflow: hidden;
@@ -156,7 +188,7 @@
 
 .menuPanel .loreToggle {
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .menuBackdrop {
@@ -175,6 +207,28 @@
         padding: 4px 8px;
         min-height: 30px;
         font-size: 13px;
+    }
+}
+
+/* Mobile nav: the inline links collapse into a hamburger menu. */
+.mobileNav {
+    position: relative;
+    display: none;
+}
+
+@media (max-width: 700px) {
+    .nav {
+        display: none;
+    }
+
+    .mobileNav {
+        display: inline-flex;
+    }
+
+    .mobileNav .menuPanel {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
     }
 }
 

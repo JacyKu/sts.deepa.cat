@@ -5,10 +5,55 @@ import ItemTile from './items/itemTile';
 import MasterworkableItemTile from './items/masterworkableItemTile';
 import CharmTile from './items/charmTile';
 import ConsumableTile from './items/consumableTile';
+import BuildListPanel from './items/buildListPanel';
 import SearchForm from './items/searchForm';
 import React from 'react';
 import InfiniteScroll from './infiniteScroll';
 import TranslatableText from './translatableText';
+import { useHideSkins } from './items/hideSkinsContext';
+import skinNames from '../data/skins.json';
+
+// Skin variants confirmed from the Monumenta wiki "Skins" sections.
+const SKIN_NAMES = new Set(skinNames);
+
+// Items whose location marks them as skin variants.
+const SKIN_LOCATIONS = new Set([
+    'Abyssalskin',
+    'Storied Skin',
+    'Eternity Skin',
+    'Sketched',
+    'Halloween Skin',
+    'Holiday Skin',
+    'Threadwarped Skin',
+    'Divine Skin',
+    'Greed Skin',
+    'Mythic Reliquary',
+    'Titanic Skin',
+    'Remorseful Skin',
+    'Challenger',
+]);
+
+// Skinned items whose location looks ordinary (checked against the wiki).
+const SKIN_EXCEPTIONS = new Set(['Phantasm', "Refit King's Crown", 'Sacrificial Dagger']);
+
+// Quest items carry a "* Quest Item *" lore marker and a "#Q<id>I<index>"
+// code. The id can be decimal (Q154), hex (QAF), carry letter suffixes
+// (Q103n), omit the I separator (Q22801), or be wrapped in <obfuscated> tags.
+const QUEST_ID_RE = /#Q([A-Za-z0-9]+?)(?:I\d+)?(?![A-Za-z0-9])/g;
+
+function isQuestItem(item) {
+    const text = (item.mmlore || []).join('\n') + '\n' + (item.lore || '');
+    return text.includes('* Quest Item *');
+}
+
+function getQuestIds(item) {
+    const text = ((item.mmlore || []).join('\n') + '\n' + (item.lore || '')).replace(/<[^>]+>/g, '');
+    const ids = [];
+    let m;
+    QUEST_ID_RE.lastIndex = 0;
+    while ((m = QUEST_ID_RE.exec(text))) ids.push(m[1]);
+    return ids;
+}
 
 function extractFilterValues(data, baseKey) {
     return Object.keys(data)
@@ -84,9 +129,24 @@ function getCharmAbilityTextMap(itemData) {
     return map;
 }
 
-function getRelevantItems(data, itemData) {
+function getRelevantItems(data, itemData, hideSkins) {
     let items = Object.keys(itemData);
     items = items.filter((name) => itemData[name].base_item != 'Written Book');
+
+    // "Hide skinned items": drop skin variants by wiki-confirmed name
+    // (skins.json), skin-marked location, or known exception items.
+    if (hideSkins) {
+        items = items.filter((name) => {
+            const item = itemData[name];
+            if (SKIN_NAMES.has(item.name)) return false;
+            if (SKIN_LOCATIONS.has(item.location)) return false;
+            if (SKIN_EXCEPTIONS.has(item.name)) return false;
+            // Royal Armory: the Queen's items (and Refit King's Crown) are the
+            // skins; the King's items are the base.
+            if (item.name.startsWith('Queen') && item.location === 'Royal Armory') return false;
+            return true;
+        });
+    }
 
     if (data.searchName) {
         // Check if the user inputted any "|" to search for multiple item names at once.
@@ -111,6 +171,21 @@ function getRelevantItems(data, itemData) {
 
     if (data.searchLore) {
         items = items.filter((name) => itemData[name].lore?.toLowerCase().includes(data.searchLore.toLowerCase()));
+    }
+
+    // Quest ID filter: the query matches a substring of any "#Q<id>I<index>"
+    // code on the item (e.g. "154", "Q154", "q154i01", "AF").
+    let wantedQuestIds = extractFilterValues(data, 'questIdSelect');
+    if (wantedQuestIds.length > 0) {
+        const query = String(wantedQuestIds[0])
+            .trim()
+            .toLowerCase()
+            .replace(/^#/, '')
+            .replace(/^q/, '')
+            .replace(/i\d+$/, '');
+        if (query) {
+            items = items.filter((name) => getQuestIds(itemData[name]).some((id) => id.toLowerCase().includes(query)));
+        }
     }
 
     let wantedItemTypes = extractFilterValues(data, 'itemTypeSelect');
@@ -237,6 +312,11 @@ function getRelevantItems(data, itemData) {
         });
     }
 
+    // Quick-hide quest items (lore-marked "* Quest Item *").
+    if (data.hideQuestItems) {
+        items = items.filter((name) => !isQuestItem(itemData[name]));
+    }
+
     // Quick-hide non-gear items: items with no enchants or stats.
     if (data.hideNonGear) {
         items = items.filter((name) => {
@@ -338,24 +418,42 @@ function getRelevantItems(data, itemData) {
 }
 
 export default function ItemsPage({ itemData }) {
-    const [relevantItems, setRelevantItems] = React.useState(() => getRelevantItems({}, itemData));
+    const { hidden: hideSkins } = useHideSkins();
+    const [relevantItems, setRelevantItems] = React.useState(() => getRelevantItems({}, itemData, false));
     const [itemsToShow, setItemsToShow] = React.useState(20);
     const itemsToLoad = 20;
+    // The latest search form data (name/lore/filters/toggles), so toggling
+    // "hide skinned items" re-applies the current search instead of resetting.
+    const filterDataRef = React.useRef({});
+
+    // Re-apply the list when the hide-skins toggle flips. The mount pass is
+    // skipped (the useState initializer - or the search restored by SearchForm
+    // right after mount - already set the list); every toggle after that
+    // recomputes with the current search filters.
+    const prevHideSkins = React.useRef(hideSkins);
+    React.useEffect(() => {
+        if (prevHideSkins.current === hideSkins) return;
+        prevHideSkins.current = hideSkins;
+        setRelevantItems(getRelevantItems(filterDataRef.current, itemData, hideSkins));
+        setItemsToShow(itemsToLoad);
+    }, [hideSkins, itemData]);
 
     function handleChange(data) {
-        setRelevantItems(getRelevantItems(data, itemData));
+        filterDataRef.current = data;
+        setRelevantItems(getRelevantItems(data, itemData, hideSkins));
         setItemsToShow(itemsToLoad);
     }
 
-    function showMoreItems() {
-        setItemsToShow(itemsToShow + itemsToLoad);
-    }
+    const showMoreItems = React.useCallback(() => {
+        setItemsToShow((s) => s + itemsToLoad);
+    }, []);
 
     return (
         <div className={styles.container}>
             <main className={styles.main}>
                 <h1>Monumenta Items</h1>
                 <SearchForm update={handleChange} itemData={itemData}></SearchForm>
+                <BuildListPanel></BuildListPanel>
                 <h4 className={styles.resultCount}>
                     <TranslatableText identifier="items.searchForm.itemsFound"></TranslatableText>{' '}
                     {relevantItems.length}
@@ -371,8 +469,7 @@ export default function ItemsPage({ itemData }) {
                         className={styles.itemsContainer}
                         dataLength={itemsToShow}
                         next={showMoreItems}
-                        hasMore={true}
-                        loader={<h4>No items found</h4>}
+                        hasMore={itemsToShow < relevantItems.length}
                     >
                         {relevantItems.slice(0, itemsToShow).map((name) => {
                             if (typeof name == 'object') {
@@ -382,18 +479,31 @@ export default function ItemsPage({ itemData }) {
                                         name={name[0].name}
                                         item={name}
                                         itemData={itemData}
+                                        showListButton
                                     ></MasterworkableItemTile>
                                 );
                             }
                             if (itemData[name].type == 'Charm') {
                                 return (
-                                    <CharmTile key={name} name={itemData[name].name} item={itemData[name]}></CharmTile>
+                                    <CharmTile
+                                        key={name}
+                                        name={itemData[name].name}
+                                        item={itemData[name]}
+                                        showListButton
+                                    ></CharmTile>
                                 );
                             }
                             if (itemData[name].type == 'Consumable' && itemData[name].effects != undefined) {
-                                return <ConsumableTile key={name} name={name} item={itemData[name]}></ConsumableTile>;
+                                return (
+                                    <ConsumableTile
+                                        key={name}
+                                        name={name}
+                                        item={itemData[name]}
+                                        showListButton
+                                    ></ConsumableTile>
+                                );
                             }
-                            return <ItemTile key={name} name={name} item={itemData[name]}></ItemTile>;
+                            return <ItemTile key={name} name={name} item={itemData[name]} showListButton></ItemTile>;
                         })}
                     </InfiniteScroll>
                 )}

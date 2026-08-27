@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { headers, cookies } from 'next/headers';
-import { getBuild } from '../../../lib/sts-builds';
+import { getBuild, mergeCustomItems } from '../../../lib/sts-builds';
 import { getDiscordUser } from '../../../lib/session';
 import { getItemData, getSkillsData } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
@@ -27,9 +27,10 @@ export async function buildLinkMetadata(id) {
     const title = row.name || getLinkPreviewTitle(row.token, itemData, null, skillsData);
     const description = getLinkPreviewDescription(row.token, itemData, skillsData, row.parsedState?.infusions);
     // The DB-backed image carries the delve infusions, which the token alone can't.
-    // The &v cache-buster (the row's updated_at) changes on every edit, so Discord
-    // fetches a fresh image instead of serving its cached embed.
-    const imageUrl = '/api/v1/og?id=' + id + '&v=' + encodeURIComponent(row.updated_at || '');
+    // The &v cache-buster (the row's updated_at + publicized_at) changes on
+    // every edit and on publicise/anonymity changes, so Discord fetches a fresh
+    // image instead of serving its cached embed (e.g. the author bar).
+    const imageUrl = '/api/v1/og?id=' + id + '&v=' + encodeURIComponent((row.updated_at || '') + '|' + (row.publicized_at || ''));
 
     return {
         metadataBase: new URL('https://' + requestHost),
@@ -62,9 +63,9 @@ export async function BuildLinkPageView(id) {
         redirect(base + '/builder');
     }
 
-    const itemData = await getItemData();
-    // The build opens in place; saves update the DB row, they don't rewrite URLs.
     const user = await getDiscordUser();
+    const itemData = mergeCustomItems(await getItemData(), user ? user.id : null);
+    // The build opens in place; saves update the DB row, they don't rewrite URLs.
     const isOwner = Boolean(user && row.user_id && user.id === row.user_id);
     // Anonymous rows are editable + publicisable by whoever holds their
     // creator cookie (the browser that created them), even after logging in.

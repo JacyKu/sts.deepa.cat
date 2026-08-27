@@ -18,6 +18,12 @@ export default function SearchForm({ update, itemData }) {
     const form = React.useRef();
     const searchContainer = React.useRef();
 
+    // The search survives page switches: every submit snapshot is cached and
+    // restored on mount (until the user hits Reset).
+    const SEARCH_CACHE_KEY = 'sts.itemsSearch.v1';
+    const savedSearch = React.useRef(null);
+    const [restored, setRestored] = React.useState(false);
+
     const itemTypes = [
         'Helmet',
         'Chestplate',
@@ -71,44 +77,120 @@ export default function SearchForm({ update, itemData }) {
     let charmPowers = [];
 
     const categories = [
-        new SearchCategory('Item Type', 'items.searchForm.itemType', (uniqueKey) => {
+        new SearchCategory('Item Type', 'items.searchForm.itemType', (uniqueKey, defaultValue) => {
             return (
                 <SelectInput
                     key={itemTypeKey}
                     name={`itemTypeSelect-${uniqueKey}`}
                     baseTranslationString="items.type"
                     sortableStats={itemTypes}
+                    default={defaultValue && defaultValue['itemTypeSelect']}
                 />
             );
         }),
-        new SearchCategory('Item Stat', 'items.searchForm.itemStat', (uniqueKey) => {
-            return <SelectInput key={itemStatKey} name={`itemStatSelect-${uniqueKey}`} sortableStats={sortableStats} />;
+        new SearchCategory('Item Stat', 'items.searchForm.itemStat', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={itemStatKey}
+                    name={`itemStatSelect-${uniqueKey}`}
+                    sortableStats={sortableStats}
+                    default={defaultValue && defaultValue['itemStatSelect']}
+                />
+            );
         }),
-        new SearchCategory('Consumable Effect', 'items.searchForm.effect', (uniqueKey) => {
-            return <SelectInput key={effectKey} name={`effectSelect-${uniqueKey}`} sortableStats={effects} />;
+        new SearchCategory('Consumable Effect', 'items.searchForm.effect', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={effectKey}
+                    name={`effectSelect-${uniqueKey}`}
+                    sortableStats={effects}
+                    default={defaultValue && defaultValue['effectSelect']}
+                />
+            );
         }),
-        new SearchCategory('Region', 'items.searchForm.region', (uniqueKey) => {
-            return <SelectInput key={regionKey} name={`regionSelect-${uniqueKey}`} sortableStats={regions} />;
+        new SearchCategory('Region', 'items.searchForm.region', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={regionKey}
+                    name={`regionSelect-${uniqueKey}`}
+                    sortableStats={regions}
+                    default={defaultValue && defaultValue['regionSelect']}
+                />
+            );
         }),
-        new SearchCategory('Tier', 'items.searchForm.tier', (uniqueKey) => {
-            return <SelectInput key={tierKey} name={`tierSelect-${uniqueKey}`} sortableStats={tiers} />;
+        new SearchCategory('Tier', 'items.searchForm.tier', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                key={tierKey}
+                name={`tierSelect-${uniqueKey}`}
+                sortableStats={tiers}
+                default={defaultValue && defaultValue['tierSelect']}
+            />
+            );
         }),
-        new SearchCategory('Location', 'items.searchForm.location', (uniqueKey) => {
-            return <SelectInput key={locationKey} name={`locationSelect-${uniqueKey}`} sortableStats={locations} />;
+        new SearchCategory('Location', 'items.searchForm.location', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={locationKey}
+                    name={`locationSelect-${uniqueKey}`}
+                    sortableStats={locations}
+                    default={defaultValue && defaultValue['locationSelect']}
+                />
+            );
         }),
-        new SearchCategory('POI', 'items.searchForm.poi', (uniqueKey) => {
-            return <SelectInput key={poiKey} name={`poiSelect-${uniqueKey}`} sortableStats={pois} />;
+        new SearchCategory('POI', 'items.searchForm.poi', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                key={poiKey}
+                name={`poiSelect-${uniqueKey}`}
+                sortableStats={pois}
+                default={defaultValue && defaultValue['poiSelect']}
+            />
+            );
         }),
-        new SearchCategory('Charm Stat', 'items.searchForm.charmStat', (uniqueKey) => {
-            return <SelectInput key={charmStatKey} name={`charmStatSelect-${uniqueKey}`} sortableStats={charmStats} />;
+        new SearchCategory('Charm Stat', 'items.searchForm.charmStat', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={charmStatKey}
+                    name={`charmStatSelect-${uniqueKey}`}
+                    sortableStats={charmStats}
+                    default={defaultValue && defaultValue['charmStatSelect']}
+                />
+            );
         }),
-        new SearchCategory('Charm Class', 'items.searchForm.charmClass', (uniqueKey) => {
-            return <SelectInput key={classKey} name={`classSelect-${uniqueKey}`} sortableStats={charmClasses} />;
+        new SearchCategory('Charm Class', 'items.searchForm.charmClass', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={classKey}
+                    name={`classSelect-${uniqueKey}`}
+                    sortableStats={charmClasses}
+                    default={defaultValue && defaultValue['classSelect']}
+                />
+            );
         }),
-        new SearchCategory('Base Item', 'items.searchForm.baseItem', (uniqueKey) => {
-            return <SelectInput key={baseItemKey} name={`baseItemSelect-${uniqueKey}`} sortableStats={baseItems} />;
+        new SearchCategory('Base Item', 'items.searchForm.baseItem', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={baseItemKey}
+                    name={`baseItemSelect-${uniqueKey}`}
+                    sortableStats={baseItems}
+                    default={defaultValue && defaultValue['baseItemSelect']}
+                />
+            );
         }),
-        new SearchCategory('Charm Power', 'items.searchForm.charmPower', (uniqueKey) => {
+        new SearchCategory('Quest ID', 'items.searchForm.questId', (uniqueKey, defaultValue) => {
+            return (
+                <input
+                    type="text"
+                    name={`questIdSelect-${uniqueKey}`}
+                    className={styles.questIdInput}
+                    defaultValue={(defaultValue && defaultValue['questIdSelect']) || ''}
+                    placeholder="e.g. 154, Q154, q154i01"
+                    aria-label="Search by quest item ID"
+                />
+            );
+        }),
+        new SearchCategory('Charm Power', 'items.searchForm.charmPower', (uniqueKey, defaultValue) => {
             return (
                 <div className={styles.powerFilterRow}>
                     <SelectInput
@@ -122,16 +204,18 @@ export default function SearchForm({ update, itemData }) {
                             { value: '<=', label: 'At most' },
                             { value: '!=', label: 'Not equal' },
                         ]}
+                        default={defaultValue && defaultValue['charmPowerOperatorSelect']}
                     />
                     <SelectInput
                         key={`powerVal-${itemStatKey}`}
                         name={`charmPowerValueSelect-${uniqueKey}`}
                         sortableStats={charmPowers}
+                        default={defaultValue && defaultValue['charmPowerValueSelect']}
                     />
                 </div>
             );
         }),
-        new SearchCategory('Not', 'items.searchForm.not', (uniqueKey) => {
+        new SearchCategory('Not', 'items.searchForm.not', (uniqueKey, defaultValue) => {
             return (
                 <NotFilterRow
                     key={`notCat-${itemStatKey}`}
@@ -144,6 +228,8 @@ export default function SearchForm({ update, itemData }) {
                     baseItems={baseItems}
                     charmClasses={charmClasses}
                     pois={pois}
+                    defaultCategory={defaultValue && defaultValue['notCategorySelect']}
+                    defaultValue={defaultValue && defaultValue['notValue']}
                 />
             );
         }),
@@ -169,14 +255,137 @@ export default function SearchForm({ update, itemData }) {
         if (event.type === 'submit') {
             event.preventDefault();
         }
-        update(Object.fromEntries(new FormData(form.current).entries()));
+        const entries = Object.fromEntries(new FormData(form.current).entries());
+        saveSearchCache(entries);
+        update(entries);
     }
+
+    // Persist the current filter state so it survives switching pages.
+    // The category dropdowns all share the name "categorySelect" (no unique
+    // key), so each row's category is derived from its value select's prefix.
+    const CATEGORY_BY_PREFIX = {
+        itemTypeSelect: 'Item Type',
+        itemStatSelect: 'Item Stat',
+        effectSelect: 'Consumable Effect',
+        regionSelect: 'Region',
+        tierSelect: 'Tier',
+        locationSelect: 'Location',
+        poiSelect: 'POI',
+        charmStatSelect: 'Charm Stat',
+        classSelect: 'Charm Class',
+        baseItemSelect: 'Base Item',
+        questIdSelect: 'Quest ID',
+        charmPowerOperatorSelect: 'Charm Power',
+        charmPowerValueSelect: 'Charm Power',
+        notCategorySelect: 'Not',
+        notValue: 'Not',
+    };
+    function saveSearchCache(entries) {
+        try {
+            const rows = [];
+            const rowKeys = new Set();
+            for (const key of Object.keys(entries)) {
+                const m = /-(\d+)$/.exec(key);
+                if (m) rowKeys.add(m[1]);
+            }
+            for (const key of rowKeys) {
+                const values = {};
+                let category = null;
+                for (const [name, value] of Object.entries(entries)) {
+                    const m = new RegExp(`-(\\d+)$`).exec(name);
+                    if (!m || m[1] !== key) continue;
+                    const prefix = name.replace(`-${key}`, '');
+                    values[prefix] = value;
+                    if (!category && CATEGORY_BY_PREFIX[prefix]) category = CATEGORY_BY_PREFIX[prefix];
+                }
+                if (category) rows.push({ category, values });
+            }
+            localStorage.setItem(
+                SEARCH_CACHE_KEY,
+                JSON.stringify({
+                    rows,
+                    searchName: entries.searchName || '',
+                    searchLore: entries.searchLore || '',
+                    hideUnobtainable: entries.hideUnobtainable === 'on',
+                    hideNonGear: entries.hideNonGear === 'on',
+                    hideQuestItems: entries.hideQuestItems === 'on',
+                })
+            );
+        } catch (e) {}
+    }
+
+    // Restore the cached search once after mount: rebuild the filter rows
+    // (category + selected value), refill the text inputs / checkboxes and
+    // re-apply the results through the parent.
+    React.useEffect(() => {
+        let cache = null;
+        try {
+            cache = JSON.parse(localStorage.getItem(SEARCH_CACHE_KEY) || 'null');
+        } catch (e) {}
+        if (!cache || !form.current) return;
+        savedSearch.current = cache;
+
+        if (cache.searchName) {
+            const nameInput = form.current.elements.searchName;
+            if (nameInput) nameInput.value = cache.searchName;
+        }
+        if (cache.searchLore) {
+            const loreInput = form.current.elements.searchLore;
+            if (loreInput) loreInput.value = cache.searchLore;
+        }
+        if (form.current.elements.hideUnobtainable) {
+            form.current.elements.hideUnobtainable.checked = Boolean(cache.hideUnobtainable);
+        }
+        if (form.current.elements.hideNonGear) {
+            form.current.elements.hideNonGear.checked = Boolean(cache.hideNonGear);
+        }
+        if (form.current.elements.hideQuestItems) {
+            form.current.elements.hideQuestItems.checked = Boolean(cache.hideQuestItems);
+        }
+
+        if (cache.rows && cache.rows.length > 0) {
+            setFilters(
+                cache.rows.map((row) => ({
+                    activeCategory: row.category,
+                    selected: row.values,
+                    uniqueKey: new Date().getTime() + Math.random(),
+                }))
+            );
+        }
+        setRestored(true);
+    }, []);
+
+    // After the rows have rendered with their defaults, re-apply the cached
+    // results so the item list matches the restored form.
+    React.useEffect(() => {
+        if (!restored) return;
+        const cache = savedSearch.current;
+        if (!cache) return;
+        const entries = {};
+        for (const [i, row] of cache.rows.entries()) {
+            const key = String(i);
+            entries[`categorySelect-${key}`] = row.category;
+            for (const [prefix, value] of Object.entries(row.values)) {
+                entries[`${prefix}-${key}`] = value;
+            }
+        }
+        entries.searchName = cache.searchName || '';
+        entries.searchLore = cache.searchLore || '';
+        if (cache.hideUnobtainable) entries.hideUnobtainable = 'on';
+        if (cache.hideNonGear) entries.hideNonGear = 'on';
+        if (cache.hideQuestItems) entries.hideQuestItems = 'on';
+        update(entries);
+    }, [restored]);
 
     function getResetKey(name) {
         return name + new Date();
     }
 
     function resetForm() {
+        try {
+            localStorage.removeItem(SEARCH_CACHE_KEY);
+        } catch (e) {}
+        savedSearch.current = null;
         setItemStatKey(getResetKey('search'));
         setItemTypeKey(getResetKey('itemType'));
         setRegionKey(getResetKey('region'));
@@ -229,6 +438,8 @@ export default function SearchForm({ update, itemData }) {
                             opts={categories}
                             index={f.uniqueKey}
                             deleteCallback={deleteFilter}
+                            defaultValue={f.activeCategory ? { value: f.activeCategory, label: f.activeCategory } : null}
+                            childDefault={f.selected || null}
                         />
                     </div>
                 ))}
@@ -269,6 +480,9 @@ export default function SearchForm({ update, itemData }) {
                 </label>
                 <label className={styles.toggleLabel}>
                     <input type="checkbox" name="hideNonGear" onChange={sendUpdate} /> Hide non-gear items
+                </label>
+                <label className={styles.toggleLabel}>
+                    <input type="checkbox" name="hideQuestItems" onChange={sendUpdate} /> Hide quest items
                 </label>
             </div>
         </form>
@@ -426,13 +640,25 @@ class SearchCategory {
         this.spawnChildren = spawnChildren;
     }
 
-    select(uniqueKey) {
-        return this.spawnChildren(uniqueKey);
+    select(uniqueKey, defaultValue) {
+        return this.spawnChildren(uniqueKey, defaultValue);
     }
 }
 
-function NotFilterRow({ uniqueKey, resetKey, itemTypes, tiers, locations, regions, baseItems, charmClasses, pois }) {
-    const [category, setCategory] = React.useState('Item Type');
+function NotFilterRow({
+    uniqueKey,
+    resetKey,
+    itemTypes,
+    tiers,
+    locations,
+    regions,
+    baseItems,
+    charmClasses,
+    pois,
+    defaultCategory,
+    defaultValue,
+}) {
+    const [category, setCategory] = React.useState(defaultCategory || 'Item Type');
     const notValues = {
         'Item Type': itemTypes,
         Tier: tiers,
@@ -448,12 +674,14 @@ function NotFilterRow({ uniqueKey, resetKey, itemTypes, tiers, locations, region
                 key={`notCat-${resetKey}`}
                 name={`notCategorySelect-${uniqueKey}`}
                 sortableStats={Object.keys(notValues)}
+                default={defaultCategory}
                 onChange={(option) => setCategory(option.value)}
             />
             <SelectInput
                 key={`notVal-${category}-${resetKey}`}
                 name={`notValue-${uniqueKey}`}
                 sortableStats={notValues[category]}
+                default={defaultValue}
             />
         </div>
     );

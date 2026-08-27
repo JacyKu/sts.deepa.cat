@@ -16,6 +16,8 @@ function parseCharmPreview(charmValue, itemData) {
                 return {
                     name: c.name,
                     power: Number.isFinite(power) ? power : null,
+                    tier: c.tier || null,
+                    class_name: c.class_name || null,
                 };
             });
 
@@ -74,7 +76,7 @@ export function getLinkPreviewData(build, itemData, skillsData) {
         const className = params.get('cl') || null;
         // The binary token omits stats at their defaults, so a Ring build has
         // no region param at all. Number(null) would be 0, which would break
-        // every region check — default to 3 when absent.
+        // every region check - default to 3 when absent.
         const regionRaw = params.get('region');
         const region =
             regionRaw === null || regionRaw === ''
@@ -111,16 +113,14 @@ export function getLinkPreviewData(build, itemData, skillsData) {
                 if (key) enhancements.push(key);
             }
         }
-        // Celestial Zenith / Depths abilities (name + rarity index).
+        // Celestial Zenith / Depths abilities (names only - rarity is gone,
+        // everything is always Twisted; legacy "Name:rarity" parses to name).
         const czAbilities = [];
         const czRaw = params.get('cz');
         if (czRaw) {
             for (const part of czRaw.split(',')) {
-                const [name, rarityRaw] = part.split(':');
-                const rarity = rarityRaw === undefined ? 0 : Number(rarityRaw);
-                if (name && Number.isInteger(rarity) && rarity >= 0 && rarity < 6) {
-                    czAbilities.push({ name, rarity });
-                }
+                const name = part.split(':')[0];
+                if (name) czAbilities.push(name);
             }
         }
         // resolve display names from the skills data when available
@@ -183,7 +183,9 @@ export function getLinkPreviewDescription(build, itemData, skillsData, infusions
     const formatItem = (itemKey) => {
         if (!itemKey || itemKey === 'None') return 'None';
         const displayName = itemData?.[itemKey]?.name || itemKey;
-        return displayName;
+        // The card image already marks EX items with a purple tag, so the
+        // text description must not repeat the prefix.
+        return displayName.replace(/^EX\s+/, '');
     };
 
     const charmInline =
@@ -191,9 +193,7 @@ export function getLinkPreviewDescription(build, itemData, skillsData, infusions
             ? '🧿 Charms: None'
             : `🧿 Charms (${data.charms.totalPower}★): ${data.charms.items
                   .map((charm) => (charm.power != null ? `${charm.name} ${charm.power}★` : charm.name))
-                  .join(', ')}`;
-
-    // The card image already shows class/spec/skills; the text keeps only gear + charms.
+                  .join(', ')}`;    // The card image already shows class/spec/skills; the text keeps only gear + charms.
     const EMOJI = {
         mainhand: '⚔️',
         offhand: '🛡️',
@@ -210,14 +210,15 @@ export function getLinkPreviewDescription(build, itemData, skillsData, infusions
         `${EMOJI.chestplate} ${formatItem(i.chestplate)}`,
         `${EMOJI.leggings} ${formatItem(i.leggings)}`,
         `${EMOJI.boots} ${formatItem(i.boots)}`,
-        charmInline,
     ];
 
+    // Valley (1) and Isles (2) - including Darkest Depths - have no charms.
+    if (data.region > 2) {
+        parts.push(charmInline);
+    }
+
     if (data.czAbilities.length > 0) {
-        const rarityLabel = (r) => ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Twisted'][r] || '';
-        parts.push(
-            `🔮 CZ: ${data.czAbilities.map((a) => (a.rarity > 0 ? `${a.name} (${rarityLabel(a.rarity)})` : a.name)).join(', ')}`
-        );
+        parts.push(`🔮 CZ: ${data.czAbilities.join(', ')}`);
     }
 
     if (data.ascension > 0) {

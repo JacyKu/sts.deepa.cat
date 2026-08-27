@@ -66,6 +66,53 @@ const emptyBuild = {
 // the plain /builder page, or on /b/<id> when the draft belongs to that build.
 const DRAFT_KEY = 'sts.buildDraft.v1';
 
+// Build list (shopping list): items collected on the items page are read from
+// localStorage on mount and equipped into empty slots. Leftovers (misc items,
+// consumables, extra same-slot items) stay in the list for the next import.
+const BUILD_LIST_KEY = 'sts.buildList.v1';
+
+const MAINHAND_TYPES = new Set([
+    'mainhand',
+    'mainhand sword',
+    'mainhand shield',
+    'axe',
+    'pickaxe',
+    'wand',
+    'scythe',
+    'bow',
+    'crossbow',
+    'snowball',
+    'trident',
+    'alchemist bag',
+]);
+const OFFHAND_TYPES = new Set(['offhand', 'offhand shield', 'offhand sword']);
+const EQUIP_SLOTS = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+
+function resolveItemKey(itemData, displayName) {
+    if (itemData[displayName]) return displayName;
+    return Object.keys(itemData).find((key) => itemData[key].name === displayName) || null;
+}
+
+function readBuildList() {
+    if (typeof window === 'undefined') return [];
+    try {
+        const raw = window.localStorage.getItem(BUILD_LIST_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+// The build list only imports when the "Item import" menu toggle is on.
+function isBuildListEnabled() {
+    if (typeof window === 'undefined') return false;
+    try {
+        return window.localStorage.getItem('buildListEnabled') === 'true';
+    } catch (e) {
+        return false;
+    }
+}
+
 // Reorderable skill/ability lists: the custom order (a personal layout
 // preference) is stored in localStorage per class / specialization / tree.
 const ORDER_PREFIX = 'sts.order.';
@@ -127,6 +174,7 @@ const enabledBoxes = {
     tempo: false,
     cloaked: false,
     earth_aspect: false,
+    curse_of_the_veil: false,
 
     // Situational Damage
     smite: false,
@@ -179,6 +227,7 @@ const situationalDefenses = [
     'tempo',
     'cloaked',
     'earth_aspect',
+    'curse_of_the_veil',
 ];
 
 const situationalFlatDamage = ['smite', 'duelist', 'slayer', 'point_blank', 'sniper'];
@@ -297,6 +346,18 @@ function getRelevantItems(types, itemData) {
 function recalcBuild(data, itemData) {
     let tempStats = new Stats(itemData, data, enabledBoxes, extraStats, enabledClassAbilityBuffs);
     return tempStats;
+}
+
+// Run the (synchronous, heavy) stats recomputation as a low-priority update so
+// the interaction that triggered it (item select, checkbox, ...) paints and
+// responds immediately. The two state updates (local stats + parent item
+// display) are batched into a single transition render.
+function applyStatsUpdate(itemNames, itemData, setStats, update) {
+    React.startTransition(() => {
+        const tempStats = recalcBuild(itemNames, itemData);
+        setStats(tempStats);
+        update(tempStats);
+    });
 }
 
 function createMasterworkData(name, itemData) {
@@ -465,9 +526,9 @@ function cleanDescription(desc) {
     );
 }
 
-// Replaces #{Common|Uncommon|Rare|Epic|Legendary|Twisted} templates in CZ/Depths
-// ability descriptions with the value for the selected rarity index (0-5).
-function formatCzDescription(desc, rarity) {
+// Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
+// with the value for the Twisted level - rarity is gone, everything is Twisted.
+function formatCzDescription(desc) {
     const KEYBINDS = {
         'key.attack': 'Left Button',
         'key.use': 'Right Button',
@@ -477,7 +538,7 @@ function formatCzDescription(desc, rarity) {
     return String(desc || '')
         .replace(/#\{([^}]+)\}/g, (match, group) => {
             const values = group.split('|');
-            const v = values[rarity] ?? values[values.length - 1];
+            const v = values[values.length - 1];
             return v === undefined ? match : v;
         })
         .replace(/key\.\w+/g, (match) => KEYBINDS[match] || match);
@@ -496,7 +557,7 @@ const CZ_MAIN_TREES = [
 ];
 
 // Resource-pack icons: class/spec skills live in images/skills (unofficial
-// mod textures where available — those are transparent), CZ abilities in
+// mod textures where available - those are transparent), CZ abilities in
 // images/cz. Both are keyed by the snake_case of the skill name.
 const toSnakeName = (name) =>
     String(name || '')
@@ -539,7 +600,10 @@ export default function BuildForm({
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const [notesDraft, setNotesDraft] = React.useState(notes || '');
     const [notesSaveState, setNotesSaveState] = React.useState(null); // 'saving' | 'saved' | 'error'
-    const [publicState, setPublicState] = React.useState({ isPublic: Boolean(isPublic), anonymous: Boolean(isAnonymous) });
+    const [publicState, setPublicState] = React.useState({
+        isPublic: Boolean(isPublic),
+        anonymous: Boolean(isAnonymous),
+    });
     const [publiciseState, setPubliciseState] = React.useState(null); // null | 'saving' | 'error' | 'profanity'
     const [ownsBuild, setOwnsBuild] = React.useState(Boolean(canPublicise));
     const [favState, setFavState] = React.useState(null); // null | {favourite, count}
@@ -553,14 +617,19 @@ export default function BuildForm({
     const [spec, setSpec] = React.useState(null); // specialization name
     const [specSelectKey, setSpecSelectKey] = React.useState(0);
     const [specSkillPoints, setSpecSkillPoints] = React.useState({});
-    const [czAbilities, setCzAbilities] = React.useState({}); // ability name -> rarity index
+    const [czAbilities, setCzAbilities] = React.useState({}); // ability name -> selected (always Twisted)
     const [czData, setCzData] = React.useState(null);
     const [czOpen, setCzOpen] = React.useState(false);
     const [czSelectedTree, setCzSelectedTree] = React.useState(CZ_MAIN_TREES[0]);
-    const [czRarityOpen, setCzRarityOpen] = React.useState(null); // ability name with the rarity menu open
     const [charmStatsOpen, setCharmStatsOpen] = React.useState(false);
     const [delveOpen, setDelveOpen] = React.useState(false);
     const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (always level IV)
+    // Delve infusion points: one free-form input per slot, total capped at 24
+    // across all slots (6 slots x level IV). Picking an infusion defaults its
+    // points to 4 (level IV), clamped to the remaining budget.
+    const DELVE_POINT_CAP = 24;
+    const DELVE_POINT_DEFAULT = 4;
+    const [delvePoints, setDelvePoints] = React.useState({});
     const [revelation, setRevelation] = React.useState(false);
     const [charmSelectKey, setCharmSelectKey] = React.useState(0);
     const [multiplierListKey, setMultiplierListKey] = React.useState(0);
@@ -593,45 +662,128 @@ export default function BuildForm({
 
     // Drag-to-reorder of skill/ability lists. dragState drives styling; the
     // ref holds the in-flight drag so handlers never read stale state.
+    // dragTarget tracks which row the pointer is over (drop highlight).
     const [dragState, setDragState] = React.useState(null); // { container, key }
     const dragStateRef = React.useRef(null);
+    const [dragTarget, setDragTarget] = React.useState(null); // { container, key }
+    const dragTargetRef = React.useRef(null);
     const [orderVersion, setOrderVersion] = React.useState(0);
 
     function startSkillDrag(container, key, e) {
-        if (e.dataTransfer) e.dataTransfer.setData('text/plain', `${container}:${key}`);
+        if (e.dataTransfer) {
+            e.dataTransfer.setData('text/plain', `${container}:${key}`);
+            e.dataTransfer.effectAllowed = 'move';
+            // Custom drag image: a ghost copy of the whole row (the default
+            // is just the tiny handle, which feels unresponsive).
+            const handle = e.currentTarget;
+            const row = handle.closest(`.${styles.skillRow}`) || handle;
+            if (row) {
+                const ghost = row.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.left = '-9999px';
+                ghost.style.top = '-9999px';
+                ghost.style.width = `${row.offsetWidth}px`;
+                ghost.style.pointerEvents = 'none';
+                ghost.style.opacity = '0.85';
+                document.body.appendChild(ghost);
+                e.dataTransfer.setDragImage(ghost, 24, 18);
+                requestAnimationFrame(() => ghost.remove());
+            }
+        }
         dragStateRef.current = { container, key };
+        dragTargetRef.current = null;
         setDragState({ container, key });
+        setDragTarget(null);
     }
 
     function endSkillDrag() {
         dragStateRef.current = null;
+        dragTargetRef.current = null;
         setDragState(null);
+        setDragTarget(null);
     }
 
     // On drag-over a row in the same container, move the dragged item to that
     // row's slot and persist the new order (triggers a re-render via orderVersion).
     function skillDragOver(e, container, key, sortedList, keyOf) {
         const d = dragStateRef.current;
-        if (!d || d.container !== container || d.key === key) return;
+        if (!d || d.container !== container) return;
         e.preventDefault();
-        const next = moveInOrder(sortedList, keyOf, d.key, key);
-        writeOrder(container, next.map(keyOf));
-        setOrderVersion((v) => v + 1);
+        e.dataTransfer.dropEffect = 'move';
+        // Highlight the row currently under the pointer.
+        if (dragTargetRef.current?.key !== key) {
+            dragTargetRef.current = { container, key };
+            setDragTarget({ container, key });
+        }
+        if (d.key !== key) {
+            const next = moveInOrder(sortedList, keyOf, d.key, key);
+            writeOrder(container, next.map(keyOf));
+            setOrderVersion((v) => v + 1);
+        }
+        // Auto-scroll the page while hovering near its edges.
+        const MARGIN = 80;
+        if (e.clientY < MARGIN) window.scrollBy(0, -18);
+        else if (e.clientY > window.innerHeight - MARGIN) window.scrollBy(0, 18);
+    }
+
+    function skillDragLeave(key) {
+        if (dragTargetRef.current?.key === key) {
+            dragTargetRef.current = null;
+            setDragTarget(null);
+        }
     }
 
     function statInputChanged(name, event) {
         const next = { ...statInputs, [name]: event.target.value };
         setStatInputs(next);
-        recalcAndSyncUrl();
+        scheduleStatsRecalc();
+    }
+
+    // Typed values snap back into the 0-100 range (and to the default when
+    // the box is left empty), so the slider and the saved build stay valid.
+    function healthPercentBlur() {
+        const raw = Number(statInputs.health);
+        const value = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 100;
+        setStatInputs((prev) => ({ ...prev, health: String(value) }));
+        flushStatsRecalc();
+    }
+
+    // The Stats rebuild is synchronous and heavy, so the health slider and the
+    // tenacity/vitality/... number inputs throttle it instead of firing one
+    // rebuild per keystroke/tick. Leading edge keeps the numbers alive while
+    // dragging; trailing edge settles the final value once input stops.
+    const STAT_RECALC_WINDOW = 120;
+    const statRecalcTimerRef = React.useRef(null);
+    const statLastRecalcRef = React.useRef(0);
+
+    function scheduleStatsRecalc() {
+        const elapsed = Date.now() - statLastRecalcRef.current;
+        if (elapsed >= STAT_RECALC_WINDOW) {
+            statLastRecalcRef.current = Date.now();
+            recalcBuildStats();
+        } else if (!statRecalcTimerRef.current) {
+            statRecalcTimerRef.current = setTimeout(() => {
+                statRecalcTimerRef.current = null;
+                statLastRecalcRef.current = Date.now();
+                recalcBuildStats();
+            }, STAT_RECALC_WINDOW - elapsed);
+        }
+    }
+
+    function flushStatsRecalc() {
+        if (statRecalcTimerRef.current) {
+            clearTimeout(statRecalcTimerRef.current);
+            statRecalcTimerRef.current = null;
+        }
+        statLastRecalcRef.current = Date.now();
+        recalcBuildStats();
     }
 
     function revelationChanged(event) {
         setRevelation(event.target.checked);
         // Native checkbox state is already in FormData at this point (see checkboxChanged).
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     function delveChanged(slot, option) {
@@ -644,6 +796,19 @@ export default function BuildForm({
             }
             return next;
         });
+        // Newly picked infusions default to level IV (4 points); clearing the
+        // infusion drops its points too.
+        if (option) {
+            const used = delvePointsElsewhere(slot);
+            const defaultPoints = Math.max(0, Math.min(DELVE_POINT_DEFAULT, DELVE_POINT_CAP - used));
+            setDelvePoints((prev) => ({ ...prev, [slot]: Math.max(prev[slot] ?? 0, defaultPoints) }));
+        } else {
+            setDelvePoints((prev) => {
+                const next = { ...prev };
+                delete next[slot];
+                return next;
+            });
+        }
         // FormData is stale right after a Select change, so inject the new value
         // manually (same pattern as itemChanged) and recalculate.
         let entries = Array.from(new FormData(formRef.current).entries());
@@ -651,9 +816,19 @@ export default function BuildForm({
             if (entries[i][0] == `delveInfusion-${slot}`) entries[i][1] = option ? option.value : 'None';
         }
         const itemNames = Object.fromEntries(entries);
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
+    }
+
+    // The points other slots already use; this slot can take at most the rest.
+    function delvePointsElsewhere(slot) {
+        return Object.entries(delvePoints)
+            .filter(([s]) => s !== slot)
+            .reduce((sum, [, v]) => sum + (Number(v) || 0), 0);
+    }
+
+    function changeDelvePoints(slot, raw) {
+        const value = Math.max(0, Math.min(DELVE_POINT_CAP - delvePointsElsewhere(slot), Number(raw) || 0));
+        setDelvePoints((prev) => ({ ...prev, [slot]: value }));
     }
 
     function delveSlotSelects(slot) {
@@ -673,7 +848,7 @@ export default function BuildForm({
             })
         );
         return (
-            <div className="mt-3">
+            <div className={styles.delveSlotRow}>
                 <Select
                     instanceId={`delve-${slot}`}
                     name={`delveInfusion-${slot}`}
@@ -689,6 +864,18 @@ export default function BuildForm({
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
                 />
+                <input
+                    type="number"
+                    min="0"
+                    max={Math.max(0, DELVE_POINT_CAP - delvePointsElsewhere(slot))}
+                    step="1"
+                    value={delvePoints[slot] ?? 0}
+                    onChange={(e) => changeDelvePoints(slot, e.target.value)}
+                    disabled={!cur}
+                    className={styles.delvePointsInput}
+                    aria-label="Delve infusion points"
+                    title="Delve infusion points (max 24 across all slots)"
+                />
             </div>
         );
     }
@@ -700,20 +887,24 @@ export default function BuildForm({
         setRegionValue(nextRegion);
         setCzOpen(raw === 'dd' || raw === 'cz');
 
-        // Region gating: Valley (1) has no specializations at all; Valley and
-        // Isles (1-2) have no enhancements or charms. Depths abilities only
-        // exist in Darkest Depths (Isles) and Celestial Zenith (Ring).
+        // Region gating: Valley (1) has no specializations at all; neither do
+        // the CZ/DD variants. Valley and Isles (1-2) have no enhancements or
+        // charms. Depths abilities only exist in Darkest Depths (Isles) and
+        // Celestial Zenith (Ring).
         let nextSpec = spec;
         let nextSpecPoints = specSkillPoints;
         let nextEnhancements = enhancements;
         let nextCharms = charms;
         let nextCz = czAbilities;
-        if (nextRegion === 1) {
+        const isCzDd = raw === 'dd' || raw === 'cz';
+        if (nextRegion === 1 || isCzDd) {
             nextSpec = null;
             nextSpecPoints = {};
             setSpec(null);
             setSpecSelectKey((k) => k + 1);
             setSpecSkillPoints({});
+        }
+        if (nextRegion === 1) {
             nextCz = {};
             setCzAbilities({});
             setCzOpen(false);
@@ -739,14 +930,13 @@ export default function BuildForm({
         }
         refreshClassBuffs(skillPoints, nextSpecPoints, nextEnhancements);
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     React.useEffect(() => {
         return () => {
             if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
+            if (statRecalcTimerRef.current) clearTimeout(statRecalcTimerRef.current);
         };
     }, []);
 
@@ -812,9 +1002,7 @@ export default function BuildForm({
 
     function recalcBuildStats() {
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     function skillPointClicked(skillId, pointIndex) {
@@ -882,11 +1070,11 @@ export default function BuildForm({
         recalcBuildStats();
     }
 
-    function czChanged(abilityName, rarity) {
-        // rarity null/undefined deselects; otherwise 0-5 (Common..Twisted).
+    function czChanged(abilityName, checked) {
+        // checked true selects; false deselects. Abilities are always Twisted.
         const next = { ...czAbilities };
-        if (rarity === null || rarity === undefined) delete next[abilityName];
-        else next[abilityName] = rarity;
+        if (checked) next[abilityName] = true;
+        else delete next[abilityName];
         setCzAbilities(next);
     }
 
@@ -900,7 +1088,15 @@ export default function BuildForm({
     React.useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => (r.ok ? r.json() : null))
-            .then((d) => setLoggedIn(Boolean(d && d.user)))
+            .then((d) => {
+                setLoggedIn(Boolean(d && d.user));
+                // New builds pick up the account-wide anonymity preference
+                // from the top-right settings menu; existing builds keep the
+                // anonymity flag saved on their own row.
+                if (d && d.user && !activeBuildId) {
+                    setPublicState((prev) => ({ ...prev, anonymous: Boolean(d.user.anonymous) }));
+                }
+            })
             .catch(() => setLoggedIn(false));
     }, []);
 
@@ -971,10 +1167,9 @@ export default function BuildForm({
 
     function toggleFavourite() {
         if (!activeBuildId || !publicState.isPublic || favBusy) return;
-        if (!loggedIn) {
-            window.location.href = `/api/auth/discord/login?next=${encodeURIComponent(window.location.pathname)}`;
-            return;
-        }
+        // Only signed-in Discord users may like builds; the server enforces
+        // this too (401). Without a session the button does nothing.
+        if (!loggedIn) return;
         setFavBusy(true);
         const isFav = favState ? favState.favourite : false;
         fetch(`/api/v1/builds/${activeBuildId}/favourite`, { method: isFav ? 'DELETE' : 'POST' })
@@ -1034,10 +1229,11 @@ export default function BuildForm({
                 })
                 .then((result) => {
                     if (typeof result === 'string') return result; // fork already completed
+                    // The row got saved to (or claimed onto) the signed-in
+                    // account: reveal the publicise/anonymity options.
+                    if (result.savedToAccount) setOwnsBuild(true);
                     const link =
-                        window.location.origin +
-                        getStsBase() +
-                        `/b/v${tokenVersion}/${activeBuildId}?v=${Date.now()}`;
+                        window.location.origin + getStsBase() + `/b/v${tokenVersion}/${activeBuildId}?v=${Date.now()}`;
                     setSaveState('copied');
                     setSavedAnonymous(false);
                     if (navigator.clipboard) {
@@ -1197,39 +1393,23 @@ export default function BuildForm({
         if (!czData || !czOpen || Object.keys(czAbilities).length === 0) return;
         const loadedNames = new Set(Object.keys(czAbilities));
         const hasAny = (t) => t.skills.some((s) => loadedNames.has(s.name));
-        const currentHasAny = czSelectedTree
-            ? czData.trees.some((t) => t.tree === czSelectedTree && hasAny(t))
-            : false;
+        const currentHasAny = czSelectedTree ? czData.trees.some((t) => t.tree === czSelectedTree && hasAny(t)) : false;
         if (currentHasAny) return;
         const allowed = CZ_MAIN_TREES.filter((t) => !(regionValue === 2 && t === 'Prismatic'));
         const treeOf = czData.trees.find((t) => allowed.includes(t.tree) && hasAny(t));
         if (treeOf && treeOf.tree !== czSelectedTree) setCzSelectedTree(treeOf.tree);
     }, [czData, czOpen, czAbilities, regionValue]);
 
-    // Close the open rarity menu when clicking elsewhere (but not inside the
-    // menu or its button — a mousedown there must survive until the click).
-    React.useEffect(() => {
-        if (!czRarityOpen) return;
-        const close = (e) => {
-            if (e.target && e.target.closest && e.target.closest('[class*="czRarityWrap"]')) return;
-            setCzRarityOpen(null);
-        };
-        document.addEventListener('mousedown', close);
-        return () => document.removeEventListener('mousedown', close);
-    }, [czRarityOpen]);
-
     function sendUpdate(event) {
         event.preventDefault();
         const itemNames = Object.fromEntries(new FormData(event.target).entries());
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     React.useEffect(() => {
         if (!parentLoaded) return;
         // Source of truth for this page: the URL build (saved build), or the
-        // session draft when there is none — unless the draft belongs to a
+        // session draft when there is none - unless the draft belongs to a
         // different saved build. A matching draft wins over the DB row: it may
         // hold edits the user hasn't saved yet.
         const isLoadedBuild = Boolean(build);
@@ -1238,252 +1418,340 @@ export default function BuildForm({
         if (!loadToken) return;
         const decoded = decodeBuildParam(loadToken, itemData);
         if (!decoded) return;
-            let buildParts = decodeURI(decoded).split('&');
-            let itemNames = {
-                mainhand: buildParts.find((str) => str.includes('m='))?.split('m=')[1],
-                offhand: buildParts.find((str) => str.includes('o='))?.split('o=')[1],
-                helmet: buildParts.find((str) => str.includes('h='))?.split('h=')[1],
-                chestplate: buildParts.find((str) => str.includes('c='))?.split('c=')[1],
-                leggings: buildParts.find((str) => str.includes('l='))?.split('l=')[1],
-                boots: buildParts.find((str) => str.includes('b='))?.split('b=')[1],
-            };
-            Object.keys(itemNames).forEach((type) => {
-                if (itemNames[type] === undefined || !Object.keys(itemData).includes(itemNames[type])) {
-                    itemNames[type] = 'None';
+        let buildParts = decodeURI(decoded).split('&');
+        let itemNames = {
+            mainhand: buildParts.find((str) => str.includes('m='))?.split('m=')[1],
+            offhand: buildParts.find((str) => str.includes('o='))?.split('o=')[1],
+            helmet: buildParts.find((str) => str.includes('h='))?.split('h=')[1],
+            chestplate: buildParts.find((str) => str.includes('c='))?.split('c=')[1],
+            leggings: buildParts.find((str) => str.includes('l='))?.split('l=')[1],
+            boots: buildParts.find((str) => str.includes('b='))?.split('b=')[1],
+        };
+        Object.keys(itemNames).forEach((type) => {
+            if (itemNames[type] === undefined || !Object.keys(itemData).includes(itemNames[type])) {
+                itemNames[type] = 'None';
+            }
+        });
+        // Drive the (uncontrolled) item selects explicitly: the build prop
+        // is present from the first render, but a restored draft arrives
+        // after mount, so defaultValue alone can't show the items.
+        Object.keys(itemNames).forEach((type) => {
+            itemRefs[type].current.setValue({
+                value: itemNames[type],
+                label: removeMasterworkFromName(itemNames[type]),
+            });
+        });
+        let charmString = buildParts.find((str) => str.includes('charm='));
+        if (charmString) {
+            // decodeURIComponent: decodeURI leaves %2C (comma) encoded since it's a reserved char
+            let charmList = CharmShortener.parseCharmData(decodeURIComponent(charmString.split('charm=')[1]), itemData);
+
+            // Cap the restored list to the 12-power charm limit.
+            let cappedList = [];
+            let powerCount = 0;
+            charmList.forEach((name) => {
+                if (powerCount + (itemData[name]?.power || 0) <= 12) {
+                    powerCount += itemData[name]?.power || 0;
+                    cappedList.push(name);
                 }
             });
-            // Drive the (uncontrolled) item selects explicitly: the build prop
-            // is present from the first render, but a restored draft arrives
-            // after mount, so defaultValue alone can't show the items.
-            Object.keys(itemNames).forEach((type) => {
-                itemRefs[type].current.setValue({
-                    value: itemNames[type],
-                    label: removeMasterworkFromName(itemNames[type]),
+
+            // dunno what happened here but i needed to change this to have the map()
+            // so it's passing a list of charm objects, not charm names
+            // idk why it worked before and stopped working now, but this fixes it
+            setCharms(cappedList.map((name) => itemData[name]));
+        }
+
+        // class + skill points from the URL
+        let classPart = buildParts.find((str) => str.includes('cl='));
+        if (classPart) {
+            const cls = classPart.split('cl=')[1];
+            if (cls) {
+                setGameClass(cls.toLowerCase());
+                setClassSelectKey((k) => k + 1);
+            }
+        }
+        let skPart = buildParts.find((str) => str.includes('sk='));
+        let loadedSkillPoints = {};
+        if (skPart) {
+            const nextPoints = {};
+            decodeURIComponent(skPart.split('sk=')[1])
+                .split(',')
+                .forEach((part) => {
+                    const [id, pts] = part.split(':');
+                    const points = Number(pts);
+                    if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
                 });
-            });
-            let charmString = buildParts.find((str) => str.includes('charm='));
-            if (charmString) {
-                // decodeURIComponent: decodeURI leaves %2C (comma) encoded since it's a reserved char
-                let charmList = CharmShortener.parseCharmData(
-                    decodeURIComponent(charmString.split('charm=')[1]),
-                    itemData
-                );
-
-                // Cap the restored list to the 12-power charm limit.
-                let cappedList = [];
-                let powerCount = 0;
-                charmList.forEach((name) => {
-                    if (powerCount + (itemData[name]?.power || 0) <= 12) {
-                        powerCount += itemData[name]?.power || 0;
-                        cappedList.push(name);
-                    }
-                });
-
-                // dunno what happened here but i needed to change this to have the map()
-                // so it's passing a list of charm objects, not charm names
-                // idk why it worked before and stopped working now, but this fixes it
-                setCharms(cappedList.map((name) => itemData[name]));
-            }
-
-            // class + skill points from the URL
-            let classPart = buildParts.find((str) => str.includes('cl='));
-            if (classPart) {
-                const cls = classPart.split('cl=')[1];
-                if (cls) {
-                    setGameClass(cls.toLowerCase());
-                    setClassSelectKey((k) => k + 1);
-                }
-            }
-            let skPart = buildParts.find((str) => str.includes('sk='));
-            let loadedSkillPoints = {};
-            if (skPart) {
-                const nextPoints = {};
-                decodeURIComponent(skPart.split('sk=')[1])
-                    .split(',')
-                    .forEach((part) => {
-                        const [id, pts] = part.split(':');
-                        const points = Number(pts);
-                        if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
-                    });
-                loadedSkillPoints = nextPoints;
-                setSkillPoints(nextPoints);
-            }
-            let spPart = buildParts.find((str) => str.includes('sp='));
-            if (spPart) {
-                const specName = decodeURIComponent(spPart.split('sp=')[1]);
-                if (specName) {
-                    setSpec(specName);
-                    setSpecSelectKey((k) => k + 1);
-                }
-            }
-            let sskPart = buildParts.find((str) => str.includes('ssk='));
-            let loadedSpecPoints = {};
-            if (sskPart) {
-                const nextPoints = {};
-                decodeURIComponent(sskPart.split('ssk=')[1])
-                    .split(',')
-                    .forEach((part) => {
-                        const [id, pts] = part.split(':');
-                        const points = Number(pts);
-                        if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
-                    });
-                loadedSpecPoints = nextPoints;
-                setSpecSkillPoints(nextPoints);
-            }
-            let enPart = buildParts.find((str) => str.includes('en='));
-            let loadedEnhancements = {};
-            if (enPart) {
-                const nextEnhancements = {};
-                decodeURIComponent(enPart.split('en=')[1])
-                    .split(',')
-                    .forEach((key) => {
-                        if (key) nextEnhancements[key] = true;
-                    });
-                loadedEnhancements = nextEnhancements;
-                setEnhancements(nextEnhancements);
-            }
-            let czPart = buildParts.find((str) => str.includes('cz='));
-            let nextCz = {};
-            if (czPart) {
-                const parsedCz = {};
-                decodeURIComponent(czPart.split('cz=')[1])
-                    .split(',')
-                    .forEach((part) => {
-                        const [name, rarityRaw] = part.split(':');
-                        const rarity = rarityRaw === undefined ? 0 : Number(rarityRaw);
-                        if (name && Number.isInteger(rarity) && rarity >= 0 && rarity < 6) {
-                            parsedCz[name] = rarity;
-                        }
-                    });
-                nextCz = parsedCz;
-                setCzAbilities(parsedCz);
-                setCzOpen(true);
-            }
-            // Skills that were removed from the API: drop their points from the
-            // form so the counters stay honest (the original URL is untouched
-            // until the user edits and the link is rewritten).
-            // Only filter when the skills data is already loaded: parentLoaded
-            // fires before the /api/v1/skills fetch resolves, and filtering
-            // against an empty skill set would wipe every loaded point. The
-            // cleanup effect below re-filters once the data arrives.
-            const loadedClass = classPart?.split('cl=')[1] || null;
-            const loadedSpec = spPart ? decodeURIComponent(spPart.split('sp=')[1]) : null;
-            const classData = skillsData?.classes?.find(
-                (c) => (c.className || '').toLowerCase() == (loadedClass || '').toLowerCase()
-            );
-            if (skillsData && classData) {
-                const knownSkillIds = new Set((classData.skills || []).map((s) => s.scoreboardId));
-                const specData = loadedSpec ? classData.specs?.find((s) => s.specName == loadedSpec) : null;
-                const knownSpecSkillIds = new Set((specData?.specSkills || []).map((s) => s.scoreboardId));
-                loadedSkillPoints = Object.fromEntries(
-                    Object.entries(loadedSkillPoints).filter(([id]) => knownSkillIds.has(id))
-                );
-                loadedSpecPoints = Object.fromEntries(
-                    Object.entries(loadedSpecPoints).filter(([id]) => knownSpecSkillIds.has(id))
-                );
-                setSkillPoints(loadedSkillPoints);
-                setSpecSkillPoints(loadedSpecPoints);
-            }
-
-            refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements);
-            // extra stat inputs (health/tenacity/vitality/vigor/focus/perspicacity/region)
-            const statValues = {};
-            for (const key of STAT_KEYS) {
-                const part = buildParts.find((str) => str.startsWith(`${key}=`));
-                if (part) statValues[key] = part.split('=')[1];
-            }
-            if (statValues.health !== undefined) {
-                statValues.health = String(Math.max(1, Number(statValues.health)));
-            }
-            if (Object.keys(statValues).length > 0) {
-                setStatInputs((prev) => ({ ...DEFAULT_STAT_INPUTS, ...statValues }));
-                if (statValues.region !== undefined) {
-                    const regionNum = Number(statValues.region);
-                    if ([1, 2, 3].includes(regionNum)) {
-                        setRegionValue(regionNum);
-                        setRegionSelectKey((k) => k + 1);
-                    }
-                }
-            }
-
-            // Saved builds carry the delve infusions + Revelation checkbox in
-            // the DB (they are not part of the URL token); restore them here.
-            // Drafts carry them inline the same way.
-            const effSavedState = isLoadedBuild ? savedState : effDraft;
-            const loadedDelve = {};
-            if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
-                const loadedRegion = Number(statValues.region) || 3;
-                for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
-                    const ok = DELVE_INFUSIONS.some((i) => i.name === infusion && i.region <= loadedRegion);
-                    if (ok) loadedDelve[slot] = infusion;
-                }
-                if (Object.keys(loadedDelve).length > 0) {
-                    setDelveInfusions(loadedDelve);
-                    setDelveOpen(true);
-                }
-            }
-            const loadedRevelation = Boolean(effSavedState && effSavedState.revelation);
-            if (loadedRevelation) setRevelation(true);
-
-            // A build renamed on the "My Builds" page stores its display name in
-            // the DB; surface it in the header so re-saving keeps the new name.
-            if (effDraft && effDraft.name) {
-                setBuildName(effDraft.name);
-            } else if (isLoadedBuild && savedName) {
-                setBuildName(savedName);
-            }
-
-            // Drafts also restore the notes text and remember the row they
-            // belong to, so saves keep updating that same build.
-            if (effDraft) {
-                if (effDraft.notes != null) setNotesDraft(effDraft.notes);
-                if (effDraft.buildId) setActiveBuildId(effDraft.buildId);
-            }
-
-            const delveEntries = {};
-            for (const [slot, infusion] of Object.entries(loadedDelve)) {
-                delveEntries[`delveInfusion-${slot}`] = infusion;
-            }
-
-            const tempStats = recalcBuild(
-                {
-                    ...itemNames,
-                    ...statValues,
-                    ...delveEntries,
-                    ...(loadedRevelation ? { revelation: '1' } : {}),
-                },
-                itemData
-            );
-            setStats(tempStats);
-            update(tempStats);
-
-            // Region gating: drop whatever the loaded region forbids (see regionChanged).
-            const loadedRegion = Number(statValues.region) || 3;
-            if (loadedRegion === 1) {
-                setSpec(null);
+            loadedSkillPoints = nextPoints;
+            setSkillPoints(nextPoints);
+        }
+        let spPart = buildParts.find((str) => str.includes('sp='));
+        if (spPart) {
+            const specName = decodeURIComponent(spPart.split('sp=')[1]);
+            if (specName) {
+                setSpec(specName);
                 setSpecSelectKey((k) => k + 1);
-                setSpecSkillPoints({});
-                setEnhancements({});
-                setCharms([]);
-                setCzAbilities({});
-                setCzOpen(false);
-                refreshClassBuffs({}, {}, {});
-            } else if (loadedRegion < 3) {
-                setEnhancements({});
-                setCharms([]);
-                refreshClassBuffs(skillPoints, specSkillPoints, {});
             }
-            if (loadedRegion === 2) {
-                const prismaticOnly = Object.keys(nextCz).filter((name) =>
-                    czData?.trees?.some((t) => t.tree === 'Prismatic' && t.skills.some((s) => s.name === name))
-                );
-                if (prismaticOnly.length > 0) {
-                    const cleaned = { ...nextCz };
-                    prismaticOnly.forEach((name) => delete cleaned[name]);
-                    setCzAbilities(cleaned);
+        }
+        let sskPart = buildParts.find((str) => str.includes('ssk='));
+        let loadedSpecPoints = {};
+        if (sskPart) {
+            const nextPoints = {};
+            decodeURIComponent(sskPart.split('ssk=')[1])
+                .split(',')
+                .forEach((part) => {
+                    const [id, pts] = part.split(':');
+                    const points = Number(pts);
+                    if (id && Number.isInteger(points) && points > 0) nextPoints[id] = points;
+                });
+            loadedSpecPoints = nextPoints;
+            setSpecSkillPoints(nextPoints);
+        }
+        let enPart = buildParts.find((str) => str.includes('en='));
+        let loadedEnhancements = {};
+        if (enPart) {
+            const nextEnhancements = {};
+            decodeURIComponent(enPart.split('en=')[1])
+                .split(',')
+                .forEach((key) => {
+                    if (key) nextEnhancements[key] = true;
+                });
+            loadedEnhancements = nextEnhancements;
+            setEnhancements(nextEnhancements);
+        }
+        let czPart = buildParts.find((str) => str.includes('cz='));
+        let nextCz = {};
+        if (czPart) {
+            const parsedCz = {};
+            decodeURIComponent(czPart.split('cz=')[1])
+                .split(',')
+                .forEach((part) => {
+                    // Legacy "Name:rarity" suffixes are dropped - abilities
+                    // are always Twisted.
+                    const name = part.split(':')[0];
+                    if (name) parsedCz[name] = true;
+                });
+            nextCz = parsedCz;
+            setCzAbilities(parsedCz);
+            setCzOpen(true);
+        }
+        // Skills that were removed from the API: drop their points from the
+        // form so the counters stay honest (the original URL is untouched
+        // until the user edits and the link is rewritten).
+        // Only filter when the skills data is already loaded: parentLoaded
+        // fires before the /api/v1/skills fetch resolves, and filtering
+        // against an empty skill set would wipe every loaded point. The
+        // cleanup effect below re-filters once the data arrives.
+        const loadedClass = classPart?.split('cl=')[1] || null;
+        const loadedSpec = spPart ? decodeURIComponent(spPart.split('sp=')[1]) : null;
+        const classData = skillsData?.classes?.find(
+            (c) => (c.className || '').toLowerCase() == (loadedClass || '').toLowerCase()
+        );
+        if (skillsData && classData) {
+            const knownSkillIds = new Set((classData.skills || []).map((s) => s.scoreboardId));
+            const specData = loadedSpec ? classData.specs?.find((s) => s.specName == loadedSpec) : null;
+            const knownSpecSkillIds = new Set((specData?.specSkills || []).map((s) => s.scoreboardId));
+            loadedSkillPoints = Object.fromEntries(
+                Object.entries(loadedSkillPoints).filter(([id]) => knownSkillIds.has(id))
+            );
+            loadedSpecPoints = Object.fromEntries(
+                Object.entries(loadedSpecPoints).filter(([id]) => knownSpecSkillIds.has(id))
+            );
+            setSkillPoints(loadedSkillPoints);
+            setSpecSkillPoints(loadedSpecPoints);
+        }
+
+        refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements);
+        // extra stat inputs (health/tenacity/vitality/vigor/focus/perspicacity/region)
+        const statValues = {};
+        for (const key of STAT_KEYS) {
+            const part = buildParts.find((str) => str.startsWith(`${key}=`));
+            if (part) statValues[key] = part.split('=')[1];
+        }
+        if (statValues.health !== undefined) {
+            statValues.health = String(Math.max(0, Number(statValues.health)));
+        }
+        if (Object.keys(statValues).length > 0) {
+            setStatInputs((prev) => ({ ...DEFAULT_STAT_INPUTS, ...statValues }));
+            if (statValues.region !== undefined) {
+                const regionNum = Number(statValues.region);
+                if ([1, 2, 3].includes(regionNum)) {
+                    setRegionValue(regionNum);
+                    setRegionSelectKey((k) => k + 1);
                 }
             }
+        }
+
+        // Saved builds carry the delve infusions + Revelation checkbox in
+        // the DB (they are not part of the URL token); restore them here.
+        // Drafts carry them inline the same way.
+        const effSavedState = isLoadedBuild ? savedState : effDraft;
+        const loadedDelve = {};
+        if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
+            const loadedRegion = Number(statValues.region) || 3;
+            for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
+                const ok = DELVE_INFUSIONS.some((i) => i.name === infusion && i.region <= loadedRegion);
+                if (ok) loadedDelve[slot] = infusion;
+            }
+            if (Object.keys(loadedDelve).length > 0) {
+                setDelveInfusions(loadedDelve);
+                // Restored infusions default to level IV (4 points) each.
+                setDelvePoints(Object.fromEntries(Object.keys(loadedDelve).map((slot) => [slot, DELVE_POINT_DEFAULT])));
+                setDelveOpen(true);
+            }
+        }
+        const loadedRevelation = Boolean(effSavedState && effSavedState.revelation);
+        if (loadedRevelation) setRevelation(true);
+
+        // A build renamed on the "My Builds" page stores its display name in
+        // the DB; surface it in the header so re-saving keeps the new name.
+        if (effDraft && effDraft.name) {
+            setBuildName(effDraft.name);
+        } else if (isLoadedBuild && savedName) {
+            setBuildName(savedName);
+        }
+
+        // Drafts also restore the notes text and remember the row they
+        // belong to, so saves keep updating that same build.
+        if (effDraft) {
+            if (effDraft.notes != null) setNotesDraft(effDraft.notes);
+            if (effDraft.buildId) setActiveBuildId(effDraft.buildId);
+        }
+
+        const delveEntries = {};
+        for (const [slot, infusion] of Object.entries(loadedDelve)) {
+            delveEntries[`delveInfusion-${slot}`] = infusion;
+        }
+
+        applyStatsUpdate(
+            {
+                ...itemNames,
+                ...statValues,
+                ...delveEntries,
+                ...(loadedRevelation ? { revelation: '1' } : {}),
+            },
+            itemData,
+            setStats,
+            update
+        );
+
+        // Region gating: drop whatever the loaded region forbids (see regionChanged).
+        const loadedRegion = Number(statValues.region) || 3;
+        if (loadedRegion === 1) {
+            setSpec(null);
+            setSpecSelectKey((k) => k + 1);
+            setSpecSkillPoints({});
+            setEnhancements({});
+            setCharms([]);
+            setCzAbilities({});
+            setCzOpen(false);
+            refreshClassBuffs({}, {}, {});
+        } else if (loadedRegion < 3) {
+            setEnhancements({});
+            setCharms([]);
+            refreshClassBuffs(skillPoints, specSkillPoints, {});
+        }
+        if (loadedRegion === 2) {
+            const prismaticOnly = Object.keys(nextCz).filter((name) =>
+                czData?.trees?.some((t) => t.tree === 'Prismatic' && t.skills.some((s) => s.name === name))
+            );
+            if (prismaticOnly.length > 0) {
+                const cleaned = { ...nextCz };
+                prismaticOnly.forEach((name) => delete cleaned[name]);
+                setCzAbilities(cleaned);
+            }
+        }
     }, [parentLoaded, draft]);
+
+    // Import the build list (items collected on the items page) into empty
+    // slots; charms append within the 12-power budget. Equipped items are
+    // removed from the list, leftovers (misc, consumables, extra same-slot
+    // items) stay for the next import.
+    React.useEffect(() => {
+        if (!parentLoaded) return;
+        if (!isBuildListEnabled()) return;
+        const list = readBuildList();
+        if (list.length === 0) return;
+
+        // Baseline = what the token/draft load will (or already did) put in
+        // the slots. Read it from the decoded token rather than the select
+        // refs: the restore effect's setValue() is an async react-select
+        // state update that hasn't flushed yet when this effect runs.
+        const isLoadedBuild = Boolean(build);
+        const effDraft = draft && (!isLoadedBuild || draft.buildId === buildId) ? draft : null;
+        const loadToken = effDraft ? effDraft.token : build;
+        const itemNames = {
+            mainhand: 'None',
+            offhand: 'None',
+            helmet: 'None',
+            chestplate: 'None',
+            leggings: 'None',
+            boots: 'None',
+        };
+        if (loadToken) {
+            const decoded = decodeBuildParam(loadToken, itemData);
+            if (decoded) {
+                const buildParts = decodeURI(decoded).split('&');
+                for (const type of Object.keys(itemNames)) {
+                    const value = buildParts.find((str) => str.includes(`${type[0]}=`))?.split(`${type[0]}=`)[1];
+                    if (value && itemData[value]) itemNames[type] = value;
+                }
+            }
+        }
+        const equipped = new Set();
+        const charmsToAdd = [];
+        let addedPower = 0;
+
+        for (const entry of list) {
+            const displayName = typeof entry === 'string' ? entry : entry.name;
+            const key = resolveItemKey(itemData, displayName);
+            if (!key) continue;
+            const info = itemData[key];
+            const type = String(info.type || '').toLowerCase();
+            const slot = MAINHAND_TYPES.has(type)
+                ? 'mainhand'
+                : OFFHAND_TYPES.has(type)
+                  ? 'offhand'
+                  : EQUIP_SLOTS.includes(type)
+                    ? type
+                    : null;
+            if (slot && itemNames[slot] === 'None') {
+                itemNames[slot] = key;
+                itemRefs[slot].current.setValue({ value: key, label: removeMasterworkFromName(key) });
+                equipped.add(displayName);
+            } else if (type === 'charm' && info.power && addedPower + info.power <= 12) {
+                addedPower += info.power;
+                charmsToAdd.push(info);
+                equipped.add(displayName);
+            }
+        }
+
+        if (equipped.size > 0) {
+            if (charmsToAdd.length > 0) {
+                setCharms((current) => {
+                    let budget = 12 - current.reduce((sum, c) => sum + (c.power || 0), 0);
+                    const next = [...current];
+                    for (const charm of charmsToAdd) {
+                        if (charm.power && charm.power <= budget) {
+                            next.push(charm);
+                            budget -= charm.power;
+                        }
+                    }
+                    return next;
+                });
+            }
+            applyStatsUpdate(itemNames, itemData, setStats, update);
+            const leftovers = list.filter((entry) => {
+                const name = typeof entry === 'string' ? entry : entry.name;
+                return !equipped.has(name);
+            });
+            try {
+                if (leftovers.length === 0) window.localStorage.removeItem(BUILD_LIST_KEY);
+                else window.localStorage.setItem(BUILD_LIST_KEY, JSON.stringify(leftovers));
+            } catch (e) {}
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [parentLoaded]);
 
     // Autosave the working state as a session draft (debounced) so an
     // accidental reload or a switch to another page doesn't lose it. The load
@@ -1584,10 +1852,12 @@ export default function BuildForm({
         setCharms([]);
         setCharmSelectKey((k) => k + 1);
         setDelveInfusions({});
+        setDelvePoints({});
         setRevelation(false);
         setCzAbilities({});
         setCzSelectedTree(CZ_MAIN_TREES[0]);
         setBuildName('Monumenta Builder');
+        setNotesDraft('');
         setActiveBuildId(null);
         for (let box in enabledBoxes) {
             enabledBoxes[box] = false;
@@ -1596,9 +1866,7 @@ export default function BuildForm({
             extraStats[key] = [];
         }
         setMultiplierListKey((k) => k + 1);
-        const tempStats = recalcBuild(emptyBuild, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(emptyBuild, itemData, setStats, update);
     }
 
     function receiveMasterworkUpdate(newActiveItem, itemType) {
@@ -1633,9 +1901,7 @@ export default function BuildForm({
             label: newActiveItem.name,
         });
 
-        const tempStats = recalcBuild(newBuild, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(newBuild, itemData, setStats, update);
     }
 
     function getEquipName(type) {
@@ -1722,16 +1988,17 @@ export default function BuildForm({
             ? Object.entries(stateOverride.czAbilities)
             : Object.entries(czAbilities);
         if (czForUrl.length > 0) {
-            legacy += `&cz=${encodeURIComponent(
-                czForUrl.map(([name, r]) => (r > 0 ? `${name}:${r}` : name)).join(',')
-            )}`;
+            legacy += `&cz=${encodeURIComponent(czForUrl.map(([name]) => name).join(','))}`;
         }
 
         return encodeBuildParam(legacy);
     }
 
     function checkboxChanged(event) {
-        const name = event.target.name.replace(' ', '_').replace(/[()]/g, ''); // replace spaces so we can still have them visually without breaking existing stuff
+        // Checkbox names come in lowercase, with words separated by spaces.
+        // Replace every space so multi-word situationals (e.g. "curse of the
+        // veil") map to their snake_case enabledBoxes key.
+        const name = event.target.name.replace(/ /g, '_').replace(/[()]/g, ''); // replace spaces so we can still have them visually without breaking existing stuff
         enabledBoxes[name] = event.target.checked;
         let temp = event.target.checked;
         const retaliationtypes = ['retaliation_normal', 'retaliation_elite', 'retaliation_boss'];
@@ -1744,9 +2011,7 @@ export default function BuildForm({
             event.target.checked = temp;
         }
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     function getCheckboxRef(form, name) {
@@ -1760,9 +2025,7 @@ export default function BuildForm({
     function multipliersChanged(newMultipliers, name) {
         extraStats[name] = newMultipliers;
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     function damageMultipliersChanged(newMultipliers) {
@@ -1816,9 +2079,7 @@ export default function BuildForm({
             if (entries[i][0] == actionMeta.name) entries[i][1] = newValue.value;
         }
         const itemNames = Object.fromEntries(entries);
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     function classChanged(newValue, actionMeta) {
@@ -1833,9 +2094,7 @@ export default function BuildForm({
         refreshClassBuffs({}, {}, {});
         // and then recalculate... zzz
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     const miscStats = [
@@ -1847,6 +2106,8 @@ export default function BuildForm({
         { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
+    // Current health as a % of max health (0-100), clamped for the slider.
+    const healthPercentInput = Math.max(0, Math.min(100, Number(statInputs.health) || 100));
     const healthStats = [
         { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
         { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },
@@ -1883,16 +2144,6 @@ export default function BuildForm({
         { type: 'fireEHP', name: 'builder.stats.dr-ehp.fire', percent: false },
         { type: 'fallEHP', name: 'builder.stats.dr-ehp.fall', percent: false },
         { type: 'ailmentEHP', name: 'builder.stats.dr-ehp.ailment', percent: false },
-    ];
-
-    const EHPRStats = [
-        { type: 'meleeEHPR', name: 'builder.stats.dr-ehp.melee', percent: false },
-        { type: 'projectileEHPR', name: 'builder.stats.dr-ehp.projectile', percent: false },
-        { type: 'magicEHPR', name: 'builder.stats.dr-ehp.magic', percent: false },
-        { type: 'blastEHPR', name: 'builder.stats.dr-ehp.blast', percent: false },
-        { type: 'fireEHPR', name: 'builder.stats.dr-ehp.fire', percent: false },
-        { type: 'fallEHPR', name: 'builder.stats.dr-ehp.fall', percent: false },
-        { type: 'ailmentEHPR', name: 'builder.stats.dr-ehp.ailment', percent: false },
     ];
     const meleeStats = [
         { type: 'attackSpeedPercent', name: 'builder.stats.melee.attackSpeedPercent', percent: true },
@@ -2193,10 +2444,14 @@ export default function BuildForm({
                                             dragState &&
                                             dragState.container === classOrderContainer &&
                                             dragState.key === skill.scoreboardId;
+                                        const over =
+                                            dragTarget &&
+                                            dragTarget.container === classOrderContainer &&
+                                            dragTarget.key === skill.scoreboardId;
                                         return (
                                             <div
                                                 key={skill.scoreboardId}
-                                                className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}`}
+                                                className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}${over ? ` ${styles.skillDragOver}` : ''}`}
                                                 title={tooltip}
                                                 onDragOver={(e) =>
                                                     classOrderContainer &&
@@ -2208,6 +2463,7 @@ export default function BuildForm({
                                                         (s) => s.scoreboardId
                                                     )
                                                 }
+                                                onDragLeave={() => skillDragLeave(skill.scoreboardId)}
                                                 onDrop={(e) => {
                                                     e.preventDefault();
                                                     endSkillDrag();
@@ -2313,10 +2569,14 @@ export default function BuildForm({
                                         dragState &&
                                         dragState.container === specOrderContainer &&
                                         dragState.key === skill.scoreboardId;
+                                    const over =
+                                        dragTarget &&
+                                        dragTarget.container === specOrderContainer &&
+                                        dragTarget.key === skill.scoreboardId;
                                     return (
                                         <div
                                             key={skill.scoreboardId}
-                                            className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}`}
+                                            className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}${over ? ` ${styles.skillDragOver}` : ''}`}
                                             title={tooltip}
                                             onDragOver={(e) =>
                                                 specOrderContainer &&
@@ -2328,6 +2588,7 @@ export default function BuildForm({
                                                     (s) => s.scoreboardId
                                                 )
                                             }
+                                            onDragLeave={() => skillDragLeave(skill.scoreboardId)}
                                             onDrop={(e) => {
                                                 e.preventDefault();
                                                 endSkillDrag();
@@ -2405,10 +2666,6 @@ export default function BuildForm({
                                         </>
                                     )}
                                 </span>
-                                <span className={styles.skillTotal}>
-                                    Class skills are disabled in {regionValue === 2 ? 'the Depths' : 'Celestial Zenith'}
-                                    .
-                                </span>
                                 <button type="button" className={styles.skillActionButton} onClick={clearCz}>
                                     Clear all
                                 </button>
@@ -2420,7 +2677,6 @@ export default function BuildForm({
                                     <div className={styles.czTreeSkills}>
                                         {czSkillList.map((ability) => {
                                             const selected = czAbilities[ability.name] !== undefined;
-                                            const rarity = czAbilities[ability.name] ?? 0;
                                             const desc =
                                                 (regionValue === 2
                                                     ? ability.depths_description
@@ -2441,8 +2697,7 @@ export default function BuildForm({
                                                 );
                                             const tooltip = [
                                                 `${ability.name} (${ability.trigger})`,
-                                                czData.rarities[rarity],
-                                                formatCzDescription(desc, rarity),
+                                                formatCzDescription(desc),
                                                 triggerTaken
                                                     ? 'Already using another ability with this trigger!'
                                                     : null,
@@ -2453,12 +2708,18 @@ export default function BuildForm({
                                                 dragState &&
                                                 dragState.container === czOrderContainer &&
                                                 dragState.key === ability.name;
+                                            const over =
+                                                dragTarget &&
+                                                dragTarget.container === czOrderContainer &&
+                                                dragTarget.key === ability.name;
                                             return (
                                                 <div
                                                     key={ability.name}
                                                     className={`${styles.czSkillRow}${
                                                         triggerTaken && !selected ? ` ${styles.czDisabled}` : ''
-                                                    }${dragging ? ` ${styles.skillDragging}` : ''}`}
+                                                    }${dragging ? ` ${styles.skillDragging}` : ''}${
+                                                        over ? ` ${styles.skillDragOver}` : ''
+                                                    }`}
                                                     title={tooltip}
                                                     onDragOver={(e) =>
                                                         czOrderContainer &&
@@ -2470,6 +2731,7 @@ export default function BuildForm({
                                                             (a) => a.name
                                                         )
                                                     }
+                                                    onDragLeave={() => skillDragLeave(ability.name)}
                                                     onDrop={(e) => {
                                                         e.preventDefault();
                                                         endSkillDrag();
@@ -2490,13 +2752,11 @@ export default function BuildForm({
                                                         type="checkbox"
                                                         checked={selected}
                                                         disabled={triggerTaken && !selected}
-                                                        onChange={(e) =>
-                                                            czChanged(ability.name, e.target.checked ? rarity : null)
-                                                        }
+                                                        onChange={(e) => czChanged(ability.name, e.target.checked)}
                                                         aria-label={`${ability.name} (${ability.trigger})`}
                                                     />
                                                     <img
-                                                        className={styles.skillIcon}
+                                                        className={`${styles.skillIcon} ${styles.frameCrop}`}
                                                         src={czIconSrc(ability.name)}
                                                         alt=""
                                                         width={26}
@@ -2507,44 +2767,6 @@ export default function BuildForm({
                                                     />
                                                     <span className={styles.skillName}>{ability.name}</span>
                                                     <span className={styles.czTrigger}>{ability.trigger}</span>
-                                                    <div className={styles.czRarityWrap}>
-                                                        <button
-                                                            type="button"
-                                                            className={`${styles.czRarity}${
-                                                                !selected ? ` ${styles.czRarityDisabled}` : ''
-                                                            }`}
-                                                            disabled={!selected}
-                                                            onClick={() =>
-                                                                setCzRarityOpen((cur) =>
-                                                                    cur === ability.name ? null : ability.name
-                                                                )
-                                                            }
-                                                            title="Rarity"
-                                                        >
-                                                            {czData.rarities[rarity]}
-                                                            <span className={styles.czRarityCaret}>▾</span>
-                                                        </button>
-                                                        {czRarityOpen === ability.name && (
-                                                            <div className={styles.czRarityMenu}>
-                                                                {czData.rarities.map((r, i) => (
-                                                                    <div
-                                                                        key={r}
-                                                                        className={`${styles.czRarityOption}${
-                                                                            i === rarity
-                                                                                ? ` ${styles.czRarityOptionActive}`
-                                                                                : ''
-                                                                        }`}
-                                                                        onClick={() => {
-                                                                            czChanged(ability.name, i);
-                                                                            setCzRarityOpen(null);
-                                                                        }}
-                                                                    >
-                                                                        {r}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
                                                 </div>
                                             );
                                         })}
@@ -2592,7 +2814,7 @@ export default function BuildForm({
                     />
                 </div>
             </div>
-            {(loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
+            {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
                     <button
                         type="button"
@@ -2647,7 +2869,7 @@ export default function BuildForm({
                         </span>
                     )}
                 </div>
-            ))}
+            )}
             {(saveState === 'copied' || saveState === 'error' || savedAnonymous) && (
                 <div
                     className={`${styles.copyToast}${
@@ -2797,18 +3019,26 @@ export default function BuildForm({
                                 itemData={itemData}
                                 hideList
                                 charmNames={charms.map((c) => c.name)}
+                                classSkillNames={currentClassSkills.map((s) => s.name)}
+                                specSkillNames={currentSpecSkills.map((s) => s.name)}
                             ></CharmSelector>
                         </div>
                     </div>
-            <div className="row justify-content-center mb-1">
+                    <div className="row justify-content-center mb-1">
                         {charms.map((charm) => (
-                            <div
-                                className={`col-auto ${styles.builderCol}`}
-                                key={charm.name}
-                                onClick={() => removeCharm(charm)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <CharmTile name={charm.name} item={charm}></CharmTile>
+                            <div className={`col-auto ${styles.builderCol}`} key={charm.name}>
+                                <div className={styles.charmCardWrap}>
+                                    <CharmTile name={charm.name} item={charm}></CharmTile>
+                                    <button
+                                        type="button"
+                                        className={styles.charmRemoveButton}
+                                        onClick={() => removeCharm(charm)}
+                                        aria-label={`Remove ${charm.name}`}
+                                        title="Remove charm"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -3003,36 +3233,6 @@ export default function BuildForm({
                     className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
                 >
                     <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.effectiveHealthRegen"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {(() => {
-                        const unstableEHPRTypes = ['meleeEHPR', 'projectileEHPR', 'magicEHPR', 'blastEHPR'];
-                        let temp = EHPRStats.map((stat) => {
-                            let condition = itemsToDisplay.instability && unstableEHPRTypes.includes(stat.type);
-                            return itemsToDisplay[stat.type] !== undefined ? (
-                                <div key={stat.type}>
-                                    <p className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}>
-                                        <b>
-                                            <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                        </b>
-                                        <span className={styles.monoValue}>
-                                            {itemsToDisplay[stat.type]}
-                                            {stat.percent ? '%' : ''}
-                                        </span>
-                                    </p>
-                                </div>
-                            ) : (
-                                ''
-                            );
-                        });
-                        return temp;
-                    })()}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
                         <TranslatableText identifier="builder.statCategories.melee"></TranslatableText>
                     </h5>
                     <h6 className="text-center fw-bold">&nbsp;</h6>
@@ -3125,20 +3325,58 @@ export default function BuildForm({
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
                 <div className="text-center mx-2">
-                    <p className="mb-1">
-                        <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
-                    </p>
-                    <input
-                        type="number"
-                        name="health"
-                        min="1"
-                        value={statInputs.health}
-                        onChange={(e) => statInputChanged('health', e)}
-                        className={styles.builderCompactInput}
-                    />
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">
+                            <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
+                        </p>
+                        <span className={styles.enchantTooltipText}>
+                            Current health as a % of your max health. Lower values preview low-HP effects (Steadfast,
+                            Second Wind, ...).
+                        </span>
+                    </div>
+                    <div className={styles.healthSliderRow}>
+                        <input
+                            type="range"
+                            name="health"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={healthPercentInput}
+                            onChange={(e) => statInputChanged('health', e)}
+                            className={styles.healthSlider}
+                            style={{
+                                '--slider-color': `hsl(${(healthPercentInput / 100) * 120} 70% 45%)`,
+                                '--slider-pct': `${healthPercentInput}%`,
+                            }}
+                        />
+                        <input
+                            type="number"
+                            name="health"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={statInputs.health}
+                            onChange={(e) => statInputChanged('health', e)}
+                            onBlur={healthPercentBlur}
+                            className={styles.healthPercentInput}
+                            aria-label="Max health percent"
+                        />
+                        <span className={styles.healthPoints}>
+                            {Number.isFinite(itemsToDisplay.currentHealth)
+                                ? Math.round(itemsToDisplay.currentHealth)
+                                : '–'}
+                            {' / '}
+                            {Number.isFinite(itemsToDisplay.healthFinal) ? Math.round(itemsToDisplay.healthFinal) : '–'}
+                        </span>
+                    </div>
                 </div>
                 <div className="text-center mx-2">
-                    <p className="mb-1">Tenacity</p>
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Tenacity</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: take (0.5% × level) less damage.
+                        </span>
+                    </div>
                     <input
                         type="number"
                         name="tenacity"
@@ -3150,7 +3388,10 @@ export default function BuildForm({
                     />
                 </div>
                 <div className="text-center mx-2">
-                    <p className="mb-1">Vitality</p>
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Vitality</p>
+                        <span className={styles.enchantTooltipText}>Basic Infusion: gain (1% × level) max health.</span>
+                    </div>
                     <input
                         type="number"
                         name="vitality"
@@ -3162,7 +3403,12 @@ export default function BuildForm({
                     />
                 </div>
                 <div className="text-center mx-2">
-                    <p className="mb-1">Vigor</p>
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Vigor</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more melee damage in Valley / Isles / Ring.
+                        </span>
+                    </div>
                     <input
                         type="number"
                         name="vigor"
@@ -3174,7 +3420,13 @@ export default function BuildForm({
                     />
                 </div>
                 <div className="text-center mx-2">
-                    <p className="mb-1">Focus</p>
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Focus</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more projectile damage in Valley / Isles /
+                            Ring.
+                        </span>
+                    </div>
                     <input
                         type="number"
                         name="focus"
@@ -3186,7 +3438,12 @@ export default function BuildForm({
                     />
                 </div>
                 <div className="text-center mx-2">
-                    <p className="mb-1">Perspicacity</p>
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">Perspicacity</p>
+                        <span className={styles.enchantTooltipText}>
+                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more magic damage in Valley / Isles / Ring.
+                        </span>
+                    </div>
                     <input
                         type="number"
                         name="perspicacity"
@@ -3222,6 +3479,7 @@ export default function BuildForm({
                         key={`damage-${multiplierListKey}`}
                         update={damageMultipliersChanged}
                         translatableName="builder.multipliers.damage"
+                        description="Extra multiplier applied to your outgoing damage (1.10 = +10%)."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3229,6 +3487,7 @@ export default function BuildForm({
                         key={`resistance-${multiplierListKey}`}
                         update={resistanceMultipliersChanged}
                         translatableName="builder.multipliers.resistance"
+                        description="Extra multiplier applied to damage you take (0.90 = 10% less damage taken)."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3236,6 +3495,7 @@ export default function BuildForm({
                         key={`health-${multiplierListKey}`}
                         update={healthMultipliersChanged}
                         translatableName="builder.multipliers.health"
+                        description="Extra multiplier applied to your max health (1.10 = +10% health)."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3243,6 +3503,7 @@ export default function BuildForm({
                         key={`speed-${multiplierListKey}`}
                         update={speedMultipliersChanged}
                         translatableName="builder.multipliers.speed"
+                        description="Extra multiplier applied to your movement speed."
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3250,6 +3511,7 @@ export default function BuildForm({
                         key={`attackSpeed-${multiplierListKey}`}
                         update={attackSpeedMultipliersChanged}
                         translatableName="builder.multipliers.attackSpeed"
+                        description="Extra multiplier applied to your attack speed."
                     ></ListSelector>
                 </div>
             </div>

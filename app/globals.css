@@ -158,11 +158,15 @@ html a:hover {
 
 /* Keep the footer at the bottom of the screen when a page is short: the
    layout column fills the viewport and the content area grows, pushing the
-   footer down. Nothing is sticky — long pages scroll normally. */
+   footer down. Nothing is sticky - long pages scroll normally. */
 .site-content {
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
+    /* Never allow invisible off-layout elements (e.g. hidden enchant
+       tooltips sized max-content) to widen the page on narrow screens. */
+    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 .site-main {
@@ -179,6 +183,27 @@ html h1 {
     margin: 10px;
     font-size: 2.5rem;
     line-height: 1.2;
+}
+
+/* "Hide textures" mode: hide every in-game texture site-wide (class/spec,
+   skill, CZ ability and tree icons, item sprites in build-card previews).
+   The item tiles themselves handle this via JS; these rules cover the rest. */
+html.low-res img[src*='images/classes/'],
+html.low-res img[src*='images/skills/'],
+html.low-res img[src*='images/cz/'] {
+    display: none;
+}
+
+html.low-res .previewSprite {
+    display: none;
+}
+
+/* "Animate item textures" mode: freeze the spritesheet frame-strip animations
+   (the generated _itemsheet.css animates the .monumenta-* classes). The
+   generator already ships a prefers-reduced-motion equivalent; this is the
+   explicit user-facing toggle. */
+html.anim-off [class*='monumenta-'] {
+    animation: none !important;
 }
 
 /* Phone: keep headings readable without dominating the small viewport. */

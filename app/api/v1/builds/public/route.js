@@ -40,6 +40,7 @@ export async function GET(request) {
         itemCount: b.item_count,
         tree: b.cz_tree,
         skillsJson: b.skills_json,
+        itemsJson: b.items_json,
         authorName: b.anonymous === 1 ? null : b.author_name,
         authorAvatar: b.anonymous === 1 ? null : b.author_avatar,
         authorId: b.anonymous === 1 ? null : b.user_id,

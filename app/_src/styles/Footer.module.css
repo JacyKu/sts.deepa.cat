@@ -1,6 +1,6 @@
 .footer {
     margin-top: 18px;
-    padding: 16px 14px;
+    padding: 12px 14px;
     border-top: 1px solid var(--glass-border);
     background: var(--glass-1);
     backdrop-filter: blur(12px);
@@ -11,7 +11,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
@@ -20,7 +20,7 @@
 }
 
 .languageSelect {
-    width: 130px;
+    width: 116px;
     min-width: 0;
 }
 
@@ -36,14 +36,14 @@
 .links {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 .link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 6px;
     border-radius: 0;
     border: 1px solid var(--glass-border);
     background: var(--glass-1);
@@ -59,13 +59,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 0;
     border: 2px solid var(--glass-border);
     background: var(--glass-1);
     color: var(--text-1);
     text-decoration: none;
     font-weight: bold;
+    font-size: 0.9rem;
     transition:
         filter 150ms ease,
         transform 75ms ease,
@@ -163,7 +164,15 @@
 
 @media (max-width: 600px) {
     .inner {
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
         text-align: center;
+    }
+
+    .links {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
     }
 }

@@ -1,11 +1,16 @@
 import Enchants from './enchants';
+import LoreText from './loreText';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { useHideLore } from './hideLoreContext';
+import { useHideObtainment } from './hideObtainmentContext';
+import { useMaxMasterwork } from './maxMasterworkContext';
 import { useLowResource } from '../lowResourceContext';
+import { useBuildList } from './buildListContext';
+import { useBuildListEnabled } from './buildListEnabledContext';
 
 function camelCase(str, upper) {
     if (!str) return '';
@@ -105,7 +110,7 @@ function getItemsheetClass(itemName) {
     return `monumenta-${camelCase(
         itemName
             .replace(/\(.*\)/g, '')
-            .replace('EX ', '')
+            .replace(/^EX\s+/, '') // EX items share the base item's texture
             .replaceAll("'", '')
             .replaceAll('.', '')
             .trim()
@@ -129,7 +134,11 @@ export default function MasterworkableItemTile(data) {
     // This is an array
     const item = data.item;
     const { hidden: hideLore } = useHideLore();
+    const { hidden: hideObtainment } = useHideObtainment();
+    const { enabled: maxMasterworkDefault } = useMaxMasterwork();
     const { lowRes } = useLowResource();
+    const { items: listItems, toggleItem } = useBuildList();
+    const { enabled: buildListEnabled } = useBuildListEnabled();
 
     // If the item name has accented characters, they are actually not present in the item's name property,
     // but they are present in the item's key. In that case, set the name to the key.
@@ -139,16 +148,29 @@ export default function MasterworkableItemTile(data) {
         }
     }
 
-    let defaultItem;
-    if (data.default) {
-        defaultItem = getItemWithMasterwork(item, data.default, data.itemData, data.name);
-    } else {
-        defaultItem = getLowestMasterworkItem(item);
+    // The "Max masterwork" menu toggle makes every masterworkable item open on
+    // its highest available variant instead of the lowest.
+    function computeDefaultItem() {
+        if (data.default) {
+            return getItemWithMasterwork(item, data.default, data.itemData, data.name);
+        }
+        if (maxMasterworkDefault) {
+            const highest = Math.max(0, ...item.map((i) => Number(i.masterwork) || 0));
+            return getItemWithMasterwork(item, highest, data.itemData, data.name);
+        }
+        return getLowestMasterworkItem(item);
     }
-    const [activeItem, setActiveItem] = React.useState(defaultItem);
+    const [activeItem, setActiveItem] = React.useState(computeDefaultItem);
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(activeItem.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
+
+    // When the menu toggle flips, reset every tile to the newly applicable
+    // default variant.
+    React.useEffect(() => {
+        setActiveItem(computeDefaultItem());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [maxMasterworkDefault]);
 
     function spanClicked(event) {
         let masterworkClicked = Number(event.target.id.split('-')[1]);
@@ -217,6 +239,20 @@ export default function MasterworkableItemTile(data) {
 
     return (
         <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+            {buildListEnabled && data.showListButton && (
+                <button
+                    type="button"
+                    className={`${styles.listAddButton}${listItems.includes(data.name) ? ` ${styles.listAddButtonOn}` : ''}`}
+                    onClick={() => toggleItem(data.name, item[0]?.type)}
+                    aria-label={
+                        listItems.includes(data.name)
+                            ? `Remove ${data.name} from build list`
+                            : `Add ${data.name} to build list`
+                    }
+                >
+                    {listItems.includes(data.name) ? '✓' : '+'}
+                </button>
+            )}
             <div className={styles.imageIcon}>
                 {lowRes ? (
                     <div className={styles.lowResIcon}></div>
@@ -340,13 +376,17 @@ export default function MasterworkableItemTile(data) {
             <span className={styles[camelCase(activeItem.location)]}>{activeItem.location}</span>
             {!activeItem.undiscovered ? (
                 <div>
-                    {activeItem.lore && !hideLore ? <span className={styles.infoText}>{activeItem.lore}</span> : ''}
-                    {activeItem.extras?.poi ? (
+                    {activeItem.lore ? (
+                        <LoreText text={activeItem.lore} className={styles.infoText} questOnly={hideLore} />
+                    ) : (
+                        ''
+                    )}
+                    {!hideObtainment && activeItem.extras?.poi ? (
                         <p className={`${styles.infoText} m-0`}>{`Found in ${activeItem.extras.poi}`}</p>
                     ) : (
                         ''
                     )}
-                    {activeItem.extras?.notes ? (
+                    {!hideObtainment && activeItem.extras?.notes ? (
                         <p className={`${styles.infoText} m-0`}>{activeItem.extras.notes}</p>
                     ) : (
                         ''

@@ -2,7 +2,13 @@ import { headers } from 'next/headers';
 import './globals.css';
 import { LanguageContextProvider } from './_src/components/languageContext';
 import { LowResourceProvider } from './_src/components/lowResourceContext';
+import { AnimationsProvider } from './_src/components/animationsContext';
 import { HideLoreProvider } from './_src/components/items/hideLoreContext';
+import { HideObtainmentProvider } from './_src/components/items/hideObtainmentContext';
+import { HideSkinsProvider } from './_src/components/items/hideSkinsContext';
+import { MaxMasterworkProvider } from './_src/components/items/maxMasterworkContext';
+import { BuildListProvider } from './_src/components/items/buildListContext';
+import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
 import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
 import SiteNav from '@deepa/shared/site-nav';
@@ -13,7 +19,10 @@ export const metadata = {
         template: '%s - Spare the Sympathy',
     },
     description: 'Monumenta Items and Builds',
-    metadataBase: new URL('https://sts.deepa.cat'),
+    // Same env var that pins the Discord OAuth redirect URI: set
+    // STS_PUBLIC_BASE_URL per environment (see .env.example) so absolute
+    // metadata URLs (OG/Twitter cards) point at the right host everywhere.
+    metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
     icons: { icon: '/favicon/favicon.ico' },
     openGraph: {
         siteName: 'Spare the Sympathy',
@@ -57,15 +66,27 @@ export default async function StsLayout({ children }) {
                 />
                 <div className="site-content" id="top">
                     <LowResourceProvider>
-                        <LanguageContextProvider>
-                            <HideLoreProvider>
-                                <SiteNav showBeta center={<HeaderNav />}>
-                                    <Header />
-                                </SiteNav>
-                                <div className="site-main">{children}</div>
-                                <Footer />
-                            </HideLoreProvider>
-                        </LanguageContextProvider>
+                        <AnimationsProvider>
+                            <LanguageContextProvider>
+                                <HideLoreProvider>
+                                    <HideObtainmentProvider>
+                                        <HideSkinsProvider>
+                                            <MaxMasterworkProvider>
+                                                <BuildListProvider>
+                                                    <BuildListEnabledProvider>
+                                                        <SiteNav showBeta center={<HeaderNav />}>
+                                                            <Header />
+                                                        </SiteNav>
+                                                        <div className="site-main">{children}</div>
+                                                        <Footer />
+                                                    </BuildListEnabledProvider>
+                                                </BuildListProvider>
+                                            </MaxMasterworkProvider>
+                                        </HideSkinsProvider>
+                                    </HideObtainmentProvider>
+                                </HideLoreProvider>
+                            </LanguageContextProvider>
+                        </AnimationsProvider>
                     </LowResourceProvider>
                 </div>
             </body>

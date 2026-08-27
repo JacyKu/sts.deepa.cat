@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
-import { getDiscordUser } from '../../../../../lib/session';
-import { decodeBuildParam } from '../../../../_src/utils/builder/buildUrlCodec';
+import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
+import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 
 export async function GET(request, { params }) {
@@ -12,11 +12,11 @@ export async function GET(request, { params }) {
         return NextResponse.json({ error: 'build not found' }, { status: 404 });
     }
 
-    // Keep the redirect working from both deepa.cat/sts/... and sts.deepa.cat/...
-    const hostname = new URL(request.url).hostname.split('.');
-    const base = hostname.length > 2 ? '' : '/sts';
-
-    return NextResponse.redirect(new URL(base + '/builder/' + encodeURIComponent(row.token), request.url));
+    // Redirect to the canonical short link. appUrl pins the public origin
+    // (STS_PUBLIC_BASE_URL) so the redirect never leaks a proxy host
+    // (e.g. localhost:6678) to the client.
+    const tokenVersion = getBuildTokenVersion(row.token) ?? '';
+    return NextResponse.redirect(appUrl(request.url, `/b/v${tokenVersion}/${p.id}`));
 }
 
 export async function PATCH(request, { params }) {
@@ -26,7 +26,7 @@ export async function PATCH(request, { params }) {
 
     // Editing a saved build keeps the same link: the state (token + infusions
     // + revelation) is written in place. Only the owner of an owned row, or
-    // the creator (cookie) of an anonymous row, may do this — anyone else
+    // the creator (cookie) of an anonymous row, may do this - anyone else
     // gets a 403 so the client forks into a new build instead of overwriting
     // someone else's.
     if (body?.state) {
@@ -70,15 +70,21 @@ export async function PATCH(request, { params }) {
         }
         // Publicise / adjust anonymity as part of the same save when asked.
         if (body.publicise !== undefined && user) {
+            // Account-wide anonymity preference is the default unless the
+            // request explicitly overrides it per build.
+            const anonymous = body.anonymous !== undefined ? Boolean(body.anonymous) : await getAnonymousPreference();
             setBuildPublic(p.id, user.id, creatorToken, {
                 isPublic: Boolean(body.publicise),
-                anonymous: Boolean(body.anonymous),
+                anonymous,
                 authorName: user.globalName || user.username,
                 authorAvatar: user.avatar || null,
                 summary,
             });
         }
-        return NextResponse.json({ ok: true });
+        // savedToAccount tells the client the build is (now) attached to the
+        // signed-in account - an anonymous row edited with its creator token
+        // gets claimed onto the account by the update above.
+        return NextResponse.json({ ok: true, savedToAccount: Boolean(user) });
     }
 
     // Publicise / de-publicise a build. Requires a signed-in Discord user who
@@ -93,7 +99,9 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ error: 'build not found' }, { status: 404 });
         }
         const isPublic = Boolean(body.publicise);
-        const anonymous = Boolean(body.anonymous);
+        // Account-wide anonymity preference is the default unless the request
+        // explicitly overrides it per build.
+        const anonymous = body.anonymous !== undefined ? Boolean(body.anonymous) : await getAnonymousPreference();
         if (isPublic) {
             // Never surface builds whose name/notes carry blocked words.
             if (hasProfanity({ name: row.name, notes: row.notes, token: row.token, itemData: await getItemData() })) {

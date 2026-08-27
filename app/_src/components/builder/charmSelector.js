@@ -66,10 +66,44 @@ export function computeCharmTotals(itemData, charmNames) {
     return Object.fromEntries(Object.entries(totals).filter(([, obj]) => obj.value !== 0));
 }
 
-export default function CharmSelector({ update, translatableName, itemData, hideList, charmNames }) {
+// Skill names -> snake tokens ("Hand of Light" -> "hand_of_light"), used to
+// match charm stats that name the skill they affect.
+function skillTokens(names) {
+    const tokens = new Set();
+    for (const name of names || []) {
+        const snake = String(name)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '');
+        if (snake) tokens.add(snake);
+    }
+    return tokens;
+}
+
+export default function CharmSelector({ update, translatableName, itemData, hideList, charmNames, classSkillNames, specSkillNames }) {
     const inputRef = React.useRef();
     const [warn, setWarn] = React.useState(null);
     const warnTimeoutRef = React.useRef();
+
+    // Relevance rule: a charm is offered only if it is a Generalist charm, or
+    // one of its stats affects a skill of the selected class or specialization.
+    // With no class selected every charm is offered.
+    const relevantTokens = skillTokens([...(classSkillNames || []), ...(specSkillNames || [])]);
+    const isCharmRelevant = (key) => {
+        const charm = itemData[key];
+        if (!charm || charm.type !== 'Charm') return false;
+        if (relevantTokens.size === 0) return true;
+        if (charm.class_name === 'Generalist') return true;
+        const stats = charm.stats || {};
+        return Object.keys(stats).some((stat) => {
+            const s = stat.toLowerCase();
+            for (const token of relevantTokens) {
+                if (s.includes(token)) return true;
+            }
+            return false;
+        });
+    };
+    const charmOptions = Object.keys(itemData).filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key));
 
     const maxPower = 12;
     const entries = charmNames || [];
@@ -103,6 +137,7 @@ export default function CharmSelector({ update, translatableName, itemData, hide
         let actualName = Object.keys(itemData).find((name) => name.toLowerCase() == input.toLowerCase());
 
         if (!actualName || itemData[actualName].type != 'Charm') return;
+        if (!isCharmRelevant(actualName)) return;
         if (entries.some((name) => resolveCharmKey(itemData, name) === actualName)) return;
         if (usedPower + (itemData[actualName].power || 0) > maxPower) return;
 
@@ -145,7 +180,7 @@ export default function CharmSelector({ update, translatableName, itemData, hide
                         reference={inputRef}
                         name="charm"
                         noneOption={true}
-                        sortableStats={Object.keys(itemData).filter((name) => itemData[name].type == 'Charm')}
+                        sortableStats={charmOptions}
                         filterOption={charmFilterOption}
                     ></SelectInput>
                 </span>

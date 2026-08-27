@@ -1,10 +1,14 @@
 import styles from '../../styles/Items.module.css';
 import Enchants from './enchants';
+import LoreText from './loreText';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 import { useHideLore } from './hideLoreContext';
+import { useHideObtainment } from './hideObtainmentContext';
+import { useBuildList } from './buildListContext';
+import { useBuildListEnabled } from './buildListEnabledContext';
 
 const MAX_FISH_QUALITY = 5;
 
@@ -27,6 +31,7 @@ function getItemType(item) {
 
 function getItemsheetClass(itemName) {
     return `monumenta-${itemName
+        .replace(/^EX\s+/, '') // EX items share the base item's texture
         .replace(/\(.*\)/g, '')
         .replaceAll(' ', '-')
         .replaceAll('_', '-')
@@ -48,6 +53,9 @@ function getFishQualityElement(fishQuality) {
 export default function ConsumableTile(data) {
     const item = data.item;
     const { hidden: hideLore } = useHideLore();
+    const { hidden: hideObtainment } = useHideObtainment();
+    const { items: listItems, toggleItem } = useBuildList();
+    const { enabled: buildListEnabled } = useBuildListEnabled();
     let formattedEffects = ConsumableFormatter.formatEffects(item.effects);
 
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
@@ -87,6 +95,20 @@ export default function ConsumableTile(data) {
 
     return (
         <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+            {buildListEnabled && data.showListButton && (
+                <button
+                    type="button"
+                    className={`${styles.listAddButton}${listItems.includes(item.name) ? ` ${styles.listAddButtonOn}` : ''}`}
+                    onClick={() => toggleItem(item.name, item.type)}
+                    aria-label={
+                        listItems.includes(item.name)
+                            ? `Remove ${item.name} from build list`
+                            : `Add ${item.name} to build list`
+                    }
+                >
+                    {listItems.includes(item.name) ? '✓' : '+'}
+                </button>
+            )}
             <div className={styles.imageIcon}>
                 <div className={[baseBackgroundClass, cssClass].join(' ')}></div>
             </div>
@@ -120,9 +142,13 @@ export default function ConsumableTile(data) {
             <span className={styles[camelCase(item.location)]}>{item.location}</span>
             {formattedEffects}
             <Enchants item={item}></Enchants>
-            {item.lore && !hideLore ? <span className={styles.infoText}>{item.lore}</span> : ''}
-            {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
-            {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
+            {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
+            {!hideObtainment && (
+                <>
+                    {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
+                    {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
+                </>
+            )}
         </div>
     );
 }
