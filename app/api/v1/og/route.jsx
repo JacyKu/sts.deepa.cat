@@ -82,11 +82,10 @@ async function getSpriteInfo() {
     if (spriteInfoCache) return spriteInfoCache;
 
     const base = path.join(process.cwd(), 'public', 'spritesheets');
-    const [mapRaw, cssRaw, sheet, animSheet, mcCssRaw, mcSheet] = await Promise.all([
+    const [mapRaw, cssRaw, sheet, mcCssRaw, mcSheet] = await Promise.all([
         fs.readFile(path.join(base, 'itemsheet-map.json'), 'utf8'),
         fs.readFile(path.join(base, '_itemsheet.css'), 'utf8'),
         fs.readFile(path.join(base, 'itemsheet.png')),
-        fs.readFile(path.join(base, 'itemsheet-anim.png')),
         fs.readFile(path.join(base, '_minecraft.css'), 'utf8'),
         fs.readFile(path.join(base, 'minecraft.png')),
     ]);
@@ -113,7 +112,7 @@ async function getSpriteInfo() {
         mcPositions[match[1]] = { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) };
     }
 
-    spriteInfoCache = { map, positions, animTokens, sheet, animSheet, mcPositions, mcSheet };
+    spriteInfoCache = { map, positions, animTokens, sheet, mcPositions, mcSheet };
     return spriteInfoCache;
 }
 
@@ -144,7 +143,7 @@ async function cropSprite(sheet, pos) {
 }
 
 async function itemSpriteDataUrl(
-    { map, positions, animTokens, sheet, animSheet, mcPositions, mcSheet },
+    { map, positions, animTokens, sheet, mcPositions, mcSheet },
     itemKey,
     itemName,
     baseItem
@@ -152,10 +151,18 @@ async function itemSpriteDataUrl(
     const spriteKey = findSpriteKey(map, itemKey, itemName);
     const pos = spriteKey && positions[spriteKey];
     if (pos) {
-        // Animated strips live on the animated sheet; the crop position is
-        // the strip start (frame 0). The main sheet has no cell for them.
-        if (animTokens.has(spriteKey) && animSheet) {
-            return cropSprite(animSheet, pos);
+        // Animated items come from the prerendered GIFs only (the same files
+        // the texture endpoint and the bot serve): their first frame is the
+        // strip start, identical to the animated sheet's cell.
+        if (animTokens.has(spriteKey)) {
+            try {
+                const pre = path.join(process.cwd(), 'public', 'spritesheets', 'textures', `${spriteKey}.gif`);
+                const gif = await fs.readFile(pre);
+                const frame = await sharp(gif, { animated: true, page: 0 }).png().toBuffer();
+                return `data:image/png;base64,${frame.toString('base64')}`;
+            } catch (e) {
+                return null;
+            }
         }
         return cropSprite(sheet, pos);
     }
