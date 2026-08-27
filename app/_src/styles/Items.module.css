@@ -119,6 +119,38 @@
     padding: 0 !important;
 }
 
+/* Equipped charm card: the x button overlays the tile's top-right corner. */
+.charmCardWrap {
+    position: relative;
+    display: inline-block;
+}
+
+.charmRemoveButton {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--glass-2);
+    border: 1px solid var(--control-border);
+    color: var(--text-2);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 3;
+    transition:
+        border-color 150ms ease,
+        color 150ms ease;
+}
+
+.charmRemoveButton:hover {
+    border-color: #e25454;
+    color: #e25454;
+}
+
 .builderStatCol {
     padding-inline: 0 !important;
 }
@@ -1837,6 +1869,13 @@ div.builderStatCard {
     color: var(--text-1);
     max-width: 160px;
     font-family: monospace;
+    -moz-appearance: textfield;
+}
+
+.builderCompactInput::-webkit-outer-spin-button,
+.builderCompactInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 /* Current-health slider next to the Max Health Percent input: drag to sweep

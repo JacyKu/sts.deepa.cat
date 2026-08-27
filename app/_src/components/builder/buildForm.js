@@ -3025,13 +3025,19 @@ export default function BuildForm({
                     </div>
                     <div className="row justify-content-center mb-1">
                         {charms.map((charm) => (
-                            <div
-                                className={`col-auto ${styles.builderCol}`}
-                                key={charm.name}
-                                onClick={() => removeCharm(charm)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <CharmTile name={charm.name} item={charm}></CharmTile>
+                            <div className={`col-auto ${styles.builderCol}`} key={charm.name}>
+                                <div className={styles.charmCardWrap}>
+                                    <CharmTile name={charm.name} item={charm}></CharmTile>
+                                    <button
+                                        type="button"
+                                        className={styles.charmRemoveButton}
+                                        onClick={() => removeCharm(charm)}
+                                        aria-label={`Remove ${charm.name}`}
+                                        title="Remove charm"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>

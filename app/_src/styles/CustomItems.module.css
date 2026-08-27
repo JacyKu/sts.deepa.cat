@@ -64,6 +64,16 @@
     box-sizing: border-box;
 }
 
+.form input[type='number'] {
+    -moz-appearance: textfield;
+}
+
+.form input[type='number']::-webkit-outer-spin-button,
+.form input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 .form input[type='text']:focus,
 .form input[type='number']:focus,
 .form select:focus {
