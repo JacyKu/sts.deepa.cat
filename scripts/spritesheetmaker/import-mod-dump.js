@@ -16,19 +16,24 @@
 // Everything else (tiles, charm fallbacks, stylesheet loading) keeps working because
 // the generated artifacts match the contract the rest of the site consumes.
 
-const fs = require("fs/promises");
-const path = require("path");
-const crypto = require("crypto");
-const sharp = require("sharp");
+const fs = require('fs/promises');
+const path = require('path');
+const crypto = require('crypto');
+const sharp = require('sharp');
 
-const OUTPUT_DIR = path.join(__dirname, "..", "..", "public", "spritesheets");
-const ITEM_DATA_PATH = path.join(__dirname, "..", "..", "public", "items", "items.json");
+const OUTPUT_DIR = path.join(__dirname, '..', '..', 'public', 'spritesheets');
+const ITEM_DATA_PATH = path.join(__dirname, '..', '..', 'public', 'items', 'items.json');
 const DEFAULT_DUMP_DIR = path.join(
-    process.env.APPDATA || "",
-    "PrismLauncher", "instances", "deepaaaaar monumenta", "minecraft", "config", "sparethesympathy"
+    process.env.APPDATA || '',
+    'PrismLauncher',
+    'instances',
+    'deepaaaaar monumenta',
+    'minecraft',
+    'config',
+    'sparethesympathy'
 );
-const SHEET_NAME = "itemsheet";
-const CLASS_PREFIX = "monumenta";
+const SHEET_NAME = 'itemsheet';
+const CLASS_PREFIX = 'monumenta';
 const SPRITE_SIZE = 64;
 // The site's sprite tiles are zoomed by Items.module.css (.imageIcon > .monumenta-items
 // scale(1.15)); scaled-up cells keep the same zoom so their artwork matches the
@@ -36,12 +41,12 @@ const SPRITE_SIZE = 64;
 const ICON_ZOOM = 1.15;
 
 function normalizeBaseToken(value) {
-    return String(value || "")
-        .replaceAll("-", "_")
-        .replaceAll(" ", "_")
-        .replaceAll("'", "")
-        .replace(/_+/g, "_")
-        .replace(/^_+|_+$/g, "")
+    return String(value || '')
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_')
+        .replaceAll("'", '')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
         .toLowerCase();
 }
 
@@ -50,8 +55,8 @@ function tokenForName(name) {
         // Keep only CSS-safe characters: dots, parentheses, commas etc. in item
         // names (C.A.L.D.E.R., "(u)", "(bow)") would otherwise produce selectors
         // like .monumenta-b.o.n.k_... that browsers discard as invalid.
-        .replace(/[^a-z0-9_]/g, "_");
-    const hash = crypto.createHash("sha1").update(String(name)).digest("hex").slice(0, 8);
+        .replace(/[^a-z0-9_]/g, '_');
+    const hash = crypto.createHash('sha1').update(String(name)).digest('hex').slice(0, 8);
     return `${baseToken}_${hash}`;
 }
 
@@ -74,8 +79,8 @@ function uniformKeyframes(name, x, y, frameCount, pitch) {
     const to = positionPair(x + frameCount * pitch, y);
     return (
         `@keyframes ${name} {\n` +
-            `\tfrom { background-position: ${from} }\n` +
-            `\tto { background-position: ${to} }\n` +
+        `\tfrom { background-position: ${from} }\n` +
+        `\tto { background-position: ${to} }\n` +
         `}`
     );
 }
@@ -105,9 +110,9 @@ function variableKeyframes(name, x, y, pitch, frames, totalTicks) {
 function reducedMotionRule(token) {
     return (
         `@media (prefers-reduced-motion: reduce) {\n` +
-            `\t.${CLASS_PREFIX}-${token} {\n` +
-            `\t\tanimation: none;\n` +
-            `\t}\n` +
+        `\t.${CLASS_PREFIX}-${token} {\n` +
+        `\t\tanimation: none;\n` +
+        `\t}\n` +
         `}`
     );
 }
@@ -150,21 +155,21 @@ function measureContentMax(sheet, entry) {
 
 async function main() {
     const dumpDir = process.argv[2] || DEFAULT_DUMP_DIR;
-    const stsSheetPath = path.join(dumpDir, "itemsheet.png");
-    const stsAnimSheetPath = path.join(dumpDir, "itemsheet-anim.png");
-    const stsJsonPath = path.join(dumpDir, "itemsheet-manifest.json");
+    const stsSheetPath = path.join(dumpDir, 'itemsheet.png');
+    const stsAnimSheetPath = path.join(dumpDir, 'itemsheet-anim.png');
+    const stsJsonPath = path.join(dumpDir, 'itemsheet-manifest.json');
 
     let manifest;
     try {
-        manifest = JSON.parse(await fs.readFile(stsJsonPath, "utf8"));
+        manifest = JSON.parse(await fs.readFile(stsJsonPath, 'utf8'));
     } catch (error) {
         console.error(`[spritesheet-import] Unable to read ${stsJsonPath}: ${error.message}`);
-        console.error("[spritesheet-import] Dump the mod in-game first (config/sparethesympathy).");
+        console.error('[spritesheet-import] Dump the mod in-game first (config/sparethesympathy).');
         process.exit(1);
     }
 
     if (!manifest.entries || !Array.isArray(manifest.entries)) {
-        console.error("[spritesheet-import] Invalid itemsheet-manifest.json: missing entries.");
+        console.error('[spritesheet-import] Invalid itemsheet-manifest.json: missing entries.');
         process.exit(1);
     }
     // Animated entries live on a dedicated spritesheet (manifest.animSheet).
@@ -182,7 +187,7 @@ async function main() {
     for (const entry of manifest.entries) {
         const token = tokenForName(entry.key);
         if (!rulesByToken.has(token)) {
-            rulesByToken.set(token, { x: entry.x, y: entry.y, sheet: entry.sheet === "anim" ? "anim" : "main" });
+            rulesByToken.set(token, { x: entry.x, y: entry.y, sheet: entry.sheet === 'anim' ? 'anim' : 'main' });
             if (isSpecialEntry(entry)) {
                 specialByToken.set(token, {
                     x: entry.x,
@@ -204,7 +209,7 @@ async function main() {
     const itemMap = {};
     let itemData = {};
     try {
-        itemData = JSON.parse(await fs.readFile(ITEM_DATA_PATH, "utf8"));
+        itemData = JSON.parse(await fs.readFile(ITEM_DATA_PATH, 'utf8'));
     } catch (error) {
         console.warn(`[spritesheet-import] Unable to load item data for mapping: ${error.message}`);
     }
@@ -249,24 +254,24 @@ async function main() {
 
     let stylesFile =
         `.${CLASS_PREFIX}-items {\n` +
-            `\tbackground-image: url("./${SHEET_NAME}.png");\n` +
-            "\tbackground-repeat: no-repeat;\n" +
-            "\tdisplay: inline-block;\n" +
-            "\tvertical-align: middle;\n" +
-            `\twidth: ${SPRITE_SIZE}px;\n` +
-            `\theight: ${SPRITE_SIZE}px;\n` +
-        "}\n\n";
+        `\tbackground-image: url("./${SHEET_NAME}.png");\n` +
+        '\tbackground-repeat: no-repeat;\n' +
+        '\tdisplay: inline-block;\n' +
+        '\tvertical-align: middle;\n' +
+        `\twidth: ${SPRITE_SIZE}px;\n` +
+        `\theight: ${SPRITE_SIZE}px;\n` +
+        '}\n\n';
     for (const [token, cell] of rulesByToken) {
         const { x, y, sheet } = cell;
         stylesFile += `.${CLASS_PREFIX}-${token} {\n`;
-        stylesFile += `\tbackground-position: ${x !== 0 ? `-${x}px` : "0"} ${y !== 0 ? `-${y}px` : "0"};\n`;
+        stylesFile += `\tbackground-position: ${x !== 0 ? `-${x}px` : '0'} ${y !== 0 ? `-${y}px` : '0'};\n`;
         // Cells on the animated sheet must sample itemsheet-anim.png even when
         // the capture produced a single frame (the base .monumenta-items rule
         // points at the main sheet).
-        if (sheet === "anim" && hasAnimSheet) {
+        if (sheet === 'anim' && hasAnimSheet) {
             stylesFile += `\tbackground-image: url("./${SHEET_NAME}-anim.png");\n`;
         }
-        stylesFile += "}\n\n";
+        stylesFile += '}\n\n';
     }
 
     // Special cells: the strip-start position, then explicit width/height for
@@ -296,33 +301,30 @@ async function main() {
             const uniform = special.frames.every((dwell) => dwell === special.frames[0]);
             if (uniform) {
                 rule += `\tanimation: ${name} ${totalMs}ms steps(${special.frames.length}, end) infinite;\n`;
-                stylesFile += rule + "}\n\n";
-                stylesFile += uniformKeyframes(name, special.x, special.y, special.frames.length, pitch) + "\n\n";
+                stylesFile += rule + '}\n\n';
+                stylesFile += uniformKeyframes(name, special.x, special.y, special.frames.length, pitch) + '\n\n';
             } else {
                 rule += `\tanimation: ${name} ${totalMs}ms infinite;\n`;
-                stylesFile += rule + "}\n\n";
-                stylesFile += variableKeyframes(name, special.x, special.y, pitch, special.frames, totalTicks) + "\n\n";
+                stylesFile += rule + '}\n\n';
+                stylesFile += variableKeyframes(name, special.x, special.y, pitch, special.frames, totalTicks) + '\n\n';
             }
-            stylesFile += reducedMotionRule(token) + "\n\n";
+            stylesFile += reducedMotionRule(token) + '\n\n';
         } else {
-            stylesFile += rule + "}\n\n";
+            stylesFile += rule + '}\n\n';
         }
     }
 
     await fs.copyFile(stsSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}.png`));
     if (hasAnimSheet) {
-        await fs.copyFile(
-            stsAnimSheetPath,
-            path.join(OUTPUT_DIR, `${SHEET_NAME}-anim.png`)
-        );
+        await fs.copyFile(stsAnimSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}-anim.png`));
     }
 
     // Decode both sheets and measure the painted content of every cell/strip,
     // then scale up the cells whose content is smaller than the cell so the
     // artwork renders at the same size as full cells on the site.
     const sheets = {};
-    for (const name of ["main", "anim"]) {
-        const file = path.join(dumpDir, name === "main" ? `${SHEET_NAME}.png` : `${SHEET_NAME}-anim.png`);
+    for (const name of ['main', 'anim']) {
+        const file = path.join(dumpDir, name === 'main' ? `${SHEET_NAME}.png` : `${SHEET_NAME}-anim.png`);
         const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
         sheets[name] = { width: info.width, height: info.height, data };
     }
@@ -350,13 +352,79 @@ async function main() {
     await fs.writeFile(path.join(OUTPUT_DIR, `_${SHEET_NAME}.css`), stylesFile);
     await fs.writeFile(path.join(OUTPUT_DIR, `${SHEET_NAME}-map.json`), JSON.stringify(itemMap, null, 2));
 
-    console.log(`[spritesheet-import] ${manifest.entries.length} manifest entries, ${rulesByToken.size} unique tokens (${specialByToken.size} special), ${SPRITE_SIZE}px sprites${hasAnimSheet ? ", separate animated sheet" : ""}`);
-    console.log(`[spritesheet-import] ${Object.keys(itemMap).length} item map keys (${Object.keys(itemData).length} from items.json)`);
+    // Prerender every animated item into its own GIF (textures/<token>.gif)
+    // so the site and the Discord bot serve prebuilt files instead of
+    // encoding on demand. Deterministic output, so the files are stable
+    // between imports of unchanged textures.
+    const gifCount = await writeAnimatedGifs(manifest, sheets);
+
+    console.log(
+        `[spritesheet-import] ${manifest.entries.length} manifest entries, ${rulesByToken.size} unique tokens (${specialByToken.size} special), ${SPRITE_SIZE}px sprites${hasAnimSheet ? ', separate animated sheet' : ''}`
+    );
+    console.log(
+        `[spritesheet-import] ${Object.keys(itemMap).length} item map keys (${Object.keys(itemData).length} from items.json)`
+    );
     console.log(`[spritesheet-import] Scaled up ${scaledByToken.size} under-filled cells`);
-    console.log(`[spritesheet-import] Wrote itemsheet.png, _itemsheet.css, itemsheet-map.json${hasAnimSheet ? ", itemsheet-anim.png" : ""}`);
+    console.log(`[spritesheet-import] Prerendered ${gifCount} animated GIFs into textures/`);
+    console.log(
+        `[spritesheet-import] Wrote itemsheet.png, _itemsheet.css, itemsheet-map.json${hasAnimSheet ? ', itemsheet-anim.png' : ''}`
+    );
+}
+
+// Renders each animated strip (2+ frames) into a standalone GIF at
+// textures/<token>.gif, using the same encoding the texture endpoint uses
+// (2x nearest upscale, per-frame palettes, disposal-to-transparent).
+async function writeAnimatedGifs(manifest, sheets) {
+    const { encodeFrames } = require('./gifEncode');
+    const textureDir = path.join(OUTPUT_DIR, 'textures');
+    await fs.mkdir(textureDir, { recursive: true });
+
+    // Clear stale GIFs (items that stopped being animated).
+    for (const name of await fs.readdir(textureDir)) {
+        if (name.endsWith('.gif')) {
+            await fs.unlink(path.join(textureDir, name));
+        }
+    }
+
+    const SCALE = 2;
+    const cellSize = SPRITE_SIZE * SCALE;
+    let count = 0;
+    const seen = new Set();
+    for (const entry of manifest.entries) {
+        const token = tokenForName(entry.key);
+        if (seen.has(token)) continue;
+        if (entry.sheet !== 'anim') continue;
+        const frameCount = Number(entry.frameCount) || 1;
+        if (frameCount < 2) continue;
+        seen.add(token);
+
+        const sheet = sheets.anim;
+        const pitch = Number.isInteger(entry.pitch) && entry.pitch > 0 ? entry.pitch : SPRITE_SIZE + 2;
+        const frames = [];
+        const delays = [];
+        for (let i = 0; i < frameCount; i++) {
+            const x = entry.x + i * pitch;
+            const raw = await sharp(sheet.data, {
+                raw: { width: sheet.width, height: sheet.height, channels: 4 },
+                limitInputPixels: false,
+            })
+                .extract({ left: x, top: entry.y, width: SPRITE_SIZE, height: SPRITE_SIZE })
+                .resize(cellSize, cellSize, { kernel: sharp.kernel.nearest })
+                .raw()
+                .toBuffer();
+            frames.push(raw);
+            // Dwells are in 1/20s ticks; centiseconds = ticks * 5.
+            const dwell = Number(entry.dwells && entry.dwells[i]) || 1;
+            delays.push(Math.max(1, dwell * 5));
+        }
+        const gif = encodeFrames(frames, cellSize, cellSize, delays);
+        await fs.writeFile(path.join(textureDir, `${token}.gif`), gif);
+        count++;
+    }
+    return count;
 }
 
 main().catch((error) => {
-    console.error("[spritesheet-import] Failed:", error);
+    console.error('[spritesheet-import] Failed:', error);
     process.exit(1);
 });
