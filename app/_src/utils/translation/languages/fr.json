@@ -164,7 +164,6 @@
     "builder.statCategories.damageReduction.sub": "(Régulier)",
     "builder.statCategories.damageReductionHealthNormalized": "Réduction de dégâts",
     "builder.statCategories.damageReductionHealthNormalized.sub": "(Vie Normalisée)",
-    "builder.statCategories.effectiveHealthRegen": "Régénération de Vie Effective",
     "builder.statCategories.effectiveHealth": "Vie Effective",
     "builder.statCategories.melee": "Mélée",
     "builder.statCategories.projectile": "Projectile",

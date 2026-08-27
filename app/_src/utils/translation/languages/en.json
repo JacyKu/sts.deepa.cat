@@ -189,7 +189,6 @@
     "builder.statCategories.damageReductionHealthNormalized": "Damage Reduction",
     "builder.statCategories.damageReductionHealthNormalized.sub": "(Health Normalized)",
     "builder.statCategories.effectiveHealth": "Effective Health",
-    "builder.statCategories.effectiveHealthRegen": "Effective Health Regen",
     "builder.statCategories.melee": "Melee",
     "builder.statCategories.projectile": "Projectile",
     "builder.statCategories.magic": "Magic",

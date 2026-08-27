@@ -190,7 +190,6 @@
     "builder.statCategories.damageReduction.sub": "(一般狀況)",
     "builder.statCategories.damageReductionHealthNormalized": "傷害減免",
     "builder.statCategories.damageReductionHealthNormalized.sub": "(根據最大生命值正規化)",
-    "builder.statCategories.effectiveHealthRegen": "等效生命恢復",
     "builder.statCategories.effectiveHealth": "等效生命值",
     "builder.statCategories.melee": "近戰",
     "builder.statCategories.projectile": "投射物",

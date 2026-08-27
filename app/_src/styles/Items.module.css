@@ -1985,14 +1985,6 @@ div.builderStatCard {
     margin: 0;
 }
 
-.delvePointsTotal {
-    margin-left: 8px;
-    font-family: monospace;
-    font-size: 0.8rem;
-    color: var(--text-2);
-    white-space: nowrap;
-}
-
 .resetButton:hover {
     filter: brightness(125%);
 }

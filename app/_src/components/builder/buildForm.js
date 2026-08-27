@@ -624,9 +624,11 @@ export default function BuildForm({
     const [charmStatsOpen, setCharmStatsOpen] = React.useState(false);
     const [delveOpen, setDelveOpen] = React.useState(false);
     const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (always level IV)
-    // Delve infusion points: one free-form input per slot, total capped at
-    // 30 across all slots (Monumenta's delve infusion point budget).
-    const DELVE_POINT_CAP = 30;
+    // Delve infusion points: one free-form input per slot, total capped at 24
+    // across all slots (6 slots x level IV). Picking an infusion defaults its
+    // points to 4 (level IV), clamped to the remaining budget.
+    const DELVE_POINT_CAP = 24;
+    const DELVE_POINT_DEFAULT = 4;
     const [delvePoints, setDelvePoints] = React.useState({});
     const [revelation, setRevelation] = React.useState(false);
     const [charmSelectKey, setCharmSelectKey] = React.useState(0);
@@ -734,7 +736,7 @@ export default function BuildForm({
     function statInputChanged(name, event) {
         const next = { ...statInputs, [name]: event.target.value };
         setStatInputs(next);
-        recalcBuildStats();
+        scheduleStatsRecalc();
     }
 
     // Typed values snap back into the 0-100 range (and to the default when
@@ -742,7 +744,39 @@ export default function BuildForm({
     function healthPercentBlur() {
         const raw = Number(statInputs.health);
         const value = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 100;
-        statInputChanged('health', { target: { value: String(value) } });
+        setStatInputs((prev) => ({ ...prev, health: String(value) }));
+        flushStatsRecalc();
+    }
+
+    // The Stats rebuild is synchronous and heavy, so the health slider and the
+    // tenacity/vitality/... number inputs throttle it instead of firing one
+    // rebuild per keystroke/tick. Leading edge keeps the numbers alive while
+    // dragging; trailing edge settles the final value once input stops.
+    const STAT_RECALC_WINDOW = 120;
+    const statRecalcTimerRef = React.useRef(null);
+    const statLastRecalcRef = React.useRef(0);
+
+    function scheduleStatsRecalc() {
+        const elapsed = Date.now() - statLastRecalcRef.current;
+        if (elapsed >= STAT_RECALC_WINDOW) {
+            statLastRecalcRef.current = Date.now();
+            recalcBuildStats();
+        } else if (!statRecalcTimerRef.current) {
+            statRecalcTimerRef.current = setTimeout(() => {
+                statRecalcTimerRef.current = null;
+                statLastRecalcRef.current = Date.now();
+                recalcBuildStats();
+            }, STAT_RECALC_WINDOW - elapsed);
+        }
+    }
+
+    function flushStatsRecalc() {
+        if (statRecalcTimerRef.current) {
+            clearTimeout(statRecalcTimerRef.current);
+            statRecalcTimerRef.current = null;
+        }
+        statLastRecalcRef.current = Date.now();
+        recalcBuildStats();
     }
 
     function revelationChanged(event) {
@@ -762,6 +796,19 @@ export default function BuildForm({
             }
             return next;
         });
+        // Newly picked infusions default to level IV (4 points); clearing the
+        // infusion drops its points too.
+        if (option) {
+            const used = delvePointsElsewhere(slot);
+            const defaultPoints = Math.max(0, Math.min(DELVE_POINT_DEFAULT, DELVE_POINT_CAP - used));
+            setDelvePoints((prev) => ({ ...prev, [slot]: Math.max(prev[slot] ?? 0, defaultPoints) }));
+        } else {
+            setDelvePoints((prev) => {
+                const next = { ...prev };
+                delete next[slot];
+                return next;
+            });
+        }
         // FormData is stale right after a Select change, so inject the new value
         // manually (same pattern as itemChanged) and recalculate.
         let entries = Array.from(new FormData(formRef.current).entries());
@@ -827,7 +874,7 @@ export default function BuildForm({
                     disabled={!cur}
                     className={styles.delvePointsInput}
                     aria-label="Delve infusion points"
-                    title="Delve infusion points (max 30 across all slots)"
+                    title="Delve infusion points (max 24 across all slots)"
                 />
             </div>
         );
@@ -889,6 +936,7 @@ export default function BuildForm({
     React.useEffect(() => {
         return () => {
             if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
+            if (statRecalcTimerRef.current) clearTimeout(statRecalcTimerRef.current);
         };
     }, []);
 
@@ -1547,6 +1595,8 @@ export default function BuildForm({
             }
             if (Object.keys(loadedDelve).length > 0) {
                 setDelveInfusions(loadedDelve);
+                // Restored infusions default to level IV (4 points) each.
+                setDelvePoints(Object.fromEntries(Object.keys(loadedDelve).map((slot) => [slot, DELVE_POINT_DEFAULT])));
                 setDelveOpen(true);
             }
         }
@@ -2094,16 +2144,6 @@ export default function BuildForm({
         { type: 'fallEHP', name: 'builder.stats.dr-ehp.fall', percent: false },
         { type: 'ailmentEHP', name: 'builder.stats.dr-ehp.ailment', percent: false },
     ];
-
-    const EHPRStats = [
-        { type: 'meleeEHPR', name: 'builder.stats.dr-ehp.melee', percent: false },
-        { type: 'projectileEHPR', name: 'builder.stats.dr-ehp.projectile', percent: false },
-        { type: 'magicEHPR', name: 'builder.stats.dr-ehp.magic', percent: false },
-        { type: 'blastEHPR', name: 'builder.stats.dr-ehp.blast', percent: false },
-        { type: 'fireEHPR', name: 'builder.stats.dr-ehp.fire', percent: false },
-        { type: 'fallEHPR', name: 'builder.stats.dr-ehp.fall', percent: false },
-        { type: 'ailmentEHPR', name: 'builder.stats.dr-ehp.ailment', percent: false },
-    ];
     const meleeStats = [
         { type: 'attackSpeedPercent', name: 'builder.stats.melee.attackSpeedPercent', percent: true },
         { type: 'attackSpeed', name: 'builder.stats.melee.attackSpeed', percent: false },
@@ -2327,9 +2367,6 @@ export default function BuildForm({
                             aria-label="Delve Infusions"
                         />
                         Delve Infusions
-                        <span className={styles.delvePointsTotal}>
-                            {Object.values(delvePoints).reduce((sum, v) => sum + (Number(v) || 0), 0)}/{DELVE_POINT_CAP}
-                        </span>
                     </label>
                     <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
                         <input
@@ -3182,36 +3219,6 @@ export default function BuildForm({
                                 </div>
                             );
                         }
-                        return temp;
-                    })()}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.effectiveHealthRegen"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {(() => {
-                        const unstableEHPRTypes = ['meleeEHPR', 'projectileEHPR', 'magicEHPR', 'blastEHPR'];
-                        let temp = EHPRStats.map((stat) => {
-                            let condition = itemsToDisplay.instability && unstableEHPRTypes.includes(stat.type);
-                            return itemsToDisplay[stat.type] !== undefined ? (
-                                <div key={stat.type}>
-                                    <p className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}>
-                                        <b>
-                                            <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                        </b>
-                                        <span className={styles.monoValue}>
-                                            {itemsToDisplay[stat.type]}
-                                            {stat.percent ? '%' : ''}
-                                        </span>
-                                    </p>
-                                </div>
-                            ) : (
-                                ''
-                            );
-                        });
                         return temp;
                     })()}
                 </div>
