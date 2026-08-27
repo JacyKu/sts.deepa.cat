@@ -153,12 +153,14 @@ async function itemSpriteDataUrl(
     if (pos) {
         // Animated items come from the prerendered GIFs only (the same files
         // the texture endpoint and the bot serve): their first frame is the
-        // strip start, identical to the animated sheet's cell.
+        // strip start, identical to the animated sheet's cell. `animated:
+        // true` would load the whole frame stack as one tall canvas, so it is
+        // left off to extract a single 64x64 page.
         if (animTokens.has(spriteKey)) {
             try {
                 const pre = path.join(process.cwd(), 'public', 'spritesheets', 'textures', `${spriteKey}.gif`);
                 const gif = await fs.readFile(pre);
-                const frame = await sharp(gif, { animated: true, page: 0 }).png().toBuffer();
+                const frame = await sharp(gif, { page: 0 }).png().toBuffer();
                 return `data:image/png;base64,${frame.toString('base64')}`;
             } catch (e) {
                 return null;
