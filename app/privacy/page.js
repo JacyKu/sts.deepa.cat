@@ -118,6 +118,21 @@ export default function PrivacyPolicyPage() {
                     ],
                 },
                 {
+                    heading: 'STS Discord Bot',
+                    paragraphs: [
+                        <>
+                            The Service includes a Discord bot. When you use the bot&apos;s commands, it processes only
+                            the data needed to respond - for example, /builds mine retrieves the builds linked to your
+                            Discord account through the site API.
+                        </>,
+                        <>
+                            The bot does not store personal information: it keeps only a short-lived in-memory cache of
+                            responses (a few minutes) and writes nothing to disk. Command interactions are processed by
+                            Discord under Discord&apos;s own privacy policy.
+                        </>,
+                    ],
+                },
+                {
                     heading: 'Changes to This Privacy Policy',
                     paragraphs: [
                         <>

@@ -19,7 +19,10 @@ export const metadata = {
         template: '%s - Spare the Sympathy',
     },
     description: 'Monumenta Items and Builds',
-    metadataBase: new URL('https://sts.deepa.cat'),
+    // Same env var that pins the Discord OAuth redirect URI: set
+    // STS_PUBLIC_BASE_URL per environment (see .env.example) so absolute
+    // metadata URLs (OG/Twitter cards) point at the right host everywhere.
+    metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
     icons: { icon: '/favicon/favicon.ico' },
     openGraph: {
         siteName: 'Spare the Sympathy',
@@ -64,25 +67,25 @@ export default async function StsLayout({ children }) {
                 <div className="site-content" id="top">
                     <LowResourceProvider>
                         <AnimationsProvider>
-                        <LanguageContextProvider>
-                            <HideLoreProvider>
-                                <HideObtainmentProvider>
-                                    <HideSkinsProvider>
-                                        <MaxMasterworkProvider>
-                                            <BuildListProvider>
-                                                <BuildListEnabledProvider>
-                                                    <SiteNav showBeta center={<HeaderNav />}>
-                                                        <Header />
-                                                    </SiteNav>
-                                                    <div className="site-main">{children}</div>
-                                                    <Footer />
-                                                </BuildListEnabledProvider>
-                                            </BuildListProvider>
-                                        </MaxMasterworkProvider>
-                                    </HideSkinsProvider>
-                                </HideObtainmentProvider>
-                            </HideLoreProvider>
-                        </LanguageContextProvider>
+                            <LanguageContextProvider>
+                                <HideLoreProvider>
+                                    <HideObtainmentProvider>
+                                        <HideSkinsProvider>
+                                            <MaxMasterworkProvider>
+                                                <BuildListProvider>
+                                                    <BuildListEnabledProvider>
+                                                        <SiteNav showBeta center={<HeaderNav />}>
+                                                            <Header />
+                                                        </SiteNav>
+                                                        <div className="site-main">{children}</div>
+                                                        <Footer />
+                                                    </BuildListEnabledProvider>
+                                                </BuildListProvider>
+                                            </MaxMasterworkProvider>
+                                        </HideSkinsProvider>
+                                    </HideObtainmentProvider>
+                                </HideLoreProvider>
+                            </LanguageContextProvider>
                         </AnimationsProvider>
                     </LowResourceProvider>
                 </div>

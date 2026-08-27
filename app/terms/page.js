@@ -57,6 +57,20 @@ export default function TermsOfServicePage() {
                     ],
                 },
                 {
+                    heading: 'Discord Bot',
+                    paragraphs: [
+                        <>
+                            The Service includes a Discord bot. Using the bot is subject to these Terms and to the same
+                            age requirement. You may not use the bot to spam, harass, or otherwise abuse other users or
+                            the Service.
+                        </>,
+                        <>
+                            The bot&apos;s commands are provided &quot;as is&quot; and may be changed, renamed, or
+                            removed at any time.
+                        </>,
+                    ],
+                },
+                {
                     heading: 'Prohibited Uses',
                     paragraphs: [<>You agree not to use the Service:</>],
                     items: [
