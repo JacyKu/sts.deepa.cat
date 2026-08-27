@@ -1941,6 +1941,58 @@ div.builderStatCard {
     margin: 0;
 }
 
+/* Delve infusion slot: the infusion picker plus its point input. */
+.delveSlotRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.delvePointsInput {
+    width: 56px;
+    height: 38px;
+    flex-shrink: 0;
+    padding: 0 4px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--text-1);
+    background: var(--glass-1);
+    border: 1px solid var(--control-border);
+    border-radius: 0;
+    -moz-appearance: textfield;
+}
+
+.delvePointsInput:hover {
+    border-color: var(--control-border-hover);
+}
+
+.delvePointsInput:focus {
+    outline: none;
+    border-color: var(--control-border-focus);
+    box-shadow: 0 0 0 1px var(--control-border-focus);
+}
+
+.delvePointsInput:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.delvePointsInput::-webkit-outer-spin-button,
+.delvePointsInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.delvePointsTotal {
+    margin-left: 8px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-2);
+    white-space: nowrap;
+}
+
 .resetButton:hover {
     filter: brightness(125%);
 }

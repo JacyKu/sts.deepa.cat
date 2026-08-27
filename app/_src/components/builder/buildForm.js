@@ -624,6 +624,10 @@ export default function BuildForm({
     const [charmStatsOpen, setCharmStatsOpen] = React.useState(false);
     const [delveOpen, setDelveOpen] = React.useState(false);
     const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (always level IV)
+    // Delve infusion points: one free-form input per slot, total capped at
+    // 30 across all slots (Monumenta's delve infusion point budget).
+    const DELVE_POINT_CAP = 30;
+    const [delvePoints, setDelvePoints] = React.useState({});
     const [revelation, setRevelation] = React.useState(false);
     const [charmSelectKey, setCharmSelectKey] = React.useState(0);
     const [multiplierListKey, setMultiplierListKey] = React.useState(0);
@@ -768,6 +772,18 @@ export default function BuildForm({
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
+    // The points other slots already use; this slot can take at most the rest.
+    function delvePointsElsewhere(slot) {
+        return Object.entries(delvePoints)
+            .filter(([s]) => s !== slot)
+            .reduce((sum, [, v]) => sum + (Number(v) || 0), 0);
+    }
+
+    function changeDelvePoints(slot, raw) {
+        const value = Math.max(0, Math.min(DELVE_POINT_CAP - delvePointsElsewhere(slot), Number(raw) || 0));
+        setDelvePoints((prev) => ({ ...prev, [slot]: value }));
+    }
+
     function delveSlotSelects(slot) {
         const hasItem = stats.itemNames && stats.itemNames[slot] && stats.itemNames[slot] !== 'None';
         const cur = delveInfusions[slot];
@@ -785,7 +801,7 @@ export default function BuildForm({
             })
         );
         return (
-            <div className="mt-3">
+            <div className={styles.delveSlotRow}>
                 <Select
                     instanceId={`delve-${slot}`}
                     name={`delveInfusion-${slot}`}
@@ -800,6 +816,18 @@ export default function BuildForm({
                     menuPosition="fixed"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
+                />
+                <input
+                    type="number"
+                    min="0"
+                    max={Math.max(0, DELVE_POINT_CAP - delvePointsElsewhere(slot))}
+                    step="1"
+                    value={delvePoints[slot] ?? 0}
+                    onChange={(e) => changeDelvePoints(slot, e.target.value)}
+                    disabled={!cur}
+                    className={styles.delvePointsInput}
+                    aria-label="Delve infusion points"
+                    title="Delve infusion points (max 30 across all slots)"
                 />
             </div>
         );
@@ -1774,6 +1802,7 @@ export default function BuildForm({
         setCharms([]);
         setCharmSelectKey((k) => k + 1);
         setDelveInfusions({});
+        setDelvePoints({});
         setRevelation(false);
         setCzAbilities({});
         setCzSelectedTree(CZ_MAIN_TREES[0]);
@@ -2298,6 +2327,9 @@ export default function BuildForm({
                             aria-label="Delve Infusions"
                         />
                         Delve Infusions
+                        <span className={styles.delvePointsTotal}>
+                            {Object.values(delvePoints).reduce((sum, v) => sum + (Number(v) || 0), 0)}/{DELVE_POINT_CAP}
+                        </span>
                     </label>
                     <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
                         <input
