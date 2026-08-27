@@ -82,10 +82,11 @@ async function getSpriteInfo() {
     if (spriteInfoCache) return spriteInfoCache;
 
     const base = path.join(process.cwd(), 'public', 'spritesheets');
-    const [mapRaw, cssRaw, sheet, mcCssRaw, mcSheet] = await Promise.all([
+    const [mapRaw, cssRaw, sheet, animSheet, mcCssRaw, mcSheet] = await Promise.all([
         fs.readFile(path.join(base, 'itemsheet-map.json'), 'utf8'),
         fs.readFile(path.join(base, '_itemsheet.css'), 'utf8'),
         fs.readFile(path.join(base, 'itemsheet.png')),
+        fs.readFile(path.join(base, 'itemsheet-anim.png')),
         fs.readFile(path.join(base, '_minecraft.css'), 'utf8'),
         fs.readFile(path.join(base, 'minecraft.png')),
     ]);
@@ -98,13 +99,21 @@ async function getSpriteInfo() {
         positions[match[1]] = { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) };
     }
 
+    // Tokens whose sprite lives on the animated sheet (strips of frames).
+    const animTokens = new Set();
+    const animRe =
+        /\.monumenta-([\w-]+)\s*\{\s*background-position:[^}]*background-image:\s*url\("\.\/itemsheet-anim\.png"\)/g;
+    while ((match = animRe.exec(cssRaw))) {
+        animTokens.add(match[1]);
+    }
+
     const mcPositions = {};
     const mcRe = /\.minecraft-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)px\s+(-?\d+)(?:px)?/g;
     while ((match = mcRe.exec(mcCssRaw))) {
         mcPositions[match[1]] = { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) };
     }
 
-    spriteInfoCache = { map, positions, sheet, mcPositions, mcSheet };
+    spriteInfoCache = { map, positions, animTokens, sheet, animSheet, mcPositions, mcSheet };
     return spriteInfoCache;
 }
 
@@ -134,10 +143,22 @@ async function cropSprite(sheet, pos) {
     }
 }
 
-async function itemSpriteDataUrl({ map, positions, sheet, mcPositions, mcSheet }, itemKey, itemName, baseItem) {
+async function itemSpriteDataUrl(
+    { map, positions, animTokens, sheet, animSheet, mcPositions, mcSheet },
+    itemKey,
+    itemName,
+    baseItem
+) {
     const spriteKey = findSpriteKey(map, itemKey, itemName);
     const pos = spriteKey && positions[spriteKey];
-    if (pos) return cropSprite(sheet, pos);
+    if (pos) {
+        // Animated strips live on the animated sheet; the crop position is
+        // the strip start (frame 0). The main sheet has no cell for them.
+        if (animTokens.has(spriteKey) && animSheet) {
+            return cropSprite(animSheet, pos);
+        }
+        return cropSprite(sheet, pos);
+    }
     // Fall back to the vanilla Minecraft texture for the item's base material.
     if (baseItem) {
         const mcKey = getMinecraftTextureKey(baseItem);

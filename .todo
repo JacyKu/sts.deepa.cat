@@ -23,7 +23,6 @@ generalise all buttons to use same size/height
 [x] make the text on likes slightly bigger
 [x] add user name and avatar to build embed
 [x] add a description on hover for build abbreviations in the public build database
-- add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise
 [x] fix older builds not loading when there's no timestamp
 [x] remove rarity on cz/dd abils
 [x] custom item import where players can create their own items with custom stats and select a texture from the game (does not get saved into a global database where others can use it but only viewable)
@@ -44,6 +43,11 @@ generalise all buttons to use same size/height
 [x] add tooltips for multipliers and stat toggles
 [x] render checkboxes in menu to the left and text to the right
 [x] fix stat colors correctly
-- add discord application to quickshare builds/search for items and maybe some other misc (must connect, works as independent app, doesnt need to be in a discord server)
+- add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise
+[x] add discord application to quickshare builds/search for items and maybe some other misc (must connect, works as independent app, doesnt need to be in a discord server)
 - add actual 3d model of the blobcat on deepa.cat
 - let people select skins for items (need to be signed in with discord) (later update)
+- items (at least animated ones) dont render properly for discord app icons
+- move stat toggles back to where they were
+- maybe generate gifs for animated items in embeds/discord bot embeds?
+- show texture of items in item sharing embed
