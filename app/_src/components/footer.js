@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import styles from '../styles/Footer.module.css';
 import LanguageSelector from './languageSelector';
 import pkg from '../../../package.json';
@@ -39,6 +40,12 @@ export default function Footer() {
                     >
                         Help translate
                     </a>
+                    <Link className={styles.textLink} href="/privacy">
+                        Privacy Policy
+                    </Link>
+                    <Link className={styles.textLink} href="/terms">
+                        Terms
+                    </Link>
                     <a
                         className={styles.link}
                         href="https://github.com/JacyKu/sts.deepa.cat"

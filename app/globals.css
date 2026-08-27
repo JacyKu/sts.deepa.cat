@@ -163,6 +163,10 @@ html a:hover {
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
+    /* Never allow invisible off-layout elements (e.g. hidden enchant
+       tooltips sized max-content) to widen the page on narrow screens. */
+    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 .site-main {
