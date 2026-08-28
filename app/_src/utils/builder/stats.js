@@ -101,6 +101,7 @@ class Stats {
             abyssal: { enabled: enabledBoxes.abyssal, level: 0 },
             fractal: { enabled: enabledBoxes.fractal, level: 0 },
             skyseeker: { enabled: enabledBoxes.skyseeker, level: 0 },
+            backstab: { enabled: enabledBoxes.backstab, level: 0 },
             curse_of_the_veil: { enabled: enabledBoxes.curse_of_the_veil, level: 0 },
 
             // fake entries to never throw errors, none of these are real enchantments
@@ -186,6 +187,7 @@ class Stats {
         let abyssalSit = this.situationals.abyssal.enabled ? 10 * this.situationals.abyssal.level : 0;
         let fractalSit = this.situationals.fractal.enabled ? 10 * this.situationals.fractal.level : 0;
         let skyseekerSit = this.situationals.skyseeker.enabled ? 10 * this.situationals.skyseeker.level : 0;
+        let backstabSit = this.situationals.backstab.enabled ? 15 * this.situationals.backstab.level : 0;
         let retaliationSit = this.situationals.retaliation_boss.enabled
             ? 65
             : this.situationals.retaliation_elite.enabled
@@ -217,6 +219,7 @@ class Stats {
         this.attackDamagePercent.add(staminaSit);
         this.attackDamagePercent.add(abyssalSit);
         this.attackDamagePercent.add(skyseekerSit);
+        this.attackDamagePercent.add(backstabSit);
         this.attackDamagePercent.add(retaliationSit);
         this.attackDamagePercent.add(this.getDelveGearDamagePct());
 
