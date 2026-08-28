@@ -35,6 +35,7 @@
     "items.searchForm.poi": "Punto d'Interesse (POI)",
     "items.searchForm.charmClass": "Classe dell'Amuleto",
     "items.searchForm.charmStat": "Attributo dell'Amuleto",
+    "items.searchForm.charmSkill": "Abilità dell'Amuleto",
     "items.searchForm.baseItem": "Oggetto Base",
     "items.searchForm.questId": "ID missione",
     "items.searchForm.itemsFound": "Oggetti Trovati:",

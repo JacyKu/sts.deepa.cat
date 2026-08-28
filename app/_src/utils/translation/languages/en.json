@@ -36,6 +36,7 @@
     "items.searchForm.poi": "POI",
     "items.searchForm.charmClass": "Charm Class",
     "items.searchForm.charmStat": "Charm Stat",
+    "items.searchForm.charmSkill": "Charm Skill",
     "items.searchForm.baseItem": "Base Item",
     "items.searchForm.questId": "Quest ID",
     "items.searchForm.itemsFound": "Items Found:",

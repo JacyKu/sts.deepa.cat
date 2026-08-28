@@ -33,6 +33,7 @@
     "items.searchForm.poi": "ТИ",
     "items.searchForm.charmClass": "Класс Амулета",
     "items.searchForm.charmStat": "Характеристика Амулета",
+    "items.searchForm.charmSkill": "Способность Амулета",
     "items.searchForm.baseItem": "Базовый Предмет",
     "items.searchForm.questId": "ID квеста",
     "items.searchForm.itemsFound": "Предметов Найдено:",

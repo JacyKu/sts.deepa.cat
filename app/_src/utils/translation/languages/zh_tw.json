@@ -33,6 +33,7 @@
     "items.searchForm.poi": "探索點 (POI)",
     "items.searchForm.charmClass": "護符所屬職業",
     "items.searchForm.charmStat": "護符屬性",
+    "items.searchForm.charmSkill": "護符技能",
     "items.searchForm.baseItem": "基礎道具類型",
     "items.searchForm.questId": "任務 ID",
     "items.searchForm.itemsFound": "符合的道具數量：",

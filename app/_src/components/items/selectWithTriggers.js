@@ -6,6 +6,7 @@ import SupportedLanguages from '../../utils/translation/languages';
 
 const SelectWithTriggers = (props) => {
     const [firstChild, setFirstChild] = React.useState();
+    const [selectedCategory, setSelectedCategory] = React.useState();
     const { lang } = useLanguageContext();
     const container = React.useRef();
     const spawnedRef = React.useRef(false);
@@ -23,9 +24,29 @@ const SelectWithTriggers = (props) => {
 
     function triggerSelection(event) {
         let selectedValue = event.value;
+        setSelectedCategory(selectedValue);
         let child = props.opts.find((o) => o.name == selectedValue).select(props.index);
         setFirstChild(child);
     }
+
+    // Rebuild the value select when an external dependency changes (e.g. the
+    // Charm Skill filter's options depend on the selected Charm Class), so
+    // the child re-renders with the fresh options. The current selection is
+    // carried over when it still exists.
+    React.useEffect(() => {
+        if (!selectedCategory) return;
+        if (!props.regenKey) return;
+        const category = props.opts.find((o) => o.name === selectedCategory);
+        if (!category) return;
+        let current = null;
+        const input = container.current?.querySelector('input');
+        if (input && input.name && input.value) {
+            const suffix = input.name.replace(`-${props.index}`, '');
+            if (suffix !== input.name) current = { [suffix]: input.value };
+        }
+        setFirstChild(category.select(props.index, current));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.regenKey]);
 
     // Restored searches come in with the category + selected value already set:
     // spawn the value select immediately (with its cached default) instead of

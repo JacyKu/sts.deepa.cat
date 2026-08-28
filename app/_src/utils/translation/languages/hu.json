@@ -33,6 +33,7 @@
     "items.searchForm.poi": "POI",
     "items.searchForm.charmClass": "Talizmán Klassz",
     "items.searchForm.charmStat": "Talizmán Statisztika",
+    "items.searchForm.charmSkill": "Talizmán Képesség",
     "items.searchForm.baseItem": "Alap Tárgy",
     "items.searchForm.questId": "Küldetés azonosító",
     "items.searchForm.itemsFound": "Tárgyak Találva:",
