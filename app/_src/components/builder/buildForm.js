@@ -473,11 +473,14 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         });
     }
     // One situational chip per equipped delve infusion; the stat effect only
-    // counts while its checkbox is ticked.
+    // counts while its checkbox is ticked. Understanding is an always-on
+    // amplifier (it boosts other infusions), not a conditional stat, so it
+    // gets no toggle.
     if (delveInfusions) {
         const seen = new Set();
         Object.values(delveInfusions).forEach((infusion) => {
             if (!infusion || infusion === 'None' || seen.has(infusion)) return;
+            if (infusion.toLowerCase() === 'understanding') return;
             seen.add(infusion);
             tempInfusions.push(
                 <div className="col-auto" key={'situationalbox-infusion-' + infusion}>
