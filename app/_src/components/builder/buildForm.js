@@ -342,9 +342,14 @@ function getRelevantItems(types, itemData, favourites = new Set()) {
         items.filter((name) => types.includes(itemData[name].type.toLowerCase().replace(/<.*>/, '').trim())),
         itemData
     );
+    // Custom items may be keyed by id (when their name collides with an
+    // existing item); always show the item's name in the selector.
+    items = items.map((item) =>
+        typeof item === 'object' || !itemData[item].isCustomItem ? item : { value: item, label: itemData[item].name }
+    );
     // Pin the user's favourited items to the top of the selector (stable
     // sort keeps the original order within each group). Masterwork groups
-    // are {value, label} objects whose label is the base item name.
+    // and custom items are {value, label} objects whose label is the item name.
     return [...items].sort((a, b) => {
         const aName = typeof a == 'object' ? a.label : itemData[a].name;
         const bName = typeof b == 'object' ? b.label : itemData[b].name;

@@ -168,6 +168,12 @@ export default function CustomItemsPage({ statCategories }) {
     function saveItem(event) {
         event.preventDefault();
         if (!name.trim() || !textureToken || saving) return;
+        // Warn immediately for a name the user already has (duplicates would
+        // silently overwrite each other in the builder).
+        if (items && items.some((item) => item.name.toLowerCase() === name.trim().toLowerCase())) {
+            setError('duplicate');
+            return;
+        }
         const stats = {};
         for (const row of statRows) {
             if (!row.key) continue;
@@ -183,7 +189,15 @@ export default function CustomItemsPage({ statCategories }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: name.trim(), type, textureToken, textureName, stats }),
         })
-            .then((response) => (response.ok ? response.json() : Promise.reject(new Error('HTTP ' + response.status))))
+            .then((response) => {
+                if (response.ok) return response.json();
+                // 409 = the user already has an item with this name.
+                return response.json().then(() => {
+                    const err = new Error('duplicate');
+                    err.code = 'duplicate';
+                    throw err;
+                });
+            })
             .then(() => refreshItems())
             .then(() => {
                 setName('');
@@ -193,7 +207,7 @@ export default function CustomItemsPage({ statCategories }) {
                 setTextureName('');
                 setStatRows([]);
             })
-            .catch(() => setError('save'))
+            .catch((err) => setError(err.code || 'save'))
             .finally(() => setSaving(false));
     }
 
@@ -341,16 +355,20 @@ export default function CustomItemsPage({ statCategories }) {
 
                     <div className={styles.field}>
                         <span className={styles.fieldLabel}>Stats</span>
-                        {statRows.length === 0 && (
-                            <p className={styles.muted}>No stats yet - add some below.</p>
-                        )}
+                        {statRows.length === 0 && <p className={styles.muted}>No stats yet - add some below.</p>}
                         {statRows.map((row, index) => (
                             <div key={index} className={styles.statRow}>
                                 <Select
                                     instanceId={`custom-item-stat-${index}`}
                                     name={`custom-item-stat-${index}`}
                                     options={statOptions}
-                                    value={row.key ? statOptions.flatMap((group) => group.options).find((option) => option.value === row.key) : null}
+                                    value={
+                                        row.key
+                                            ? statOptions
+                                                  .flatMap((group) => group.options)
+                                                  .find((option) => option.value === row.key)
+                                            : null
+                                    }
                                     onChange={(option) => updateStatRow(index, 'key', option ? option.value : '')}
                                     placeholder="Choose a stat"
                                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
@@ -384,6 +402,11 @@ export default function CustomItemsPage({ statCategories }) {
                         </button>
                     </div>
 
+                    {error === 'duplicate' && (
+                        <p className={styles.errorText}>
+                            You already have a custom item named "{name.trim()}". Pick a different name.
+                        </p>
+                    )}
                     {error === 'save' && <p className={styles.errorText}>Failed to save the item. Try again.</p>}
                     <button type="submit" className={styles.addBtn} disabled={!name.trim() || !textureToken || saving}>
                         {saving ? 'Saving…' : 'Save item'}
@@ -448,21 +471,13 @@ export default function CustomItemsPage({ statCategories }) {
                                     </span>
                                 </div>
                                 <div className={styles.itemActions}>
-                                    <button
-                                        type="button"
-                                        className={styles.addBtn}
-                                        onClick={() => addToBuild(item)}
-                                    >
+                                    <button type="button" className={styles.addBtn} onClick={() => addToBuild(item)}>
                                         {addedId === item.id ? 'Added!' : 'Add to build'}
                                     </button>
                                     <a className={styles.addBtn} href={`${base}/custom-items/${item.id}`}>
                                         View
                                     </a>
-                                    <button
-                                        type="button"
-                                        className={styles.addBtn}
-                                        onClick={() => copyShareLink(item)}
-                                    >
+                                    <button type="button" className={styles.addBtn} onClick={() => copyShareLink(item)}>
                                         {copiedId === item.id ? 'Copied!' : 'Copy link'}
                                     </button>
                                 </div>

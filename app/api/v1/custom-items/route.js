@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../lib/session';
-import { saveCustomItem, listCustomItems } from '../../../../lib/sts-builds';
+import { saveCustomItem, listCustomItems, hasCustomItemName } from '../../../../lib/sts-builds';
 
 export async function POST(request) {
     const user = await getDiscordUser();
@@ -16,12 +16,19 @@ export async function POST(request) {
     if (name.length > 64) {
         return NextResponse.json({ error: 'name too long' }, { status: 400 });
     }
+    // Duplicate names would silently overwrite each other in the builder's
+    // name-keyed item data, so reject them per user (names that match base
+    // items or other users' items are fine - each item keeps its own id).
+    if (hasCustomItemName(user.id, name)) {
+        return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+    }
     const textureToken = typeof body.textureToken === 'string' ? body.textureToken : '';
     if (!textureToken || textureToken.length > 64 || !/^[a-z0-9_]+$/.test(textureToken)) {
         return NextResponse.json({ error: 'invalid texture' }, { status: 400 });
     }
     const type = typeof body.type === 'string' && body.type.length <= 32 ? body.type : 'Miscellaneous';
-    const textureName = typeof body.textureName === 'string' && body.textureName.length <= 128 ? body.textureName : null;
+    const textureName =
+        typeof body.textureName === 'string' && body.textureName.length <= 128 ? body.textureName : null;
 
     const stats = {};
     if (body.stats && typeof body.stats === 'object') {

@@ -112,7 +112,11 @@ export default function CharmSelector({
             return false;
         });
     };
-    const charmOptions = Object.keys(itemData).filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key));
+    const charmOptions = Object.keys(itemData)
+        .filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key))
+        // Custom charms may be keyed by id (when the name collides with an
+        // existing item); always show the charm's name in the selector.
+        .map((key) => (itemData[key].isCustomItem ? { value: key, label: itemData[key].name } : key));
 
     // Pin the user's favourited charms to the top of the selector. Favourites
     // are stored by display name, while options are keyed by full item keys
@@ -120,9 +124,8 @@ export default function CharmSelector({
     // charm's display name. The sort is stable, so non-favourites keep their
     // original order.
     const { favouriteSet } = useItemFavourites();
-    charmOptions.sort(
-        (a, b) => Number(favouriteSet.has(itemData[b].name)) - Number(favouriteSet.has(itemData[a].name))
-    );
+    const charmName = (option) => (typeof option === 'object' ? option.label : itemData[option].name);
+    charmOptions.sort((a, b) => Number(favouriteSet.has(charmName(b))) - Number(favouriteSet.has(charmName(a))));
 
     const maxPower = 12;
     const entries = charmNames || [];
