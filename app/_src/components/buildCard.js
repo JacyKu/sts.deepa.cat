@@ -7,6 +7,7 @@ import styles from '../styles/Database.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
+import { useCardItemsFirst } from './items/cardItemsFirstContext';
 import Enchants from './items/enchants';
 import CharmFormatter from '../utils/items/charmFormatter';
 
@@ -107,6 +108,7 @@ function loadBuildDetails() {
 // The optional children render inside the card (after the bottom row), so
 // pages like "My Builds" can embed management buttons in the card itself.
 export default function BuildCard({ build, user, base, onToggleFavourite, children }) {
+    const { itemsFirst, toggle: toggleCardLayout } = useCardItemsFirst();
     const [favBusy, setFavBusy] = React.useState(false);
     const [expanded, setExpanded] = React.useState(false);
     const [sideOpen, setSideOpen] = React.useState(false);
@@ -425,6 +427,103 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         );
     }
 
+    // Compact icon strip used on the card face when items take the inline
+    // slot (either via the "items first" toggle, or because the build has no
+    // skills to show). Small sprites with a slot-type abbreviation under
+    // each (charm power stars for charms), and the item name on hover.
+    const SLOT_ABBR = {
+        mainhand: 'MH',
+        offhand: 'OH',
+        helmet: 'Helm',
+        chestplate: 'Chest',
+        leggings: 'Legs',
+        boots: 'Boots',
+    };
+    function renderItemStrip() {
+        return (
+            <div className={styles.itemStrip}>
+                {items.map((item, i) => {
+                    const cls = itemSprite(item);
+                    return (
+                        <span key={i} className={`${styles.itemStripWrap} ${itemsStyles.enchantTooltip}`}>
+                            <span className={styles.itemStripIcon}>
+                                {cls ? <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" /> : null}
+                            </span>
+                            <span className={styles.itemStripLabel}>
+                                {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && SLOT_ABBR[item.sl]}
+                            </span>
+                            <span className={itemsStyles.enchantTooltipText}>
+                                <span style={{ fontWeight: 600 }}>{item.n}</span>
+                                {item.b && item.b !== item.n && (
+                                    <span style={{ display: 'block', marginTop: 3 }}>{item.b}</span>
+                                )}
+                            </span>
+                        </span>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    // Skill chip. Inline on the card face it shows the two-letter
+    // abbreviation; the extended side panel passes `full` so the full skill
+    // name is displayed instead. Both keep the hover tooltip (full name +
+    // description - the name is redundant on full chips but the description
+    // is not).
+    function renderSkillChip(s, i, full) {
+        return (
+            <span
+                key={i}
+                className={`${styles.skillChip} ${itemsStyles.enchantTooltip}${full ? ` ${styles.skillChipFull}` : ''}`}
+                style={{ color: skillColor(s) }}
+            >
+                {s.g === 'c' ? (
+                    <img
+                        className={`${styles.classIcon} ${styles.frameCrop}`}
+                        src={czIcon(s)}
+                        alt=""
+                        width={24}
+                        height={24}
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                        }}
+                    />
+                ) : (
+                    <img
+                        className={styles.classIcon}
+                        src={skillIcon(s)}
+                        alt=""
+                        width={24}
+                        height={24}
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                        }}
+                    />
+                )}
+                <span className={styles.skillAbbr}>{full ? s.f : s.n}</span>
+                {Number(s.p) > 0 && (
+                    <span className={styles.skillPoints}>
+                        {s.p}
+                        {s.e ? '*' : ''}
+                    </span>
+                )}
+                <span className={itemsStyles.enchantTooltipText}>
+                    <span style={{ fontWeight: 600 }}>{s.f}</span>
+                    {(s.g === 'c' ? czDescription(s) : skillInfo(s)?.description) && (
+                        <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
+                            {s.g === 'c' ? czDescription(s) : skillInfo(s).description}
+                        </span>
+                    )}
+                </span>
+            </span>
+        );
+    }
+
+    // Layout: default shows the skill chips on the card and the items in the
+    // hover panel; the "items first" toggle swaps them. A build with no
+    // skills falls back to the item strip so the card isn't empty.
+    const showItemStrip = itemsFirst || skills.length === 0;
+
     return (
         <Link
             ref={cardRef}
@@ -438,29 +537,46 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                 <div className={styles.cardTitle} title={displayName}>
                     {displayName}
                 </div>
-                <button
-                    type="button"
-                    className={`${styles.favBtn}${build.myFavourite ? ` ${styles.favBtnOn}` : ''}`}
-                    onClick={toggleFavourite}
-                    title={
-                        build.myFavourite
-                            ? 'Remove from favourites'
-                            : user
-                              ? 'Add to favourites'
-                              : 'Log in to favourite'
-                    }
-                    aria-label="Toggle favourite"
-                >
-                    <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
-                        <path
-                            fill={build.myFavourite ? 'currentColor' : 'none'}
-                            stroke="currentColor"
-                            strokeWidth="36"
-                            d="M47.6 300.4 228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96.5 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"
-                        />
-                    </svg>
-                    <span className={styles.favCount}>{build.favouriteCount || 0}</span>
-                </button>
+                <span className={styles.cardTopBtns}>
+                    <button
+                        type="button"
+                        className={`${styles.favBtn}${build.myFavourite ? ` ${styles.favBtnOn}` : ''}`}
+                        onClick={toggleFavourite}
+                        title={
+                            build.myFavourite
+                                ? 'Remove from favourites'
+                                : user
+                                  ? 'Add to favourites'
+                                  : 'Log in to favourite'
+                        }
+                        aria-label="Toggle favourite"
+                    >
+                        <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
+                            <path
+                                fill={build.myFavourite ? 'currentColor' : 'none'}
+                                stroke="currentColor"
+                                strokeWidth="36"
+                                d="M47.6 300.4 228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96.5 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"
+                            />
+                        </svg>
+                        <span className={styles.favCount}>{build.favouriteCount || 0}</span>
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.swapLayoutBtn}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleCardLayout();
+                        }}
+                        title={itemsFirst ? 'Show skills on card' : 'Show items on card'}
+                        aria-label="Swap card layout"
+                    >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                            <path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
+                        </svg>
+                    </button>
+                </span>
             </div>
 
             <div className={styles.cardTags}>
@@ -546,56 +662,11 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                 )}
             </div>
 
-            {skills.length > 0 && (
-                <div className={styles.skillsRow}>
-                    {skills.map((s, i) => (
-                        <span
-                            key={i}
-                            className={`${styles.skillChip} ${itemsStyles.enchantTooltip}`}
-                            style={{ color: skillColor(s) }}
-                        >
-                            {s.g === 'c' ? (
-                                <img
-                                    className={`${styles.classIcon} ${styles.frameCrop}`}
-                                    src={czIcon(s)}
-                                    alt=""
-                                    width={24}
-                                    height={24}
-                                    onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                    }}
-                                />
-                            ) : (
-                                <img
-                                    className={styles.classIcon}
-                                    src={skillIcon(s)}
-                                    alt=""
-                                    width={24}
-                                    height={24}
-                                    onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                    }}
-                                />
-                            )}
-                            <span className={styles.skillAbbr}>{s.n}</span>
-                            {Number(s.p) > 0 && (
-                                <span className={styles.skillPoints}>
-                                    {s.p}
-                                    {s.e ? '*' : ''}
-                                </span>
-                            )}
-                            <span className={itemsStyles.enchantTooltipText}>
-                                <span style={{ fontWeight: 600 }}>{s.f}</span>
-                                {(s.g === 'c' ? czDescription(s) : skillInfo(s)?.description) && (
-                                    <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
-                                        {s.g === 'c' ? czDescription(s) : skillInfo(s).description}
-                                    </span>
-                                )}
-                            </span>
-                        </span>
-                    ))}
-                </div>
+            {!itemsFirst && skills.length > 0 && (
+                <div className={styles.skillsRow}>{skills.map((s, i) => renderSkillChip(s, i))}</div>
             )}
+
+            {showItemStrip && items.length > 0 && renderItemStrip()}
 
             <div className={styles.cardMeta}>
                 {build.ascension > 0 && <span className={styles.metaItem}>Ascension {build.ascension}</span>}
@@ -613,15 +684,21 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
 
             {children}
 
-            {isTouch && expanded && items.length > 0 && (
-                <div className={styles.mobileItems}>{items.map(renderItemRow)}</div>
+            {isTouch && expanded && (itemsFirst ? skills.length > 0 : items.length > 0) && (
+                <div className={styles.mobileItems}>
+                    {(itemsFirst ? skills : items).map(
+                        itemsFirst ? (s, i) => renderSkillChip(s, i, true) : renderItemRow
+                    )}
+                </div>
             )}
 
-            {!isTouch && expanded && items.length > 0 && (
+            {!isTouch && expanded && (itemsFirst ? skills.length > 0 : items.length > 0) && (
                 <div
                     className={`${styles.cardSide} ${side === 'left' ? styles.cardSideLeft : styles.cardSideRight}${sideOpen ? ` ${styles.cardSideOpen}` : ''}`}
                 >
-                    {items.map(renderItemRow)}
+                    {(itemsFirst ? skills : items).map(
+                        itemsFirst ? (s, i) => renderSkillChip(s, i, true) : renderItemRow
+                    )}
                 </div>
             )}
         </Link>
