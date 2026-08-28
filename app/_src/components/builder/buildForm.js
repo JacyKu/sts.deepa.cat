@@ -2142,6 +2142,54 @@ export default function BuildForm({
         setCharms(charmData);
     }
 
+    // Drag-to-reorder the equipped charms. Charm order lives in the build
+    // token (the charm= list), so reordering here is reflected everywhere
+    // the build is rendered: the saved link, the OG embed and the public
+    // database cards.
+    const charmDragRef = React.useRef(null);
+    const [charmDragging, setCharmDragging] = React.useState(null);
+
+    function startCharmDrag(name, e) {
+        if (e.dataTransfer) {
+            e.dataTransfer.setData('text/plain', `charm:${name}`);
+            e.dataTransfer.effectAllowed = 'move';
+            const row = e.currentTarget.closest(`.${styles.charmCardWrap}`) || e.currentTarget;
+            if (row) {
+                const ghost = row.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.left = '-9999px';
+                ghost.style.top = '-9999px';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.opacity = '0.85';
+                document.body.appendChild(ghost);
+                e.dataTransfer.setDragImage(ghost, 30, 30);
+                requestAnimationFrame(() => ghost.remove());
+            }
+        }
+        charmDragRef.current = name;
+        setCharmDragging(name);
+    }
+
+    function endCharmDrag() {
+        charmDragRef.current = null;
+        setCharmDragging(null);
+    }
+
+    function charmDragOver(name, e) {
+        const dragged = charmDragRef.current;
+        if (!dragged || dragged === name) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const names = charms.map((c) => c.name);
+        const from = names.indexOf(dragged);
+        const to = names.indexOf(name);
+        if (from === -1 || to === -1) return;
+        const next = [...names];
+        next.splice(from, 1);
+        next.splice(to, 0, dragged);
+        updateCharms(next);
+    }
+
     function removeCharm(charm) {
         updateCharms(charms.filter((c) => c.name !== charm.name).map((c) => c.name));
     }
@@ -3131,7 +3179,13 @@ export default function BuildForm({
                     <div className="row justify-content-center mb-1">
                         {charms.map((charm) => (
                             <div className={`col-auto ${styles.builderCol}`} key={charm.name}>
-                                <div className={styles.charmCardWrap}>
+                                <div
+                                    className={`${styles.charmCardWrap}${charmDragging === charm.name ? ` ${styles.charmDragging}` : ''}`}
+                                    draggable
+                                    onDragStart={(e) => startCharmDrag(charm.name, e)}
+                                    onDragOver={(e) => charmDragOver(charm.name, e)}
+                                    onDragEnd={endCharmDrag}
+                                >
                                     <CharmTile name={charm.name} item={charm} showFavouriteButton></CharmTile>
                                     <button
                                         type="button"

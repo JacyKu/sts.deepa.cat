@@ -125,6 +125,11 @@
     display: inline-block;
 }
 
+/* The charm being dragged reorders the equipped list. */
+.charmDragging {
+    opacity: 0.5;
+}
+
 .charmRemoveButton {
     position: absolute;
     top: 10px;
