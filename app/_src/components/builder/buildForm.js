@@ -1680,6 +1680,18 @@ export default function BuildForm({
         }
     }, [parentLoaded, draft]);
 
+    // The spec dropdown's options come from the async skills data, but a
+    // loaded build sets `spec` (and remounts the select via specSelectKey)
+    // as soon as its URL parses - which can happen before the skills fetch
+    // resolves. The remount then resolves the default value against empty
+    // options and the dropdown stays blank even though the spec skills
+    // render. Remount once the options actually exist so the loaded spec
+    // shows in the dropdown.
+    React.useEffect(() => {
+        if (skillsData && spec) setSpecSelectKey((k) => k + 1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [skillsData]);
+
     // Import the build list (items collected on the items page) into empty
     // slots; charms append within the 12-power budget. Equipped items are
     // removed from the list, leftovers (misc, consumables, extra same-slot
