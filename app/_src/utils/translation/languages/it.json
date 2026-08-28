@@ -178,7 +178,7 @@
     "items.enchant.warpstrike": "Uccidere un mob ti teletrasporta istantaneamente nella sua posizione.",
     "items.enchant.webbing": "Infliggere danni ai mob elite crea ragnatele per rallentarli.",
     "builder.misc.situationals": "Attivatori Stat",
-    "builder.misc.maxHealthPercent": "Percentuale Vita Massima",
+    "builder.misc.maxHealthPercent": "Vita Attuale",
     "builder.misc.situationalCap": "Cap dei Situazionali",
     "builder.info.noSituationals": "(nessun attivatore stat da mostrare)",
     "builder.buttons.share": "Condividi",

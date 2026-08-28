@@ -176,7 +176,7 @@
     "items.enchant.blastFragility": "Robbanás által kapott sebzés növelése: 1 - 0.96 ^ (-2 * szint).",
     "items.enchant.fireFragility": "Tűz által kapott sebzés növelése: 1 - 0.96 ^ (-2 * szint).",
     "builder.misc.situationals": "Stat Kapcsolók",
-    "builder.misc.maxHealthPercent": "Max Életerő Százalék",
+    "builder.misc.maxHealthPercent": "Aktuális Életerő",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.info.noSituationals": "(nincs megjeleníthető stat kapcsoló)",
     "builder.buttons.share": "Megosztás",

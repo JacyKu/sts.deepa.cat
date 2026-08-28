@@ -170,7 +170,7 @@
     "items.enchant.fractal": "After hitting an enemy with magic damage, you will deal (10% * Level) increased magic damage to that enemy for 2 seconds. This increase can only happen once every 6 seconds.",
     "builder.misc.situationals": "Stat Toggles",
     "builder.misc.classAbilityBuffs": "Class Ability Buffs",
-    "builder.misc.maxHealthPercent": "Max Health Percent",
+    "builder.misc.maxHealthPercent": "Current Health",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.misc.region": "Region",
     "builder.misc.class": "Class",

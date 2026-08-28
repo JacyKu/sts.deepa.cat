@@ -150,7 +150,7 @@
     "items.enchant.blastFragility": "受到的爆炸伤害比率增加1-0.96^(2X)",
     "items.enchant.fireFragility": "受到的燃烧伤害比率增加1-0.96^(2X)",
     "builder.misc.situationals": "属性开关",
-    "builder.misc.maxHealthPercent": "生命值比例",
+    "builder.misc.maxHealthPercent": "当前生命值",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.info.noSituationals": "(无属性开关可显示)",
     "builder.buttons.share": "分享",

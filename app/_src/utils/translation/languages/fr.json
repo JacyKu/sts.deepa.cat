@@ -150,7 +150,7 @@
     "items.enchant.blastFragility": "Augmente les dégâts d'explosion par 1 à 0,96 ^ (-2 * niveau).",
     "items.enchant.fireFragility": "Augmente les dégâts de combustion par 1 à 0,96 ^ (-2 * niveau).",
     "builder.misc.situationals": "Toggles de stats",
-    "builder.misc.maxHealthPercent": "Pourcentage Maximum de Vie",
+    "builder.misc.maxHealthPercent": "Vie Actuelle",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.info.noSituationals": "(aucun toggle de stats à afficher)",
     "builder.buttons.share": "Partager",

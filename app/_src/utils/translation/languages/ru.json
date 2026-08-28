@@ -176,7 +176,7 @@
     "items.enchant.blastFragility": "Увеличивает получаемый урон от взрывов на 1 - 0.96 ^ (-2 * уровень).",
     "items.enchant.fireFragility": "Увеличивает получаемый урон от огня на 1 - 0.96 ^ (-2 * уровень).",
     "builder.misc.situationals": "Переключатели статов",
-    "builder.misc.maxHealthPercent": "Процент Макс. Здоровья",
+    "builder.misc.maxHealthPercent": "Текущее здоровье",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.info.noSituationals": "(нет переключателей статов)",
     "builder.buttons.share": "Поделиться",

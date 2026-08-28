@@ -176,7 +176,7 @@
     "items.enchant.warpstrike": "擊殺敵方生物時，立即將你傳送至其位置。",
     "items.enchant.webbing": "對敵方菁英怪造成傷害時，會生成蜘蛛網以使其緩速。",
     "builder.misc.situationals": "屬性開關",
-    "builder.misc.maxHealthPercent": "生命值比例",
+    "builder.misc.maxHealthPercent": "當前生命值",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.info.noSituationals": "(無屬性開關可顯示)",
     "builder.buttons.share": "分享",
