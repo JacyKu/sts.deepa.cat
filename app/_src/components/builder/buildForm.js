@@ -2808,11 +2808,6 @@ export default function BuildForm({
             )}
             <div className="row justify-content-center mb-1">
                 <div className="col-4 col-md-3 col-lg-2 text-center">
-                    <button type="submit" className={styles.recalcButton} value="Recalculate">
-                        <TranslatableText identifier="builder.buttons.recalculate"></TranslatableText>
-                    </button>
-                </div>
-                <div className="col-4 col-md-3 col-lg-2 text-center">
                     <button
                         type="button"
                         className={styles.shareButton}

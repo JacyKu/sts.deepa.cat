@@ -179,7 +179,6 @@
     "builder.misc.maxHealthPercent": "Процент Макс. Здоровья",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.info.noSituationals": "(нет переключателей статов)",
-    "builder.buttons.recalculate": "Перерасчитать",
     "builder.buttons.share": "Поделиться",
     "builder.charms.select": "Выберите Амулеты",
     "builder.errors.corruption": "БОЛЬШЕ ОДНОГО ПРЕДМЕТА С CURSE OF CORRUPTION",

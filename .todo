@@ -48,6 +48,44 @@ generalise all buttons to use same size/height
 - add actual 3d model of the blobcat on deepa.cat
 - let people select skins for items (need to be signed in with discord) (later update)
 - items (at least animated ones) dont render properly for discord app icons
-- move stat toggles back to where they were
-- maybe generate gifs for animated items in embeds/discord bot embeds?
-- show texture of items in item sharing embed
+[x] move stat toggles back to where they were
+[x] maybe generate gifs for animated items in embeds/discord bot embeds?
+[x] show texture of items in item sharing embed
+[x] fix slider
+[x] remove effective health regen stat card (not the entry in health stat card)
+[x] default the level of infusions on the dropdowns to max 24
+[x] set max on them to 24
+[x] remove the infusion count on the delve button
+[x] remove the up/down buttons
+[x] add toggle for stat position
+[x] add x button to remove charms instead of the card
+[x] reset build notes on reset
+[x] capture one frame for animated textures on embeds
+[x] items info should show max masterwork by default or choose level with optional input
+
+[ ] 28-08-2026
+[x] favorite items that show up at the top of the list for item selection
+[x] make the bot embed color for items show color based on rarity
+[x] move custom items to my items in avatar menu
+[x] possible bug where custom items with duplicate names dont show up at all
+[x] check if backstab is in toggle list
+[x] selecting a build doesnt load spec in dropdown selection but does load spec skills
+[x] it seems you can't copy a build to a new one if its yours?
+    I went to edit my build and save a new edited copy of it by changing the name, but saving only changed the name of the original and overwrote it.
+    Currently seems i'd need to reset and hand remake it.
+    Maybe there should be a text somewhere to let you know if you're editing an existing build, or if the build you're in the editor for is unsaved, and add a "break link" or similar button to effectively allow saving it as a new build.
+[x] remove recalculate button as everything should automatically update
+- max health percent should be renamed to current health
+- show small version of items on database build card (or own build card) when there's no skills/specs or abils set
+- add a toggle to swap skills and items around in build cards
+- Item side panel on build previews still displays items alongside animations when either are disabled
+- rename invite bot to discord bot
+- Understanding shouldn't have a stat toggle since its manually set in infusions
+- tooltips for telling what delve infusions do like other enchants
+- add dragging to reorder charms
+- refactor menus on mobile ui and desktop ui
+- live (webhook notifs probably) notifs i can send with a discord bot to the UI.
+
+
+- build comparison page
+- add entire enemy lyrics to status

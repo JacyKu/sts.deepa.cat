@@ -932,7 +932,6 @@
     }
 }
 
-.recalcButton,
 .shareButton {
     margin-block: 0.5vh;
     margin-inline: 0.25vw;
@@ -950,12 +949,10 @@
     color: var(--text-on-accent);
 }
 
-.recalcButton:hover,
 .shareButton:hover {
     filter: brightness(125%);
 }
 
-.recalcButton:active,
 .shareButton:active {
     transform: translateY(1px);
 }

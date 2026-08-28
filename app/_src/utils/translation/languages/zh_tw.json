@@ -179,7 +179,6 @@
     "builder.misc.maxHealthPercent": "生命值比例",
     "builder.misc.situationalCap": "Situational Cap",
     "builder.info.noSituationals": "(無屬性開關可顯示)",
-    "builder.buttons.recalculate": "重新計算",
     "builder.buttons.share": "分享",
     "builder.charms.select": "Select Charms",
     "builder.errors.corruption": "你選取了超過一件擁有腐化詛咒 (CURSE OF CORRUPTION) 的道具",
