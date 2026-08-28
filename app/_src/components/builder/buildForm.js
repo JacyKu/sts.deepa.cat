@@ -17,6 +17,7 @@ import ListSelector from './listSelector';
 import CharmSelector, { resolveCharmKey, computeCharmTotals } from './charmSelector';
 import CharmFormatter from '../../utils/items/charmFormatter';
 import CharmShortener from '../../utils/builder/charmShortener';
+import { useItemFavourites } from '../items/itemFavouritesContext';
 import { filterBadWords } from '../../utils/badWords';
 import {
     decodeBuildParam,
@@ -335,12 +336,20 @@ function groupMasterwork(items, itemData) {
     return items;
 }
 
-function getRelevantItems(types, itemData) {
+function getRelevantItems(types, itemData, favourites = new Set()) {
     let items = Object.keys(itemData);
-    return groupMasterwork(
+    items = groupMasterwork(
         items.filter((name) => types.includes(itemData[name].type.toLowerCase().replace(/<.*>/, '').trim())),
         itemData
     );
+    // Pin the user's favourited items to the top of the selector (stable
+    // sort keeps the original order within each group). Masterwork groups
+    // are {value, label} objects whose label is the base item name.
+    return [...items].sort((a, b) => {
+        const aName = typeof a == 'object' ? a.label : itemData[a].name;
+        const bName = typeof b == 'object' ? b.label : itemData[b].name;
+        return Number(favourites.has(bName)) - Number(favourites.has(aName));
+    });
 }
 
 function recalcBuild(data, itemData) {
@@ -588,6 +597,7 @@ export default function BuildForm({
 }) {
     const [stats, setStats] = React.useState({});
     const [charms, setCharms] = React.useState([]);
+    const { favouriteSet } = useItemFavourites();
     const [gameClass, setGameClass] = React.useState('none'); // "class" is a reserved word
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
@@ -2920,7 +2930,8 @@ export default function BuildForm({
                                 'trident',
                                 'alchemist bag',
                             ],
-                            itemData
+                            itemData,
+                            favouriteSet
                         )}
                         onChange={itemChanged}
                     ></SelectInput>
@@ -2933,7 +2944,11 @@ export default function BuildForm({
                         name="offhand"
                         default={getEquipName('offhand')}
                         noneOption={true}
-                        sortableStats={getRelevantItems(['offhand', 'offhand shield', 'offhand sword'], itemData)}
+                        sortableStats={getRelevantItems(
+                            ['offhand', 'offhand shield', 'offhand sword'],
+                            itemData,
+                            favouriteSet
+                        )}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('offhand')}
@@ -2945,7 +2960,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="helmet"
                         default={getEquipName('helmet')}
-                        sortableStats={getRelevantItems(['helmet'], itemData)}
+                        sortableStats={getRelevantItems(['helmet'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('helmet')}
@@ -2957,7 +2972,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="chestplate"
                         default={getEquipName('chestplate')}
-                        sortableStats={getRelevantItems(['chestplate'], itemData)}
+                        sortableStats={getRelevantItems(['chestplate'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('chestplate')}
@@ -2969,7 +2984,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="leggings"
                         default={getEquipName('leggings')}
-                        sortableStats={getRelevantItems(['leggings'], itemData)}
+                        sortableStats={getRelevantItems(['leggings'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('leggings')}
@@ -2981,7 +2996,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="boots"
                         default={getEquipName('boots')}
-                        sortableStats={getRelevantItems(['boots'], itemData)}
+                        sortableStats={getRelevantItems(['boots'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('boots')}
@@ -3000,9 +3015,14 @@ export default function BuildForm({
                                     item={createMasterworkData(removeMasterworkFromName(tileName), itemData)}
                                     itemData={itemData}
                                     default={Number(tileName.split('-').at(-1))}
+                                    showFavouriteButton
                                 ></MasterworkableItemTile>
                             ) : (
-                                <ItemTile name={tileName} item={stats.fullItemData[type]}></ItemTile>
+                                <ItemTile
+                                    name={tileName}
+                                    item={stats.fullItemData[type]}
+                                    showFavouriteButton
+                                ></ItemTile>
                             )}
                         </div>
                     );
@@ -3028,7 +3048,7 @@ export default function BuildForm({
                         {charms.map((charm) => (
                             <div className={`col-auto ${styles.builderCol}`} key={charm.name}>
                                 <div className={styles.charmCardWrap}>
-                                    <CharmTile name={charm.name} item={charm}></CharmTile>
+                                    <CharmTile name={charm.name} item={charm} showFavouriteButton></CharmTile>
                                     <button
                                         type="button"
                                         className={styles.charmRemoveButton}

@@ -2,6 +2,7 @@ import styles from '../../styles/CharmSelector.module.css';
 import TranslatableText from '../translatableText';
 import CharmTile from '../items/charmTile';
 import SelectInput from '../items/selectInput';
+import { useItemFavourites } from '../items/itemFavouritesContext';
 import React from 'react';
 
 // Human-readable ability text for a charm (stat names + values), so the
@@ -80,7 +81,15 @@ function skillTokens(names) {
     return tokens;
 }
 
-export default function CharmSelector({ update, translatableName, itemData, hideList, charmNames, classSkillNames, specSkillNames }) {
+export default function CharmSelector({
+    update,
+    translatableName,
+    itemData,
+    hideList,
+    charmNames,
+    classSkillNames,
+    specSkillNames,
+}) {
     const inputRef = React.useRef();
     const [warn, setWarn] = React.useState(null);
     const warnTimeoutRef = React.useRef();
@@ -104,6 +113,16 @@ export default function CharmSelector({ update, translatableName, itemData, hide
         });
     };
     const charmOptions = Object.keys(itemData).filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key));
+
+    // Pin the user's favourited charms to the top of the selector. Favourites
+    // are stored by display name, while options are keyed by full item keys
+    // ("Event Horizon (orange_glazed_terracotta)"), so compare against the
+    // charm's display name. The sort is stable, so non-favourites keep their
+    // original order.
+    const { favouriteSet } = useItemFavourites();
+    charmOptions.sort(
+        (a, b) => Number(favouriteSet.has(itemData[b].name)) - Number(favouriteSet.has(itemData[a].name))
+    );
 
     const maxPower = 12;
     const entries = charmNames || [];
@@ -151,7 +170,8 @@ export default function CharmSelector({ update, translatableName, itemData, hide
             const stats = key ? itemData[key]?.stats : null;
             if (!stats) return;
             for (const [stat, obj] of Object.entries(stats)) {
-                if (obj && typeof obj.value === 'number') equipped.set(stat, { name: itemData[key].name, locked: Boolean(obj.locked) });
+                if (obj && typeof obj.value === 'number')
+                    equipped.set(stat, { name: itemData[key].name, locked: Boolean(obj.locked) });
             }
         });
         for (const [stat, obj] of Object.entries(newStats)) {
@@ -182,6 +202,10 @@ export default function CharmSelector({ update, translatableName, itemData, hide
                         noneOption={true}
                         sortableStats={charmOptions}
                         filterOption={charmFilterOption}
+                        favouriteMatch={(option) => {
+                            const key = resolveCharmKey(itemData, option.label);
+                            return Boolean(key) && favouriteSet.has(itemData[key].name);
+                        }}
                     ></SelectInput>
                 </span>
                 <button className={styles.button} onClick={addEntry}>

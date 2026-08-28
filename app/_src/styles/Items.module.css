@@ -1401,7 +1401,7 @@
 .listAddButton {
     position: absolute;
     top: 6px;
-    right: 6px;
+    left: 6px;
     width: 24px;
     height: 24px;
     display: flex;
@@ -1428,6 +1428,46 @@
     background: #2c0860;
     border-color: #7a4fd0;
     color: #fff;
+}
+
+/* Item favourites: heart button on item tiles, styled like the database
+   like-button (bordered pill, no count) and pinned to the top-right. */
+.favouriteButton {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    z-index: 3;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease;
+}
+
+.favouriteButton:hover {
+    border-color: var(--negative, #ce2d27);
+    color: var(--negative, #ce2d27);
+}
+
+.favouriteButtonOn {
+    color: var(--negative, #ce2d27);
+    border-color: var(--negative, #ce2d27);
+}
+
+/* Red heart shown next to favourited options in builder dropdowns. */
+.favOption {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 6px;
+    color: var(--negative, #ce2d27);
 }
 
 /* Build list panel pinned top-left of the items page (collapsible). */

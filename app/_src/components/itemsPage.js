@@ -480,6 +480,7 @@ export default function ItemsPage({ itemData }) {
                                         item={name}
                                         itemData={itemData}
                                         showListButton
+                                        showFavouriteButton
                                     ></MasterworkableItemTile>
                                 );
                             }
@@ -490,6 +491,7 @@ export default function ItemsPage({ itemData }) {
                                         name={itemData[name].name}
                                         item={itemData[name]}
                                         showListButton
+                                        showFavouriteButton
                                     ></CharmTile>
                                 );
                             }
@@ -503,7 +505,15 @@ export default function ItemsPage({ itemData }) {
                                     ></ConsumableTile>
                                 );
                             }
-                            return <ItemTile key={name} name={name} item={itemData[name]} showListButton></ItemTile>;
+                            return (
+                                <ItemTile
+                                    key={name}
+                                    name={name}
+                                    item={itemData[name]}
+                                    showListButton
+                                    showFavouriteButton
+                                ></ItemTile>
+                            );
                         })}
                     </InfiniteScroll>
                 )}

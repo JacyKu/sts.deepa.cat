@@ -6,6 +6,7 @@ import { useLowResource } from '../lowResourceContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useHideObtainment } from './hideObtainmentContext';
+import { useItemFavourites } from './itemFavouritesContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 
 function camelCase(str) {
@@ -80,6 +81,7 @@ export default function CharmTile(data) {
     const { hidden: hideObtainment } = useHideObtainment();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
+    const { favouriteSet, authenticated, toggle: toggleFavourite } = useItemFavourites();
 
     let formattedCharm = CharmFormatter.formatCharm(item.stats);
 
@@ -136,6 +138,36 @@ export default function CharmTile(data) {
                     {listItems.includes(item.name) ? '✓' : '+'}
                 </button>
             )}
+            {data.showFavouriteButton && (
+                <button
+                    type="button"
+                    className={`${styles.favouriteButton}${favouriteSet.has(item.name) ? ` ${styles.favouriteButtonOn}` : ''}`}
+                    onClick={() =>
+                        authenticated
+                            ? toggleFavourite(item.name)
+                            : (window.location.href = `/api/auth/discord/login?next=${encodeURIComponent(
+                                  window.location.pathname + window.location.search
+                              )}`)
+                    }
+                    aria-label={
+                        favouriteSet.has(item.name)
+                            ? `Remove ${item.name} from favourites`
+                            : authenticated
+                              ? `Add ${item.name} to favourites`
+                              : 'Log in to favourite'
+                    }
+                    title={favouriteSet.has(item.name) ? 'Remove from favourites' : 'Add to favourites'}
+                >
+                    <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
+                        <path
+                            fill={favouriteSet.has(item.name) ? 'currentColor' : 'none'}
+                            stroke="currentColor"
+                            strokeWidth="36"
+                            d="M47.6 300.4 228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96.5 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"
+                        />
+                    </svg>
+                </button>
+            )}
             <div className={styles.imageIcon}>
                 {lowRes ? (
                     <div className={styles.lowResIcon}></div>
@@ -174,7 +206,11 @@ export default function CharmTile(data) {
             <span className={styles[camelCase(item.location)]}>{item.location}</span>
             {!hideObtainment && (
                 <>
-                    {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
+                    {item.extras?.poi ? (
+                        <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p>
+                    ) : (
+                        ''
+                    )}
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{`${item.extras.notes}`}</p> : ''}
                 </>
             )}
