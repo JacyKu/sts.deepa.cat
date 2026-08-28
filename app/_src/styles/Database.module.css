@@ -560,6 +560,8 @@
 
 .tag,
 .classTag {
+    display: inline-flex;
+    align-items: center;
     padding: 3px 10px;
     border: 1px solid var(--glass-border);
     background: var(--surface-2);
@@ -568,8 +570,6 @@
 }
 
 .classTag {
-    display: inline-flex;
-    align-items: center;
     gap: 5px;
     color: var(--accent, #9c59d1);
     font-weight: 600;
