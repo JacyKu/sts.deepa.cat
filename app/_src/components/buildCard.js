@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import TranslatableText from './translatableText';
 import styles from '../styles/Database.module.css';
@@ -8,6 +9,7 @@ import itemsStyles from '../styles/Items.module.css';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
 import { useCardItemsFirst } from './items/cardItemsFirstContext';
+import { useLowResource } from './lowResourceContext';
 import Enchants from './items/enchants';
 import CharmFormatter from '../utils/items/charmFormatter';
 
@@ -109,6 +111,7 @@ function loadBuildDetails() {
 // pages like "My Builds" can embed management buttons in the card itself.
 export default function BuildCard({ build, user, base, onToggleFavourite, children }) {
     const { itemsFirst, toggle: toggleCardLayout } = useCardItemsFirst();
+    const { lowRes } = useLowResource();
     const [favBusy, setFavBusy] = React.useState(false);
     const [expanded, setExpanded] = React.useState(false);
     const [sideOpen, setSideOpen] = React.useState(false);
@@ -118,6 +121,10 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
     const [detail, setDetail] = React.useState(null);
     const [buildDetails, setBuildDetails] = React.useState(null);
     const [isTouch, setIsTouch] = React.useState(false);
+    // Portal tooltip for chips inside the scrolling side panel: rendered to
+    // document.body so it always overlays the card/panel edges instead of
+    // being clipped by the panel's overflow.
+    const [tip, setTip] = React.useState(null); // { left, top, s }
     const hoverTimer = React.useRef(null);
     const cardRef = React.useRef(null);
 
@@ -177,6 +184,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         setExpanded(false);
         setOpenItem(null);
         setDetail(null);
+        setTip(null);
     }
 
     // Touch devices: the first tap on the card expands the items instead of
@@ -390,7 +398,11 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                     }}
                 >
                     <span className={styles.previewIcon}>
-                        {cls ? <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" /> : null}
+                        {lowRes ? (
+                            <span className={itemsStyles.lowResIcon} aria-hidden="true" />
+                        ) : cls ? (
+                            <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
+                        ) : null}
                     </span>
                     <span className={styles.previewInfo}>
                         <span className={styles.previewName}>{item.n}</span>
@@ -447,7 +459,11 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                     return (
                         <span key={i} className={`${styles.itemStripWrap} ${itemsStyles.enchantTooltip}`}>
                             <span className={styles.itemStripIcon}>
-                                {cls ? <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" /> : null}
+                                {lowRes ? (
+                                    <span className={styles.stripLowRes} aria-hidden="true" />
+                                ) : cls ? (
+                                    <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
+                                ) : null}
                             </span>
                             <span className={styles.itemStripLabel}>
                                 {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && SLOT_ABBR[item.sl]}
@@ -466,16 +482,25 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
     }
 
     // Skill chip. Inline on the card face it shows the two-letter
-    // abbreviation; the extended side panel passes `full` so the full skill
-    // name is displayed instead. Both keep the hover tooltip (full name +
-    // description - the name is redundant on full chips but the description
-    // is not).
+    // abbreviation with a hover tooltip; the extended side panel passes
+    // `full` so the full skill name is displayed instead, and its tooltip is
+    // rendered through a portal (the panel clips absolutely-positioned
+    // tooltips at its edges).
     function renderSkillChip(s, i, full) {
         return (
             <span
                 key={i}
-                className={`${styles.skillChip} ${itemsStyles.enchantTooltip}${full ? ` ${styles.skillChipFull}` : ''}`}
+                className={`${styles.skillChip}${full ? ` ${styles.skillChipFull}` : ` ${itemsStyles.enchantTooltip}`}`}
                 style={{ color: skillColor(s) }}
+                onMouseEnter={
+                    full
+                        ? (e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, s });
+                          }
+                        : undefined
+                }
+                onMouseLeave={full ? () => setTip(null) : undefined}
             >
                 {s.g === 'c' ? (
                     <img
@@ -507,14 +532,16 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                         {s.e ? '*' : ''}
                     </span>
                 )}
-                <span className={itemsStyles.enchantTooltipText}>
-                    <span style={{ fontWeight: 600 }}>{s.f}</span>
-                    {(s.g === 'c' ? czDescription(s) : skillInfo(s)?.description) && (
-                        <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
-                            {s.g === 'c' ? czDescription(s) : skillInfo(s).description}
-                        </span>
-                    )}
-                </span>
+                {!full && (
+                    <span className={itemsStyles.enchantTooltipText}>
+                        <span style={{ fontWeight: 600 }}>{s.f}</span>
+                        {(s.g === 'c' ? czDescription(s) : skillInfo(s)?.description) && (
+                            <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
+                                {s.g === 'c' ? czDescription(s) : skillInfo(s).description}
+                            </span>
+                        )}
+                    </span>
+                )}
             </span>
         );
     }
@@ -701,6 +728,19 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                     )}
                 </div>
             )}
+
+            {tip &&
+                createPortal(
+                    <div className={styles.cardTip} style={{ left: tip.left, top: tip.top }}>
+                        <span style={{ fontWeight: 600 }}>{tip.s.f}</span>
+                        {(tip.s.g === 'c' ? czDescription(tip.s) : skillInfo(tip.s)?.description) && (
+                            <span style={{ display: 'block', marginTop: 3, whiteSpace: 'pre-line' }}>
+                                {tip.s.g === 'c' ? czDescription(tip.s) : skillInfo(tip.s).description}
+                            </span>
+                        )}
+                    </div>,
+                    document.body
+                )}
         </Link>
     );
 }

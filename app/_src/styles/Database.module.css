@@ -699,6 +699,14 @@
     overflow: hidden;
 }
 
+/* Hide-textures placeholder for the compact strip icons. */
+.stripLowRes {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--control-border, #333);
+    background: var(--surface-2, #17171f);
+}
+
 .itemStripIcon .previewSprite {
     width: 64px;
     height: 64px;
@@ -723,6 +731,27 @@
 .skillChipFull {
     width: 100%;
     justify-content: flex-start;
+}
+
+/* Portal tooltip for side-panel chips: rendered on document.body so it is
+   never clipped by the panel's scrolling box - it overlays the card and
+   panel edges. */
+.cardTip {
+    position: fixed;
+    z-index: 300;
+    transform: translate(-50%, -100%);
+    max-width: min(300px, calc(100vw - 16px));
+    background: #15151f;
+    border: 1px solid #45456b;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #f0f0f0;
+    text-align: center;
+    white-space: normal;
+    pointer-events: none;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
 
 .skillPoints {
