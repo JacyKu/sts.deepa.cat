@@ -738,7 +738,7 @@
    panel edges. */
 .cardTip {
     position: fixed;
-    z-index: 300;
+    z-index: 10000;
     transform: translate(-50%, -100%);
     max-width: min(300px, calc(100vw - 16px));
     background: #15151f;

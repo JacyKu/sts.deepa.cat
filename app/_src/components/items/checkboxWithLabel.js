@@ -1,5 +1,6 @@
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
+import TranslatableEnchant from '../translatableEnchant';
 
 export default function CheckboxWithLabel(data) {
     return (
@@ -13,7 +14,9 @@ export default function CheckboxWithLabel(data) {
                 disabled={data.disabled}
             />
             <label htmlFor={data.name.toLowerCase()}>
-                {data.translatableName ? (
+                {data.enchantName ? (
+                    <TranslatableEnchant title={data.enchantName}>{data.name}</TranslatableEnchant>
+                ) : data.translatableName ? (
                     <TranslatableText identifier={data.translatableName}></TranslatableText>
                 ) : (
                     data.name

@@ -1,4 +1,5 @@
-import Select from 'react-select';
+import Select, { components } from 'react-select';
+import { createPortal } from 'react-dom';
 import SelectInput from '../items/selectInput';
 import FloatingLabel from '../items/floatingLabel';
 import CheckboxWithLabel from '../items/checkboxWithLabel';
@@ -424,6 +425,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
                         name={formatSituationalName(situ)}
+                        enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
                     />
@@ -438,6 +440,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
                         name={formatSituationalName(situ)}
+                        enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
                     />
@@ -452,6 +455,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
                         name={formatSituationalName(situ)}
+                        enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
                     />
@@ -465,6 +469,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-retaliation_' + type}>
                     <CheckboxWithLabel
                         name={formatSituationalName('retaliation_' + type)}
+                        enchantName={'retaliation'}
                         checked={enabledBoxes['retaliation_' + type]}
                         onChange={checkboxChanged}
                     />
@@ -486,6 +491,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-infusion-' + infusion}>
                     <CheckboxWithLabel
                         name={infusion}
+                        enchantName={infusion}
                         checked={enabledBoxes[infusion.toLowerCase()]}
                         onChange={checkboxChanged}
                     />
@@ -657,6 +663,10 @@ export default function BuildForm({
     // the build name or notes; the words themselves are stripped.
     const [showRedX, setShowRedX] = React.useState(false);
     const redXTimeoutRef = React.useRef(null);
+    // Portal tooltip for delve infusion options: the dropdown menu scrolls,
+    // so an absolutely-positioned tooltip inside it would be clipped. This
+    // one renders on document.body, always on top.
+    const [tip, setTip] = React.useState(null); // { left, top, info }
 
     function triggerRedX() {
         setShowRedX(true);
@@ -867,6 +877,42 @@ export default function BuildForm({
                 label: i.name,
             })
         );
+        // Menu options get a portal tooltip with the infusion's effect (the
+        // menu scrolls, so an in-menu tooltip would be clipped at its edges).
+        const InfusionOption = (props) => {
+            const info = DELVE_INFUSIONS.find((i) => i.name === props.data.value);
+            return (
+                <components.Option {...props}>
+                    <span
+                        className={styles.enchantTooltip}
+                        onMouseEnter={(e) => {
+                            if (!info || !info.effect) return;
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
+                        }}
+                        onMouseLeave={() => setTip(null)}
+                    >
+                        {props.children}
+                    </span>
+                </components.Option>
+            );
+        };
+        // The selected value in the control shows the same info as a plain
+        // enchant-style tooltip (the control doesn't scroll, so no portal).
+        const formatValueLabel = (opt) => {
+            const info = DELVE_INFUSIONS.find((i) => i.name === opt.value);
+            return (
+                <span className={styles.enchantTooltip}>
+                    {opt.label}
+                    {info && info.effect && (
+                        <span className={styles.enchantTooltipText}>
+                            <span style={{ fontWeight: 600 }}>{info.name}</span>
+                            <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
+                        </span>
+                    )}
+                </span>
+            );
+        };
         return (
             <div className={styles.delveSlotRow}>
                 <Select
@@ -883,6 +929,8 @@ export default function BuildForm({
                     menuPosition="fixed"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
+                    components={{ Option: InfusionOption }}
+                    formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
                 />
                 <input
                     type="number"
@@ -3629,6 +3677,14 @@ export default function BuildForm({
                     </div>
                 </div>
             )}
+            {tip &&
+                createPortal(
+                    <div className={styles.infusionTip} style={{ left: tip.left, top: tip.top }}>
+                        <span style={{ fontWeight: 600 }}>{tip.info.name}</span>
+                        {tip.info.effect && <span style={{ display: 'block', marginTop: 3 }}>{tip.info.effect}</span>}
+                    </div>,
+                    document.body
+                )}
         </form>
     );
 }

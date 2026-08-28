@@ -128,7 +128,7 @@
 .charmRemoveButton {
     position: absolute;
     top: 10px;
-    right: 14px;
+    left: 14px;
     width: 24px;
     height: 24px;
     display: flex;
@@ -1465,6 +1465,27 @@
     align-items: center;
     margin-right: 6px;
     color: var(--negative, #ce2d27);
+}
+
+/* Portal tooltip for delve infusion options: rendered on document.body so
+   the scrolling dropdown menu never clips it, and stacked above the menu
+   portal (react-select portals its menu with z-index 9999). */
+.infusionTip {
+    position: fixed;
+    z-index: 10000;
+    transform: translate(-50%, -100%);
+    max-width: min(300px, calc(100vw - 16px));
+    background: #15151f;
+    border: 1px solid #45456b;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #f0f0f0;
+    text-align: center;
+    white-space: normal;
+    pointer-events: none;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
 
 /* Build list panel pinned top-left of the items page (collapsible). */
