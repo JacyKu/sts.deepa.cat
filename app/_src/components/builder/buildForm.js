@@ -2833,6 +2833,20 @@ export default function BuildForm({
                         {saveState === 'saving' ? 'Saving...' : saveState === 'copied' ? 'Copied!' : 'Copy/Save'}
                     </button>
                 </div>
+                {activeBuildId && (
+                    <div className="col-4 col-md-3 col-lg-2 text-center">
+                        <button
+                            type="button"
+                            className={styles.shareButton}
+                            id="saveAsNewCopy"
+                            onClick={() => saveBuildToServer(true)}
+                            disabled={saveState === 'saving'}
+                            title="Keep this build's link unchanged and save the current edits as a new build"
+                        >
+                            Save as new copy
+                        </button>
+                    </div>
+                )}
                 <div className="col-4 col-md-3 col-lg-2 text-center">
                     <input
                         type="button"
@@ -2843,6 +2857,11 @@ export default function BuildForm({
                     />
                 </div>
             </div>
+            <p className={styles.saveStatus} role="status">
+                {activeBuildId
+                    ? 'Editing a saved build - "Copy/Save" updates this build in place.'
+                    : 'Unsaved build - "Copy/Save" creates a new share link.'}
+            </p>
             {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
                     <button

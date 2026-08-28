@@ -1717,6 +1717,15 @@ div.charmTotals {
     font-size: 13px;
 }
 
+/* Saved-state hint under the save buttons: tells the user whether the
+   editor is bound to an existing build or a fresh, unsaved one. */
+.saveStatus {
+    margin: 0 0 6px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-2);
+}
+
 /* Transient copy/save notices: slide down from the top edge over the page. */
 .copyToast {
     position: fixed;
