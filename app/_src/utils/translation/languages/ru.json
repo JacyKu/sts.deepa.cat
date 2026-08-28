@@ -240,6 +240,7 @@
     "items.searchForm.not": "Не",
     "auth.loginWithDiscord": "Войти через Discord",
     "auth.myBuilds": "Мои сборки",
+    "auth.myItems": "Мои предметы",
     "auth.anonymizeMe": "Скрыть моё имя",
     "builds.title": "Мои сборки",
     "builds.loading": "Загрузка...",

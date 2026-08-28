@@ -85,12 +85,11 @@ export function AccountChip({ session }) {
                     </button>
                     {open && <div className={styles.menuBackdrop} onClick={() => setOpen(false)} />}
                     <div className={`${styles.menuPanel}${open ? ` ${styles.menuOpen}` : ''}`}>
-                        <Link
-                            className={styles.navButton}
-                            href={base + '/builds'}
-                            onClick={() => setOpen(false)}
-                        >
+                        <Link className={styles.navButton} href={base + '/builds'} onClick={() => setOpen(false)}>
                             <TranslatableText identifier="auth.myBuilds" />
+                        </Link>
+                        <Link className={styles.navButton} href={base + '/custom-items'} onClick={() => setOpen(false)}>
+                            <TranslatableText identifier="auth.myItems" />
                         </Link>
                         <button type="button" className={styles.navButton} onClick={logout}>
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
@@ -184,7 +183,6 @@ export function HeaderNav() {
         { href: base + '/items', translation: 'index.pages.items.title' },
         { href: base + '/builder', translation: 'index.pages.builder.title' },
         { href: base + '/database', translation: 'index.pages.database.title' },
-        { href: base + '/custom-items', label: 'Custom Items' },
     ];
 
     const close = () => setOpen(false);

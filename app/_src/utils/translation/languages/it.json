@@ -242,6 +242,7 @@
     "items.searchForm.not": "Non",
     "auth.loginWithDiscord": "Accedi con Discord",
     "auth.myBuilds": "I miei build",
+    "auth.myItems": "I miei oggetti",
     "auth.anonymizeMe": "Anonimizzami",
     "builds.title": "I miei build",
     "builds.loading": "Caricamento...",
