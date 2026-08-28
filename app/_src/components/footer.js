@@ -55,7 +55,7 @@ export default function Footer() {
                         Help translate
                     </a>
                     <button className={styles.textLink} onClick={openInvite}>
-                        Invite bot
+                        Discord bot
                     </button>
                     <Link className={styles.textLink} href="/privacy">
                         Privacy Policy
