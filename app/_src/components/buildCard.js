@@ -452,31 +452,39 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         boots: 'Boots',
     };
     function renderItemStrip() {
+        // Charms always start on their own line: the card is just wide
+        // enough for seven charm icons (the charm cap), so the whole charm
+        // set fits on one wrapped line instead of mixing with equipment.
+        const equipment = items.filter((item) => !item.c);
+        const charms = items.filter((item) => item.c);
+        const renderIcon = (item, i) => {
+            const cls = itemSprite(item);
+            return (
+                <span key={i} className={`${styles.itemStripWrap} ${itemsStyles.enchantTooltip}`}>
+                    <span className={styles.itemStripIcon}>
+                        {lowRes ? (
+                            <span className={styles.stripLowRes} aria-hidden="true" />
+                        ) : cls ? (
+                            <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
+                        ) : null}
+                    </span>
+                    <span className={styles.itemStripLabel}>
+                        {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && SLOT_ABBR[item.sl]}
+                    </span>
+                    <span className={itemsStyles.enchantTooltipText}>
+                        <span style={{ fontWeight: 600 }}>{item.n}</span>
+                        {item.b && item.b !== item.n && (
+                            <span style={{ display: 'block', marginTop: 3 }}>{item.b}</span>
+                        )}
+                    </span>
+                </span>
+            );
+        };
         return (
             <div className={styles.itemStrip}>
-                {items.map((item, i) => {
-                    const cls = itemSprite(item);
-                    return (
-                        <span key={i} className={`${styles.itemStripWrap} ${itemsStyles.enchantTooltip}`}>
-                            <span className={styles.itemStripIcon}>
-                                {lowRes ? (
-                                    <span className={styles.stripLowRes} aria-hidden="true" />
-                                ) : cls ? (
-                                    <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
-                                ) : null}
-                            </span>
-                            <span className={styles.itemStripLabel}>
-                                {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && SLOT_ABBR[item.sl]}
-                            </span>
-                            <span className={itemsStyles.enchantTooltipText}>
-                                <span style={{ fontWeight: 600 }}>{item.n}</span>
-                                {item.b && item.b !== item.n && (
-                                    <span style={{ display: 'block', marginTop: 3 }}>{item.b}</span>
-                                )}
-                            </span>
-                        </span>
-                    );
-                })}
+                {equipment.map(renderIcon)}
+                {charms.length > 0 && <span className={styles.itemStripBreak} aria-hidden="true" />}
+                {charms.map(renderIcon)}
             </div>
         );
     }
@@ -569,24 +577,26 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                         type="button"
                         className={`${styles.favBtn}${build.myFavourite ? ` ${styles.favBtnOn}` : ''}`}
                         onClick={toggleFavourite}
-                        title={
-                            build.myFavourite
-                                ? 'Remove from favourites'
-                                : user
-                                  ? 'Add to favourites'
-                                  : 'Log in to favourite'
-                        }
                         aria-label="Toggle favourite"
                     >
-                        <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
-                            <path
-                                fill={build.myFavourite ? 'currentColor' : 'none'}
-                                stroke="currentColor"
-                                strokeWidth="36"
-                                d="M47.6 300.4 228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96.5 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"
-                            />
-                        </svg>
-                        <span className={styles.favCount}>{build.favouriteCount || 0}</span>
+                        <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                            <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
+                                <path
+                                    fill={build.myFavourite ? 'currentColor' : 'none'}
+                                    stroke="currentColor"
+                                    strokeWidth="36"
+                                    d="M47.6 300.4 228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96.5 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"
+                                />
+                            </svg>
+                            <span className={styles.favCount}>{build.favouriteCount || 0}</span>
+                            <span className={itemsStyles.enchantTooltipText}>
+                                {build.myFavourite
+                                    ? 'Remove from favourites'
+                                    : user
+                                      ? 'Add to favourites'
+                                      : 'Log in to favourite'}
+                            </span>
+                        </span>
                     </button>
                     <button
                         type="button"
@@ -596,12 +606,16 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                             e.stopPropagation();
                             toggleCardLayout();
                         }}
-                        title={itemsFirst ? 'Show skills on card' : 'Show items on card'}
                         aria-label="Swap card layout"
                     >
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-                            <path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
-                        </svg>
+                        <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                                <path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
+                            </svg>
+                            <span className={itemsStyles.enchantTooltipText}>
+                                {itemsFirst ? 'Show skills on card' : 'Show items on card'}
+                            </span>
+                        </span>
                     </button>
                 </span>
             </div>

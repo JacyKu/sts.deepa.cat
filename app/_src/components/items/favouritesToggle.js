@@ -1,19 +1,20 @@
 import React from 'react';
 import searchStyles from '../../styles/SearchForm.module.css';
 import itemsStyles from '../../styles/Items.module.css';
-import { useHideLore } from './hideLoreContext';
+import { useFavouritesEnabled } from './favouritesEnabledContext';
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
-export default function LoreToggle({ className } = {}) {
-    const { hidden, toggle } = useHideLore();
+export default function FavouritesToggle({ className } = {}) {
+    const { enabled, toggle } = useFavouritesEnabled();
     return (
         <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
-            <input type="checkbox" checked={hidden} onChange={toggle} aria-label="Hide lore" />
+            <input type="checkbox" checked={enabled} onChange={toggle} aria-label="Favourites" />
             <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                Hide lore
+                Favourites
                 <span className={itemsStyles.enchantTooltipText}>
-                    Keep only the quest-item lines in item descriptions; the rest of the lore text is hidden.
+                    Turn on the item favourites feature: favourite hearts on items, and favourited items sorted to the
+                    top in the builder. Off by default.
                 </span>
             </span>
         </label>
