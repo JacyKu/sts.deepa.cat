@@ -13,6 +13,26 @@
     }
 
     .builderHeaderText,
+    .nameEditWrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .nameCounter {
+        position: absolute;
+        right: 4px;
+        bottom: -16px;
+        font-size: 11px;
+        line-height: 1;
+        color: var(--text-2);
+        background: var(--glass-1);
+        border: 1px solid var(--glass-border);
+        padding: 2px 5px;
+        pointer-events: none;
+        user-select: none;
+    }
+
     .theTextbox {
         font-size: 1.25rem;
     }

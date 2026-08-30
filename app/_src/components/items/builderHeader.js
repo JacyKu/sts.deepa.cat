@@ -27,6 +27,9 @@ export default function BuilderHeader(data) {
     const [loaded, setLoaded] = React.useState(false);
     const [tempText, setTempText] = React.useState('Monumenta Builder');
 
+    // Matches the server-side clamp when saving builds.
+    const NAME_LIMIT = 50;
+
     React.useEffect(() => {
         if (data.parentLoaded) {
             let tempName = 'Monumenta Builder';
@@ -90,17 +93,23 @@ export default function BuilderHeader(data) {
     return (
         <span className={styles.builderHeader}>
             {editing ? (
-                <input
-                    type="text"
-                    value={tempText}
-                    onChange={textchanged}
-                    onKeyDown={keydown}
-                    spellCheck="false"
-                    className={styles.theTextbox}
-                    autoFocus
-                    onFocus={hasfocus}
-                    onBlur={lostfocus}
-                />
+                <span className={styles.nameEditWrap}>
+                    <input
+                        type="text"
+                        value={tempText}
+                        onChange={textchanged}
+                        onKeyDown={keydown}
+                        spellCheck="false"
+                        maxLength={NAME_LIMIT}
+                        className={styles.theTextbox}
+                        autoFocus
+                        onFocus={hasfocus}
+                        onBlur={lostfocus}
+                    />
+                    <span className={styles.nameCounter}>
+                        {tempText.length}/{NAME_LIMIT}
+                    </span>
+                </span>
             ) : (
                 <h1 className={styles.builderHeaderText}>{loaded ? text : getPlaceholderBuildName()}</h1>
             )}
