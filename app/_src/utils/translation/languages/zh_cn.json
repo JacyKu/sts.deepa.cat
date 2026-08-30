@@ -215,6 +215,7 @@
     "auth.loginWithDiscord": "使用 Discord 登录",
     "auth.myBuilds": "我的配装",
     "auth.myItems": "我的物品",
+    "auth.myFavourites": "我的收藏",
     "auth.anonymizeMe": "匿名发布",
     "builds.title": "我的配装",
     "builds.loading": "加载中...",

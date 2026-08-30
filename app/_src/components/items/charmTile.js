@@ -81,7 +81,7 @@ export default function CharmTile(data) {
     const { hidden: hideObtainment } = useHideObtainment();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
-    const { favouriteSet, authenticated, toggle: toggleFavourite } = useItemFavourites();
+    const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
 
     let formattedCharm = CharmFormatter.formatCharm(item.stats);
 
@@ -138,7 +138,7 @@ export default function CharmTile(data) {
                     {listItems.includes(item.name) ? '✓' : '+'}
                 </button>
             )}
-            {data.showFavouriteButton && (
+            {enabled && data.showFavouriteButton && (
                 <button
                     type="button"
                     className={`${styles.favouriteButton}${favouriteSet.has(item.name) ? ` ${styles.favouriteButtonOn}` : ''}`}

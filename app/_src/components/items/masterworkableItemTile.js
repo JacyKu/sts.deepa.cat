@@ -140,7 +140,7 @@ export default function MasterworkableItemTile(data) {
     const { lowRes } = useLowResource();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
-    const { favouriteSet, authenticated, toggle: toggleFavourite } = useItemFavourites();
+    const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
 
     // If the item name has accented characters, they are actually not present in the item's name property,
     // but they are present in the item's key. In that case, set the name to the key.
@@ -255,7 +255,7 @@ export default function MasterworkableItemTile(data) {
                     {listItems.includes(data.name) ? '✓' : '+'}
                 </button>
             )}
-            {data.showFavouriteButton && (
+            {enabled && data.showFavouriteButton && (
                 <button
                     type="button"
                     className={`${styles.favouriteButton}${favouriteSet.has(data.name) ? ` ${styles.favouriteButtonOn}` : ''}`}

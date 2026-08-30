@@ -241,6 +241,7 @@
     "auth.loginWithDiscord": "Bejelentkezés Discorddal",
     "auth.myBuilds": "Az építményeim",
     "auth.myItems": "Az elemeim",
+    "auth.myFavourites": "Kedvenceim",
     "auth.anonymizeMe": "Névtelenítés",
     "builds.title": "Az építményeim",
     "builds.loading": "Betöltés...",

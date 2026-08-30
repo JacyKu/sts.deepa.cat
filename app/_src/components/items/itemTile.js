@@ -61,7 +61,7 @@ export default function ItemTile(data) {
     const { lowRes } = useLowResource();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
-    const { favouriteSet, authenticated, toggle: toggleFavourite } = useItemFavourites();
+    const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
@@ -124,7 +124,7 @@ export default function ItemTile(data) {
                     {listItems.includes(item.name) ? '✓' : '+'}
                 </button>
             )}
-            {data.showFavouriteButton && (
+            {enabled && data.showFavouriteButton && (
                 <button
                     type="button"
                     className={`${styles.favouriteButton}${favouriteSet.has(item.name) ? ` ${styles.favouriteButtonOn}` : ''}`}

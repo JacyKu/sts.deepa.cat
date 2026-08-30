@@ -364,6 +364,7 @@
     "auth.loginWithDiscord": "Log in with Discord",
     "auth.myBuilds": "My Builds",
     "auth.myItems": "My Items",
+    "auth.myFavourites": "My Favourites",
     "auth.anonymizeMe": "Anonymize me",
     "builds.title": "My Builds",
     "builds.loading": "Loading...",

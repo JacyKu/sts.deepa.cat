@@ -10,6 +10,7 @@ import { MaxMasterworkProvider } from './_src/components/items/maxMasterworkCont
 import { BuildListProvider } from './_src/components/items/buildListContext';
 import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
 import { CardItemsFirstProvider } from './_src/components/items/cardItemsFirstContext';
+import { FavouritesEnabledProvider } from './_src/components/items/favouritesEnabledContext';
 import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
 import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
@@ -77,13 +78,15 @@ export default async function StsLayout({ children }) {
                                                 <BuildListProvider>
                                                     <BuildListEnabledProvider>
                                                         <CardItemsFirstProvider>
-                                                            <ItemFavouritesProvider>
-                                                                <SiteNav showBeta center={<HeaderNav />}>
-                                                                    <Header />
-                                                                </SiteNav>
-                                                                <div className="site-main">{children}</div>
-                                                                <Footer />
-                                                            </ItemFavouritesProvider>
+                                                            <FavouritesEnabledProvider>
+                                                                <ItemFavouritesProvider>
+                                                                    <SiteNav showBeta center={<HeaderNav />}>
+                                                                        <Header />
+                                                                    </SiteNav>
+                                                                    <div className="site-main">{children}</div>
+                                                                    <Footer />
+                                                                </ItemFavouritesProvider>
+                                                            </FavouritesEnabledProvider>
                                                         </CardItemsFirstProvider>
                                                     </BuildListEnabledProvider>
                                                 </BuildListProvider>

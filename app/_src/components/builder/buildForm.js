@@ -19,6 +19,7 @@ import CharmSelector, { resolveCharmKey, computeCharmTotals } from './charmSelec
 import CharmFormatter from '../../utils/items/charmFormatter';
 import CharmShortener from '../../utils/builder/charmShortener';
 import { useItemFavourites } from '../items/itemFavouritesContext';
+import { useMaxMasterwork } from '../items/maxMasterworkContext';
 import { filterBadWords } from '../../utils/badWords';
 import {
     decodeBuildParam,
@@ -614,6 +615,7 @@ export default function BuildForm({
     const [stats, setStats] = React.useState({});
     const [charms, setCharms] = React.useState([]);
     const { favouriteSet } = useItemFavourites();
+    const { enabled: maxMasterworkDefault } = useMaxMasterwork();
     const [gameClass, setGameClass] = React.useState('none'); // "class" is a reserved word
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
@@ -766,7 +768,13 @@ export default function BuildForm({
     function statInputChanged(name, event) {
         const next = { ...statInputs, [name]: event.target.value };
         setStatInputs(next);
-        scheduleStatsRecalc();
+        // The recalc reads the form's DOM values, but the controlled inputs
+        // only reflect the new state after React commits (next render). The
+        // health slider shares its field name with the number box, and
+        // Object.fromEntries keeps the last duplicate - so without this
+        // override the stats would use the number input's stale value and
+        // never catch up on a single click.
+        scheduleStatsRecalc({ [name]: event.target.value });
     }
 
     // Typed values snap back into the 0-100 range (and to the default when
@@ -786,15 +794,18 @@ export default function BuildForm({
     const statRecalcTimerRef = React.useRef(null);
     const statLastRecalcRef = React.useRef(0);
 
-    function scheduleStatsRecalc() {
+    function scheduleStatsRecalc(statOverrides) {
         const elapsed = Date.now() - statLastRecalcRef.current;
         if (elapsed >= STAT_RECALC_WINDOW) {
             statLastRecalcRef.current = Date.now();
-            recalcBuildStats();
+            recalcBuildStats(statOverrides);
         } else if (!statRecalcTimerRef.current) {
             statRecalcTimerRef.current = setTimeout(() => {
                 statRecalcTimerRef.current = null;
                 statLastRecalcRef.current = Date.now();
+                // By the time the trailing edge fires, React has committed the
+                // new values to the DOM - re-reading the form is authoritative
+                // (the leading-edge override would be stale here).
                 recalcBuildStats();
             }, STAT_RECALC_WINDOW - elapsed);
         }
@@ -871,12 +882,13 @@ export default function BuildForm({
                 .filter(([s]) => s !== slot)
                 .map(([, name]) => name)
         );
-        const infusionOpts = DELVE_INFUSIONS.filter((i) => i.region <= regionValue && !pickedElsewhere.has(i.name)).map(
-            (i) => ({
-                value: i.name,
-                label: i.name,
-            })
-        );
+        // All infusions are usable in every region (the region field in the
+        // data only records where each infusion drops); only already-picked
+        // infusions (on other slots) are excluded so they can't be duplicated.
+        const infusionOpts = DELVE_INFUSIONS.filter((i) => !pickedElsewhere.has(i.name)).map((i) => ({
+            value: i.name,
+            label: i.name,
+        }));
         // Menu options get a portal tooltip with the infusion's effect (the
         // menu scrolls, so an in-menu tooltip would be clipped at its edges).
         const InfusionOption = (props) => {
@@ -1068,8 +1080,13 @@ export default function BuildForm({
         }
     }
 
-    function recalcBuildStats() {
+    function recalcBuildStats(statOverrides) {
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
+        if (statOverrides) {
+            for (const [key, value] of Object.entries(statOverrides)) {
+                itemNames[key] = value;
+            }
+        }
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
@@ -1656,9 +1673,9 @@ export default function BuildForm({
         const effSavedState = isLoadedBuild ? savedState : effDraft;
         const loadedDelve = {};
         if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
-            const loadedRegion = Number(statValues.region) || 3;
             for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
-                const ok = DELVE_INFUSIONS.some((i) => i.name === infusion && i.region <= loadedRegion);
+                // Any infusion is valid in any region.
+                const ok = DELVE_INFUSIONS.some((i) => i.name === infusion);
                 if (ok) loadedDelve[slot] = infusion;
             }
             if (Object.keys(loadedDelve).length > 0) {
@@ -1784,8 +1801,21 @@ export default function BuildForm({
 
         for (const entry of list) {
             const displayName = typeof entry === 'string' ? entry : entry.name;
-            const key = resolveItemKey(itemData, displayName);
+            let key = resolveItemKey(itemData, displayName);
             if (!key) continue;
+            // resolveItemKey returns the first matching variant key, which is
+            // the lowest masterwork ("X-1"). With the "Max masterwork"
+            // setting on, import at the highest variant instead - otherwise
+            // the imported tile would start at masterwork 1 regardless.
+            if (maxMasterworkDefault) {
+                const variants = Object.keys(itemData).filter(
+                    (k) => itemData[k].name === displayName && /-\d+$/.test(k)
+                );
+                if (variants.length > 1) {
+                    const highest = Math.max(...variants.map((k) => Number(k.split('-').at(-1))));
+                    key = variants.find((k) => Number(k.split('-').at(-1)) === highest) || key;
+                }
+            }
             const info = itemData[key];
             const type = String(info.type || '').toLowerCase();
             const slot = MAINHAND_TYPES.has(type)
@@ -1831,7 +1861,7 @@ export default function BuildForm({
             } catch (e) {}
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [parentLoaded]);
+    }, [parentLoaded, maxMasterworkDefault]);
 
     // Autosave the working state as a session draft (debounced) so an
     // accidental reload or a switch to another page doesn't lose it. The load
@@ -2235,7 +2265,9 @@ export default function BuildForm({
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
     // Current health as a % of max health (0-100), clamped for the slider.
-    const healthPercentInput = Math.max(0, Math.min(100, Number(statInputs.health) || 100));
+    // Note: `|| 100` would snap a legit 0% back to 100, so check explicitly.
+    const rawHealthPercent = Number(statInputs.health);
+    const healthPercentInput = Math.max(0, Math.min(100, Number.isFinite(rawHealthPercent) ? rawHealthPercent : 100));
     const healthStats = [
         { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
         { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },

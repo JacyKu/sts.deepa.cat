@@ -6,10 +6,12 @@ import TranslatableText from './translatableText';
 import LoreToggle from './items/loreToggle';
 import ObtainmentToggle from './items/obtainmentToggle';
 import HideSkinsToggle from './items/hideSkinsToggle';
+import FavouritesToggle from './items/favouritesToggle';
 import MaxMasterworkToggle from './items/maxMasterworkToggle';
 import BuildListToggle from './items/buildListToggle';
 import AnimationsToggle from './items/animationsToggle';
 import styles from '../styles/Header.module.css';
+import itemsStyles from '../styles/Items.module.css';
 import Link from 'next/link';
 import { getStsBase } from '../utils/base';
 import { useLowResource } from './lowResourceContext';
@@ -17,6 +19,8 @@ import { useLowResource } from './lowResourceContext';
 // Discord login state chip: "Log in" when logged out, avatar + "My Builds"
 // + logout when logged in. Session state lives in the shared useSessionState
 // hook so the settings menu (Header) can show the same user.
+const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
+
 export function useSessionState() {
     const [user, setUser] = React.useState(null);
     const [anonymous, setAnonymous] = React.useState(false);
@@ -90,6 +94,13 @@ export function AccountChip({ session }) {
                         </Link>
                         <Link className={styles.navButton} href={base + '/custom-items'} onClick={() => setOpen(false)}>
                             <TranslatableText identifier="auth.myItems" />
+                        </Link>
+                        <Link
+                            className={styles.navButton}
+                            href={base + '/builds/favourites'}
+                            onClick={() => setOpen(false)}
+                        >
+                            <TranslatableText identifier="auth.myFavourites" />
                         </Link>
                         <button type="button" className={styles.navButton} onClick={logout}>
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
@@ -321,17 +332,28 @@ export default function Header() {
                             onChange={toggleAnonymize}
                             aria-label="Anonymize me"
                         />
-                        <TranslatableText identifier="auth.anonymizeMe" />
+                        <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
+                            <TranslatableText identifier="auth.anonymizeMe" />
+                            <span className={itemsStyles.enchantTooltipText}>
+                                Hide your username on public builds - you will appear as Anonymous.
+                            </span>
+                        </span>
                     </label>
                 )}
                 <label className={`${styles.toggle} ${styles.loreToggle}`}>
                     <input type="checkbox" checked={lowRes} onChange={toggleLowRes} aria-label="Hide textures" />
-                    Hide Textures
+                    <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
+                        Hide Textures
+                        <span className={itemsStyles.enchantTooltipText}>
+                            Replace item textures with plain placeholders - faster scrolling on low-end devices.
+                        </span>
+                    </span>
                 </label>
                 <AnimationsToggle className={styles.loreToggle} />
                 <LoreToggle className={styles.loreToggle} />
                 <ObtainmentToggle className={styles.loreToggle} />
                 <HideSkinsToggle className={styles.loreToggle} />
+                <FavouritesToggle className={styles.loreToggle} />
                 <MaxMasterworkToggle className={styles.loreToggle} />
                 <BuildListToggle className={styles.loreToggle} />
                 <HeaderSelect

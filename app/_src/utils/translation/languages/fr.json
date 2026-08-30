@@ -215,6 +215,7 @@
     "auth.loginWithDiscord": "Se connecter avec Discord",
     "auth.myBuilds": "Mes builds",
     "auth.myItems": "Mes objets",
+    "auth.myFavourites": "Mes favoris",
     "auth.anonymizeMe": "M'anonymiser",
     "builds.title": "Mes builds",
     "builds.loading": "Chargement...",
