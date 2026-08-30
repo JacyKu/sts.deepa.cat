@@ -75,17 +75,43 @@ generalise all buttons to use same size/height
     Currently seems i'd need to reset and hand remake it.
     Maybe there should be a text somewhere to let you know if you're editing an existing build, or if the build you're in the editor for is unsaved, and add a "break link" or similar button to effectively allow saving it as a new build.
 [x] remove recalculate button as everything should automatically update
-- max health percent should be renamed to current health
-- show small version of items on database build card (or own build card) when there's no skills/specs or abils set
-- add a toggle to swap skills and items around in build cards
-- Item side panel on build previews still displays items alongside animations when either are disabled
-- rename invite bot to discord bot
-- Understanding shouldn't have a stat toggle since its manually set in infusions
-- tooltips for telling what delve infusions do like other enchants
-- add dragging to reorder charms
+[x] max health percent should be renamed to current health
+[x] show small version of items on database build card (or own build card) when there's no skills/specs or abils set
+[x] add a toggle to swap skills and items around in build cards
+[x] fix Region name in build cards not being properly centered
+[x] Item side panel on build previews still displays items alongside animations when either are disabled
+[x] rename invite bot to discord bot
+[x] Understanding shouldn't have a stat toggle since its manually set in infusions
+[x] tooltips for telling what delve infusions do like other enchants
+[x] filter to search charm by skills they affect
+[x] add dragging to reorder charms
+
+
+[] 29-08-2026
+[x] change the swap button on build cards to be below the favourite button
+[x] give both buttons tooltips
+[x] remake "animate item textures" into "hide item animations" so that it matches the rest of the adjacent hide toggles instead of being awkwardly backwards, also give all of these clarity hover tooltips
+[x] add a menu toggle for favoriting items
+[x] just clicking on the health dragger doesnt update the rest correctly
+[x] add "My Favourites" to user menu show favourites page
+[x] all delve infusions should work in all regions
+[x] seems like some builds for some reason dont import properly after being shared ("kCnshTiy" is an example)
+[x] importing items with item import while max masterwork is on resets the masterwork on builder page
+
+[] 30-08-2026
+- dedicated build viewer page
 - refactor menus on mobile ui and desktop ui
 - live (webhook notifs probably) notifs i can send with a discord bot to the UI.
-
+- 64x64 textures dont always scale correctly
 
 - build comparison page
+    - like ps page in monu
 - add entire enemy lyrics to status
+
+- model for build design?
+    - could use the monu code for enemies
+
+
+[] mod stuff
+- creates b token > sends to api > saves and returns share link
+- creates b token > sends to api together with uuid > saves to profile and returns share link
