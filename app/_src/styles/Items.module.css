@@ -125,10 +125,15 @@
     display: inline-block;
 }
 
+/* The charm being dragged reorders the equipped list. */
+.charmDragging {
+    opacity: 0.5;
+}
+
 .charmRemoveButton {
     position: absolute;
     top: 10px;
-    right: 14px;
+    left: 14px;
     width: 24px;
     height: 24px;
     display: flex;
@@ -932,7 +937,6 @@
     }
 }
 
-.recalcButton,
 .shareButton {
     margin-block: 0.5vh;
     margin-inline: 0.25vw;
@@ -950,12 +954,10 @@
     color: var(--text-on-accent);
 }
 
-.recalcButton:hover,
 .shareButton:hover {
     filter: brightness(125%);
 }
 
-.recalcButton:active,
 .shareButton:active {
     transform: translateY(1px);
 }
@@ -1401,7 +1403,7 @@
 .listAddButton {
     position: absolute;
     top: 6px;
-    right: 6px;
+    left: 6px;
     width: 24px;
     height: 24px;
     display: flex;
@@ -1428,6 +1430,67 @@
     background: #2c0860;
     border-color: #7a4fd0;
     color: #fff;
+}
+
+/* Item favourites: heart button on item tiles, styled like the database
+   like-button (bordered pill, no count) and pinned to the top-right. */
+.favouriteButton {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    z-index: 3;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease;
+}
+
+.favouriteButton:hover {
+    border-color: var(--negative, #ce2d27);
+    color: var(--negative, #ce2d27);
+}
+
+.favouriteButtonOn {
+    color: var(--negative, #ce2d27);
+    border-color: var(--negative, #ce2d27);
+}
+
+/* Red heart shown next to favourited options in builder dropdowns. */
+.favOption {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 6px;
+    color: var(--negative, #ce2d27);
+}
+
+/* Portal tooltip for delve infusion options: rendered on document.body so
+   the scrolling dropdown menu never clips it, and stacked above the menu
+   portal (react-select portals its menu with z-index 9999). */
+.infusionTip {
+    position: fixed;
+    z-index: 10000;
+    transform: translate(-50%, -100%);
+    max-width: min(300px, calc(100vw - 16px));
+    background: #15151f;
+    border: 1px solid #45456b;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #f0f0f0;
+    text-align: center;
+    white-space: normal;
+    pointer-events: none;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
 
 /* Build list panel pinned top-left of the items page (collapsible). */
@@ -1675,6 +1738,15 @@ div.charmTotals {
 .buildNotesHint {
     color: var(--text-2);
     font-size: 13px;
+}
+
+/* Saved-state hint under the save buttons: tells the user whether the
+   editor is bound to an existing build or a fresh, unsaved one. */
+.saveStatus {
+    margin: 0 0 6px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-2);
 }
 
 /* Transient copy/save notices: slide down from the top edge over the page. */

@@ -1,8 +1,10 @@
-import Select from 'react-select';
+import Select, { components } from 'react-select';
 import React from 'react';
 import { useLanguageContext } from '../../components/languageContext';
 import SupportedLanguages from '../../utils/translation/languages';
 import FloatingLabel from './floatingLabel';
+import { useItemFavourites } from './itemFavouritesContext';
+import itemsStyles from '../../styles/Items.module.css';
 
 function convertItemNameForTranslationString(item) {
     if (!item) return '';
@@ -16,6 +18,33 @@ function convertItemNameForTranslationString(item) {
 
 const SelectInput = (data) => {
     const { lang } = useLanguageContext();
+    const { favouriteSet } = useItemFavourites();
+
+    // Show a red heart next to options the user has favourited. Defaults to
+    // matching on the option label (item base names / masterwork group
+    // labels); callers whose option labels differ from the stored favourite
+    // names (e.g. charms keyed by full item keys) can pass favouriteMatch.
+    const isFavourite = (option) =>
+        data.favouriteMatch ? data.favouriteMatch(option) : favouriteSet.has(option.label);
+
+    const Option = (props) => (
+        <components.Option {...props}>
+            {isFavourite(props.data) && (
+                <span className={itemsStyles.favOption} aria-hidden="true">
+                    <svg viewBox="0 0 512 512" width="11" height="11">
+                        <path
+                            fill="currentColor"
+                            stroke="currentColor"
+                            strokeWidth="36"
+                            d="M47.6 300.4 228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96.5 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"
+                        />
+                    </svg>
+                </span>
+            )}
+            {props.children}
+        </components.Option>
+    );
+
     const options = data.sortableStats.map((item) => {
         if (typeof item == 'object') {
             return item;
@@ -80,6 +109,7 @@ const SelectInput = (data) => {
             }}
             onChange={data.onChange}
             filterOption={data.filterOption}
+            components={{ Option }}
         />
     );
 

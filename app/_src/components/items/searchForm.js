@@ -13,6 +13,63 @@ export default function SearchForm({ update, itemData }) {
     const [poiKey, setPoiKey] = React.useState(getResetKey('poi'));
     const [classKey, setClassKey] = React.useState(getResetKey('class'));
     const [charmStatKey, setCharmStatKey] = React.useState(getResetKey('charmStat'));
+    const [charmSkillKey, setCharmSkillKey] = React.useState(getResetKey('charmSkill'));
+    // Charm Skill options: every class + spec skill name. Charm stats are
+    // keyed by the skill they affect (e.g. "arcane_strike_cooldown_percent"),
+    // so the filter matches charms whose stats start with the skill's name.
+    // Kept in state so the selects re-render once the fetch resolves.
+    const [charmSkills, setCharmSkills] = React.useState([]);
+    // Skills grouped by the class they belong to, so the Charm Skill filter
+    // only offers the active Charm Class's skills (and never charms from
+    // other classes). Bumped when the class select changes to re-derive the
+    // visible skill options.
+    const [charmSkillsByClass, setCharmSkillsByClass] = React.useState({});
+    // Fetch the skill list once for the Charm Skill filter (the fetch
+    // triggers a re-render through setCharmSkills, so the filter selects
+    // pick the options up).
+    React.useEffect(() => {
+        let active = true;
+        fetch('/api/v1/skills')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+                if (!active) return;
+                const byClass = {};
+                const all = [];
+                const seenAll = new Set();
+                for (const c of (d && d.classes) || []) {
+                    if (!c.className) continue;
+                    const list = [];
+                    const seen = new Set();
+                    for (const s of c.skills || []) {
+                        if (s.name && !seen.has(s.name)) {
+                            seen.add(s.name);
+                            list.push({ value: s.name, label: s.name });
+                        }
+                    }
+                    for (const sp of c.specs || []) {
+                        for (const s of sp.specSkills || []) {
+                            if (s.name && !seen.has(s.name)) {
+                                seen.add(s.name);
+                                list.push({ value: s.name, label: s.name });
+                            }
+                        }
+                    }
+                    byClass[c.className] = list;
+                    for (const o of list) {
+                        if (!seenAll.has(o.value)) {
+                            seenAll.add(o.value);
+                            all.push(o);
+                        }
+                    }
+                }
+                setCharmSkillsByClass(byClass);
+                setCharmSkills(all);
+            })
+            .catch(() => {});
+        return () => {
+            active = false;
+        };
+    }, []);
     const [baseItemKey, setBaseItemKey] = React.useState(getResetKey('baseItem'));
     const [effectKey, setEffectKey] = React.useState(getResetKey('effect'));
     const form = React.useRef();
@@ -75,7 +132,23 @@ export default function SearchForm({ update, itemData }) {
     let baseItems = [];
     let effects = [];
     let charmPowers = [];
-
+    // The active Charm Class filter. Kept in state (updated by the class
+    // select's onChange) because the form's hidden input updates after the
+    // re-render, which would lag one selection behind. The DOM is only read
+    // as a fallback for restored searches, where the onChange never fires.
+    // When set, the Charm Skill filter only offers that class's skills, so
+    // charms from other classes can never match.
+    const [activeCharmClass, setActiveCharmClass] = React.useState(null);
+    let activeCharmClassRead = activeCharmClass;
+    if (!activeCharmClassRead && form.current) {
+        for (const el of form.current.elements) {
+            if (el && /^classSelect-/.test(el.name) && el.value) activeCharmClassRead = el.value;
+        }
+    }
+    const visibleCharmSkills =
+        activeCharmClassRead && charmSkillsByClass[activeCharmClassRead]
+            ? charmSkillsByClass[activeCharmClassRead]
+            : charmSkills;
     const categories = [
         new SearchCategory('Item Type', 'items.searchForm.itemType', (uniqueKey, defaultValue) => {
             return (
@@ -121,11 +194,11 @@ export default function SearchForm({ update, itemData }) {
         new SearchCategory('Tier', 'items.searchForm.tier', (uniqueKey, defaultValue) => {
             return (
                 <SelectInput
-                key={tierKey}
-                name={`tierSelect-${uniqueKey}`}
-                sortableStats={tiers}
-                default={defaultValue && defaultValue['tierSelect']}
-            />
+                    key={tierKey}
+                    name={`tierSelect-${uniqueKey}`}
+                    sortableStats={tiers}
+                    default={defaultValue && defaultValue['tierSelect']}
+                />
             );
         }),
         new SearchCategory('Location', 'items.searchForm.location', (uniqueKey, defaultValue) => {
@@ -141,11 +214,11 @@ export default function SearchForm({ update, itemData }) {
         new SearchCategory('POI', 'items.searchForm.poi', (uniqueKey, defaultValue) => {
             return (
                 <SelectInput
-                key={poiKey}
-                name={`poiSelect-${uniqueKey}`}
-                sortableStats={pois}
-                default={defaultValue && defaultValue['poiSelect']}
-            />
+                    key={poiKey}
+                    name={`poiSelect-${uniqueKey}`}
+                    sortableStats={pois}
+                    default={defaultValue && defaultValue['poiSelect']}
+                />
             );
         }),
         new SearchCategory('Charm Stat', 'items.searchForm.charmStat', (uniqueKey, defaultValue) => {
@@ -158,12 +231,23 @@ export default function SearchForm({ update, itemData }) {
                 />
             );
         }),
+        new SearchCategory('Charm Skill', 'items.searchForm.charmSkill', (uniqueKey, defaultValue) => {
+            return (
+                <SelectInput
+                    key={charmSkillKey}
+                    name={`charmSkillSelect-${uniqueKey}`}
+                    sortableStats={visibleCharmSkills}
+                    default={defaultValue && defaultValue['charmSkillSelect']}
+                />
+            );
+        }),
         new SearchCategory('Charm Class', 'items.searchForm.charmClass', (uniqueKey, defaultValue) => {
             return (
                 <SelectInput
                     key={classKey}
                     name={`classSelect-${uniqueKey}`}
                     sortableStats={charmClasses}
+                    onChange={(option) => setActiveCharmClass(option ? option.value : null)}
                     default={defaultValue && defaultValue['classSelect']}
                 />
             );
@@ -272,6 +356,7 @@ export default function SearchForm({ update, itemData }) {
         locationSelect: 'Location',
         poiSelect: 'POI',
         charmStatSelect: 'Charm Stat',
+        charmSkillSelect: 'Charm Skill',
         classSelect: 'Charm Class',
         baseItemSelect: 'Base Item',
         questIdSelect: 'Quest ID',
@@ -394,6 +479,7 @@ export default function SearchForm({ update, itemData }) {
         setPoiKey(getResetKey('poi'));
         setClassKey(getResetKey('class'));
         setCharmStatKey(getResetKey('charmStat'));
+        setCharmSkillKey(getResetKey('charmSkill'));
         setBaseItemKey(getResetKey('baseItem'));
         setEffectKey(getResetKey('effects'));
         setFilters([{ activeCategory: null, selected: null, uniqueKey: new Date().getTime() }]);
@@ -438,7 +524,10 @@ export default function SearchForm({ update, itemData }) {
                             opts={categories}
                             index={f.uniqueKey}
                             deleteCallback={deleteFilter}
-                            defaultValue={f.activeCategory ? { value: f.activeCategory, label: f.activeCategory } : null}
+                            regenKey={activeCharmClass}
+                            defaultValue={
+                                f.activeCategory ? { value: f.activeCategory, label: f.activeCategory } : null
+                            }
                             childDefault={f.selected || null}
                         />
                     </div>
@@ -556,6 +645,40 @@ export default function SearchForm({ update, itemData }) {
             );
         });
     }
+
+    // Charm Skill options: fetch the skill list once (the fetch triggers a
+    // re-render through setCharmSkills, so the filter selects pick it up).
+    React.useEffect(() => {
+        let active = true;
+        fetch('/api/v1/skills')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+                if (!active) return;
+                const seen = new Set();
+                const options = [];
+                for (const c of (d && d.classes) || []) {
+                    for (const s of c.skills || []) {
+                        if (s.name && !seen.has(s.name)) {
+                            seen.add(s.name);
+                            options.push({ value: s.name, label: s.name });
+                        }
+                    }
+                    for (const sp of c.specs || []) {
+                        for (const s of sp.specSkills || []) {
+                            if (s.name && !seen.has(s.name)) {
+                                seen.add(s.name);
+                                options.push({ value: s.name, label: s.name });
+                            }
+                        }
+                    }
+                }
+                setCharmSkills(options);
+            })
+            .catch(() => {});
+        return () => {
+            active = false;
+        };
+    }, []);
     function generateEffects(itemData) {
         effects = [];
         let uniqueEffects = {};

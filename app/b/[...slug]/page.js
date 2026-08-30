@@ -53,12 +53,15 @@ export default async function BuildLinkPage({ params, searchParams }) {
     const row = getBuild(parsed.id);
     if (row) {
         const tokenVersion = getBuildTokenVersion(row.token);
-        const canonical = tokenVersion ? `${base}/b/v${tokenVersion}/${parsed.id}` : `${base}/b/${parsed.id}`;
+        // Use the stored id (row.id): lookups are case-insensitive, so a link
+        // with the wrong casing must canonicalise to the true id before any
+        // write operations (saves, publicise, ...) use it.
+        const canonical = tokenVersion ? `${base}/b/v${tokenVersion}/${row.id}` : `${base}/b/${row.id}`;
         const versionOk = parsed.version === (tokenVersion ? `v${tokenVersion}` : null);
         const cacheBuster = encodeURIComponent(
             (row.updated_at || row.created_at || '') + '|' + (row.publicized_at || '')
         );
-        if (!versionOk || !sp.v) {
+        if (!versionOk || !sp.v || row.id !== parsed.id) {
             redirect(canonical + '?v=' + cacheBuster);
         }
     }

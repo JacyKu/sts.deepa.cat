@@ -4,7 +4,10 @@ import React from 'react';
 
 const STORAGE_KEY = 'animations';
 
-const AnimationsContext = React.createContext({ enabled: true, toggle: () => {} });
+// Stored as `true` when animations are ON (legacy key name kept for
+// backward compatibility); the toggle exposes `hidden` so it reads like
+// the other "hide" toggles ("Hide item animations").
+const AnimationsContext = React.createContext({ hidden: false, toggle: () => {} });
 
 export function AnimationsProvider({ children }) {
     const [enabled, setEnabled] = React.useState(true);
@@ -30,7 +33,7 @@ export function AnimationsProvider({ children }) {
             return next;
         });
     }, [applyClass]);
-    return <AnimationsContext.Provider value={{ enabled, toggle }}>{children}</AnimationsContext.Provider>;
+    return <AnimationsContext.Provider value={{ hidden: !enabled, toggle }}>{children}</AnimationsContext.Provider>;
 }
 
 export function useAnimations() {

@@ -9,6 +9,9 @@ import { HideSkinsProvider } from './_src/components/items/hideSkinsContext';
 import { MaxMasterworkProvider } from './_src/components/items/maxMasterworkContext';
 import { BuildListProvider } from './_src/components/items/buildListContext';
 import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
+import { CardItemsFirstProvider } from './_src/components/items/cardItemsFirstContext';
+import { FavouritesEnabledProvider } from './_src/components/items/favouritesEnabledContext';
+import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
 import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
 import SiteNav from '@deepa/shared/site-nav';
@@ -74,11 +77,17 @@ export default async function StsLayout({ children }) {
                                             <MaxMasterworkProvider>
                                                 <BuildListProvider>
                                                     <BuildListEnabledProvider>
-                                                        <SiteNav showBeta center={<HeaderNav />}>
-                                                            <Header />
-                                                        </SiteNav>
-                                                        <div className="site-main">{children}</div>
-                                                        <Footer />
+                                                        <CardItemsFirstProvider>
+                                                            <FavouritesEnabledProvider>
+                                                                <ItemFavouritesProvider>
+                                                                    <SiteNav showBeta center={<HeaderNav />}>
+                                                                        <Header />
+                                                                    </SiteNav>
+                                                                    <div className="site-main">{children}</div>
+                                                                    <Footer />
+                                                                </ItemFavouritesProvider>
+                                                            </FavouritesEnabledProvider>
+                                                        </CardItemsFirstProvider>
                                                     </BuildListEnabledProvider>
                                                 </BuildListProvider>
                                             </MaxMasterworkProvider>

@@ -1,4 +1,5 @@
-import Select from 'react-select';
+import Select, { components } from 'react-select';
+import { createPortal } from 'react-dom';
 import SelectInput from '../items/selectInput';
 import FloatingLabel from '../items/floatingLabel';
 import CheckboxWithLabel from '../items/checkboxWithLabel';
@@ -17,6 +18,8 @@ import ListSelector from './listSelector';
 import CharmSelector, { resolveCharmKey, computeCharmTotals } from './charmSelector';
 import CharmFormatter from '../../utils/items/charmFormatter';
 import CharmShortener from '../../utils/builder/charmShortener';
+import { useItemFavourites } from '../items/itemFavouritesContext';
+import { useMaxMasterwork } from '../items/maxMasterworkContext';
 import { filterBadWords } from '../../utils/badWords';
 import {
     decodeBuildParam,
@@ -190,6 +193,7 @@ const enabledBoxes = {
     abyssal: false,
     fractal: false,
     skyseeker: false,
+    backstab: false,
     retaliation_normal: false,
     retaliation_elite: false,
     retaliation_boss: false,
@@ -241,6 +245,7 @@ const situationalPercentDamage = [
     'abyssal',
     'fractal',
     'skyseeker',
+    'backstab',
     'retaliation_normal',
     'retaliation_elite',
     'retaliation_boss',
@@ -335,12 +340,25 @@ function groupMasterwork(items, itemData) {
     return items;
 }
 
-function getRelevantItems(types, itemData) {
+function getRelevantItems(types, itemData, favourites = new Set()) {
     let items = Object.keys(itemData);
-    return groupMasterwork(
+    items = groupMasterwork(
         items.filter((name) => types.includes(itemData[name].type.toLowerCase().replace(/<.*>/, '').trim())),
         itemData
     );
+    // Custom items may be keyed by id (when their name collides with an
+    // existing item); always show the item's name in the selector.
+    items = items.map((item) =>
+        typeof item === 'object' || !itemData[item].isCustomItem ? item : { value: item, label: itemData[item].name }
+    );
+    // Pin the user's favourited items to the top of the selector (stable
+    // sort keeps the original order within each group). Masterwork groups
+    // and custom items are {value, label} objects whose label is the item name.
+    return [...items].sort((a, b) => {
+        const aName = typeof a == 'object' ? a.label : itemData[a].name;
+        const bName = typeof b == 'object' ? b.label : itemData[b].name;
+        return Number(favourites.has(bName)) - Number(favourites.has(aName));
+    });
 }
 
 function recalcBuild(data, itemData) {
@@ -408,6 +426,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
                         name={formatSituationalName(situ)}
+                        enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
                     />
@@ -422,6 +441,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
                         name={formatSituationalName(situ)}
+                        enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
                     />
@@ -436,6 +456,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
                         name={formatSituationalName(situ)}
+                        enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
                     />
@@ -449,6 +470,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 <div className="col-auto" key={'situationalbox-retaliation_' + type}>
                     <CheckboxWithLabel
                         name={formatSituationalName('retaliation_' + type)}
+                        enchantName={'retaliation'}
                         checked={enabledBoxes['retaliation_' + type]}
                         onChange={checkboxChanged}
                     />
@@ -457,16 +479,20 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         });
     }
     // One situational chip per equipped delve infusion; the stat effect only
-    // counts while its checkbox is ticked.
+    // counts while its checkbox is ticked. Understanding is an always-on
+    // amplifier (it boosts other infusions), not a conditional stat, so it
+    // gets no toggle.
     if (delveInfusions) {
         const seen = new Set();
         Object.values(delveInfusions).forEach((infusion) => {
             if (!infusion || infusion === 'None' || seen.has(infusion)) return;
+            if (infusion.toLowerCase() === 'understanding') return;
             seen.add(infusion);
             tempInfusions.push(
                 <div className="col-auto" key={'situationalbox-infusion-' + infusion}>
                     <CheckboxWithLabel
                         name={infusion}
+                        enchantName={infusion}
                         checked={enabledBoxes[infusion.toLowerCase()]}
                         onChange={checkboxChanged}
                     />
@@ -588,6 +614,8 @@ export default function BuildForm({
 }) {
     const [stats, setStats] = React.useState({});
     const [charms, setCharms] = React.useState([]);
+    const { favouriteSet } = useItemFavourites();
+    const { enabled: maxMasterworkDefault } = useMaxMasterwork();
     const [gameClass, setGameClass] = React.useState('none'); // "class" is a reserved word
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
@@ -637,6 +665,10 @@ export default function BuildForm({
     // the build name or notes; the words themselves are stripped.
     const [showRedX, setShowRedX] = React.useState(false);
     const redXTimeoutRef = React.useRef(null);
+    // Portal tooltip for delve infusion options: the dropdown menu scrolls,
+    // so an absolutely-positioned tooltip inside it would be clipped. This
+    // one renders on document.body, always on top.
+    const [tip, setTip] = React.useState(null); // { left, top, info }
 
     function triggerRedX() {
         setShowRedX(true);
@@ -736,7 +768,13 @@ export default function BuildForm({
     function statInputChanged(name, event) {
         const next = { ...statInputs, [name]: event.target.value };
         setStatInputs(next);
-        scheduleStatsRecalc();
+        // The recalc reads the form's DOM values, but the controlled inputs
+        // only reflect the new state after React commits (next render). The
+        // health slider shares its field name with the number box, and
+        // Object.fromEntries keeps the last duplicate - so without this
+        // override the stats would use the number input's stale value and
+        // never catch up on a single click.
+        scheduleStatsRecalc({ [name]: event.target.value });
     }
 
     // Typed values snap back into the 0-100 range (and to the default when
@@ -756,15 +794,18 @@ export default function BuildForm({
     const statRecalcTimerRef = React.useRef(null);
     const statLastRecalcRef = React.useRef(0);
 
-    function scheduleStatsRecalc() {
+    function scheduleStatsRecalc(statOverrides) {
         const elapsed = Date.now() - statLastRecalcRef.current;
         if (elapsed >= STAT_RECALC_WINDOW) {
             statLastRecalcRef.current = Date.now();
-            recalcBuildStats();
+            recalcBuildStats(statOverrides);
         } else if (!statRecalcTimerRef.current) {
             statRecalcTimerRef.current = setTimeout(() => {
                 statRecalcTimerRef.current = null;
                 statLastRecalcRef.current = Date.now();
+                // By the time the trailing edge fires, React has committed the
+                // new values to the DOM - re-reading the form is authoritative
+                // (the leading-edge override would be stale here).
                 recalcBuildStats();
             }, STAT_RECALC_WINDOW - elapsed);
         }
@@ -841,12 +882,49 @@ export default function BuildForm({
                 .filter(([s]) => s !== slot)
                 .map(([, name]) => name)
         );
-        const infusionOpts = DELVE_INFUSIONS.filter((i) => i.region <= regionValue && !pickedElsewhere.has(i.name)).map(
-            (i) => ({
-                value: i.name,
-                label: i.name,
-            })
-        );
+        // All infusions are usable in every region (the region field in the
+        // data only records where each infusion drops); only already-picked
+        // infusions (on other slots) are excluded so they can't be duplicated.
+        const infusionOpts = DELVE_INFUSIONS.filter((i) => !pickedElsewhere.has(i.name)).map((i) => ({
+            value: i.name,
+            label: i.name,
+        }));
+        // Menu options get a portal tooltip with the infusion's effect (the
+        // menu scrolls, so an in-menu tooltip would be clipped at its edges).
+        const InfusionOption = (props) => {
+            const info = DELVE_INFUSIONS.find((i) => i.name === props.data.value);
+            return (
+                <components.Option {...props}>
+                    <span
+                        className={styles.enchantTooltip}
+                        onMouseEnter={(e) => {
+                            if (!info || !info.effect) return;
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
+                        }}
+                        onMouseLeave={() => setTip(null)}
+                    >
+                        {props.children}
+                    </span>
+                </components.Option>
+            );
+        };
+        // The selected value in the control shows the same info as a plain
+        // enchant-style tooltip (the control doesn't scroll, so no portal).
+        const formatValueLabel = (opt) => {
+            const info = DELVE_INFUSIONS.find((i) => i.name === opt.value);
+            return (
+                <span className={styles.enchantTooltip}>
+                    {opt.label}
+                    {info && info.effect && (
+                        <span className={styles.enchantTooltipText}>
+                            <span style={{ fontWeight: 600 }}>{info.name}</span>
+                            <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
+                        </span>
+                    )}
+                </span>
+            );
+        };
         return (
             <div className={styles.delveSlotRow}>
                 <Select
@@ -863,6 +941,8 @@ export default function BuildForm({
                     menuPosition="fixed"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
+                    components={{ Option: InfusionOption }}
+                    formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
                 />
                 <input
                     type="number"
@@ -1000,8 +1080,13 @@ export default function BuildForm({
         }
     }
 
-    function recalcBuildStats() {
+    function recalcBuildStats(statOverrides) {
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
+        if (statOverrides) {
+            for (const [key, value] of Object.entries(statOverrides)) {
+                itemNames[key] = value;
+            }
+        }
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
@@ -1588,9 +1673,9 @@ export default function BuildForm({
         const effSavedState = isLoadedBuild ? savedState : effDraft;
         const loadedDelve = {};
         if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
-            const loadedRegion = Number(statValues.region) || 3;
             for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
-                const ok = DELVE_INFUSIONS.some((i) => i.name === infusion && i.region <= loadedRegion);
+                // Any infusion is valid in any region.
+                const ok = DELVE_INFUSIONS.some((i) => i.name === infusion);
                 if (ok) loadedDelve[slot] = infusion;
             }
             if (Object.keys(loadedDelve).length > 0) {
@@ -1663,6 +1748,18 @@ export default function BuildForm({
         }
     }, [parentLoaded, draft]);
 
+    // The spec dropdown's options come from the async skills data, but a
+    // loaded build sets `spec` (and remounts the select via specSelectKey)
+    // as soon as its URL parses - which can happen before the skills fetch
+    // resolves. The remount then resolves the default value against empty
+    // options and the dropdown stays blank even though the spec skills
+    // render. Remount once the options actually exist so the loaded spec
+    // shows in the dropdown.
+    React.useEffect(() => {
+        if (skillsData && spec) setSpecSelectKey((k) => k + 1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [skillsData]);
+
     // Import the build list (items collected on the items page) into empty
     // slots; charms append within the 12-power budget. Equipped items are
     // removed from the list, leftovers (misc, consumables, extra same-slot
@@ -1704,8 +1801,21 @@ export default function BuildForm({
 
         for (const entry of list) {
             const displayName = typeof entry === 'string' ? entry : entry.name;
-            const key = resolveItemKey(itemData, displayName);
+            let key = resolveItemKey(itemData, displayName);
             if (!key) continue;
+            // resolveItemKey returns the first matching variant key, which is
+            // the lowest masterwork ("X-1"). With the "Max masterwork"
+            // setting on, import at the highest variant instead - otherwise
+            // the imported tile would start at masterwork 1 regardless.
+            if (maxMasterworkDefault) {
+                const variants = Object.keys(itemData).filter(
+                    (k) => itemData[k].name === displayName && /-\d+$/.test(k)
+                );
+                if (variants.length > 1) {
+                    const highest = Math.max(...variants.map((k) => Number(k.split('-').at(-1))));
+                    key = variants.find((k) => Number(k.split('-').at(-1)) === highest) || key;
+                }
+            }
             const info = itemData[key];
             const type = String(info.type || '').toLowerCase();
             const slot = MAINHAND_TYPES.has(type)
@@ -1751,7 +1861,7 @@ export default function BuildForm({
             } catch (e) {}
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [parentLoaded]);
+    }, [parentLoaded, maxMasterworkDefault]);
 
     // Autosave the working state as a session draft (debounced) so an
     // accidental reload or a switch to another page doesn't lose it. The load
@@ -2062,6 +2172,54 @@ export default function BuildForm({
         setCharms(charmData);
     }
 
+    // Drag-to-reorder the equipped charms. Charm order lives in the build
+    // token (the charm= list), so reordering here is reflected everywhere
+    // the build is rendered: the saved link, the OG embed and the public
+    // database cards.
+    const charmDragRef = React.useRef(null);
+    const [charmDragging, setCharmDragging] = React.useState(null);
+
+    function startCharmDrag(name, e) {
+        if (e.dataTransfer) {
+            e.dataTransfer.setData('text/plain', `charm:${name}`);
+            e.dataTransfer.effectAllowed = 'move';
+            const row = e.currentTarget.closest(`.${styles.charmCardWrap}`) || e.currentTarget;
+            if (row) {
+                const ghost = row.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.left = '-9999px';
+                ghost.style.top = '-9999px';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.opacity = '0.85';
+                document.body.appendChild(ghost);
+                e.dataTransfer.setDragImage(ghost, 30, 30);
+                requestAnimationFrame(() => ghost.remove());
+            }
+        }
+        charmDragRef.current = name;
+        setCharmDragging(name);
+    }
+
+    function endCharmDrag() {
+        charmDragRef.current = null;
+        setCharmDragging(null);
+    }
+
+    function charmDragOver(name, e) {
+        const dragged = charmDragRef.current;
+        if (!dragged || dragged === name) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const names = charms.map((c) => c.name);
+        const from = names.indexOf(dragged);
+        const to = names.indexOf(name);
+        if (from === -1 || to === -1) return;
+        const next = [...names];
+        next.splice(from, 1);
+        next.splice(to, 0, dragged);
+        updateCharms(next);
+    }
+
     function removeCharm(charm) {
         updateCharms(charms.filter((c) => c.name !== charm.name).map((c) => c.name));
     }
@@ -2107,7 +2265,9 @@ export default function BuildForm({
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
     // Current health as a % of max health (0-100), clamped for the slider.
-    const healthPercentInput = Math.max(0, Math.min(100, Number(statInputs.health) || 100));
+    // Note: `|| 100` would snap a legit 0% back to 100, so check explicitly.
+    const rawHealthPercent = Number(statInputs.health);
+    const healthPercentInput = Math.max(0, Math.min(100, Number.isFinite(rawHealthPercent) ? rawHealthPercent : 100));
     const healthStats = [
         { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
         { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },
@@ -2779,11 +2939,6 @@ export default function BuildForm({
             )}
             <div className="row justify-content-center mb-1">
                 <div className="col-4 col-md-3 col-lg-2 text-center">
-                    <button type="submit" className={styles.recalcButton} value="Recalculate">
-                        <TranslatableText identifier="builder.buttons.recalculate"></TranslatableText>
-                    </button>
-                </div>
-                <div className="col-4 col-md-3 col-lg-2 text-center">
                     <button
                         type="button"
                         className={styles.shareButton}
@@ -2804,6 +2959,20 @@ export default function BuildForm({
                         {saveState === 'saving' ? 'Saving...' : saveState === 'copied' ? 'Copied!' : 'Copy/Save'}
                     </button>
                 </div>
+                {activeBuildId && (
+                    <div className="col-4 col-md-3 col-lg-2 text-center">
+                        <button
+                            type="button"
+                            className={styles.shareButton}
+                            id="saveAsNewCopy"
+                            onClick={() => saveBuildToServer(true)}
+                            disabled={saveState === 'saving'}
+                            title="Keep this build's link unchanged and save the current edits as a new build"
+                        >
+                            Save as new copy
+                        </button>
+                    </div>
+                )}
                 <div className="col-4 col-md-3 col-lg-2 text-center">
                     <input
                         type="button"
@@ -2814,6 +2983,11 @@ export default function BuildForm({
                     />
                 </div>
             </div>
+            <p className={styles.saveStatus} role="status">
+                {activeBuildId
+                    ? 'Editing a saved build - "Copy/Save" updates this build in place.'
+                    : 'Unsaved build - "Copy/Save" creates a new share link.'}
+            </p>
             {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
                     <button
@@ -2920,7 +3094,8 @@ export default function BuildForm({
                                 'trident',
                                 'alchemist bag',
                             ],
-                            itemData
+                            itemData,
+                            favouriteSet
                         )}
                         onChange={itemChanged}
                     ></SelectInput>
@@ -2933,7 +3108,11 @@ export default function BuildForm({
                         name="offhand"
                         default={getEquipName('offhand')}
                         noneOption={true}
-                        sortableStats={getRelevantItems(['offhand', 'offhand shield', 'offhand sword'], itemData)}
+                        sortableStats={getRelevantItems(
+                            ['offhand', 'offhand shield', 'offhand sword'],
+                            itemData,
+                            favouriteSet
+                        )}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('offhand')}
@@ -2945,7 +3124,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="helmet"
                         default={getEquipName('helmet')}
-                        sortableStats={getRelevantItems(['helmet'], itemData)}
+                        sortableStats={getRelevantItems(['helmet'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('helmet')}
@@ -2957,7 +3136,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="chestplate"
                         default={getEquipName('chestplate')}
-                        sortableStats={getRelevantItems(['chestplate'], itemData)}
+                        sortableStats={getRelevantItems(['chestplate'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('chestplate')}
@@ -2969,7 +3148,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="leggings"
                         default={getEquipName('leggings')}
-                        sortableStats={getRelevantItems(['leggings'], itemData)}
+                        sortableStats={getRelevantItems(['leggings'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('leggings')}
@@ -2981,7 +3160,7 @@ export default function BuildForm({
                         noneOption={true}
                         name="boots"
                         default={getEquipName('boots')}
-                        sortableStats={getRelevantItems(['boots'], itemData)}
+                        sortableStats={getRelevantItems(['boots'], itemData, favouriteSet)}
                         onChange={itemChanged}
                     ></SelectInput>
                     {delveOpen && delveSlotSelects('boots')}
@@ -3000,9 +3179,14 @@ export default function BuildForm({
                                     item={createMasterworkData(removeMasterworkFromName(tileName), itemData)}
                                     itemData={itemData}
                                     default={Number(tileName.split('-').at(-1))}
+                                    showFavouriteButton
                                 ></MasterworkableItemTile>
                             ) : (
-                                <ItemTile name={tileName} item={stats.fullItemData[type]}></ItemTile>
+                                <ItemTile
+                                    name={tileName}
+                                    item={stats.fullItemData[type]}
+                                    showFavouriteButton
+                                ></ItemTile>
                             )}
                         </div>
                     );
@@ -3027,8 +3211,14 @@ export default function BuildForm({
                     <div className="row justify-content-center mb-1">
                         {charms.map((charm) => (
                             <div className={`col-auto ${styles.builderCol}`} key={charm.name}>
-                                <div className={styles.charmCardWrap}>
-                                    <CharmTile name={charm.name} item={charm}></CharmTile>
+                                <div
+                                    className={`${styles.charmCardWrap}${charmDragging === charm.name ? ` ${styles.charmDragging}` : ''}`}
+                                    draggable
+                                    onDragStart={(e) => startCharmDrag(charm.name, e)}
+                                    onDragOver={(e) => charmDragOver(charm.name, e)}
+                                    onDragEnd={endCharmDrag}
+                                >
+                                    <CharmTile name={charm.name} item={charm} showFavouriteButton></CharmTile>
                                     <button
                                         type="button"
                                         className={styles.charmRemoveButton}
@@ -3573,6 +3763,14 @@ export default function BuildForm({
                     </div>
                 </div>
             )}
+            {tip &&
+                createPortal(
+                    <div className={styles.infusionTip} style={{ left: tip.left, top: tip.top }}>
+                        <span style={{ fontWeight: 600 }}>{tip.info.name}</span>
+                        {tip.info.effect && <span style={{ display: 'block', marginTop: 3 }}>{tip.info.effect}</span>}
+                    </div>,
+                    document.body
+                )}
         </form>
     );
 }

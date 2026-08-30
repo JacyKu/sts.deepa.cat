@@ -354,6 +354,22 @@ function getRelevantItems(data, itemData, hideSkins) {
     }
 
     // Reverse to give higher sorting priority to the earliest filters
+    let wantedCharmSkills = extractFilterValues(data, 'charmSkillSelect').reverse();
+    if (wantedCharmSkills.length > 0) {
+        wantedCharmSkills.forEach((skill) => {
+            // Charm stats are keyed by the skill they affect, e.g.
+            // "arcane_strike_cooldown_percent" for Arcane Strike.
+            const token = skill.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            items = items.filter(
+                (name) =>
+                    itemData[name].type == 'Charm' &&
+                    itemData[name].stats &&
+                    Object.keys(itemData[name].stats).some((stat) => stat === token || stat.startsWith(token + '_'))
+            );
+        });
+    }
+
+    // Reverse to give higher sorting priority to the earliest filters
     let wantedItemStats = extractFilterValues(data, 'itemStatSelect').reverse();
     if (wantedItemStats.length > 0) {
         wantedItemStats.forEach((stat) => {
@@ -480,6 +496,7 @@ export default function ItemsPage({ itemData }) {
                                         item={name}
                                         itemData={itemData}
                                         showListButton
+                                        showFavouriteButton
                                     ></MasterworkableItemTile>
                                 );
                             }
@@ -490,6 +507,7 @@ export default function ItemsPage({ itemData }) {
                                         name={itemData[name].name}
                                         item={itemData[name]}
                                         showListButton
+                                        showFavouriteButton
                                     ></CharmTile>
                                 );
                             }
@@ -503,7 +521,15 @@ export default function ItemsPage({ itemData }) {
                                     ></ConsumableTile>
                                 );
                             }
-                            return <ItemTile key={name} name={name} item={itemData[name]} showListButton></ItemTile>;
+                            return (
+                                <ItemTile
+                                    key={name}
+                                    name={name}
+                                    item={itemData[name]}
+                                    showListButton
+                                    showFavouriteButton
+                                ></ItemTile>
+                            );
                         })}
                     </InfiniteScroll>
                 )}

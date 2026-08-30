@@ -447,6 +447,59 @@
     gap: 8px;
 }
 
+/* Fav + layout-swap buttons grouped on the card's top-right. */
+.cardTopBtns {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Small layout swap button: appears (sliding in from below) when the card
+   is hovered and flips the card between "skills on card / items on hover"
+   and the opposite. Absolutely positioned right below the favourite button
+   so it takes no layout space while hidden. */
+.swapLayoutBtn {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    /* The translateY transform creates a stacking context, which would trap
+       the tooltip inside the button and let the card's side panel paint over
+       it; raising the button above the panel (z-index: auto) fixes that. */
+    z-index: 30;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition:
+        opacity 180ms ease,
+        transform 180ms ease,
+        color 150ms ease,
+        border-color 150ms ease;
+}
+
+.card:hover .swapLayoutBtn {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.swapLayoutBtn:hover {
+    color: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+}
+
 .cardTitle {
     flex: 1;
     min-width: 0;
@@ -497,6 +550,8 @@
 
 .tag,
 .classTag {
+    display: inline-flex;
+    align-items: center;
     padding: 3px 10px;
     border: 1px solid var(--glass-border);
     background: var(--surface-2);
@@ -505,8 +560,6 @@
 }
 
 .classTag {
-    display: inline-flex;
-    align-items: center;
     gap: 5px;
     color: var(--accent, #9c59d1);
     font-weight: 600;
@@ -537,6 +590,20 @@
     gap: 5px;
 }
 
+/* Animated swap between the skills row and the item strip: each chip / icon
+   cascades in with a small drop (30ms stagger). */
+@keyframes cardContentIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .skillChip {
     display: inline-flex;
     align-items: center;
@@ -545,10 +612,142 @@
     border: 1px solid var(--glass-border);
     background: var(--surface-2);
     font-size: 13px;
+    animation: cardContentIn 220ms ease both;
+}
+
+.skillChip:nth-child(2) {
+    animation-delay: 30ms;
+}
+
+.skillChip:nth-child(3) {
+    animation-delay: 60ms;
+}
+
+.skillChip:nth-child(4) {
+    animation-delay: 90ms;
+}
+
+.skillChip:nth-child(5) {
+    animation-delay: 120ms;
+}
+
+.skillChip:nth-child(6) {
+    animation-delay: 150ms;
+}
+
+.skillChip:nth-child(n + 7) {
+    animation-delay: 180ms;
+}
+
+/* Compact item icon strip on the card face (shown when items take the
+   inline slot: "items first" toggle, or a build with no skills). The
+   spritesheets are laid out for 64px boxes with fixed pixel positions, so
+   each sprite renders at its native 64px and is uniformly scaled down via
+   transform - no cropping or misalignment at other sizes. */
+.itemStrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Forces a line break in the strip: charms start on their own line. */
+.itemStripBreak {
+    flex-basis: 100%;
+    height: 0;
+}
+
+.itemStripWrap {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    animation: cardContentIn 220ms ease both;
+}
+
+.itemStripWrap:nth-child(2) {
+    animation-delay: 30ms;
+}
+
+.itemStripWrap:nth-child(3) {
+    animation-delay: 60ms;
+}
+
+.itemStripWrap:nth-child(4) {
+    animation-delay: 90ms;
+}
+
+.itemStripWrap:nth-child(5) {
+    animation-delay: 120ms;
+}
+
+.itemStripWrap:nth-child(6) {
+    animation-delay: 150ms;
+}
+
+.itemStripWrap:nth-child(n + 7) {
+    animation-delay: 180ms;
+}
+
+.itemStripIcon {
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+}
+
+/* Hide-textures placeholder for the compact strip icons. */
+.stripLowRes {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--control-border, #333);
+    background: var(--surface-2, #17171f);
+}
+
+.itemStripIcon .previewSprite {
+    width: 64px;
+    height: 64px;
+    transform: scale(0.625);
+    transform-origin: top left;
+}
+
+.itemStripLabel {
+    font-size: 8px;
+    line-height: 1;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
 }
 
 .skillAbbr {
     font-weight: 600;
+}
+
+/* Full-name skill chips in the extended side panel: stretch to the panel
+   width like the item rows do. */
+.skillChipFull {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+/* Portal tooltip for side-panel chips: rendered on document.body so it is
+   never clipped by the panel's scrolling box - it overlays the card and
+   panel edges. */
+.cardTip {
+    position: fixed;
+    z-index: 10000;
+    transform: translate(-50%, -100%);
+    max-width: min(300px, calc(100vw - 16px));
+    background: #15151f;
+    border: 1px solid #45456b;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #f0f0f0;
+    text-align: center;
+    white-space: normal;
+    pointer-events: none;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
 
 .skillPoints {
