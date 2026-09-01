@@ -28,6 +28,7 @@ import {
     getBuildTokenVersion,
 } from '../../utils/builder/buildUrlCodec';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
+import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
 
 const infusionSelectTheme = (theme) => ({
     ...theme,
@@ -67,7 +68,8 @@ const emptyBuild = {
 // Session autosave: the current build draft is kept in localStorage so an
 // accidental reload / navigation away doesn't lose unsaved work. Restored on
 // the plain /builder page, or on /b/<id> when the draft belongs to that build.
-const DRAFT_KEY = 'sts.buildDraft.v1';
+// Skipped entirely when the "Cache builds" setting is off.
+const DRAFT_KEY = DRAFT_DATA_KEY;
 
 // Build list (shopping list): items collected on the items page are read from
 // localStorage on mount and equipped into empty slots. Leftovers (misc items,
@@ -117,11 +119,12 @@ function isBuildListEnabled() {
 }
 
 // Reorderable skill/ability lists: the custom order (a personal layout
-// preference) is stored in localStorage per class / specialization / tree.
-const ORDER_PREFIX = 'sts.order.';
+// preference) is stored in localStorage per class / specialization / tree,
+// unless the "Cache builds" setting is off.
+const ORDER_PREFIX = ORDER_PREFIX_KEY;
 
 function readOrder(container) {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined' || !isBuildsCacheEnabled()) return null;
     try {
         const raw = window.localStorage.getItem(ORDER_PREFIX + container);
         return raw ? JSON.parse(raw) : null;
@@ -131,7 +134,7 @@ function readOrder(container) {
 }
 
 function writeOrder(container, orderedKeys) {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !isBuildsCacheEnabled()) return;
     try {
         window.localStorage.setItem(ORDER_PREFIX + container, JSON.stringify(orderedKeys));
     } catch (e) {}
@@ -684,8 +687,10 @@ export default function BuildForm({
     const [draft, setDraft] = React.useState(null); // restored session draft, if any
 
     // Read the session draft once on mount (localStorage is not available
-    // during SSR, and reading it in a render would break hydration).
+    // during SSR, and reading it in a render would break hydration). Skipped
+    // when the "Cache builds" setting is off.
     React.useEffect(() => {
+        if (!isBuildsCacheEnabled()) return;
         try {
             const raw = window.localStorage.getItem(DRAFT_KEY);
             if (raw) setDraft(JSON.parse(raw));
@@ -1871,6 +1876,8 @@ export default function BuildForm({
         if (!parentLoaded) return;
         const timer = setTimeout(() => {
             try {
+                // Skipped when the "Cache builds" setting is off.
+                if (!isBuildsCacheEnabled()) return;
                 window.localStorage.setItem(
                     DRAFT_KEY,
                     JSON.stringify({

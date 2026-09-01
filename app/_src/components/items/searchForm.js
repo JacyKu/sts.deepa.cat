@@ -3,6 +3,7 @@ import styles from '../../styles/SearchForm.module.css';
 import SelectWithTriggers from './selectWithTriggers';
 import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
+import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
 
 export default function SearchForm({ update, itemData }) {
     const [itemStatKey, setItemStatKey] = React.useState(getResetKey('search'));
@@ -76,8 +77,9 @@ export default function SearchForm({ update, itemData }) {
     const searchContainer = React.useRef();
 
     // The search survives page switches: every submit snapshot is cached and
-    // restored on mount (until the user hits Reset).
-    const SEARCH_CACHE_KEY = 'sts.itemsSearch.v1';
+    // restored on mount (until the user hits Reset) - unless the "Cache
+    // searches" setting is off (Settings menu).
+    const SEARCH_CACHE_KEY = SEARCH_CACHE_DATA_KEY;
     const savedSearch = React.useRef(null);
     const [restored, setRestored] = React.useState(false);
 
@@ -385,17 +387,19 @@ export default function SearchForm({ update, itemData }) {
                 }
                 if (category) rows.push({ category, values });
             }
-            localStorage.setItem(
-                SEARCH_CACHE_KEY,
-                JSON.stringify({
-                    rows,
-                    searchName: entries.searchName || '',
-                    searchLore: entries.searchLore || '',
-                    hideUnobtainable: entries.hideUnobtainable === 'on',
-                    hideNonGear: entries.hideNonGear === 'on',
-                    hideQuestItems: entries.hideQuestItems === 'on',
-                })
-            );
+            if (isSearchCacheEnabled()) {
+                localStorage.setItem(
+                    SEARCH_CACHE_KEY,
+                    JSON.stringify({
+                        rows,
+                        searchName: entries.searchName || '',
+                        searchLore: entries.searchLore || '',
+                        hideUnobtainable: entries.hideUnobtainable === 'on',
+                        hideNonGear: entries.hideNonGear === 'on',
+                        hideQuestItems: entries.hideQuestItems === 'on',
+                    })
+                );
+            }
         } catch (e) {}
     }
 
@@ -403,6 +407,7 @@ export default function SearchForm({ update, itemData }) {
     // (category + selected value), refill the text inputs / checkboxes and
     // re-apply the results through the parent.
     React.useEffect(() => {
+        if (!isSearchCacheEnabled()) return;
         let cache = null;
         try {
             cache = JSON.parse(localStorage.getItem(SEARCH_CACHE_KEY) || 'null');
@@ -468,7 +473,7 @@ export default function SearchForm({ update, itemData }) {
 
     function resetForm() {
         try {
-            localStorage.removeItem(SEARCH_CACHE_KEY);
+            if (isSearchCacheEnabled()) localStorage.removeItem(SEARCH_CACHE_KEY);
         } catch (e) {}
         savedSearch.current = null;
         setItemStatKey(getResetKey('search'));

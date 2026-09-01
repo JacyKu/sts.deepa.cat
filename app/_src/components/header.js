@@ -9,6 +9,7 @@ import HideSkinsToggle from './items/hideSkinsToggle';
 import FavouritesToggle from './items/favouritesToggle';
 import MaxMasterworkToggle from './items/maxMasterworkToggle';
 import BuildListToggle from './items/buildListToggle';
+import { CacheSearchToggle, CacheBuildsToggle } from './cachingToggles';
 import AnimationsToggle from './items/animationsToggle';
 import styles from '../styles/Header.module.css';
 import itemsStyles from '../styles/Items.module.css';
@@ -359,6 +360,8 @@ export default function Header() {
                 <FavouritesToggle className={styles.loreToggle} />
                 <MaxMasterworkToggle className={styles.loreToggle} />
                 <BuildListToggle className={styles.loreToggle} />
+                <CacheSearchToggle className={styles.loreToggle} />
+                <CacheBuildsToggle className={styles.loreToggle} />
                 <HeaderSelect
                     instanceId="font"
                     options={fontOptions}
