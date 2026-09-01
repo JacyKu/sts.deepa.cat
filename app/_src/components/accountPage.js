@@ -7,13 +7,16 @@ import { useSessionState } from './header';
 // The signed-in user's account page: Discord identity plus the Minecraft
 // UUIDs linked to it. Linking itself happens in game (/stsmod link); this
 // page is where a player disconnects a UUID so it can be linked to a
-// different Discord account.
+// different Discord account. Account deletion lives here too.
 export default function AccountPage() {
     const session = useSessionState();
     const [links, setLinks] = React.useState([]);
     const [loaded, setLoaded] = React.useState(false);
     const [error, setError] = React.useState(null);
     const [busy, setBusy] = React.useState(null);
+    const [confirmDelete, setConfirmDelete] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
+    const [deleteError, setDeleteError] = React.useState(null);
 
     React.useEffect(() => {
         if (!session.checked) return;
@@ -40,6 +43,18 @@ export default function AccountPage() {
             .then(() => setLinks((prev) => prev.filter((l) => l.uuid !== uuid)))
             .catch(() => setError('Could not disconnect the Minecraft profile.'))
             .finally(() => setBusy(null));
+    }
+
+    function deleteProfile() {
+        setDeleting(true);
+        setDeleteError(null);
+        fetch('/api/v1/account/delete', { method: 'POST' })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then(() => {
+                window.location.href = '/';
+            })
+            .catch(() => setDeleteError('Could not delete your profile. Try again.'))
+            .finally(() => setDeleting(false));
     }
 
     if (!session.checked) return null;
@@ -115,6 +130,45 @@ export default function AccountPage() {
                             </li>
                         ))}
                     </ul>
+                )}
+            </section>
+
+            <section className={styles.card}>
+                <h2 className={styles.cardTitle}>Danger zone</h2>
+                <p className={styles.muted}>
+                    Deleting your profile removes your favourites, custom items and Minecraft profile links. Your saved
+                    builds keep their links but leave the public database and are no longer associated with your
+                    account.
+                </p>
+                {deleteError && <p className={styles.error}>{deleteError}</p>}
+                {!confirmDelete ? (
+                    <button
+                        type="button"
+                        className={styles.deleteButton}
+                        onClick={() => setConfirmDelete(true)}
+                        disabled={deleting}
+                    >
+                        Delete my profile
+                    </button>
+                ) : (
+                    <div className={styles.confirmRow}>
+                        <button
+                            type="button"
+                            className={styles.deleteButton}
+                            onClick={deleteProfile}
+                            disabled={deleting}
+                        >
+                            {deleting ? 'Deleting…' : 'Yes, delete my profile'}
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.cancelButton}
+                            onClick={() => setConfirmDelete(false)}
+                            disabled={deleting}
+                        >
+                            Cancel
+                        </button>
+                    </div>
                 )}
             </section>
         </main>

@@ -137,3 +137,41 @@
     font-weight: 600;
     padding: 0.55rem 1.5rem;
 }
+
+.deleteButton {
+    align-self: flex-start;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #ff8080;
+    padding: 0.55rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.deleteButton:hover {
+    background: rgba(239, 68, 68, 0.28);
+}
+
+.deleteButton:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.cancelButton {
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.55rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cancelButton:hover {
+    background: var(--glass-3, var(--glass-2));
+}
+
+.confirmRow {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
