@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import Select from 'react-select';
 import TranslatableText from './translatableText';
 import LoreToggle from './items/loreToggle';
@@ -9,6 +10,7 @@ import HideSkinsToggle from './items/hideSkinsToggle';
 import FavouritesToggle from './items/favouritesToggle';
 import MaxMasterworkToggle from './items/maxMasterworkToggle';
 import BuildListToggle from './items/buildListToggle';
+import BuilderLayoutToggle from './builderLayoutToggle';
 import { CacheSearchToggle, CacheBuildsToggle } from './cachingToggles';
 import AnimationsToggle from './items/animationsToggle';
 import styles from '../styles/Header.module.css';
@@ -123,7 +125,7 @@ function getPreferredTheme() {
     if (typeof window === 'undefined') return 'dark';
     try {
         const stored = localStorage.getItem('theme');
-        if (stored === 'light' || stored === 'dark') return stored;
+        if (stored === 'light' || stored === 'dark' || stored === 'glass' || stored === 'round') return stored;
     } catch (e) {
         // ignore
     }
@@ -131,11 +133,68 @@ function getPreferredTheme() {
     return prefersLight ? 'light' : 'dark';
 }
 
-const FONT_ORDER = ['ubuntu', 'minecraft', 'default'];
-const FONT_LABELS = { ubuntu: 'Default', minecraft: 'Minecraft', default: 'Legacy' };
+const FONT_ORDER = ['ubuntu', 'minecraft', 'default', 'mono'];
+const FONT_LABELS = { ubuntu: 'Default', minecraft: 'Minecraft', default: 'Legacy', mono: 'Monospace' };
+// Pride-flag colour schemes for the Glass theme's backdrop (settings ->
+// the scheme dropdown, visible while Glass is active).
+const GLASS_SCHEMES = [
+    'enby',
+    'trans',
+    'rainbow',
+    'gay',
+    'lesbian',
+    'bi',
+    'pan',
+    'red',
+    'orange',
+    'yellow',
+    'green',
+    'blue',
+    'purple',
+];
+// Blob colors per scheme, matching the flags (top stripe color first).
+// Kept slightly translucent so the page content stays readable on top.
+// Basic colors use a single hue with varied alphas. Kept slightly
+// translucent so the page content stays readable on top.
+const GLASS_COLORS = {
+    enby: [
+        'rgba(252, 244, 49, 0.4)',
+        'rgba(255, 255, 255, 0.32)',
+        'rgba(156, 89, 209, 0.45)',
+        'rgba(252, 244, 49, 0.24)',
+    ],
+    trans: [
+        'rgba(91, 206, 250, 0.4)',
+        'rgba(245, 169, 184, 0.36)',
+        'rgba(255, 255, 255, 0.32)',
+        'rgba(91, 206, 250, 0.28)',
+    ],
+    rainbow: ['rgba(228, 3, 3, 0.4)', 'rgba(255, 237, 0, 0.32)', 'rgba(36, 64, 142, 0.4)', 'rgba(0, 128, 38, 0.32)'],
+    gay: ['rgba(7, 141, 112, 0.4)', 'rgba(255, 255, 255, 0.32)', 'rgba(80, 73, 204, 0.4)', 'rgba(38, 206, 170, 0.32)'],
+    lesbian: [
+        'rgba(239, 118, 39, 0.4)',
+        'rgba(255, 255, 255, 0.32)',
+        'rgba(163, 2, 98, 0.4)',
+        'rgba(209, 98, 164, 0.32)',
+    ],
+    bi: ['rgba(214, 2, 112, 0.4)', 'rgba(155, 79, 150, 0.36)', 'rgba(0, 56, 168, 0.4)', 'rgba(214, 2, 112, 0.28)'],
+    pan: ['rgba(255, 28, 142, 0.4)', 'rgba(255, 215, 0, 0.36)', 'rgba(26, 179, 255, 0.4)', 'rgba(255, 28, 142, 0.28)'],
+    red: ['rgba(228, 3, 3, 0.4)', 'rgba(228, 3, 3, 0.32)', 'rgba(228, 3, 3, 0.45)', 'rgba(228, 3, 3, 0.24)'],
+    orange: ['rgba(255, 140, 0, 0.4)', 'rgba(255, 140, 0, 0.32)', 'rgba(255, 140, 0, 0.45)', 'rgba(255, 140, 0, 0.24)'],
+    yellow: ['rgba(255, 215, 0, 0.4)', 'rgba(255, 215, 0, 0.32)', 'rgba(255, 215, 0, 0.45)', 'rgba(255, 215, 0, 0.24)'],
+    green: ['rgba(0, 128, 38, 0.4)', 'rgba(0, 128, 38, 0.32)', 'rgba(0, 128, 38, 0.45)', 'rgba(0, 128, 38, 0.24)'],
+    blue: ['rgba(37, 99, 235, 0.4)', 'rgba(37, 99, 235, 0.32)', 'rgba(37, 99, 235, 0.45)', 'rgba(37, 99, 235, 0.24)'],
+    purple: [
+        'rgba(156, 89, 209, 0.4)',
+        'rgba(156, 89, 209, 0.32)',
+        'rgba(156, 89, 209, 0.45)',
+        'rgba(156, 89, 209, 0.24)',
+    ],
+};
 const FONT_STACKS = {
     ubuntu: "'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     minecraft: "'Minecraft', monospace",
+    mono: "'Ubuntu Mono', 'Courier New', monospace",
     default:
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
 };
@@ -240,6 +299,9 @@ export function HeaderNav() {
 export default function Header() {
     const [theme, setTheme] = React.useState('dark');
     const [font, setFont] = React.useState('ubuntu');
+    const [glassScheme, setGlassScheme] = React.useState('enby');
+    const [glassAnim, setGlassAnim] = React.useState(false);
+    const [glassFlag, setGlassFlag] = React.useState(false);
     const { lowRes, toggle: toggleLowRes } = useLowResource();
     const session = useSessionState();
 
@@ -259,7 +321,7 @@ export default function Header() {
 
     React.useEffect(() => {
         const current = document.documentElement.dataset.theme;
-        if (current === 'light' || current === 'dark') {
+        if (current === 'light' || current === 'dark' || current === 'glass' || current === 'round') {
             setTheme(current);
         } else {
             const preferred = getPreferredTheme();
@@ -277,6 +339,32 @@ export default function Header() {
             document.documentElement.dataset.font = storedFont;
             setFont(storedFont);
         }
+        // The glass backdrop scheme (only meaningful while Glass is active).
+        const storedScheme = (() => {
+            try {
+                return localStorage.getItem('glassScheme');
+            } catch (e) {
+                return null;
+            }
+        })();
+        if (GLASS_SCHEMES.includes(storedScheme)) {
+            document.documentElement.dataset.glassScheme = storedScheme;
+            setGlassScheme(storedScheme);
+        }
+        // Glass backdrop extras: animation and full-page flag gradient mode.
+        for (const [key, setter, attr] of [
+            ['glassAnim', setGlassAnim, 'glassAnim'],
+            ['glassFlag', setGlassFlag, 'glassFlag'],
+        ]) {
+            try {
+                if (localStorage.getItem(key) === 'true') {
+                    document.documentElement.dataset[attr] = 'true';
+                    setter(true);
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
     }, []);
 
     const setThemeValue = (nextTheme) => {
@@ -284,6 +372,53 @@ export default function Header() {
         setTheme(nextTheme);
         try {
             localStorage.setItem('theme', nextTheme);
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    // While the Glass theme is active, make sure the scheme attribute exists
+    // (the flag-gradient rules key off it), and randomize the flag gradient's
+    // angle per page load. The blob positions themselves are randomized at
+    // render time below (blobSpots).
+    React.useEffect(() => {
+        if (theme !== 'glass') return;
+        const root = document.documentElement;
+        if (!root.dataset.glassScheme) {
+            root.dataset.glassScheme = glassScheme;
+        }
+        root.style.setProperty('--glass-angle', Math.round(115 + Math.random() * 40) + 'deg');
+    }, [theme]);
+
+    const setGlassSchemeValue = (nextScheme) => {
+        document.documentElement.dataset.glassScheme = nextScheme;
+        setGlassScheme(nextScheme);
+        try {
+            localStorage.setItem('glassScheme', nextScheme);
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    // Glass backdrop toggles: animate the glow blobs, or show the flag as a
+    // full-page gradient in the correct stripe order instead of the blobs.
+    const setGlassAnimValue = (next) => {
+        setGlassAnim(next);
+        if (next) document.documentElement.dataset.glassAnim = 'true';
+        else delete document.documentElement.dataset.glassAnim;
+        try {
+            localStorage.setItem('glassAnim', String(next));
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    const setGlassFlagValue = (next) => {
+        setGlassFlag(next);
+        if (next) document.documentElement.dataset.glassFlag = 'true';
+        else delete document.documentElement.dataset.glassFlag;
+        try {
+            localStorage.setItem('glassFlag', String(next));
         } catch (e) {
             // ignore
         }
@@ -307,79 +442,176 @@ export default function Header() {
     const themeOptions = [
         { value: 'dark', label: 'Dark' },
         { value: 'light', label: 'Light' },
+        { value: 'glass', label: 'Glass' },
+        { value: 'round', label: 'Round' },
     ];
+    const glassSchemeOptions = GLASS_SCHEMES.map((value) => ({
+        value,
+        label: value.charAt(0).toUpperCase() + value.slice(1),
+    }));
 
     const [menuOpen, setMenuOpen] = React.useState(false);
     const closeMenu = () => setMenuOpen(false);
 
+    // Random blob spots, stable for the component's lifetime (re-renders and
+    // scheme switches keep the positions; only the colors change).
+    const blobSpots = React.useMemo(
+        () =>
+            Array.from({ length: 6 }, () => ({
+                x: Math.round(Math.random() * 100),
+                y: Math.round(Math.random() * 100),
+                size: Math.round(700 + Math.random() * 1000),
+                dur: 24 + Math.random() * 18,
+                delay: -Math.random() * 30,
+            })),
+        []
+    );
+
     return (
-        <div className={styles.controls}>
-            <AccountChip session={session} />
-            <button
-                type="button"
-                className={styles.menuBtn}
-                onClick={() => setMenuOpen((o) => !o)}
-                aria-label="Settings"
-                aria-expanded={menuOpen}
-            >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-                    <path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.2 7.2 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.24-1.12.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.4.31.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96c.21.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z" />
-                </svg>
-            </button>
-            {menuOpen && <div className={styles.menuBackdrop} onClick={closeMenu} />}
-            <div className={`${styles.menuPanel}${menuOpen ? ` ${styles.menuOpen}` : ''}`}>
-                {session.user && (
+        <>
+            {theme === 'glass' &&
+                !glassFlag &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                    <div className="glass-backdrop" aria-hidden="true">
+                        {blobSpots.map((spot, i) => (
+                            <span
+                                key={i}
+                                className={`glass-blob${glassAnim ? ' glass-blob-anim' : ''}`}
+                                style={{
+                                    // Anchor by the blob's CENTER, so the glow
+                                    // (strongest at the middle) is what lands at
+                                    // the random spot instead of the top-left
+                                    // corner pushing the glow off to the right
+                                    // and bottom.
+                                    left: `calc(${spot.x}% - ${spot.size / 2}px)`,
+                                    top: `calc(${spot.y}% - ${spot.size / 2}px)`,
+                                    width: spot.size + 'px',
+                                    height: spot.size + 'px',
+                                    background: `radial-gradient(circle at 50% 50%, ${
+                                        GLASS_COLORS[glassScheme][i % GLASS_COLORS[glassScheme].length]
+                                    }, transparent 70%)`,
+                                    ...(glassAnim
+                                        ? {
+                                              animationDuration: spot.dur.toFixed(1) + 's',
+                                              animationDelay: spot.delay.toFixed(1) + 's',
+                                          }
+                                        : {}),
+                                }}
+                            />
+                        ))}
+                    </div>,
+                    document.body
+                )}
+            <div className={styles.controls}>
+                <AccountChip session={session} />
+                <button
+                    type="button"
+                    className={styles.menuBtn}
+                    onClick={() => setMenuOpen((o) => !o)}
+                    aria-label="Settings"
+                    aria-expanded={menuOpen}
+                >
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+                        <path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.2 7.2 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.24-1.12.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.4.31.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96c.21.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z" />
+                    </svg>
+                </button>
+                {menuOpen && <div className={styles.menuBackdrop} onClick={closeMenu} />}
+                <div className={`${styles.menuPanel}${menuOpen ? ` ${styles.menuOpen}` : ''}`}>
+                    {session.user && (
+                        <label className={`${styles.toggle} ${styles.loreToggle}`}>
+                            <input
+                                type="checkbox"
+                                checked={session.anonymous}
+                                onChange={toggleAnonymize}
+                                aria-label="Anonymize me"
+                            />
+                            <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
+                                <TranslatableText identifier="auth.anonymizeMe" />
+                                <span className={itemsStyles.enchantTooltipText}>
+                                    Hide your username on public builds - you will appear as Anonymous.
+                                </span>
+                            </span>
+                        </label>
+                    )}
                     <label className={`${styles.toggle} ${styles.loreToggle}`}>
-                        <input
-                            type="checkbox"
-                            checked={session.anonymous}
-                            onChange={toggleAnonymize}
-                            aria-label="Anonymize me"
-                        />
+                        <input type="checkbox" checked={lowRes} onChange={toggleLowRes} aria-label="Hide textures" />
                         <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                            <TranslatableText identifier="auth.anonymizeMe" />
+                            Hide Textures
                             <span className={itemsStyles.enchantTooltipText}>
-                                Hide your username on public builds - you will appear as Anonymous.
+                                Replace item textures with plain placeholders - faster scrolling on low-end devices.
                             </span>
                         </span>
                     </label>
-                )}
-                <label className={`${styles.toggle} ${styles.loreToggle}`}>
-                    <input type="checkbox" checked={lowRes} onChange={toggleLowRes} aria-label="Hide textures" />
-                    <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                        Hide Textures
-                        <span className={itemsStyles.enchantTooltipText}>
-                            Replace item textures with plain placeholders - faster scrolling on low-end devices.
-                        </span>
-                    </span>
-                </label>
-                <AnimationsToggle className={styles.loreToggle} />
-                <LoreToggle className={styles.loreToggle} />
-                <ObtainmentToggle className={styles.loreToggle} />
-                <HideSkinsToggle className={styles.loreToggle} />
-                <FavouritesToggle className={styles.loreToggle} />
-                <MaxMasterworkToggle className={styles.loreToggle} />
-                <BuildListToggle className={styles.loreToggle} />
-                <CacheSearchToggle className={styles.loreToggle} />
-                <CacheBuildsToggle className={styles.loreToggle} />
-                <HeaderSelect
-                    instanceId="font"
-                    options={fontOptions}
-                    value={font}
-                    onChange={(option) => setFontValue(option.value)}
-                    formatOptionLabel={({ label, fontFamily }, { context }) =>
-                        context === 'menu' && fontFamily ? <span style={{ fontFamily }}>{label}</span> : label
-                    }
-                    className={styles.fontSelect}
-                />
-                <HeaderSelect
-                    instanceId="theme"
-                    options={themeOptions}
-                    value={theme}
-                    onChange={(option) => setThemeValue(option.value)}
-                    className={styles.themeSelect}
-                />
+                    <AnimationsToggle className={styles.loreToggle} />
+                    <LoreToggle className={styles.loreToggle} />
+                    <ObtainmentToggle className={styles.loreToggle} />
+                    <HideSkinsToggle className={styles.loreToggle} />
+                    <FavouritesToggle className={styles.loreToggle} />
+                    <MaxMasterworkToggle className={styles.loreToggle} />
+                    <BuildListToggle className={styles.loreToggle} />
+                    <BuilderLayoutToggle className={styles.loreToggle} />
+                    <CacheSearchToggle className={styles.loreToggle} />
+                    <CacheBuildsToggle className={styles.loreToggle} />
+                    <HeaderSelect
+                        instanceId="font"
+                        options={fontOptions}
+                        value={font}
+                        onChange={(option) => setFontValue(option.value)}
+                        formatOptionLabel={({ label, fontFamily }, { context }) =>
+                            context === 'menu' && fontFamily ? <span style={{ fontFamily }}>{label}</span> : label
+                        }
+                        className={styles.fontSelect}
+                    />
+                    <HeaderSelect
+                        instanceId="theme"
+                        options={themeOptions}
+                        value={theme}
+                        onChange={(option) => setThemeValue(option.value)}
+                        className={styles.themeSelect}
+                    />
+                    {theme === 'glass' && (
+                        <>
+                            <HeaderSelect
+                                instanceId="glassScheme"
+                                options={glassSchemeOptions}
+                                value={glassScheme}
+                                onChange={(option) => setGlassSchemeValue(option.value)}
+                                className={styles.themeSelect}
+                            />
+                            <label className={`${styles.toggle} ${styles.loreToggle}`}>
+                                <input
+                                    type="checkbox"
+                                    checked={glassAnim}
+                                    onChange={(e) => setGlassAnimValue(e.target.checked)}
+                                    aria-label="Animate glass backdrop"
+                                />
+                                <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
+                                    Animate backdrop
+                                    <span className={itemsStyles.enchantTooltipText}>
+                                        Drift the glass theme's color glows around the page.
+                                    </span>
+                                </span>
+                            </label>
+                            <label className={`${styles.toggle} ${styles.loreToggle}`}>
+                                <input
+                                    type="checkbox"
+                                    checked={glassFlag}
+                                    onChange={(e) => setGlassFlagValue(e.target.checked)}
+                                    aria-label="Flag gradient backdrop"
+                                />
+                                <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
+                                    Flag gradient
+                                    <span className={itemsStyles.enchantTooltipText}>
+                                        Show the flag as a full-page gradient in the correct stripe order instead of the
+                                        scattered blobs.
+                                    </span>
+                                </span>
+                            </label>
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 }

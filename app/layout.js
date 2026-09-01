@@ -9,6 +9,7 @@ import { HideSkinsProvider } from './_src/components/items/hideSkinsContext';
 import { MaxMasterworkProvider } from './_src/components/items/maxMasterworkContext';
 import { BuildListProvider } from './_src/components/items/buildListContext';
 import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
+import { BuilderLayoutProvider } from './_src/components/builderLayoutContext';
 import { CardItemsFirstProvider } from './_src/components/items/cardItemsFirstContext';
 import { FavouritesEnabledProvider } from './_src/components/items/favouritesEnabledContext';
 import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
@@ -54,7 +55,7 @@ export default async function StsLayout({ children }) {
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link
-                    href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap"
+                    href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&family=Ubuntu+Mono:wght@400;700&display=swap"
                     rel="stylesheet"
                 />
             </head>
@@ -78,18 +79,20 @@ export default async function StsLayout({ children }) {
                                             <MaxMasterworkProvider>
                                                 <BuildListProvider>
                                                     <BuildListEnabledProvider>
-                                                        <CardItemsFirstProvider>
-                                                            <FavouritesEnabledProvider>
-                                                                <ItemFavouritesProvider>
-                                                                    <SiteNav showBeta center={<HeaderNav />}>
-                                                                        <Header />
-                                                                    </SiteNav>
-                                                                    <NotificationsBar />
-                                                                    <div className="site-main">{children}</div>
-                                                                    <Footer />
-                                                                </ItemFavouritesProvider>
-                                                            </FavouritesEnabledProvider>
-                                                        </CardItemsFirstProvider>
+                                                        <BuilderLayoutProvider>
+                                                            <CardItemsFirstProvider>
+                                                                <FavouritesEnabledProvider>
+                                                                    <ItemFavouritesProvider>
+                                                                        <SiteNav showBeta center={<HeaderNav />}>
+                                                                            <Header />
+                                                                        </SiteNav>
+                                                                        <NotificationsBar />
+                                                                        <div className="site-main">{children}</div>
+                                                                        <Footer />
+                                                                    </ItemFavouritesProvider>
+                                                                </FavouritesEnabledProvider>
+                                                            </CardItemsFirstProvider>
+                                                        </BuilderLayoutProvider>
                                                     </BuildListEnabledProvider>
                                                 </BuildListProvider>
                                             </MaxMasterworkProvider>

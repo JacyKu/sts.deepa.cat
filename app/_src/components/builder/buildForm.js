@@ -28,7 +28,24 @@ import {
     getBuildTokenVersion,
 } from '../../utils/builder/buildUrlCodec';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
+import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
+import { useBuilderLayout } from '../builderLayoutContext';
+
+// Whether the viewport is desktop-width (>= 992px). The experimental
+// "New Layout" only applies on desktop; mobile always keeps the standard
+// layout regardless of the setting.
+function useIsDesktop() {
+    const [isDesktop, setIsDesktop] = React.useState(false);
+    React.useEffect(() => {
+        const mq = window.matchMedia('(min-width: 992px)');
+        const update = () => setIsDesktop(mq.matches);
+        update();
+        mq.addEventListener('change', update);
+        return () => mq.removeEventListener('change', update);
+    }, []);
+    return isDesktop;
+}
 
 const infusionSelectTheme = (theme) => ({
     ...theme,
@@ -49,6 +66,16 @@ const infusionSelectTheme = (theme) => ({
 
 const infusionSelectStyles = {
     container: (base) => ({ ...base, width: '100%', minWidth: 120 }),
+    control: (base) => ({ ...base, minHeight: 42, height: 42 }),
+    valueContainer: (base) => ({ ...base, height: 42, paddingTop: 0, paddingBottom: 0 }),
+    indicatorsContainer: (base) => ({ ...base, height: 42 }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    menu: (base) => ({ ...base, zIndex: 9999 }),
+};
+
+// The basic infusion level picker (I-IV) is small; keep it narrow.
+const levelSelectStyles = {
+    container: (base) => ({ ...base, width: '100%', minWidth: 70, maxWidth: 90 }),
     control: (base) => ({ ...base, minHeight: 42, height: 42 }),
     valueContainer: (base) => ({ ...base, height: 42, paddingTop: 0, paddingBottom: 0 }),
     indicatorsContainer: (base) => ({ ...base, height: 42 }),
@@ -655,7 +682,10 @@ export default function BuildForm({
     const [charmStatsOpen, setCharmStatsOpen] = React.useState(false);
     const [delveOpen, setDelveOpen] = React.useState(false);
     const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (always level IV)
-    // Delve infusion points: one free-form input per slot, total capped at 24
+    // Basic (normal) infusions: one per item, levels I-IV (Tenacity, Vitality,
+    // Vigor, Focus, Perspicacity, Acumen - see data/basicInfusions.js).
+    const [basicOpen, setBasicOpen] = React.useState(false);
+    const [basicInfusions, setBasicInfusions] = React.useState({}); // slot -> { name, level }    // Delve infusion points: one free-form input per slot, total capped at 24
     // across all slots (6 slots x level IV). Picking an infusion defaults its
     // points to 4 (level IV), clamped to the remaining budget.
     const DELVE_POINT_CAP = 24;
@@ -961,6 +991,150 @@ export default function BuildForm({
                     aria-label="Delve infusion points"
                     title="Delve infusion points (max 24 across all slots)"
                 />
+            </div>
+        );
+    }
+
+    // Basic (normal) infusions: pick one per slot (each item can hold only
+    // one) with a level I-IV select. Newly picked infusions default to IV,
+    // mirroring the delve infusion behaviour.
+    function basicChanged(slot, option) {
+        setBasicInfusions((prev) => {
+            const next = { ...prev };
+            if (option) {
+                next[slot] = { name: option.value, level: BASIC_INFUSION_MAX_LEVEL };
+            } else {
+                delete next[slot];
+            }
+            return next;
+        });
+        applyBasicInfusionTotals(
+            option
+                ? { ...basicInfusions, [slot]: { name: option.value, level: BASIC_INFUSION_MAX_LEVEL } }
+                : withoutSlot(basicInfusions, slot)
+        );
+        // FormData is stale right after a Select change, so inject the new
+        // value manually (same pattern as delveChanged) and recalculate.
+        let entries = Array.from(new FormData(formRef.current).entries());
+        for (let i = 0; i < entries.length; i++) {
+            if (entries[i][0] == `basicInfusion-${slot}`) entries[i][1] = option ? option.value : 'None';
+        }
+        const itemNames = Object.fromEntries(entries);
+        applyStatsUpdate(itemNames, itemData, setStats, update);
+    }
+
+    function changeBasicLevel(slot, raw) {
+        const level = Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(raw) || 1));
+        const next = { ...basicInfusions, [slot]: { ...basicInfusions[slot], level } };
+        setBasicInfusions(next);
+        applyBasicInfusionTotals(next);
+    }
+
+    // Sum the infusion levels per type across all slots (the wiki allows one
+    // basic infusion per item, so each type's total is just the sum of its
+    // levels). These totals drive the stat calculations (Stats reads
+    // formData.tenacity/vitality/vigor/focus/perspicacity), so they're
+    // mirrored into statInputs, whose hidden inputs keep them in the form.
+    function withoutSlot(map, slot) {
+        const next = { ...map };
+        delete next[slot];
+        return next;
+    }
+
+    function applyBasicInfusionTotals(infusions) {
+        const totals = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
+        for (const { name, level } of Object.values(infusions)) {
+            if (totals[name.toLowerCase()] !== undefined) totals[name.toLowerCase()] += level;
+        }
+        setStatInputs((prev) => ({ ...prev, ...totals }));
+    }
+
+    function basicSlotSelects(slot) {
+        const hasItem = stats.itemNames && stats.itemNames[slot] && stats.itemNames[slot] !== 'None';
+        const cur = basicInfusions[slot];
+        // Only one of each infusion: already-picked infusions (on other
+        // slots) are removed from this dropdown so they can't be duplicated.
+        const pickedElsewhere = new Set(
+            Object.entries(basicInfusions)
+                .filter(([s]) => s !== slot)
+                .map(([, v]) => v.name)
+        );
+        const infusionOpts = BASIC_INFUSIONS.filter((i) => !pickedElsewhere.has(i.name)).map((i) => ({
+            value: i.name,
+            label: i.name,
+        }));
+        const levelOpts = BASIC_INFUSION_LEVEL_LABELS.slice(0, BASIC_INFUSION_MAX_LEVEL).map((label, i) => ({
+            value: i + 1,
+            label,
+        }));
+        // Menu options get a portal tooltip with the infusion's effect (the
+        // menu scrolls, so an in-menu tooltip would be clipped at its edges).
+        const InfusionOption = (props) => {
+            const info = BASIC_INFUSIONS.find((i) => i.name === props.data.value);
+            return (
+                <components.Option {...props}>
+                    <span
+                        className={styles.enchantTooltip}
+                        onMouseEnter={(e) => {
+                            if (!info || !info.effect) return;
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
+                        }}
+                        onMouseLeave={() => setTip(null)}
+                    >
+                        {props.children}
+                    </span>
+                </components.Option>
+            );
+        };
+        const formatValueLabel = (opt) => {
+            const info = BASIC_INFUSIONS.find((i) => i.name === opt.value);
+            return (
+                <span className={styles.enchantTooltip}>
+                    {opt.label}
+                    {info && info.effect && (
+                        <span className={styles.enchantTooltipText}>
+                            <span style={{ fontWeight: 600 }}>{info.name}</span>
+                            <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
+                        </span>
+                    )}
+                </span>
+            );
+        };
+        return (
+            <div className={styles.delveSlotRow}>
+                <Select
+                    instanceId={`basic-${slot}`}
+                    name={`basicInfusion-${slot}`}
+                    isDisabled={!hasItem}
+                    isClearable
+                    isSearchable
+                    options={infusionOpts}
+                    value={cur ? { value: cur.name, label: cur.name } : null}
+                    onChange={(opt) => basicChanged(slot, opt)}
+                    placeholder="Infusion"
+                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                    menuPosition="fixed"
+                    theme={infusionSelectTheme}
+                    styles={infusionSelectStyles}
+                    components={{ Option: InfusionOption }}
+                    formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
+                />
+                {cur && (
+                    <Select
+                        instanceId={`basicLevel-${slot}`}
+                        name={`basicLevel-${slot}`}
+                        isSearchable={false}
+                        options={levelOpts}
+                        value={levelOpts.find((o) => o.value === cur.level) || levelOpts[levelOpts.length - 1]}
+                        onChange={(opt) => changeBasicLevel(slot, opt.value)}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                        theme={infusionSelectTheme}
+                        styles={levelSelectStyles}
+                        aria-label={`${cur.name} level`}
+                    />
+                )}
             </div>
         );
     }
@@ -2392,6 +2566,432 @@ export default function BuildForm({
         charms.map((c) => c.name)
     );
 
+    const { newLayout } = useBuilderLayout();
+    const isDesktop = useIsDesktop();
+    const splitLayout = newLayout && isDesktop;
+
+    // The six equipment slot inputs. In the New Layout they render as a left
+    // column in rows of two (mainhand/offhand, helmet/chestplate, leggings/
+    // boots); otherwise they sit in the normal flow above the item tiles.
+    // The cells use the module class instead of bootstrap cols in the split
+    // layout - bootstrap's col-* grid rules break the 2-column grid.
+    const slotCellClass = splitLayout ? `${styles.slotCell} text-center` : 'col-6 col-md-3 col-lg-2 text-center';
+    const slotsSection = (
+        <div className={`${styles.equipSlots} row justify-content-center mb-1`}>
+            <div className={slotCellClass}>
+                <TranslatableText identifier="items.type.mainhand"></TranslatableText>
+                <SelectInput
+                    reference={itemRefs.mainhand}
+                    name="mainhand"
+                    default={getEquipName('mainhand')}
+                    noneOption={true}
+                    sortableStats={getRelevantItems(
+                        [
+                            'mainhand',
+                            'mainhand sword',
+                            'mainhand shield',
+                            'axe',
+                            'pickaxe',
+                            'wand',
+                            'scythe',
+                            'bow',
+                            'crossbow',
+                            'snowball',
+                            'trident',
+                            'alchemist bag',
+                        ],
+                        itemData,
+                        favouriteSet
+                    )}
+                    onChange={itemChanged}
+                ></SelectInput>
+                {delveOpen && delveSlotSelects('mainhand')}
+                {basicOpen && basicSlotSelects('mainhand')}
+                {splitLayout && renderEquippedTile('mainhand')}
+            </div>
+            <div className={slotCellClass}>
+                <TranslatableText identifier="items.type.offhand"></TranslatableText>
+                <SelectInput
+                    reference={itemRefs.offhand}
+                    name="offhand"
+                    default={getEquipName('offhand')}
+                    noneOption={true}
+                    sortableStats={getRelevantItems(
+                        ['offhand', 'offhand shield', 'offhand sword'],
+                        itemData,
+                        favouriteSet
+                    )}
+                    onChange={itemChanged}
+                ></SelectInput>
+                {delveOpen && delveSlotSelects('offhand')}
+                {basicOpen && basicSlotSelects('offhand')}
+                {splitLayout && renderEquippedTile('offhand')}
+            </div>
+            <div className={slotCellClass}>
+                <TranslatableText identifier="items.type.helmet"></TranslatableText>
+                <SelectInput
+                    reference={itemRefs.helmet}
+                    noneOption={true}
+                    name="helmet"
+                    default={getEquipName('helmet')}
+                    sortableStats={getRelevantItems(['helmet'], itemData, favouriteSet)}
+                    onChange={itemChanged}
+                ></SelectInput>
+                {delveOpen && delveSlotSelects('helmet')}
+                {basicOpen && basicSlotSelects('helmet')}
+                {splitLayout && renderEquippedTile('helmet')}
+            </div>
+            <div className={slotCellClass}>
+                <TranslatableText identifier="items.type.chestplate"></TranslatableText>
+                <SelectInput
+                    reference={itemRefs.chestplate}
+                    noneOption={true}
+                    name="chestplate"
+                    default={getEquipName('chestplate')}
+                    sortableStats={getRelevantItems(['chestplate'], itemData, favouriteSet)}
+                    onChange={itemChanged}
+                ></SelectInput>
+                {delveOpen && delveSlotSelects('chestplate')}
+                {basicOpen && basicSlotSelects('chestplate')}
+                {splitLayout && renderEquippedTile('chestplate')}
+            </div>
+            <div className={slotCellClass}>
+                <TranslatableText identifier="items.type.leggings"></TranslatableText>
+                <SelectInput
+                    reference={itemRefs.leggings}
+                    noneOption={true}
+                    name="leggings"
+                    default={getEquipName('leggings')}
+                    sortableStats={getRelevantItems(['leggings'], itemData, favouriteSet)}
+                    onChange={itemChanged}
+                ></SelectInput>
+                {delveOpen && delveSlotSelects('leggings')}
+                {basicOpen && basicSlotSelects('leggings')}
+                {splitLayout && renderEquippedTile('leggings')}
+            </div>
+            <div className={slotCellClass}>
+                <TranslatableText identifier="items.type.boots"></TranslatableText>
+                <SelectInput
+                    reference={itemRefs.boots}
+                    noneOption={true}
+                    name="boots"
+                    default={getEquipName('boots')}
+                    sortableStats={getRelevantItems(['boots'], itemData, favouriteSet)}
+                    onChange={itemChanged}
+                ></SelectInput>
+                {delveOpen && delveSlotSelects('boots')}
+                {basicOpen && basicSlotSelects('boots')}
+                {splitLayout && renderEquippedTile('boots')}
+            </div>
+        </div>
+    );
+
+    // Equipped item tiles: show up right below the slot inputs (in the New
+    // Layout they sit under the slots in the left column).
+    // The equipped item tile for one slot (or null when nothing is equipped
+    // there). In the New Layout each tile renders inside its own slot cell,
+    // directly below that slot's dropdown.
+    function renderEquippedTile(type) {
+        if (!checkExists(type, stats, itemData)) return null;
+        const tileName = stats.itemNames[type];
+        return (
+            <div className={`col-auto ${styles.builderCol}`} key={`${tileName}-${type}`}>
+                {stats.fullItemData[type].masterwork != undefined ? (
+                    <MasterworkableItemTile
+                        update={receiveMasterworkUpdate}
+                        name={removeMasterworkFromName(tileName)}
+                        item={createMasterworkData(removeMasterworkFromName(tileName), itemData)}
+                        itemData={itemData}
+                        default={Number(tileName.split('-').at(-1))}
+                        showFavouriteButton
+                    ></MasterworkableItemTile>
+                ) : (
+                    <ItemTile name={tileName} item={stats.fullItemData[type]} showFavouriteButton></ItemTile>
+                )}
+            </div>
+        );
+    }
+
+    const itemTiles = <div className="row justify-content-center mb-1">{itemTypes.map(renderEquippedTile)}</div>;
+
+    // Charm picker + equipped charm tiles (between the item tiles and stats).
+    const charmsSection = (
+        <>
+            <div className="row mb-1">
+                <div className="col-12">
+                    <CharmSelector
+                        key={charmSelectKey}
+                        update={updateCharms}
+                        translatableName={'builder.charms.select'}
+                        itemData={itemData}
+                        hideList
+                        charmNames={charms.map((c) => c.name)}
+                        classSkillNames={currentClassSkills.map((s) => s.name)}
+                        specSkillNames={currentSpecSkills.map((s) => s.name)}
+                    ></CharmSelector>
+                </div>
+            </div>
+            <div className="row justify-content-center mb-1">
+                {charms.map((charm) => (
+                    <div className={`col-auto ${styles.builderCol}`} key={charm.name}>
+                        <div
+                            className={`${styles.charmCardWrap}${charmDragging === charm.name ? ` ${styles.charmDragging}` : ''}`}
+                            draggable
+                            onDragStart={(e) => startCharmDrag(charm.name, e)}
+                            onDragOver={(e) => charmDragOver(charm.name, e)}
+                            onDragEnd={endCharmDrag}
+                        >
+                            <CharmTile name={charm.name} item={charm} showFavouriteButton></CharmTile>
+                            <button
+                                type="button"
+                                className={styles.charmRemoveButton}
+                                onClick={() => removeCharm(charm)}
+                                aria-label={`Remove ${charm.name}`}
+                                title="Remove charm"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+
+    // Collapsible charm stat summary (stays with the charm section).
+    const charmStatsSection = (
+        <>
+            <div className="row justify-content-center mb-1">
+                <div className={`${styles.charmTotals}`}>
+                    <button
+                        type="button"
+                        className={styles.charmTotalsHeader}
+                        aria-expanded={charmStatsOpen}
+                        onClick={() => setCharmStatsOpen((o) => !o)}
+                    >
+                        <span className={styles.charmTotalsTitle}>Charm Stats</span>
+                        <span className={styles.charmTotalsChevron}>❯</span>
+                    </button>
+                    {charmStatsOpen && (
+                        <>
+                            {Object.entries(charmTotals).map(([stat, obj]) => {
+                                const parts = CharmFormatter.charmStatParts(stat, obj);
+                                return (
+                                    <p key={stat} className={`${styles.statRow} mb-0 mt-1`}>
+                                        <b>{parts.label}</b>
+                                        <span
+                                            className={`${styles.monoValue} ${styles[CharmFormatter.statStyle(stat, obj)]}`}
+                                        >
+                                            {parts.value}
+                                        </span>
+                                    </p>
+                                );
+                            })}
+                        </>
+                    )}
+                </div>
+            </div>
+        </>
+    );
+
+    // The sections that follow the stats in the default flow: situational
+    // stat toggles, the health slider and the notes. In the New Layout they
+    // render centered below the two columns, together with the charms.
+    const tailSections = (
+        <>
+            <div className="row justify-content-center pt-1 mb-1 g-1">
+                <TranslatableText
+                    identifier="builder.misc.situationals"
+                    className="text-center mb-1"
+                ></TranslatableText>
+                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions)}
+            </div>
+            <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
+                <div className="text-center mx-2">
+                    <div className={styles.enchantTooltip}>
+                        <p className="mb-1">
+                            <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
+                        </p>
+                        <span className={styles.enchantTooltipText}>
+                            Current health as a % of your max health. Lower values preview low-HP effects (Steadfast,
+                            Second Wind, ...).
+                        </span>
+                    </div>
+                    <div className={styles.healthSliderRow}>
+                        <input
+                            type="range"
+                            name="health"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={healthPercentInput}
+                            onChange={(e) => statInputChanged('health', e)}
+                            className={styles.healthSlider}
+                            style={{
+                                '--slider-color': `hsl(${(healthPercentInput / 100) * 120} 70% 45%)`,
+                                '--slider-pct': `${healthPercentInput}%`,
+                            }}
+                        />
+                        <input
+                            type="number"
+                            name="health"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={statInputs.health}
+                            onChange={(e) => statInputChanged('health', e)}
+                            onBlur={healthPercentBlur}
+                            className={styles.healthPercentInput}
+                            aria-label="Max health percent"
+                        />
+                        <span className={styles.healthPoints}>
+                            {Number.isFinite(itemsToDisplay.currentHealth)
+                                ? Math.round(itemsToDisplay.currentHealth)
+                                : '–'}
+                            {' / '}
+                            {Number.isFinite(itemsToDisplay.healthFinal) ? Math.round(itemsToDisplay.healthFinal) : '–'}
+                        </span>
+                    </div>
+                </div>
+                {/* Basic infusion totals (levels summed across slots) live in
+                    hidden inputs so the stat calculation (Stats reads
+                    formData.tenacity/vitality/vigor/focus/perspicacity) and
+                    the saved build token keep working without visible inputs. */}
+                <input type="hidden" name="tenacity" value={statInputs.tenacity} />
+                <input type="hidden" name="vitality" value={statInputs.vitality} />
+                <input type="hidden" name="vigor" value={statInputs.vigor} />
+                <input type="hidden" name="focus" value={statInputs.focus} />
+                <input type="hidden" name="perspicacity" value={statInputs.perspicacity} />
+            </div>
+            <div className="row pt-1">
+                <span className="text-center text-danger fs-2 fw-bold">
+                    {stats.corruption > 1 ? (
+                        <TranslatableText identifier="builder.errors.corruption"></TranslatableText>
+                    ) : (
+                        ''
+                    )}
+                </span>
+            </div>
+            <div className="row py-1">
+                <span className="text-center text-danger fs-2 fw-bold">
+                    {stats.twoHanded && !stats.weightless && stats.itemNames.offhand != 'None' ? (
+                        <TranslatableText identifier="builder.errors.twoHanded"></TranslatableText>
+                    ) : (
+                        ''
+                    )}
+                </span>
+            </div>
+            <div className="row mb-1 justify-content-center">
+                <div className="col-12 col-md-6 col-lg-2">
+                    <ListSelector
+                        key={`damage-${multiplierListKey}`}
+                        update={damageMultipliersChanged}
+                        translatableName="builder.multipliers.damage"
+                        description="Extra multiplier applied to your outgoing damage (1.10 = +10%)."
+                    ></ListSelector>
+                </div>
+                <div className="col-12 col-md-6 col-lg-2">
+                    <ListSelector
+                        key={`resistance-${multiplierListKey}`}
+                        update={resistanceMultipliersChanged}
+                        translatableName="builder.multipliers.resistance"
+                        description="Extra multiplier applied to damage you take (0.90 = 10% less damage taken)."
+                    ></ListSelector>
+                </div>
+                <div className="col-12 col-md-6 col-lg-2">
+                    <ListSelector
+                        key={`health-${multiplierListKey}`}
+                        update={healthMultipliersChanged}
+                        translatableName="builder.multipliers.health"
+                        description="Extra multiplier applied to your max health (1.10 = +10% health)."
+                    ></ListSelector>
+                </div>
+                <div className="col-12 col-md-6 col-lg-2">
+                    <ListSelector
+                        key={`speed-${multiplierListKey}`}
+                        update={speedMultipliersChanged}
+                        translatableName="builder.multipliers.speed"
+                        description="Extra multiplier applied to your movement speed."
+                    ></ListSelector>
+                </div>
+                <div className="col-12 col-md-6 col-lg-2">
+                    <ListSelector
+                        key={`attackSpeed-${multiplierListKey}`}
+                        update={attackSpeedMultipliersChanged}
+                        translatableName="builder.multipliers.attackSpeed"
+                        description="Extra multiplier applied to your attack speed."
+                    ></ListSelector>
+                </div>
+            </div>
+
+            {/* Notes: a signed-in feature. Owner edits on their short link,
+                        logged-in users can jot them on the builder (saved together
+                        with the build), everyone sees them on shared links. */}
+            {(canEditNotes === true ||
+                (canEditNotes === undefined && loggedIn === true) ||
+                (canEditNotes === false && notes)) && (
+                <div className="row justify-content-center mt-3">
+                    <div className="col-12 col-lg-8 col-xl-6">
+                        {canEditNotes === false ? (
+                            <div className={styles.buildNotesBody}>{notes}</div>
+                        ) : (
+                            <>
+                                <textarea
+                                    className={styles.buildNotesInput}
+                                    value={notesDraft}
+                                    onChange={(e) => {
+                                        const { cleaned, found } = filterBadWords(e.target.value);
+                                        if (found) triggerRedX();
+                                        setNotesDraft(cleaned);
+                                    }}
+                                    placeholder="Add notes about this build..."
+                                    rows={3}
+                                    maxLength={2000}
+                                />
+                                <div className={styles.buildNotesActions}>
+                                    {canEditNotes ? (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className={styles.shareButton}
+                                                onClick={saveNotes}
+                                                disabled={notesSaveState === 'saving'}
+                                            >
+                                                {notesSaveState === 'saving'
+                                                    ? 'Saving...'
+                                                    : notesSaveState === 'saved'
+                                                      ? 'Saved!'
+                                                      : 'Save notes'}
+                                            </button>
+                                            {notesSaveState === 'saved' && (
+                                                <span className={styles.buildNotesSaved}>Notes saved!</span>
+                                            )}
+                                            {notesSaveState === 'error' && (
+                                                <span className={styles.importError}>Could not save the notes.</span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <span className={styles.buildNotesHint}>
+                                            Notes are saved together with your build.
+                                        </span>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+            {tip &&
+                createPortal(
+                    <div className={styles.infusionTip} style={{ left: tip.left, top: tip.top }}>
+                        <span style={{ fontWeight: 600 }}>{tip.info.name}</span>
+                        {tip.info.effect && <span style={{ display: 'block', marginTop: 3 }}>{tip.info.effect}</span>}
+                    </div>,
+                    document.body
+                )}
+        </>
+    );
+
     return (
         <form ref={formRef} onSubmit={sendUpdate} onReset={resetForm} id="buildForm">
             {showRedX && <img src="/images/redx.png" className={styles.redXOverlay} alt="" />}
@@ -2535,6 +3135,15 @@ export default function BuildForm({
                             aria-label="Delve Infusions"
                         />
                         Delve Infusions
+                    </label>
+                    <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''} ms-3`}>
+                        <input
+                            type="checkbox"
+                            checked={basicOpen}
+                            onChange={(e) => setBasicOpen(e.target.checked)}
+                            aria-label="Infusions"
+                        />
+                        Infusions
                     </label>
                     <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
                         <input
@@ -3078,706 +3687,280 @@ export default function BuildForm({
                     )}
                 </div>
             )}
-            <div className="row justify-content-center mb-1">
-                <div className="col-6 col-md-3 col-lg-2 text-center">
-                    <TranslatableText identifier="items.type.mainhand"></TranslatableText>
-                    <SelectInput
-                        reference={itemRefs.mainhand}
-                        name="mainhand"
-                        default={getEquipName('mainhand')}
-                        noneOption={true}
-                        sortableStats={getRelevantItems(
-                            [
-                                'mainhand',
-                                'mainhand sword',
-                                'mainhand shield',
-                                'axe',
-                                'pickaxe',
-                                'wand',
-                                'scythe',
-                                'bow',
-                                'crossbow',
-                                'snowball',
-                                'trident',
-                                'alchemist bag',
-                            ],
-                            itemData,
-                            favouriteSet
-                        )}
-                        onChange={itemChanged}
-                    ></SelectInput>
-                    {delveOpen && delveSlotSelects('mainhand')}
-                </div>
-                <div className="col-6 col-md-3 col-lg-2 text-center">
-                    <TranslatableText identifier="items.type.offhand"></TranslatableText>
-                    <SelectInput
-                        reference={itemRefs.offhand}
-                        name="offhand"
-                        default={getEquipName('offhand')}
-                        noneOption={true}
-                        sortableStats={getRelevantItems(
-                            ['offhand', 'offhand shield', 'offhand sword'],
-                            itemData,
-                            favouriteSet
-                        )}
-                        onChange={itemChanged}
-                    ></SelectInput>
-                    {delveOpen && delveSlotSelects('offhand')}
-                </div>
-                <div className="col-6 col-md-3 col-lg-2 text-center">
-                    <TranslatableText identifier="items.type.helmet"></TranslatableText>
-                    <SelectInput
-                        reference={itemRefs.helmet}
-                        noneOption={true}
-                        name="helmet"
-                        default={getEquipName('helmet')}
-                        sortableStats={getRelevantItems(['helmet'], itemData, favouriteSet)}
-                        onChange={itemChanged}
-                    ></SelectInput>
-                    {delveOpen && delveSlotSelects('helmet')}
-                </div>
-                <div className="col-6 col-md-3 col-lg-2 text-center">
-                    <TranslatableText identifier="items.type.chestplate"></TranslatableText>
-                    <SelectInput
-                        reference={itemRefs.chestplate}
-                        noneOption={true}
-                        name="chestplate"
-                        default={getEquipName('chestplate')}
-                        sortableStats={getRelevantItems(['chestplate'], itemData, favouriteSet)}
-                        onChange={itemChanged}
-                    ></SelectInput>
-                    {delveOpen && delveSlotSelects('chestplate')}
-                </div>
-                <div className="col-6 col-md-3 col-lg-2 text-center">
-                    <TranslatableText identifier="items.type.leggings"></TranslatableText>
-                    <SelectInput
-                        reference={itemRefs.leggings}
-                        noneOption={true}
-                        name="leggings"
-                        default={getEquipName('leggings')}
-                        sortableStats={getRelevantItems(['leggings'], itemData, favouriteSet)}
-                        onChange={itemChanged}
-                    ></SelectInput>
-                    {delveOpen && delveSlotSelects('leggings')}
-                </div>
-                <div className="col-6 col-md-3 col-lg-2 text-center">
-                    <TranslatableText identifier="items.type.boots"></TranslatableText>
-                    <SelectInput
-                        reference={itemRefs.boots}
-                        noneOption={true}
-                        name="boots"
-                        default={getEquipName('boots')}
-                        sortableStats={getRelevantItems(['boots'], itemData, favouriteSet)}
-                        onChange={itemChanged}
-                    ></SelectInput>
-                    {delveOpen && delveSlotSelects('boots')}
-                </div>
-            </div>
-            <div className="row justify-content-center mb-1">
-                {itemTypes.map((type) => {
-                    if (!checkExists(type, stats, itemData)) return '';
-                    const tileName = stats.itemNames[type];
-                    return (
-                        <div className={`col-auto ${styles.builderCol}`} key={`${tileName}-${type}`}>
-                            {stats.fullItemData[type].masterwork != undefined ? (
-                                <MasterworkableItemTile
-                                    update={receiveMasterworkUpdate}
-                                    name={removeMasterworkFromName(tileName)}
-                                    item={createMasterworkData(removeMasterworkFromName(tileName), itemData)}
-                                    itemData={itemData}
-                                    default={Number(tileName.split('-').at(-1))}
-                                    showFavouriteButton
-                                ></MasterworkableItemTile>
-                            ) : (
-                                <ItemTile
-                                    name={tileName}
-                                    item={stats.fullItemData[type]}
-                                    showFavouriteButton
-                                ></ItemTile>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-            {regionValue >= 3 && (
-                <>
-                    <div className="row mb-1">
-                        <div className="col-12">
-                            <CharmSelector
-                                key={charmSelectKey}
-                                update={updateCharms}
-                                translatableName={'builder.charms.select'}
-                                itemData={itemData}
-                                hideList
-                                charmNames={charms.map((c) => c.name)}
-                                classSkillNames={currentClassSkills.map((s) => s.name)}
-                                specSkillNames={currentSpecSkills.map((s) => s.name)}
-                            ></CharmSelector>
-                        </div>
-                    </div>
-                    <div className="row justify-content-center mb-1">
-                        {charms.map((charm) => (
-                            <div className={`col-auto ${styles.builderCol}`} key={charm.name}>
-                                <div
-                                    className={`${styles.charmCardWrap}${charmDragging === charm.name ? ` ${styles.charmDragging}` : ''}`}
-                                    draggable
-                                    onDragStart={(e) => startCharmDrag(charm.name, e)}
-                                    onDragOver={(e) => charmDragOver(charm.name, e)}
-                                    onDragEnd={endCharmDrag}
-                                >
-                                    <CharmTile name={charm.name} item={charm} showFavouriteButton></CharmTile>
-                                    <button
-                                        type="button"
-                                        className={styles.charmRemoveButton}
-                                        onClick={() => removeCharm(charm)}
-                                        aria-label={`Remove ${charm.name}`}
-                                        title="Remove charm"
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </>
-            )}
-            {regionValue >= 3 && Object.keys(charmTotals).length > 0 && (
-                <div className="row justify-content-center mb-1">
-                    <div className={`${styles.charmTotals}`}>
-                        <button
-                            type="button"
-                            className={styles.charmTotalsHeader}
-                            aria-expanded={charmStatsOpen}
-                            onClick={() => setCharmStatsOpen((o) => !o)}
+            <div className={splitLayout ? styles.slotsStatsSplit : styles.slotsStats}>
+                {splitLayout && <aside className={styles.builderSlots}>{slotsSection}</aside>}
+                <div className={styles.builderRest}>
+                    {!splitLayout && (
+                        <>
+                            {slotsSection}
+                            {itemTiles}
+                            {regionValue >= 3 && charmsSection}
+                            {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
+                        </>
+                    )}
+                    <div
+                        className={
+                            splitLayout
+                                ? `${styles.statsGrid} row justify-content-center mb-1`
+                                : 'row justify-content-center mb-1'
+                        }
+                    >
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-1`}
                         >
-                            <span className={styles.charmTotalsTitle}>Charm Stats</span>
-                            <span className={styles.charmTotalsChevron}>❯</span>
-                        </button>
-                        {charmStatsOpen && (
-                            <>
-                                {Object.entries(charmTotals).map(([stat, obj]) => {
-                                    const parts = CharmFormatter.charmStatParts(stat, obj);
-                                    return (
-                                        <p key={stat} className={`${styles.statRow} mb-0 mt-1`}>
-                                            <b>{parts.label}</b>
-                                            <span
-                                                className={`${styles.monoValue} ${styles[CharmFormatter.statStyle(stat, obj)]}`}
-                                            >
-                                                {parts.value}
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.misc"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">&nbsp;</h6>
+                            {miscStats.map((stat) =>
+                                itemsToDisplay[stat.type] !== undefined ? (
+                                    <div key={stat.type}>
+                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <b>
+                                                <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                            </b>
+                                            <span className={styles.monoValue}>
+                                                {itemsToDisplay[stat.type]}
+                                                {stat.percent ? '%' : ''}
                                             </span>
                                         </p>
-                                    );
-                                })}
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-            <div className="row justify-content-center mb-1">
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-1`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.misc"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {miscStats.map((stat) =>
-                        itemsToDisplay[stat.type] !== undefined ? (
-                            <div key={stat.type}>
-                                <p className={`${styles.statRow} mb-0 mt-1`}>
-                                    <b>
-                                        <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                    </b>
-                                    <span className={styles.monoValue}>
-                                        {itemsToDisplay[stat.type]}
-                                        {stat.percent ? '%' : ''}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                            ''
-                        )
-                    )}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {healthStats.map((stat) =>
-                        itemsToDisplay[stat.type] !== undefined ? (
-                            <div key={stat.type}>
-                                <p className={`${styles.statRow} mb-0 mt-1`}>
-                                    <b>
-                                        <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                    </b>
-                                    <span className={styles.monoValue}>
-                                        {itemsToDisplay[stat.type]}
-                                        {stat.percent ? '%' : ''}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                            ''
-                        )
-                    )}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.damageReduction"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">
-                        <TranslatableText identifier="builder.statCategories.damageReduction.sub"></TranslatableText>
-                    </h6>
-                    {DRStats.map((stat) =>
-                        itemsToDisplay[stat.type] !== undefined ? (
-                            <div key={stat.type}>
-                                <p className={`${styles.statRow} mb-0 mt-1`}>
-                                    <b>
-                                        <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                    </b>
-                                    <span className={styles.monoValue}>
-                                        {itemsToDisplay[stat.type]}
-                                        {stat.percent ? '%' : ''}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                            ''
-                        )
-                    )}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">
-                        <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized.sub"></TranslatableText>
-                    </h6>
-                    {healthNormalizedDRStats.map((stat) =>
-                        itemsToDisplay[stat.type] !== undefined ? (
-                            <div key={stat.type}>
-                                <p className={`${styles.statRow} mb-0 mt-1`}>
-                                    <b>
-                                        <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                    </b>
-                                    <span className={styles.monoValue}>
-                                        {itemsToDisplay[stat.type]}
-                                        {stat.percent ? '%' : ''}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                            ''
-                        )
-                    )}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.effectiveHealth"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {(() => {
-                        const unstableEHPTypes = ['meleeEHP', 'projectileEHP', 'magicEHP', 'blastEHP'];
-                        let temp = EHPStats.map((stat) => {
-                            let condition = itemsToDisplay.instability && unstableEHPTypes.includes(stat.type);
-                            return itemsToDisplay[stat.type] !== undefined ? (
-                                <div key={stat.type}>
-                                    <p className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}>
-                                        <b>
-                                            <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                        </b>
-                                        <span className={styles.monoValue}>
-                                            {itemsToDisplay[stat.type]}
-                                            {stat.percent ? '%' : ''}
-                                        </span>
-                                    </p>
-                                </div>
-                            ) : (
-                                ''
-                            );
-                        });
-                        if (itemsToDisplay.instability) {
-                            let avg = 0;
-                            unstableEHPTypes.forEach((t) => (avg += Number(itemsToDisplay[t])));
-                            avg /= 4;
-                            temp.unshift(
-                                <div key={'unstableEHP'}>
-                                    <p className={`${styles.statRow} mb-0 mt-1`}>
-                                        <b>
-                                            <TranslatableText
-                                                identifier={'builder.stats.dr-ehp.unstable'}
-                                            ></TranslatableText>
-                                            :{' '}
-                                        </b>
-                                        <span className={styles.monoValue}>{avg.toFixed(2)}</span>
-                                    </p>
-                                </div>
-                            );
-                        }
-                        return temp;
-                    })()}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.melee"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {meleeStats.map((stat) => {
-                        if (stat.type == 'classAttackDamagePercent' && itemsToDisplay.classAttackDamagePercent == 100)
-                            return '';
-                        return itemsToDisplay[stat.type] !== undefined ? (
-                            <div key={stat.type}>
-                                <p className={`${styles.statRow} mb-0 mt-1`}>
-                                    <b>
-                                        <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                    </b>
-                                    <span className={styles.monoValue}>
-                                        {itemsToDisplay[stat.type]}
-                                        {stat.percent ? '%' : ''}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                            ''
-                        );
-                    })}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.projectile"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {projectileStats.map((stat) => {
-                        if (
-                            stat.type == 'classProjectileDamagePercent' &&
-                            itemsToDisplay.classProjectileDamagePercent == 100
-                        )
-                            return '';
-                        return itemsToDisplay[stat.type] !== undefined ? (
-                            <div key={stat.type}>
-                                <p className={`${styles.statRow} mb-0 mt-1`}>
-                                    <b>
-                                        <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                    </b>
-                                    <span className={styles.monoValue}>
-                                        {itemsToDisplay[stat.type]}
-                                        {stat.percent ? '%' : ''}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                            ''
-                        );
-                    })}
-                </div>
-                <div
-                    className={`${styles.builderStatCard} ${styles.builderStatCol} col-auto text-center mx-2 my-1 py-2`}
-                >
-                    <h5 className="text-center fw-bold mb-1">
-                        <TranslatableText identifier="builder.statCategories.magic"></TranslatableText>
-                    </h5>
-                    <h6 className="text-center fw-bold">&nbsp;</h6>
-                    {magicStats.map((stat) => {
-                        if (stat.type == 'classMagicDamagePercent' && itemsToDisplay.classMagicDamagePercent == 100)
-                            return '';
-                        return itemsToDisplay[stat.type] !== undefined &&
-                            (stat.type != 'potionDamage' || itemsToDisplay.spellPowerPercent == '100.00') && // only show potion damage if spell power is 100% (default)
-                            (stat.type != 'spellDamage' || itemsToDisplay.potionDamage == '0.00') ? ( // only show spell damage if potion damage is 0
-                            <div key={stat.type}>
-                                <p className={`${styles.statRow} mb-0 mt-1`}>
-                                    <b>
-                                        <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
-                                    </b>
-                                    <span className={styles.monoValue}>
-                                        {itemsToDisplay[stat.type]}
-                                        {stat.percent ? '%' : ''}
-                                    </span>
-                                </p>
-                            </div>
-                        ) : (
-                            ''
-                        );
-                    })}
-                </div>
-            </div>
-            <div className="row justify-content-center pt-1 mb-1 g-1">
-                <TranslatableText
-                    identifier="builder.misc.situationals"
-                    className="text-center mb-1"
-                ></TranslatableText>
-                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions)}
-            </div>
-            <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">
-                            <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
-                        </p>
-                        <span className={styles.enchantTooltipText}>
-                            Current health as a % of your max health. Lower values preview low-HP effects (Steadfast,
-                            Second Wind, ...).
-                        </span>
-                    </div>
-                    <div className={styles.healthSliderRow}>
-                        <input
-                            type="range"
-                            name="health"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={healthPercentInput}
-                            onChange={(e) => statInputChanged('health', e)}
-                            className={styles.healthSlider}
-                            style={{
-                                '--slider-color': `hsl(${(healthPercentInput / 100) * 120} 70% 45%)`,
-                                '--slider-pct': `${healthPercentInput}%`,
-                            }}
-                        />
-                        <input
-                            type="number"
-                            name="health"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={statInputs.health}
-                            onChange={(e) => statInputChanged('health', e)}
-                            onBlur={healthPercentBlur}
-                            className={styles.healthPercentInput}
-                            aria-label="Max health percent"
-                        />
-                        <span className={styles.healthPoints}>
-                            {Number.isFinite(itemsToDisplay.currentHealth)
-                                ? Math.round(itemsToDisplay.currentHealth)
-                                : '–'}
-                            {' / '}
-                            {Number.isFinite(itemsToDisplay.healthFinal) ? Math.round(itemsToDisplay.healthFinal) : '–'}
-                        </span>
-                    </div>
-                </div>
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">Tenacity</p>
-                        <span className={styles.enchantTooltipText}>
-                            Basic Infusion: take (0.5% × level) less damage.
-                        </span>
-                    </div>
-                    <input
-                        type="number"
-                        name="tenacity"
-                        min="0"
-                        max="30"
-                        value={statInputs.tenacity}
-                        onChange={(e) => statInputChanged('tenacity', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">Vitality</p>
-                        <span className={styles.enchantTooltipText}>Basic Infusion: gain (1% × level) max health.</span>
-                    </div>
-                    <input
-                        type="number"
-                        name="vitality"
-                        min="0"
-                        max="30"
-                        value={statInputs.vitality}
-                        onChange={(e) => statInputChanged('vitality', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">Vigor</p>
-                        <span className={styles.enchantTooltipText}>
-                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more melee damage in Valley / Isles / Ring.
-                        </span>
-                    </div>
-                    <input
-                        type="number"
-                        name="vigor"
-                        min="0"
-                        max="30"
-                        value={statInputs.vigor}
-                        onChange={(e) => statInputChanged('vigor', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">Focus</p>
-                        <span className={styles.enchantTooltipText}>
-                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more projectile damage in Valley / Isles /
-                            Ring.
-                        </span>
-                    </div>
-                    <input
-                        type="number"
-                        name="focus"
-                        min="0"
-                        max="30"
-                        value={statInputs.focus}
-                        onChange={(e) => statInputChanged('focus', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">Perspicacity</p>
-                        <span className={styles.enchantTooltipText}>
-                            Basic Infusion: deal (1% / 1.25% / 1.5% × level) more magic damage in Valley / Isles / Ring.
-                        </span>
-                    </div>
-                    <input
-                        type="number"
-                        name="perspicacity"
-                        min="0"
-                        max="30"
-                        value={statInputs.perspicacity}
-                        onChange={(e) => statInputChanged('perspicacity', e)}
-                        className={styles.builderCompactInput}
-                    />
-                </div>
-            </div>
-            <div className="row pt-1">
-                <span className="text-center text-danger fs-2 fw-bold">
-                    {stats.corruption > 1 ? (
-                        <TranslatableText identifier="builder.errors.corruption"></TranslatableText>
-                    ) : (
-                        ''
-                    )}
-                </span>
-            </div>
-            <div className="row py-1">
-                <span className="text-center text-danger fs-2 fw-bold">
-                    {stats.twoHanded && !stats.weightless && stats.itemNames.offhand != 'None' ? (
-                        <TranslatableText identifier="builder.errors.twoHanded"></TranslatableText>
-                    ) : (
-                        ''
-                    )}
-                </span>
-            </div>
-            <div className="row mb-1 justify-content-center">
-                <div className="col-12 col-md-6 col-lg-2">
-                    <ListSelector
-                        key={`damage-${multiplierListKey}`}
-                        update={damageMultipliersChanged}
-                        translatableName="builder.multipliers.damage"
-                        description="Extra multiplier applied to your outgoing damage (1.10 = +10%)."
-                    ></ListSelector>
-                </div>
-                <div className="col-12 col-md-6 col-lg-2">
-                    <ListSelector
-                        key={`resistance-${multiplierListKey}`}
-                        update={resistanceMultipliersChanged}
-                        translatableName="builder.multipliers.resistance"
-                        description="Extra multiplier applied to damage you take (0.90 = 10% less damage taken)."
-                    ></ListSelector>
-                </div>
-                <div className="col-12 col-md-6 col-lg-2">
-                    <ListSelector
-                        key={`health-${multiplierListKey}`}
-                        update={healthMultipliersChanged}
-                        translatableName="builder.multipliers.health"
-                        description="Extra multiplier applied to your max health (1.10 = +10% health)."
-                    ></ListSelector>
-                </div>
-                <div className="col-12 col-md-6 col-lg-2">
-                    <ListSelector
-                        key={`speed-${multiplierListKey}`}
-                        update={speedMultipliersChanged}
-                        translatableName="builder.multipliers.speed"
-                        description="Extra multiplier applied to your movement speed."
-                    ></ListSelector>
-                </div>
-                <div className="col-12 col-md-6 col-lg-2">
-                    <ListSelector
-                        key={`attackSpeed-${multiplierListKey}`}
-                        update={attackSpeedMultipliersChanged}
-                        translatableName="builder.multipliers.attackSpeed"
-                        description="Extra multiplier applied to your attack speed."
-                    ></ListSelector>
-                </div>
-            </div>
-
-            {/* Notes: a signed-in feature. Owner edits on their short link,
-                logged-in users can jot them on the builder (saved together
-                with the build), everyone sees them on shared links. */}
-            {(canEditNotes === true ||
-                (canEditNotes === undefined && loggedIn === true) ||
-                (canEditNotes === false && notes)) && (
-                <div className="row justify-content-center mt-3">
-                    <div className="col-12 col-lg-8 col-xl-6">
-                        {canEditNotes === false ? (
-                            <div className={styles.buildNotesBody}>{notes}</div>
-                        ) : (
-                            <>
-                                <textarea
-                                    className={styles.buildNotesInput}
-                                    value={notesDraft}
-                                    onChange={(e) => {
-                                        const { cleaned, found } = filterBadWords(e.target.value);
-                                        if (found) triggerRedX();
-                                        setNotesDraft(cleaned);
-                                    }}
-                                    placeholder="Add notes about this build..."
-                                    rows={3}
-                                    maxLength={2000}
-                                />
-                                <div className={styles.buildNotesActions}>
-                                    {canEditNotes ? (
-                                        <>
-                                            <button
-                                                type="button"
-                                                className={styles.shareButton}
-                                                onClick={saveNotes}
-                                                disabled={notesSaveState === 'saving'}
+                                    </div>
+                                ) : (
+                                    ''
+                                )
+                            )}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">&nbsp;</h6>
+                            {healthStats.map((stat) =>
+                                itemsToDisplay[stat.type] !== undefined ? (
+                                    <div key={stat.type}>
+                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <b>
+                                                <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                            </b>
+                                            <span className={styles.monoValue}>
+                                                {itemsToDisplay[stat.type]}
+                                                {stat.percent ? '%' : ''}
+                                            </span>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    ''
+                                )
+                            )}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.damageReduction"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">
+                                <TranslatableText identifier="builder.statCategories.damageReduction.sub"></TranslatableText>
+                            </h6>
+                            {DRStats.map((stat) =>
+                                itemsToDisplay[stat.type] !== undefined ? (
+                                    <div key={stat.type}>
+                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <b>
+                                                <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                            </b>
+                                            <span className={styles.monoValue}>
+                                                {itemsToDisplay[stat.type]}
+                                                {stat.percent ? '%' : ''}
+                                            </span>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    ''
+                                )
+                            )}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">
+                                <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized.sub"></TranslatableText>
+                            </h6>
+                            {healthNormalizedDRStats.map((stat) =>
+                                itemsToDisplay[stat.type] !== undefined ? (
+                                    <div key={stat.type}>
+                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <b>
+                                                <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                            </b>
+                                            <span className={styles.monoValue}>
+                                                {itemsToDisplay[stat.type]}
+                                                {stat.percent ? '%' : ''}
+                                            </span>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    ''
+                                )
+                            )}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.effectiveHealth"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">&nbsp;</h6>
+                            {(() => {
+                                const unstableEHPTypes = ['meleeEHP', 'projectileEHP', 'magicEHP', 'blastEHP'];
+                                let temp = EHPStats.map((stat) => {
+                                    let condition = itemsToDisplay.instability && unstableEHPTypes.includes(stat.type);
+                                    return itemsToDisplay[stat.type] !== undefined ? (
+                                        <div key={stat.type}>
+                                            <p
+                                                className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}
                                             >
-                                                {notesSaveState === 'saving'
-                                                    ? 'Saving...'
-                                                    : notesSaveState === 'saved'
-                                                      ? 'Saved!'
-                                                      : 'Save notes'}
-                                            </button>
-                                            {notesSaveState === 'saved' && (
-                                                <span className={styles.buildNotesSaved}>Notes saved!</span>
-                                            )}
-                                            {notesSaveState === 'error' && (
-                                                <span className={styles.importError}>Could not save the notes.</span>
-                                            )}
-                                        </>
+                                                <b>
+                                                    <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                                </b>
+                                                <span className={styles.monoValue}>
+                                                    {itemsToDisplay[stat.type]}
+                                                    {stat.percent ? '%' : ''}
+                                                </span>
+                                            </p>
+                                        </div>
                                     ) : (
-                                        <span className={styles.buildNotesHint}>
-                                            Notes are saved together with your build.
-                                        </span>
-                                    )}
-                                </div>
-                            </>
-                        )}
+                                        ''
+                                    );
+                                });
+                                if (itemsToDisplay.instability) {
+                                    let avg = 0;
+                                    unstableEHPTypes.forEach((t) => (avg += Number(itemsToDisplay[t])));
+                                    avg /= 4;
+                                    temp.unshift(
+                                        <div key={'unstableEHP'}>
+                                            <p className={`${styles.statRow} mb-0 mt-1`}>
+                                                <b>
+                                                    <TranslatableText
+                                                        identifier={'builder.stats.dr-ehp.unstable'}
+                                                    ></TranslatableText>
+                                                    :{' '}
+                                                </b>
+                                                <span className={styles.monoValue}>{avg.toFixed(2)}</span>
+                                            </p>
+                                        </div>
+                                    );
+                                }
+                                return temp;
+                            })()}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.melee"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">&nbsp;</h6>
+                            {meleeStats.map((stat) => {
+                                if (
+                                    stat.type == 'classAttackDamagePercent' &&
+                                    itemsToDisplay.classAttackDamagePercent == 100
+                                )
+                                    return '';
+                                return itemsToDisplay[stat.type] !== undefined ? (
+                                    <div key={stat.type}>
+                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <b>
+                                                <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                            </b>
+                                            <span className={styles.monoValue}>
+                                                {itemsToDisplay[stat.type]}
+                                                {stat.percent ? '%' : ''}
+                                            </span>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    ''
+                                );
+                            })}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.projectile"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">&nbsp;</h6>
+                            {projectileStats.map((stat) => {
+                                if (
+                                    stat.type == 'classProjectileDamagePercent' &&
+                                    itemsToDisplay.classProjectileDamagePercent == 100
+                                )
+                                    return '';
+                                return itemsToDisplay[stat.type] !== undefined ? (
+                                    <div key={stat.type}>
+                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <b>
+                                                <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                            </b>
+                                            <span className={styles.monoValue}>
+                                                {itemsToDisplay[stat.type]}
+                                                {stat.percent ? '%' : ''}
+                                            </span>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    ''
+                                );
+                            })}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.magic"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">&nbsp;</h6>
+                            {magicStats.map((stat) => {
+                                if (
+                                    stat.type == 'classMagicDamagePercent' &&
+                                    itemsToDisplay.classMagicDamagePercent == 100
+                                )
+                                    return '';
+                                return itemsToDisplay[stat.type] !== undefined &&
+                                    (stat.type != 'potionDamage' || itemsToDisplay.spellPowerPercent == '100.00') && // only show potion damage if spell power is 100% (default)
+                                    (stat.type != 'spellDamage' || itemsToDisplay.potionDamage == '0.00') ? ( // only show spell damage if potion damage is 0
+                                    <div key={stat.type}>
+                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <b>
+                                                <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                            </b>
+                                            <span className={styles.monoValue}>
+                                                {itemsToDisplay[stat.type]}
+                                                {stat.percent ? '%' : ''}
+                                            </span>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    ''
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
+            </div>
+            {splitLayout && (
+                <>
+                    {regionValue >= 3 && charmsSection}
+                    {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
+                </>
             )}
-            {tip &&
-                createPortal(
-                    <div className={styles.infusionTip} style={{ left: tip.left, top: tip.top }}>
-                        <span style={{ fontWeight: 600 }}>{tip.info.name}</span>
-                        {tip.info.effect && <span style={{ display: 'block', marginTop: 3 }}>{tip.info.effect}</span>}
-                    </div>,
-                    document.body
-                )}
+            {tailSections}
         </form>
     );
 }

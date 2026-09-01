@@ -2129,6 +2129,73 @@ div.builderStatCard {
     gap: 10px;
 }
 
+/* Experimental "New Layout": the equipment slot inputs go in a column on
+   the left (rows of two), with the item tiles / charms / stats on the
+   right. Only applies on desktop; below 992px (and with the setting off)
+   the builder keeps the standard single-column layout. */
+.slotsStats {
+    display: block;
+}
+
+.builderRest {
+    display: block;
+    min-width: 0;
+}
+
+.slotsStatsSplit {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1rem;
+    max-width: 1440px;
+    margin: 0 auto;
+    align-items: start;
+}
+
+/* The stat cards get the same treatment as the slot inputs in the New
+   Layout: two per row, top to bottom. */
+.statsGrid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem 0.75rem;
+    align-items: start;
+}
+
+.statsGrid > .statCell {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+.builderSlots {
+    position: sticky;
+    top: 0.75rem;
+}
+
+/* The slot inputs always stack two per row inside the left column: an
+   explicit 2-column grid, with the cells free of bootstrap's col-* rules. */
+.builderSlots .equipSlots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.builderSlots .slotCell {
+    min-width: 0;
+}
+
+/* Center the equipped item tile below its slot dropdown. */
+.builderSlots .slotCell .builderCol {
+    display: flex;
+    justify-content: center;
+}
+
+@media (max-width: 991.98px) {
+    .slotsStatsSplit {
+        display: block;
+    }
+}
+
 /* Mid screens: the top-row cluster (region/class/spec + toggles) gets a
    tighter, aligned wrap instead of the cramped default margins. */
 @media (max-width: 1900px) {
