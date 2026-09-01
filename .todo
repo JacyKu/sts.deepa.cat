@@ -103,6 +103,8 @@ generalise all buttons to use same size/height
 - refactor menus on mobile ui and desktop ui
 - live (webhook notifs probably) notifs i can send with a discord bot to the UI.
 - 64x64 textures dont always scale correctly
+- create setting to disable caching for search and build page separately
+- place builder inputs to left of page as experimental layout
 
 - build comparison page
     - like ps page in monu

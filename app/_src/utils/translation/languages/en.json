@@ -365,6 +365,7 @@
     "auth.myBuilds": "My Builds",
     "auth.myItems": "My Items",
     "auth.myFavourites": "My Favourites",
+    "auth.myAccount": "My Account",
     "auth.anonymizeMe": "Anonymize me",
     "builds.title": "My Builds",
     "builds.loading": "Loading...",
