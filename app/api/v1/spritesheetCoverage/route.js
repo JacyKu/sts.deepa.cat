@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getRawItems } from '../../../_src/utils/itemsData';
+import { getItemData, getRawItems } from '../../../_src/utils/itemsData';
+import { countDisplayItems } from '../../../_src/utils/itemList';
 import fs from 'fs';
 import path from 'path';
 
@@ -31,6 +32,10 @@ export async function GET() {
         return NextResponse.json({ error: 'Unable to read public/spritesheets/itemsheet-map.json' }, { status: 500 });
     }
 
+    // The catalogued count is what the items page shows: masterwork levels
+    // of one item count as a single item, Written Books are hidden. The raw
+    // key set is still used below for the texture-map coverage numbers.
+    const itemData = await getItemData();
     const itemNames = Object.keys(items);
     const mappedNames = Object.keys(map);
 
@@ -49,7 +54,7 @@ export async function GET() {
 
     return NextResponse.json({
         totals: {
-            items: itemNames.length,
+            items: countDisplayItems(itemData),
             mapped: mappedNames.length,
             missing: missingFromTexturePack.length,
             mapOrphans: orphansInMap.length,

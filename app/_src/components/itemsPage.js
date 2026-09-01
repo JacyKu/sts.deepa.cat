@@ -12,6 +12,7 @@ import InfiniteScroll from './infiniteScroll';
 import TranslatableText from './translatableText';
 import { useHideSkins } from './items/hideSkinsContext';
 import skinNames from '../data/skins.json';
+import { groupMasterworkItems } from '../utils/itemList';
 
 // Skin variants confirmed from the Monumenta wiki "Skins" sections.
 const SKIN_NAMES = new Set(skinNames);
@@ -385,50 +386,9 @@ function getRelevantItems(data, itemData, hideSkins) {
         });
     }
 
-    // Group up masterwork tiers by their name using an object, removing them from items.
-    let masterworkItems = {};
-    let otherPositionsToRemove = [];
-    // Go through the array in reverse order to have the splice work properly
-    // (items will go down in position if not removed from the end)
-    for (let i = items.length - 1; i >= 0; i--) {
-        let name = items[i];
-        if (itemData[name].masterwork != undefined) {
-            let itemName = itemData[name].name;
-            if (!masterworkItems[itemName]) {
-                masterworkItems[itemName] = { items: [], lowestPosition: 9999999, lowestPositionName: null };
-            }
-            masterworkItems[itemName].items.push(itemData[name]);
-            if (i < masterworkItems[itemName].lowestPosition) {
-                // Remove the old lowest position item
-                if (masterworkItems[itemName].lowestPosition < 9999999) {
-                    otherPositionsToRemove.push(masterworkItems[itemName].lowestPosition);
-                }
-                // Set the new lowest position
-                masterworkItems[itemName].lowestPosition = i;
-                masterworkItems[itemName].lowestPositionName = name;
-            } else {
-                otherPositionsToRemove.push(i);
-            }
-        }
-    }
-
-    // Remove all the excess items that need to be grouped up
-    otherPositionsToRemove = otherPositionsToRemove.sort((pos1, pos2) => pos2 - pos1);
-    for (const pos of otherPositionsToRemove) {
-        items.splice(pos, 1);
-    }
-
-    // Re-insert the groups as arrays into the items array, IN THE CORRECT POSITION.
-    let masterworkGroups = Object.keys(masterworkItems).sort(
-        (item1, item2) => masterworkItems[item2].lowestPosition - masterworkItems[item1].lowestPosition
-    );
-    for (const masterworkGroup of masterworkGroups) {
-        items.splice(
-            items.indexOf(masterworkItems[masterworkGroup].lowestPositionName),
-            1,
-            masterworkItems[masterworkGroup].items
-        );
-    }
+    // Group up masterwork tiers by their name into a single entry (shared
+    // logic with the coverage/landing count - see utils/itemList.js).
+    groupMasterworkItems(items, itemData);
 
     return items;
 }
