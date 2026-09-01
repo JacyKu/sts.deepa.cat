@@ -14,6 +14,7 @@ import { FavouritesEnabledProvider } from './_src/components/items/favouritesEna
 import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
 import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
+import NotificationsBar from './_src/components/notificationsBar';
 import SiteNav from '@deepa/shared/site-nav';
 
 export const metadata = {
@@ -83,6 +84,7 @@ export default async function StsLayout({ children }) {
                                                                     <SiteNav showBeta center={<HeaderNav />}>
                                                                         <Header />
                                                                     </SiteNav>
+                                                                    <NotificationsBar />
                                                                     <div className="site-main">{children}</div>
                                                                     <Footer />
                                                                 </ItemFavouritesProvider>
