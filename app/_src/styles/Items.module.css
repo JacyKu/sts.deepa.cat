@@ -24,7 +24,6 @@
     border-radius: 0;
     box-shadow: var(--shadow-elevated);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     color: var(--text-2);
     padding: 8px;
     display: flex;
@@ -306,7 +305,6 @@
     background: var(--glass-1);
     border: 2px solid var(--glass-border);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
 
 .emptyState b {
@@ -948,7 +946,6 @@
     background-size: 200%;
     border: 2px solid rgba(61, 50, 134, 0.95);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     transition:
         filter 150ms ease,
         transform 75ms ease;
@@ -973,7 +970,6 @@
     background-size: 200%;
     border: 2px solid rgba(140, 11, 37, 0.95);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     transition:
         filter 150ms ease,
         transform 75ms ease;
@@ -1071,7 +1067,6 @@
     background: var(--glass-1);
     padding: 8px;
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
 
 .skillsHeader {
@@ -1508,7 +1503,6 @@
     overflow-y: auto;
     background: var(--glass-1);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     border: 2px solid var(--glass-border);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
     padding: 12px;
@@ -1803,7 +1797,6 @@ div.charmTotals {
     z-index: 100;
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1869,7 +1862,6 @@ div.builderStatCard {
     background: var(--glass-1);
     box-shadow: var(--shadow-elevated);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     padding: 10px 12px !important; /* beat bootstrap .py-1/.py-2 utilities */
 }
 

@@ -3,7 +3,6 @@
     align-items: center;
     justify-content: center;
     gap: 12px;
-    /* Balance the pencil icon on the right so the title text centers */
     padding-left: 46px;
 }
 
@@ -55,7 +54,6 @@
     border-radius: 0;
     background: var(--glass-1);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     flex-shrink: 0;
 }
 

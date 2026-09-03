@@ -104,12 +104,32 @@ export const GLASS_SCHEMES = [
     'green',
     'blue',
     'purple',
+    // Full-screen effect backdrops (not colour glows).
+    'matrix',
+    'wawa',
+    // A backdrop the visitor uploads themselves (kept in the browser).
+    'customimg',
 ];
 
-// The single-hue schemes are plain colours; everything else is a pride flag.
-// Kept as separate lists so the account page can present them in groups.
+// The single-hue schemes are plain colours. Kept as separate lists so the
+// account page can present each group (Pride / Colours / Backdrops).
 export const GLASS_BASIC_SCHEMES = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
-export const GLASS_PRIDE_SCHEMES = GLASS_SCHEMES.filter((s) => !GLASS_BASIC_SCHEMES.includes(s));
+// Full-screen effect backdrops that replace the colour glow entirely.
+export const GLASS_EXTRA_SCHEMES = ['matrix', 'wawa', 'customimg'];
+export const GLASS_PRIDE_SCHEMES = GLASS_SCHEMES.filter(
+    (s) => !GLASS_BASIC_SCHEMES.includes(s) && !GLASS_EXTRA_SCHEMES.includes(s)
+);
+
+// Where the Wawa cat image lives (site public folder).
+export const WAWA_IMAGE_URL = '/images/wawa.jpg';
+
+// Backdrop frosting: 0 (none) up to 40px of blur on a veil above the
+// backdrop but below every real element.
+export const MAX_GLASS_BLUR = 40;
+export const parseGlassBlur = (value) => {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? Math.min(MAX_GLASS_BLUR, Math.max(0, n)) : 0;
+};
 
 // Schemes whose full-page flag gradient is painted from CSS (globals.css).
 // Anything newer falls back to an inline gradient built from the blob
@@ -175,6 +195,8 @@ export const GLASS_COLORS = {
         'rgba(169, 169, 169, 0.4)',
     ],
     ace: ['rgba(0, 0, 0, 0.5)', 'rgba(164, 164, 164, 0.35)', 'rgba(255, 255, 255, 0.3)', 'rgba(129, 0, 129, 0.45)'],
+    matrix: ['rgba(0, 255, 65, 0.5)', 'rgba(0, 180, 40, 0.32)', 'rgba(0, 255, 65, 0.3)', 'rgba(0, 120, 20, 0.35)'],
+    wawa: ['rgba(160, 110, 60, 0.4)', 'rgba(60, 60, 60, 0.35)', 'rgba(210, 150, 90, 0.3)', 'rgba(90, 60, 40, 0.4)'],
     red: ['rgba(228, 3, 3, 0.4)', 'rgba(228, 3, 3, 0.32)', 'rgba(228, 3, 3, 0.45)', 'rgba(228, 3, 3, 0.24)'],
     orange: ['rgba(255, 140, 0, 0.4)', 'rgba(255, 140, 0, 0.32)', 'rgba(255, 140, 0, 0.45)', 'rgba(255, 140, 0, 0.24)'],
     yellow: ['rgba(255, 215, 0, 0.4)', 'rgba(255, 215, 0, 0.32)', 'rgba(255, 215, 0, 0.45)', 'rgba(255, 215, 0, 0.24)'],
@@ -242,6 +264,8 @@ export const GLASS_COLORS_LIGHT = {
         'rgba(169, 169, 169, 0.68)',
     ],
     ace: ['rgba(0, 0, 0, 0.78)', 'rgba(164, 164, 164, 0.6)', 'rgba(255, 255, 255, 0.55)', 'rgba(129, 0, 129, 0.75)'],
+    matrix: ['rgba(0, 255, 65, 0.8)', 'rgba(0, 190, 45, 0.6)', 'rgba(0, 255, 65, 0.65)', 'rgba(0, 120, 20, 0.6)'],
+    wawa: ['rgba(160, 110, 60, 0.68)', 'rgba(60, 60, 60, 0.6)', 'rgba(210, 150, 90, 0.58)', 'rgba(90, 60, 40, 0.68)'],
     red: ['rgba(228, 3, 3, 0.68)', 'rgba(228, 3, 3, 0.55)', 'rgba(228, 3, 3, 0.75)', 'rgba(228, 3, 3, 0.42)'],
     orange: [
         'rgba(255, 140, 0, 0.68)',
@@ -279,6 +303,8 @@ export const GLASS_CHIPS = {
     aroace: ['#ea8c45', '#fbcf3e', '#ffffff', '#79c7c5', '#2c739c'],
     aro: ['#3da542', '#a7d379', '#ffffff', '#a9a9a9', '#000000'],
     ace: ['#000000', '#a4a4a4', '#ffffff', '#810081'],
+    matrix: ['#001f0a', '#00ff41', '#007a1f', '#001f0a'],
+    wawa: ['#8a5a2b', '#e0b684', '#ffffff', '#3d2b1f'],
     red: ['#e40303', '#e40303', '#e40303'],
     orange: ['#ff8c00', '#ff8c00', '#ff8c00'],
     yellow: ['#ffd700', '#ffd700', '#ffd700'],
@@ -306,6 +332,8 @@ export function readThemeState() {
     let glassAnim = null;
     let glassFlag = null;
     let glassCustom = null;
+    let glassBlur = null;
+    let glassCustomImage = null;
     if (typeof window !== 'undefined') {
         theme = readStored('theme');
         round = readStored('roundStyle');
@@ -313,6 +341,8 @@ export function readThemeState() {
         glassAnim = readStored('glassAnim');
         glassFlag = readStored('glassFlag');
         glassCustom = readStored('glassCustom');
+        glassBlur = readStored('glassBlur');
+        glassCustomImage = readStored('glassCustomImage');
     }
     const root = typeof document !== 'undefined' ? document.documentElement : null;
     const attrTheme = root ? root.dataset.theme : null;
@@ -347,6 +377,12 @@ export function readThemeState() {
         glassAnim: glassAnim === 'true' || (root && root.dataset.glassAnim === 'true'),
         glassFlag: glassFlag === 'true' || (root && root.dataset.glassFlag === 'true'),
         glassCustom: customColors,
+        glassBlur: parseGlassBlur(glassBlur ?? (root ? root.dataset.glassBlur : null)),
+        // Visitor-uploaded backdrop image, kept purely in the browser.
+        glassCustomImage:
+            typeof glassCustomImage === 'string' && glassCustomImage.startsWith('data:image/')
+                ? glassCustomImage
+                : null,
     };
 }
 
@@ -364,6 +400,9 @@ export function applyThemeState(changes) {
     else delete root.dataset.glassAnim;
     if (next.glassFlag) root.dataset.glassFlag = 'true';
     else delete root.dataset.glassFlag;
+    const blur = parseGlassBlur(next.glassBlur);
+    root.dataset.glassBlur = String(blur);
+    root.style.setProperty('--glass-frost-blur', blur + 'px');
     try {
         localStorage.setItem('theme', next.theme);
         localStorage.setItem('roundStyle', next.round ? '1' : '0');
@@ -371,6 +410,13 @@ export function applyThemeState(changes) {
         localStorage.setItem('glassAnim', String(next.glassAnim));
         localStorage.setItem('glassFlag', String(next.glassFlag));
         localStorage.setItem('glassCustom', JSON.stringify(sanitizeCustomColors(next.glassCustom)));
+        localStorage.setItem('glassBlur', String(blur));
+        const img = next.glassCustomImage;
+        if (typeof img === 'string' && img.startsWith('data:image/')) {
+            localStorage.setItem('glassCustomImage', img);
+        } else {
+            localStorage.removeItem('glassCustomImage');
+        }
     } catch (e) {
         // ignore
     }

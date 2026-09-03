@@ -395,6 +395,67 @@
     border-color: var(--text-2);
 }
 
+/* Backdrop blur slider: frosted veil above the backdrop. */
+.blurRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-top: 0.35rem;
+}
+
+.blurLabel {
+    color: var(--text-2);
+    font-size: 0.85rem;
+    min-width: 96px;
+}
+
+.blurRow input[type='range'] {
+    flex: 1;
+    min-width: 140px;
+    accent-color: #9c59d1;
+    cursor: pointer;
+}
+
+.blurValue {
+    color: var(--text-1);
+    font-size: 0.85rem;
+    min-width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Uploaded backdrop image (stored in the browser only). */
+.uploadRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.uploadButton {
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.uploadButton:hover {
+    background: var(--glass-3, var(--glass-2));
+    border-color: var(--text-2);
+}
+
+.uploadButton input {
+    display: none;
+}
+
+.uploadNote {
+    color: var(--text-2);
+    font-size: 0.8rem;
+}
+
 /* Site options (builder/cache toggles + font) that moved from the header
    settings into the bottom of the Settings card. Kept compact: the toggle
    chips sit in one wrapping row and the font picker is a slim inline row. */

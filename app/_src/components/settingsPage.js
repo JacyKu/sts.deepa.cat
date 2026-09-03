@@ -13,12 +13,16 @@ import {
     THEME_LABELS,
     GLASS_PRIDE_SCHEMES,
     GLASS_BASIC_SCHEMES,
+    GLASS_EXTRA_SCHEMES,
     GLASS_CHIPS,
+    WAWA_IMAGE_URL,
+    MAX_GLASS_BLUR,
     CUSTOM_SCHEME,
     MAX_GLASS_CUSTOM_COLORS,
     DEFAULT_GLASS_CUSTOM_COLORS,
     glassSchemeLabel,
     systemTheme,
+    isGlassTheme,
 } from './themeSettings';
 
 // The font picker is a small pill select, deliberately different from the
@@ -82,6 +86,51 @@ const THEME_SWATCHES = {
     'glass-light':
         'radial-gradient(circle at 25% 30%, rgba(252, 244, 49, 0.5) 0%, transparent 55%), radial-gradient(circle at 75% 70%, rgba(156, 89, 209, 0.5) 0%, transparent 55%), linear-gradient(160deg, #ffffff 0%, #e7ecf7 60%, #cdd6ec 100%)',
 };
+
+// Reads a picked file into a data URL.
+const readFileAsDataURL = (file) =>
+    new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read that image.'));
+        reader.readAsDataURL(file);
+    });
+
+// Data URLs are stored in localStorage, which is capped around 5MB per
+// origin. The browser quota for our origin has to also fit everything else
+// stored, so images stay well under that.
+const MAX_STORED_IMAGE = 3600000;
+
+// GIFs and WebPs can be animated; re-encoding them through a canvas would
+// freeze them on their first frame, so those are kept exactly as uploaded
+// (still within the local storage limit). Static images (PNG/JPEG/...) are
+// downscaled on a canvas when they are large so they fit comfortably.
+async function optimizeImage(file) {
+    const dataUrl = await readFileAsDataURL(file);
+    const animated = file.type === 'image/gif' || file.type === 'image/webp';
+    if (animated) {
+        if (dataUrl.length > MAX_STORED_IMAGE) {
+            throw new Error('That image is too large to store in your browser (about 3.5MB max).');
+        }
+        return dataUrl;
+    }
+    if (dataUrl.length < 400000) return dataUrl;
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error('Could not read that image.'));
+        img.src = dataUrl;
+    });
+    const maxSide = 1400;
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    if (scale === 1) return dataUrl;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const out = canvas.toDataURL('image/jpeg', 0.82);
+    return out.length < dataUrl.length ? out : dataUrl;
+}
 
 // Site-wide look and behaviour settings. Available to everyone, logged in or
 // not; everything is stored in the browser.
@@ -165,6 +214,40 @@ export default function SettingsPage() {
         updateState({ glassFlag: next });
     }
 
+    function setGlassBlurValue(next) {
+        updateState({ glassBlur: next });
+    }
+
+    // Uploaded backdrops stay in the browser: the file is read as a data
+    // URL and stored in localStorage. Big images are downscaled on a canvas
+    // first so they fit comfortably in the ~5MB storage limit.
+    const [imgNote, setImgNote] = React.useState(null);
+
+    function setCustomImage(dataUrl) {
+        updateState({ glassCustomImage: dataUrl });
+    }
+
+    function removeCustomImage() {
+        setCustomImage(null);
+        setImgNote(null);
+    }
+
+    function handleImageFile(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            setImgNote('That file is not an image.');
+            return;
+        }
+        optimizeImage(file)
+            .then((dataUrl) => {
+                setCustomImage(dataUrl);
+                setImgNote(null);
+            })
+            .catch((err) => setImgNote(err && err.message ? err.message : 'Could not read that image.'));
+    }
+
     function setFontValue(nextFont) {
         document.documentElement.dataset.font = nextFont;
         setFont(nextFont);
@@ -181,11 +264,15 @@ export default function SettingsPage() {
     const fontSelectStyles = React.useMemo(() => makeFontSelectStyles(round), [round]);
 
     const theme = themeState ? themeState.theme : systemTheme();
+    const glassActive = isGlassTheme(theme);
     const glassScheme = themeState ? themeState.glassScheme : 'enby';
     const glassCustom = themeState ? themeState.glassCustom : [...DEFAULT_GLASS_CUSTOM_COLORS];
     const glassAnim = themeState ? themeState.glassAnim : false;
     const glassFlag = themeState ? themeState.glassFlag : false;
+    const glassBlur = themeState ? themeState.glassBlur : 0;
+    const glassCustomImage = themeState ? themeState.glassCustomImage : null;
     const customActive = glassScheme === CUSTOM_SCHEME;
+    const extraActive = GLASS_EXTRA_SCHEMES.includes(glassScheme);
 
     return (
         <main className={styles.page}>
@@ -228,128 +315,212 @@ export default function SettingsPage() {
                     />
                     Round corners
                 </label>
-                <div className={styles.glassColours}>
-                    <h4 className={styles.colourGroup}>Pride</h4>
-                    <div className={styles.colourList}>
-                        {GLASS_PRIDE_SCHEMES.map((scheme) => (
-                            <button
-                                key={scheme}
-                                type="button"
-                                className={`${styles.colourChip}${glassScheme === scheme ? ` ${styles.colourChipActive}` : ''}`}
-                                aria-pressed={glassScheme === scheme}
-                                aria-label={glassSchemeLabel(scheme)}
-                                title={glassSchemeLabel(scheme)}
-                                onClick={() => setGlassScheme(scheme)}
-                            >
-                                <span
-                                    className={styles.colourSwatch}
-                                    style={{
-                                        '--chip-bg': `linear-gradient(to right, ${GLASS_CHIPS[scheme].join(', ')})`,
-                                    }}
-                                    aria-hidden="true"
-                                />
-                                {glassSchemeLabel(scheme)}
-                            </button>
-                        ))}
-                    </div>
-                    <h4 className={styles.colourGroup}>Colours</h4>
-                    <div className={styles.colourList}>
-                        {GLASS_BASIC_SCHEMES.map((scheme) => (
-                            <button
-                                key={scheme}
-                                type="button"
-                                className={`${styles.colourChip}${glassScheme === scheme ? ` ${styles.colourChipActive}` : ''}`}
-                                aria-pressed={glassScheme === scheme}
-                                aria-label={glassSchemeLabel(scheme)}
-                                title={glassSchemeLabel(scheme)}
-                                onClick={() => setGlassScheme(scheme)}
-                            >
-                                <span
-                                    className={styles.colourSwatch}
-                                    style={{
-                                        '--chip-bg': `linear-gradient(to right, ${GLASS_CHIPS[scheme].join(', ')})`,
-                                    }}
-                                    aria-hidden="true"
-                                />
-                                {glassSchemeLabel(scheme)}
-                            </button>
-                        ))}
-                        <button
-                            type="button"
-                            className={`${styles.colourChip}${customActive ? ` ${styles.colourChipActive}` : ''}`}
-                            aria-pressed={customActive}
-                            aria-label="Custom"
-                            title="Pick your own colours"
-                            onClick={() => setGlassScheme(CUSTOM_SCHEME)}
-                        >
-                            <span
-                                className={styles.colourSwatch}
-                                style={{
-                                    '--chip-bg':
-                                        glassCustom.length === 1
-                                            ? glassCustom[0]
-                                            : `linear-gradient(to right, ${glassCustom.join(', ')})`,
-                                }}
-                                aria-hidden="true"
-                            />
-                            Custom
-                        </button>
-                    </div>
-                    {customActive && (
-                        <div className={styles.customEditor}>
-                            <div className={styles.colourPickers}>
-                                {glassCustom.map((color, i) => (
-                                    <div key={i} className={styles.colourPickerRow}>
-                                        <label className={styles.colourPicker}>
-                                            Colour {i + 1}
-                                            <input
-                                                type="color"
-                                                value={color}
-                                                onChange={(e) => setCustomColor(i, e.target.value)}
-                                                aria-label={`Backdrop colour ${i + 1}`}
-                                            />
-                                        </label>
-                                        {glassCustom.length > 1 && (
-                                            <button
-                                                type="button"
-                                                className={styles.colourRemove}
-                                                onClick={() => removeCustomColor(i)}
-                                                aria-label={`Remove colour ${i + 1}`}
-                                            >
-                                                Remove
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            {glassCustom.length < MAX_GLASS_CUSTOM_COLORS && (
-                                <button type="button" className={styles.colourAdd} onClick={addCustomColor}>
-                                    Add colour
+                {glassActive && (
+                    <div className={styles.glassColours}>
+                        <h4 className={styles.colourGroup}>Pride</h4>
+                        <div className={styles.colourList}>
+                            {GLASS_PRIDE_SCHEMES.map((scheme) => (
+                                <button
+                                    key={scheme}
+                                    type="button"
+                                    className={`${styles.colourChip}${glassScheme === scheme ? ` ${styles.colourChipActive}` : ''}`}
+                                    aria-pressed={glassScheme === scheme}
+                                    aria-label={glassSchemeLabel(scheme)}
+                                    title={glassSchemeLabel(scheme)}
+                                    onClick={() => setGlassScheme(scheme)}
+                                >
+                                    <span
+                                        className={styles.colourSwatch}
+                                        style={{
+                                            '--chip-bg': `linear-gradient(to right, ${GLASS_CHIPS[scheme].join(', ')})`,
+                                        }}
+                                        aria-hidden="true"
+                                    />
+                                    {glassSchemeLabel(scheme)}
                                 </button>
-                            )}
+                            ))}
                         </div>
-                    )}
-                    <div className={styles.glassToggles}>
-                        <label className={styles.themeToggleRow}>
+                        <h4 className={styles.colourGroup}>Colours</h4>
+                        <div className={styles.colourList}>
+                            {GLASS_BASIC_SCHEMES.map((scheme) => (
+                                <button
+                                    key={scheme}
+                                    type="button"
+                                    className={`${styles.colourChip}${glassScheme === scheme ? ` ${styles.colourChipActive}` : ''}`}
+                                    aria-pressed={glassScheme === scheme}
+                                    aria-label={glassSchemeLabel(scheme)}
+                                    title={glassSchemeLabel(scheme)}
+                                    onClick={() => setGlassScheme(scheme)}
+                                >
+                                    <span
+                                        className={styles.colourSwatch}
+                                        style={{
+                                            '--chip-bg': `linear-gradient(to right, ${GLASS_CHIPS[scheme].join(', ')})`,
+                                        }}
+                                        aria-hidden="true"
+                                    />
+                                    {glassSchemeLabel(scheme)}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                className={`${styles.colourChip}${customActive ? ` ${styles.colourChipActive}` : ''}`}
+                                aria-pressed={customActive}
+                                aria-label="Custom"
+                                title="Pick your own colours"
+                                onClick={() => setGlassScheme(CUSTOM_SCHEME)}
+                            >
+                                <span
+                                    className={styles.colourSwatch}
+                                    style={{
+                                        '--chip-bg':
+                                            glassCustom.length === 1
+                                                ? glassCustom[0]
+                                                : `linear-gradient(to right, ${glassCustom.join(', ')})`,
+                                    }}
+                                    aria-hidden="true"
+                                />
+                                Custom
+                            </button>
+                        </div>
+                        <h4 className={styles.colourGroup}>Backdrops</h4>
+                        <div className={styles.colourList}>
+                            {GLASS_EXTRA_SCHEMES.map((scheme) => {
+                                const isMyImage = scheme === 'customimg';
+                                return (
+                                    <button
+                                        key={scheme}
+                                        type="button"
+                                        className={`${styles.colourChip}${
+                                            glassScheme === scheme ? ` ${styles.colourChipActive}` : ''
+                                        }`}
+                                        aria-pressed={glassScheme === scheme}
+                                        aria-label={isMyImage ? 'My image' : glassSchemeLabel(scheme)}
+                                        title={isMyImage ? 'Your own picture' : glassSchemeLabel(scheme)}
+                                        onClick={() => setGlassScheme(scheme)}
+                                    >
+                                        <span
+                                            className={styles.colourSwatch}
+                                            style={{
+                                                '--chip-bg':
+                                                    scheme === 'wawa'
+                                                        ? `url(${WAWA_IMAGE_URL}) center / cover no-repeat`
+                                                        : isMyImage
+                                                          ? glassCustomImage
+                                                              ? `url(${glassCustomImage}) center / cover no-repeat`
+                                                              : 'linear-gradient(135deg, #6a6a72 0%, #2a2a30 60%, #1a1a20 100%)'
+                                                          : `linear-gradient(to right, ${GLASS_CHIPS[scheme].join(', ')})`,
+                                            }}
+                                            aria-hidden="true"
+                                        />
+                                        {isMyImage ? 'My image' : glassSchemeLabel(scheme)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {glassScheme === 'customimg' && (
+                            <div className={styles.uploadRow}>
+                                <label className={styles.uploadButton}>
+                                    {glassCustomImage ? 'Replace image' : 'Choose an image'}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageFile}
+                                        aria-label="Choose backdrop image"
+                                    />
+                                </label>
+                                {glassCustomImage && (
+                                    <button
+                                        type="button"
+                                        className={styles.colourRemove}
+                                        onClick={removeCustomImage}
+                                        aria-label="Remove backdrop image"
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                                {imgNote ? (
+                                    <span className={styles.uploadNote}>{imgNote}</span>
+                                ) : (
+                                    <span className={styles.uploadNote}>
+                                        Stored in this browser only - never uploaded.
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                        {customActive && (
+                            <div className={styles.customEditor}>
+                                <div className={styles.colourPickers}>
+                                    {glassCustom.map((color, i) => (
+                                        <div key={i} className={styles.colourPickerRow}>
+                                            <label className={styles.colourPicker}>
+                                                Colour {i + 1}
+                                                <input
+                                                    type="color"
+                                                    value={color}
+                                                    onChange={(e) => setCustomColor(i, e.target.value)}
+                                                    aria-label={`Backdrop colour ${i + 1}`}
+                                                />
+                                            </label>
+                                            {glassCustom.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    className={styles.colourRemove}
+                                                    onClick={() => removeCustomColor(i)}
+                                                    aria-label={`Remove colour ${i + 1}`}
+                                                >
+                                                    Remove
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                {glassCustom.length < MAX_GLASS_CUSTOM_COLORS && (
+                                    <button type="button" className={styles.colourAdd} onClick={addCustomColor}>
+                                        Add colour
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {!extraActive && (
+                            <div className={styles.glassToggles}>
+                                <label className={styles.themeToggleRow}>
+                                    <input
+                                        type="checkbox"
+                                        checked={glassAnim}
+                                        onChange={(e) => setGlassAnim(e.target.checked)}
+                                        aria-label="Animate glass backdrop"
+                                    />
+                                    Animate backdrop
+                                </label>
+                                <label className={styles.themeToggleRow}>
+                                    <input
+                                        type="checkbox"
+                                        checked={glassFlag}
+                                        onChange={(e) => setGlassFlag(e.target.checked)}
+                                        aria-label="Flag gradient backdrop"
+                                    />
+                                    Flag gradient
+                                </label>
+                            </div>
+                        )}
+                        <div className={styles.blurRow}>
+                            <label className={styles.blurLabel} htmlFor="glass-blur">
+                                Backdrop blur
+                            </label>
                             <input
-                                type="checkbox"
-                                checked={glassAnim}
-                                onChange={(e) => setGlassAnim(e.target.checked)}
-                                aria-label="Animate glass backdrop"
+                                id="glass-blur"
+                                type="range"
+                                min="0"
+                                max={MAX_GLASS_BLUR}
+                                step="1"
+                                value={glassBlur}
+                                onChange={(e) => setGlassBlurValue(Number(e.target.value))}
                             />
-                            Animate backdrop
-                        </label>
-                        <label className={styles.themeToggleRow}>
-                            <input
-                                type="checkbox"
-                                checked={glassFlag}
-                                onChange={(e) => setGlassFlag(e.target.checked)}
-                                aria-label="Flag gradient backdrop"
-                            />
-                            Flag gradient
-                        </label>
+                            <span className={styles.blurValue}>{glassBlur}px</span>
+                        </div>
                     </div>
-                </div>
+                )}
                 <div className={styles.siteOptions}>
                     <label className={styles.fontRow}>
                         <span className={styles.fontLabel}>Font</span>

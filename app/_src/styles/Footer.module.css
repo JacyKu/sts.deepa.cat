@@ -4,7 +4,6 @@
     border-top: 1px solid var(--glass-border);
     background: var(--glass-1);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
 }
 
 .inner {
@@ -102,13 +101,11 @@
     padding: 16px;
     /* Frost the page behind the dialog. */
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
 
 .modal {
     background: var(--glass-1);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-elevated);
     max-width: 420px;

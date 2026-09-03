@@ -11,13 +11,6 @@
     background: var(--glass-1, #0e0e14);
     border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.05));
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-}
-
-/* Standard-property twin (kept in its own rule; the minifier collapses the
-   prefixed+standard pair above to the prefixed form only). */
-.nav {
-    backdrop-filter: blur(12px);
 }
 
 .brand {
@@ -88,7 +81,6 @@
     background: rgba(0, 0, 0, 0.6);
     /* Frost the page behind the dialog. */
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
 
 .betaDialog {
@@ -101,7 +93,6 @@
     font-size: 14px;
     /* Frost whatever scrolls behind so the dialog stays readable. */
     backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
 }
 
 .betaDialog p {

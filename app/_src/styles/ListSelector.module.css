@@ -3,7 +3,6 @@
     border: 1px solid var(--glass-border);
     background: var(--glass-1);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     display: block;
 }
 

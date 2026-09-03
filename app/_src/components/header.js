@@ -24,6 +24,8 @@ import {
     GLASS_COLORS,
     GLASS_COLORS_LIGHT,
     GLASS_FLAG_CSS_SCHEMES,
+    GLASS_EXTRA_SCHEMES,
+    parseGlassBlur,
     customBackdropColors,
     hexToRgba,
     sanitizeCustomColors,
@@ -308,6 +310,68 @@ export function HeaderNav() {
     );
 }
 
+// Classic matrix code rain: a canvas streaming katakana/digits down the
+// page. Runs only while the matrix backdrop is selected (mounted as a
+// portal by Header), tearing the animation down on unmount.
+function MatrixRain() {
+    const canvasRef = React.useRef(null);
+
+    React.useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return undefined;
+        const ctx = canvas.getContext('2d');
+        const chars =
+            'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
+        const fontSize = 16;
+        let width = 0;
+        let height = 0;
+        let columns = 0;
+        let drops = [];
+
+        const resize = () => {
+            width = canvas.width = Math.max(1, window.innerWidth);
+            height = canvas.height = Math.max(1, window.innerHeight);
+            columns = Math.ceil(width / fontSize);
+            drops = Array.from({ length: columns }, () => Math.floor((Math.random() * -height) / fontSize));
+        };
+        resize();
+        window.addEventListener('resize', resize);
+
+        const colors = ['#00ff41', '#2bff67', '#0bbd3a', '#baffc9', '#7dffa0'];
+        let frame = 0;
+        let raf = 0;
+        const tick = () => {
+            // Fade previous frame toward black; the canvas keeps its own
+            // dark base so text stays readable over any theme.
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                const char = chars[Math.floor(Math.random() * chars.length)];
+                const head = drops[i] * fontSize;
+                ctx.fillStyle = frame % 3 === 0 ? '#ccffd0' : colors[i % colors.length];
+                ctx.fillText(char, i * fontSize, head);
+                // Randomly reset a column once it falls off the bottom.
+                if (head > height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+            frame++;
+            raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => {
+            cancelAnimationFrame(raf);
+            window.removeEventListener('resize', resize);
+        };
+    }, []);
+
+    return (
+        <div className="glass-matrix" aria-hidden="true">
+            <canvas ref={canvasRef} />
+        </div>
+    );
+}
+
 // The STS app settings, rendered on the right side of the shared SiteNav bar.
 export default function Header() {
     const [theme, setTheme] = React.useState('dark');
@@ -315,6 +379,8 @@ export default function Header() {
     const [glassCustom, setGlassCustom] = React.useState([...DEFAULT_GLASS_CUSTOM_COLORS]);
     const [glassAnim, setGlassAnim] = React.useState(false);
     const [glassFlag, setGlassFlag] = React.useState(false);
+    const [glassBlur, setGlassBlur] = React.useState(0);
+    const [glassCustomImage, setGlassCustomImage] = React.useState(null);
     const { lowRes, toggle: toggleLowRes } = useLowResource();
     const session = useSessionState();
 
@@ -353,6 +419,11 @@ export default function Header() {
             setGlassFlag(state.glassFlag);
             if (state.glassFlag) root.dataset.glassFlag = 'true';
             else delete root.dataset.glassFlag;
+            const blur = parseGlassBlur(state.glassBlur);
+            setGlassBlur(blur);
+            root.dataset.glassBlur = String(blur);
+            root.style.setProperty('--glass-frost-blur', blur + 'px');
+            setGlassCustomImage(state.glassCustomImage);
         };
         applyState();
         // The font lives on the account page now, but it must still be
@@ -382,10 +453,11 @@ export default function Header() {
 
     // Flag-mode body gradients come from CSS for the original schemes, but
     // newer schemes (and the custom blend) have no CSS rule - paint those
-    // directly and clear the inline style otherwise so CSS applies.
+    // directly and clear the inline style otherwise so CSS applies. The
+    // full-screen effect backdrops (matrix/wawa) ignore flag mode entirely.
     React.useEffect(() => {
         const body = document.body;
-        if (isGlassTheme(theme) && glassFlag) {
+        if (isGlassTheme(theme) && glassFlag && !GLASS_EXTRA_SCHEMES.includes(glassScheme)) {
             if (glassScheme === CUSTOM_SCHEME) {
                 const alpha = theme === 'glass' ? 0.6 : 0.72;
                 const colors = sanitizeCustomColors(glassCustom);
@@ -429,6 +501,7 @@ export default function Header() {
         <>
             {isGlassTheme(theme) &&
                 !glassFlag &&
+                !GLASS_EXTRA_SCHEMES.includes(glassScheme) &&
                 typeof document !== 'undefined' &&
                 createPortal(
                     <div className="glass-backdrop" aria-hidden="true">
@@ -470,6 +543,31 @@ export default function Header() {
                     </div>,
                     document.body
                 )}
+            {isGlassTheme(theme) &&
+                glassScheme === 'matrix' &&
+                typeof document !== 'undefined' &&
+                createPortal(<MatrixRain />, document.body)}
+            {isGlassTheme(theme) &&
+                glassScheme === 'wawa' &&
+                typeof document !== 'undefined' &&
+                createPortal(<div className="glass-wawa" aria-hidden="true" />, document.body)}
+            {isGlassTheme(theme) &&
+                glassScheme === 'customimg' &&
+                glassCustomImage &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                    <div
+                        className="glass-photo"
+                        aria-hidden="true"
+                        style={{ backgroundImage: `url(${glassCustomImage})` }}
+                    />,
+                    document.body
+                )}
+            {isGlassTheme(theme) &&
+                glassFlag &&
+                !GLASS_EXTRA_SCHEMES.includes(glassScheme) &&
+                typeof document !== 'undefined' &&
+                createPortal(<div className="glass-frost" aria-hidden="true" />, document.body)}
             <div className={styles.controls}>
                 <AccountChip session={session} />
                 <button

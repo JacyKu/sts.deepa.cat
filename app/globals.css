@@ -139,6 +139,7 @@ html[data-theme='glass-light'] body {
     z-index: -1;
     overflow: hidden;
     pointer-events: none;
+    filter: blur(var(--glass-frost-blur, 0px));
 }
 
 .glass-blob {
@@ -357,22 +358,11 @@ html[data-theme='glass'] :where(input[type='text'], input[type='number'], input[
 html[data-theme='glass-light']
     :where(input[type='text'], input[type='number'], input[type='password'], textarea, select) {
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
 
 /* Translucent menu/dialog surfaces stay readable by frosting whatever is
    behind them. Applies on every theme (the glass ones simply have more
    transparent surfaces to begin with). */
-html [class*='menuPanel'],
-html [class*='betaDialog'],
-html [class*='modal'],
-html [class*='tooltipText'] {
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
-}
-
-/* Standard-property twin (kept in its own rule; the minifier collapses the
-   prefixed+standard pair above to the prefixed form only). */
 html [class*='menuPanel'],
 html [class*='betaDialog'],
 html [class*='modal'],
@@ -385,12 +375,70 @@ html [class*='tooltipText'] {
    blurring just the panel itself is enough, without frosting the whole
    page behind an open menu. */
 html [class*='overlay'] {
-    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
 }
 
-html [class*='overlay'] {
-    backdrop-filter: blur(10px);
+/* Frost veil: sits above the backdrop (blobs/flags/effects) but below every
+   real element, blurring only what the backdrop paints. The amount comes
+   from --glass-frost-blur (set by the settings' blur slider). */
+.glass-frost {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    backdrop-filter: blur(var(--glass-frost-blur, 0px));
+}
+
+/* Wawa cat full-screen backdrop. */
+.glass-wawa {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: url('/images/wawa.jpg');
+    background-size: cover;
+    background-position: center;
+}
+
+/* Visitor-uploaded backdrop image (stored as a data URL in their browser). */
+.glass-photo {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-size: cover;
+    background-position: center;
+    filter: blur(var(--glass-frost-blur, 0px));
+}
+
+/* Matrix rain canvas backdrop. The rain canvas is its own composited layer,
+   which a backdrop-filter veil above it cannot sample, so the frost amount
+   is applied as a filter directly on the layer instead. */
+.glass-matrix {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    filter: blur(var(--glass-frost-blur, 0px));
+}
+
+.glass-matrix canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* The in-field typing input react-select renders is a plain text input, so
+   the glass-theme frosted-input rule would draw a blur box around it. Only
+   that element opts out of the backdrop blur. */
+html [class*='-container'] input[role='combobox'],
+html input[role='combobox'] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+/* react-select controls: thin 1px borders and a subtle focus ring matching the app's inputs */
+[class$='-container']:focus-within > [class$='-control'] {
+    box-shadow: 0 0 0 1px var(--control-border-focus) !important;
+    border-color: var(--control-border-focus) !important;
 }
 
 /* No square corners: every element gets a small radius. */
@@ -567,6 +615,7 @@ html a:hover {
 
 main {
     flex: 1 0 auto;
+    width: 100%;
 }
 
 html h1 {
@@ -679,12 +728,6 @@ html textarea {
     border-radius: 0;
 }
 
-/* react-select controls: thin 1px borders and a subtle focus ring matching the app's inputs */
-[class$='-container']:focus-within > [class$='-control'] {
-    box-shadow: 0 0 0 1px var(--control-border-focus) !important;
-    border-color: var(--control-border-focus) !important;
-}
-
 button {
     cursor: pointer;
 }
@@ -708,5 +751,4 @@ button:disabled {
     background: var(--glass-1);
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 }
