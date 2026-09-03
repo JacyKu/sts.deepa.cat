@@ -58,7 +58,19 @@ export default function AccountPage() {
             .finally(() => setDeleting(false));
     }
 
-    if (!session.checked) return null;
+    if (!session.checked) {
+        return (
+            <main className={styles.page}>
+                <div className={`${styles.sk} ${styles.skTitle}`} />
+                <div className={styles.skTabRow}>
+                    <div className={`${styles.sk} ${styles.skTab}`} />
+                    <div className={`${styles.sk} ${styles.skTab}`} />
+                </div>
+                <div className={`${styles.sk} ${styles.skCard}`} />
+                <div className={`${styles.sk} ${styles.skCard}`} />
+            </main>
+        );
+    }
 
     return (
         <main className={styles.page}>
@@ -93,7 +105,15 @@ export default function AccountPage() {
                     </ul>
                     {error && <p className={styles.error}>{error}</p>}
                     {!loaded ? (
-                        <p className={styles.muted}>Loading…</p>
+                        <ul className={styles.linkList}>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <li key={i} className={styles.linkRow}>
+                                    <div className={`${styles.sk} ${styles.skIcon}`} />
+                                    <div className={`${styles.sk} ${styles.skLine}`} />
+                                    <div className={`${styles.sk} ${styles.skLineShort}`} />
+                                </li>
+                            ))}
+                        </ul>
                     ) : links.length === 0 ? (
                         <p className={styles.muted}>
                             No linked profiles. Run <code>/stsmod link</code> in game with the Spare the Sympathy mod

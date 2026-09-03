@@ -6,6 +6,7 @@ import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
 import styles from '../styles/Builds.module.css';
 import dbStyles from '../styles/Database.module.css';
+import DatabaseSkeleton from './databaseSkeleton';
 import { getStsBase } from '../utils/base';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
 
@@ -135,9 +136,7 @@ export default function BuildsPage() {
                 </div>
 
                 {!authChecked ? (
-                    <p className={styles.muted}>
-                        <TranslatableText identifier="builds.loading" />
-                    </p>
+                    <DatabaseSkeleton />
                 ) : !user ? (
                     <div className={styles.loginPrompt}>
                         <p>
@@ -160,9 +159,7 @@ export default function BuildsPage() {
                         />
                     </p>
                 ) : !loaded ? (
-                    <p className={styles.muted}>
-                        <TranslatableText identifier="builds.loading" />
-                    </p>
+                    <DatabaseSkeleton />
                 ) : builds.length === 0 ? (
                     <p className={styles.muted}>
                         <TranslatableText identifier="builds.empty" />

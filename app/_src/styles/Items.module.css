@@ -167,8 +167,10 @@
 }
 
 .skeleton {
+    /* Flat placeholder slab matching the site's surfaces: no border or
+       rounding of its own (the Round setting adds radius when active),
+       just a subtle pulsing tone. */
     background: var(--glass-2);
-    border: 2px solid var(--glass-border);
     animation: skeletonPulse 1.2s ease-in-out infinite;
 }
 
@@ -289,7 +291,7 @@
 @keyframes skeletonPulse {
     0%,
     100% {
-        opacity: 0.4;
+        opacity: 0.55;
     }
     50% {
         opacity: 1;

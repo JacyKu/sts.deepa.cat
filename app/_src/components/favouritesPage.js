@@ -5,6 +5,7 @@ import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
 import InfiniteScroll from './infiniteScroll';
 import styles from '../styles/Database.module.css';
+import DatabaseSkeleton from './databaseSkeleton';
 import { getStsBase } from '../utils/base';
 
 export default function FavouritesPage() {
@@ -76,15 +77,16 @@ export default function FavouritesPage() {
             </h1>
 
             {!authChecked || (user && !loaded) ? (
-                <p className={styles.muted}>
-                    <TranslatableText identifier="database.loading" />
-                </p>
+                <DatabaseSkeleton />
             ) : !user ? (
                 <div className={styles.muted}>
                     <p>
                         <TranslatableText identifier="database.favLogin" />
                     </p>
-                    <a className={styles.loginBtn} href={`/api/auth/discord/login?next=${encodeURIComponent('/builds/favourites')}`}>
+                    <a
+                        className={styles.loginBtn}
+                        href={`/api/auth/discord/login?next=${encodeURIComponent('/builds/favourites')}`}
+                    >
                         <TranslatableText identifier="auth.loginWithDiscord" />
                     </a>
                 </div>

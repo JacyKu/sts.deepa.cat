@@ -3,6 +3,7 @@
 import React from 'react';
 import Select from 'react-select';
 import styles from '../../styles/CustomItems.module.css';
+import itemsStyles from '../../styles/Items.module.css';
 import { loadItemSpriteMap } from '../../utils/items/spritesheetMap';
 import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
@@ -249,7 +250,15 @@ export default function CustomItemsPage({ statCategories }) {
         return (
             <div className={styles.page}>
                 <h1 className={styles.title}>Custom Items</h1>
-                <p className={styles.muted}>Loading…</p>
+                <div className={styles.itemGrid}>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className={itemsStyles.skeleton}
+                            style={{ width: '100%', minHeight: 200, margin: 0 }}
+                        />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -421,7 +430,15 @@ export default function CustomItemsPage({ statCategories }) {
                 </div>
 
                 {items === null ? (
-                    <p className={styles.muted}>Loading…</p>
+                    <div className={styles.itemGrid}>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className={itemsStyles.skeleton}
+                                style={{ width: '100%', minHeight: 200, margin: 0 }}
+                            />
+                        ))}
+                    </div>
                 ) : items.length === 0 ? (
                     <p className={styles.muted}>
                         You have not created any custom items yet. Create one above - it will be linked to your Discord
