@@ -293,7 +293,8 @@
     box-shadow: var(--shadow-elevated);
 }
 
-:global(html[data-theme='light']) .customItem {
+:global(html[data-theme='light']) .customItem,
+:global(html[data-theme='glass-light']) .customItem {
     background: #ffffff;
 }
 

@@ -12,11 +12,11 @@ import {
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
-function CacheToggle({ label, hint, readPref, writePref }) {
+function CacheToggle({ label, hint, readPref, writePref, className } = {}) {
     const [enabled, setEnabled] = React.useState(true);
     React.useEffect(() => setEnabled(readPref()), [readPref]);
     return (
-        <label className={`${searchStyles.toggleLabel} ${'loreToggle'}`}>
+        <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
             <input
                 type="checkbox"
                 checked={enabled}

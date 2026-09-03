@@ -25,6 +25,9 @@
     --control-border-focus: rgba(255, 255, 255, 0.28);
     --control-focus-ring: rgba(255, 255, 255, 0.12);
 
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(17, 17, 17, 0.97);
+
     --text-on-accent: #fff;
 }
 
@@ -43,12 +46,44 @@
     --glass-2: rgba(255, 255, 255, 0.72);
     --glass-border: rgba(0, 0, 0, 0.16);
 
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(255, 255, 255, 0.97);
+
     --shadow-elevated: 0 10px 24px rgba(0, 0, 0, 0.14);
 
     --control-border: rgba(0, 0, 0, 0.14);
     --control-border-hover: rgba(0, 0, 0, 0.22);
     --control-border-focus: rgba(0, 0, 0, 0.28);
     --control-focus-ring: rgba(0, 0, 0, 0.1);
+
+    --text-on-accent: #fff;
+}
+
+/* White glass: glass styling (translucent surfaces over a fixed, softly
+   colored backdrop) with a light/white base instead of the dark one. */
+:root[data-theme='glass-light'] {
+    color-scheme: light;
+
+    --bg-0: #e8ecf6;
+    --surface-1: rgba(0, 0, 0, 0.05);
+    --surface-2: rgba(0, 0, 0, 0.09);
+    --text-1: #0b0f1c;
+    --text-2: #46506b;
+    --border-1: rgba(0, 0, 0, 0.1);
+
+    --glass-1: rgba(255, 255, 255, 0.62);
+    --glass-2: rgba(255, 255, 255, 0.52);
+    --glass-border: rgba(0, 0, 0, 0.1);
+
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(248, 249, 253, 0.97);
+
+    --shadow-elevated: 0 12px 28px rgba(40, 52, 110, 0.22);
+
+    --control-border: rgba(0, 0, 0, 0.16);
+    --control-border-hover: rgba(0, 0, 0, 0.26);
+    --control-border-focus: rgba(0, 0, 0, 0.34);
+    --control-focus-ring: rgba(0, 0, 0, 0.12);
 
     --text-on-accent: #fff;
 }
@@ -70,6 +105,9 @@
     --glass-2: rgba(20, 27, 44, 0.5);
     --glass-border: rgba(255, 255, 255, 0.16);
 
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(14, 19, 32, 0.96);
+
     --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.55);
 
     --control-border: rgba(255, 255, 255, 0.2);
@@ -82,6 +120,11 @@
 
 html[data-theme='glass'] body {
     background-color: #070a12;
+    background-attachment: fixed;
+}
+
+html[data-theme='glass-light'] body {
+    background-color: #e8ecf6;
     background-attachment: fixed;
 }
 
@@ -117,6 +160,10 @@ html[data-theme='glass'] [class*='itemTile'] {
     background: rgba(17, 1, 16, 0.65);
 }
 
+html[data-theme='glass-light'] [class*='itemTile'] {
+    background: rgba(255, 255, 255, 0.62);
+}
+
 @keyframes glassBlobDrift {
     0% {
         transform: translate(0, 0);
@@ -140,7 +187,8 @@ html[data-theme='glass'] [class*='itemTile'] {
    per page load (--glass-angle, set by the settings), the stripes feather
    into each other and stay translucent so the backdrop reads as soft colour
    rather than hard bands. */
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='enby'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='enby'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='enby'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(252, 244, 49, 0.5) 0%,
@@ -154,7 +202,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='enby'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='trans'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='trans'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='trans'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(91, 206, 250, 0.5) 0%,
@@ -170,7 +219,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='trans'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='rainbow'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='rainbow'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='rainbow'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(228, 3, 3, 0.5) 0%,
@@ -188,7 +238,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='rainbow'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='gay'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='gay'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='gay'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(7, 141, 112, 0.5) 0%,
@@ -204,7 +255,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='gay'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='lesbian'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='lesbian'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='lesbian'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(213, 45, 0, 0.5) 0%,
@@ -224,7 +276,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='lesbian'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='bi'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='bi'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='bi'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(214, 2, 112, 0.5) 0%,
@@ -236,7 +289,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='bi'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='pan'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='pan'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='pan'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(255, 28, 142, 0.5) 0%,
@@ -249,11 +303,13 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='pan'] body {
 }
 
 /* Basic single-colour schemes: a soft fade of one hue. */
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='red'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='red'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='red'] body {
     background-image: linear-gradient(var(--glass-angle, 135deg), rgba(228, 3, 3, 0.5) 0%, rgba(228, 3, 3, 0.18) 100%);
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='orange'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='orange'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='orange'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(255, 140, 0, 0.5) 0%,
@@ -261,7 +317,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='orange'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='yellow'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='yellow'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='yellow'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(255, 215, 0, 0.45) 0%,
@@ -269,7 +326,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='yellow'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='green'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='green'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='green'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(0, 128, 38, 0.5) 0%,
@@ -277,7 +335,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='green'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='blue'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='blue'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='blue'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(37, 99, 235, 0.5) 0%,
@@ -285,7 +344,8 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='blue'] body {
     );
 }
 
-html[data-theme='glass'][data-glass-flag][data-glass-scheme='purple'] body {
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='purple'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='purple'] body {
     background-image: linear-gradient(
         var(--glass-angle, 135deg),
         rgba(156, 89, 209, 0.5) 0%,
@@ -293,49 +353,53 @@ html[data-theme='glass'][data-glass-flag][data-glass-scheme='purple'] body {
     );
 }
 
-html[data-theme='glass'] :where(input[type='text'], input[type='number'], input[type='password'], textarea, select) {
+html[data-theme='glass'] :where(input[type='text'], input[type='number'], input[type='password'], textarea, select),
+html[data-theme='glass-light']
+    :where(input[type='text'], input[type='number'], input[type='password'], textarea, select) {
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
 }
 
-html[data-theme='glass'] [class*='menuPanel'],
-html[data-theme='glass'] [class*='tooltipText'] {
-    backdrop-filter: blur(16px);
+/* Translucent menu/dialog surfaces stay readable by frosting whatever is
+   behind them. Applies on every theme (the glass ones simply have more
+   transparent surfaces to begin with). */
+html [class*='menuPanel'],
+html [class*='betaDialog'],
+html [class*='modal'],
+html [class*='tooltipText'] {
     -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
 }
 
-/* Round theme: the default dark palette, with rounded corners everywhere. */
-:root[data-theme='round'] {
-    color-scheme: dark;
+/* Standard-property twin (kept in its own rule; the minifier collapses the
+   prefixed+standard pair above to the prefixed form only). */
+html [class*='menuPanel'],
+html [class*='betaDialog'],
+html [class*='modal'],
+html [class*='tooltipText'] {
+    backdrop-filter: blur(16px);
+}
 
-    --bg-0: #000;
-    --surface-1: #111;
-    --surface-2: #222;
-    --text-1: #fff;
-    --text-2: #bababa;
-    --border-1: #222;
+/* The dim layers behind dialogs/modals frost the page they cover, so the
+   content doesn't fight the dialog text. Dropdown menus don't need this:
+   blurring just the panel itself is enough, without frosting the whole
+   page behind an open menu. */
+html [class*='overlay'] {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
 
-    --glass-1: rgba(17, 17, 17, 0.9);
-    --glass-2: rgba(34, 34, 34, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.12);
-
-    --shadow-elevated: 0 10px 24px rgba(0, 0, 0, 0.45);
-
-    --control-border: rgba(255, 255, 255, 0.14);
-    --control-border-hover: rgba(255, 255, 255, 0.22);
-    --control-border-focus: rgba(255, 255, 255, 0.28);
-    --control-focus-ring: rgba(255, 255, 255, 0.12);
-
-    --text-on-accent: #fff;
+html [class*='overlay'] {
+    backdrop-filter: blur(10px);
 }
 
 /* No square corners: every element gets a small radius. */
-html[data-theme='round'] * {
+html[data-round='true'] * {
     border-radius: 8px !important;
 }
 
 /* Native checkboxes ignore border-radius; draw them rounded instead. */
-html[data-theme='round'] input[type='checkbox'] {
+html[data-round='true'] input[type='checkbox'] {
     -webkit-appearance: none;
     appearance: none;
     width: 16px;
@@ -347,11 +411,11 @@ html[data-theme='round'] input[type='checkbox'] {
     vertical-align: middle;
 }
 
-html[data-theme='round'] input[type='checkbox']:checked {
+html[data-round='true'] input[type='checkbox']:checked {
     background-color: var(--text-1);
 }
 
-html[data-theme='round'] input[type='checkbox']:checked::after {
+html[data-round='true'] input[type='checkbox']:checked::after {
     content: '';
     display: block;
     width: 4px;
@@ -363,14 +427,14 @@ html[data-theme='round'] input[type='checkbox']:checked::after {
 }
 
 /* Larger surfaces keep a slightly softer radius. */
-html[data-theme='round'] [class*='itemTile'],
-html[data-theme='round'] [class*='card'],
-html[data-theme='round'] [class*='menuPanel'],
-html[data-theme='round'] [class*='skillsSection'],
-html[data-theme='round'] [class*='statCard'],
-html[data-theme='round'] [class*='charmCardWrap'],
-html[data-theme='round'] [class*='builderSide'],
-html[data-theme='round'] [class*='betaDialog'] {
+html[data-round='true'] [class*='itemTile'],
+html[data-round='true'] [class*='card'],
+html[data-round='true'] [class*='menuPanel'],
+html[data-round='true'] [class*='skillsSection'],
+html[data-round='true'] [class*='statCard'],
+html[data-round='true'] [class*='charmCardWrap'],
+html[data-round='true'] [class*='builderSide'],
+html[data-round='true'] [class*='betaDialog'] {
     border-radius: 12px !important;
 }
 

@@ -83,7 +83,7 @@ export default async function StsLayout({ children }) {
                                                             <CardItemsFirstProvider>
                                                                 <FavouritesEnabledProvider>
                                                                     <ItemFavouritesProvider>
-                                                                        <SiteNav showBeta center={<HeaderNav />}>
+                                                                        <SiteNav center={<HeaderNav />}>
                                                                             <Header />
                                                                         </SiteNav>
                                                                         <NotificationsBar />

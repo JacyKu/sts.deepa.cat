@@ -32,7 +32,8 @@
     position: relative;
 }
 
-:global(html[data-theme='light']) .itemTile {
+:global(html[data-theme='light']) .itemTile,
+:global(html[data-theme='glass-light']) .itemTile {
     background: #6639622d;
 }
 
@@ -1513,7 +1514,8 @@
     padding: 12px;
 }
 
-:global(html[data-theme='light']) .listPanelWrap {
+:global(html[data-theme='light']) .listPanelWrap,
+:global(html[data-theme='glass-light']) .listPanelWrap {
     background: #fff;
 }
 

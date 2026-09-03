@@ -22,7 +22,7 @@ const selectTheme = (theme) => ({
         ...theme.colors,
         primary: 'var(--text-1)',
         primary25: 'var(--surface-2)',
-        neutral0: 'var(--glass-1)',
+        neutral0: 'var(--glass-menu)',
         neutral5: 'var(--glass-2)',
         neutral10: 'var(--glass-2)',
         neutral20: 'var(--control-border)',
@@ -45,9 +45,22 @@ const selectStyles = {
 // mirroring the items page's SelectWithTriggers rows. The Item category is a
 // cascade: the slot dropdown fills the rest of the row, and once a slot is
 // chosen a second row appears below with the actual item names.
-function FilterRow({ categories, row, onChangeCategory, onChangeSlot, onChangeValue, onDelete, t, itemGroups, slotOptions }) {
+function FilterRow({
+    categories,
+    row,
+    onChangeCategory,
+    onChangeSlot,
+    onChangeValue,
+    onDelete,
+    t,
+    itemGroups,
+    slotOptions,
+}) {
     const cat = categories.find((c) => c.name === row.category);
-    const optList = cat && cat.type === 'select' ? cat.options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o)) : [];
+    const optList =
+        cat && cat.type === 'select'
+            ? cat.options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o))
+            : [];
     const current = optList.find((o) => o.value === row.value) || null;
     const slot = slotOptions.find((o) => o.value === row.slot) || null;
     const itemOpts =

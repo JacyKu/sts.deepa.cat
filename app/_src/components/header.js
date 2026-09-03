@@ -10,19 +10,60 @@ import HideSkinsToggle from './items/hideSkinsToggle';
 import FavouritesToggle from './items/favouritesToggle';
 import MaxMasterworkToggle from './items/maxMasterworkToggle';
 import BuildListToggle from './items/buildListToggle';
-import BuilderLayoutToggle from './builderLayoutToggle';
-import { CacheSearchToggle, CacheBuildsToggle } from './cachingToggles';
 import AnimationsToggle from './items/animationsToggle';
 import styles from '../styles/Header.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import Link from 'next/link';
 import { getStsBase } from '../utils/base';
 import { useLowResource } from './lowResourceContext';
+import {
+    CUSTOM_SCHEME,
+    DEFAULT_GLASS_CUSTOM_COLORS,
+    readThemeState,
+    isGlassTheme,
+    GLASS_COLORS,
+    GLASS_COLORS_LIGHT,
+    GLASS_FLAG_CSS_SCHEMES,
+    customBackdropColors,
+    hexToRgba,
+    sanitizeCustomColors,
+} from './themeSettings';
 
 // Discord login state chip: "Log in" when logged out, avatar + "My Builds"
 // + logout when logged in. Session state lives in the shared useSessionState
 // hook so the settings menu (Header) can show the same user.
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
+
+// Dropdown menus are rendered in a portal to <body>. Their natural parent
+// (the site nav) carries a backdrop-filter, which makes it a "backdrop
+// root": a panel nested inside it could never blur the page below the bar,
+// only the nav's own contents. Portaled out, the panel blurs whatever is
+// actually behind it. The anchor tracks the trigger button so the fixed
+// panel stays aligned on scroll/resize.
+function useMenuPortal(open) {
+    const [anchor, setAnchor] = React.useState(null);
+    const ref = React.useRef(null);
+    React.useLayoutEffect(() => {
+        if (!open) return undefined;
+        const measure = () => {
+            const rect = ref.current ? ref.current.getBoundingClientRect() : null;
+            if (rect) {
+                setAnchor({ top: rect.bottom + 10, right: Math.max(8, window.innerWidth - rect.right) });
+            }
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        window.addEventListener('scroll', measure, true);
+        return () => {
+            window.removeEventListener('resize', measure);
+            window.removeEventListener('scroll', measure, true);
+        };
+    }, [open]);
+    return {
+        ref,
+        style: anchor ? { position: 'fixed', top: anchor.top, right: anchor.right, zIndex: 61 } : undefined,
+    };
+}
 
 export function useSessionState() {
     const [user, setUser] = React.useState(null);
@@ -51,6 +92,7 @@ export function AccountChip({ session }) {
     const setUser = session?.setUser;
     const [base, setBase] = React.useState('/sts');
     const [open, setOpen] = React.useState(false);
+    const menuPortal = useMenuPortal(open);
 
     React.useEffect(() => {
         setBase(getStsBase());
@@ -81,6 +123,7 @@ export function AccountChip({ session }) {
             ) : (
                 <div className={styles.accountMenu}>
                     <button
+                        ref={menuPortal.ref}
                         type="button"
                         className={styles.accountAvatar}
                         onClick={() => setOpen((o) => !o)}
@@ -90,108 +133,67 @@ export function AccountChip({ session }) {
                     >
                         {user.avatarUrl && <img className={styles.avatar} src={user.avatarUrl} alt="" />}
                     </button>
-                    {open && <div className={styles.menuBackdrop} onClick={() => setOpen(false)} />}
-                    <div className={`${styles.menuPanel}${open ? ` ${styles.menuOpen}` : ''}`}>
-                        <Link className={styles.navButton} href={base + '/builds'} onClick={() => setOpen(false)}>
-                            <TranslatableText identifier="auth.myBuilds" />
-                        </Link>
-                        <Link className={styles.navButton} href={base + '/custom-items'} onClick={() => setOpen(false)}>
-                            <TranslatableText identifier="auth.myItems" />
-                        </Link>
-                        <Link
-                            className={styles.navButton}
-                            href={base + '/builds/favourites'}
-                            onClick={() => setOpen(false)}
-                        >
-                            <TranslatableText identifier="auth.myFavourites" />
-                        </Link>
-                        <Link className={styles.navButton} href={base + '/account'} onClick={() => setOpen(false)}>
-                            <TranslatableText identifier="auth.myAccount" />
-                        </Link>
-                        <button type="button" className={styles.navButton} onClick={logout}>
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-                                <path d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
-                            </svg>
-                            Sign out
-                        </button>
-                    </div>
+                    {open &&
+                        typeof document !== 'undefined' &&
+                        createPortal(
+                            <>
+                                <div className={styles.menuBackdrop} onClick={() => setOpen(false)} />
+                                <div className={`${styles.menuPanel} ${styles.menuOpen}`} style={menuPortal.style}>
+                                    <Link
+                                        className={styles.navButton}
+                                        href={base + '/builds'}
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        <TranslatableText identifier="auth.myBuilds" />
+                                    </Link>
+                                    <Link
+                                        className={styles.navButton}
+                                        href={base + '/custom-items'}
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        <TranslatableText identifier="auth.myItems" />
+                                    </Link>
+                                    <Link
+                                        className={styles.navButton}
+                                        href={base + '/builds/favourites'}
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        <TranslatableText identifier="auth.myFavourites" />
+                                    </Link>
+                                    <Link
+                                        className={styles.navButton}
+                                        href={base + '/account'}
+                                        onClick={() => setOpen(false)}
+                                    >
+                                        <TranslatableText identifier="auth.myAccount" />
+                                    </Link>
+                                    <button type="button" className={styles.navButton} onClick={logout}>
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            width="16"
+                                            height="16"
+                                            fill="currentColor"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
+                                        </svg>
+                                        Sign out
+                                    </button>
+                                </div>
+                            </>,
+                            document.body
+                        )}
                 </div>
             )}
         </div>
     );
 }
 
-function getPreferredTheme() {
-    if (typeof window === 'undefined') return 'dark';
-    try {
-        const stored = localStorage.getItem('theme');
-        if (stored === 'light' || stored === 'dark' || stored === 'glass' || stored === 'round') return stored;
-    } catch (e) {
-        // ignore
-    }
-    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-    return prefersLight ? 'light' : 'dark';
-}
-
-const FONT_ORDER = ['ubuntu', 'minecraft', 'default', 'mono'];
-const FONT_LABELS = { ubuntu: 'Default', minecraft: 'Minecraft', default: 'Legacy', mono: 'Monospace' };
-// Pride-flag colour schemes for the Glass theme's backdrop (settings ->
-// the scheme dropdown, visible while Glass is active).
-const GLASS_SCHEMES = [
-    'enby',
-    'trans',
-    'rainbow',
-    'gay',
-    'lesbian',
-    'bi',
-    'pan',
-    'red',
-    'orange',
-    'yellow',
-    'green',
-    'blue',
-    'purple',
-];
-// Blob colors per scheme, matching the flags (top stripe color first).
-// Kept slightly translucent so the page content stays readable on top.
-// Basic colors use a single hue with varied alphas. Kept slightly
-// translucent so the page content stays readable on top.
-const GLASS_COLORS = {
-    enby: [
-        'rgba(252, 244, 49, 0.4)',
-        'rgba(255, 255, 255, 0.32)',
-        'rgba(156, 89, 209, 0.45)',
-        'rgba(252, 244, 49, 0.24)',
-    ],
-    trans: [
-        'rgba(91, 206, 250, 0.4)',
-        'rgba(245, 169, 184, 0.36)',
-        'rgba(255, 255, 255, 0.32)',
-        'rgba(91, 206, 250, 0.28)',
-    ],
-    rainbow: ['rgba(228, 3, 3, 0.4)', 'rgba(255, 237, 0, 0.32)', 'rgba(36, 64, 142, 0.4)', 'rgba(0, 128, 38, 0.32)'],
-    gay: ['rgba(7, 141, 112, 0.4)', 'rgba(255, 255, 255, 0.32)', 'rgba(80, 73, 204, 0.4)', 'rgba(38, 206, 170, 0.32)'],
-    lesbian: [
-        'rgba(239, 118, 39, 0.4)',
-        'rgba(255, 255, 255, 0.32)',
-        'rgba(163, 2, 98, 0.4)',
-        'rgba(209, 98, 164, 0.32)',
-    ],
-    bi: ['rgba(214, 2, 112, 0.4)', 'rgba(155, 79, 150, 0.36)', 'rgba(0, 56, 168, 0.4)', 'rgba(214, 2, 112, 0.28)'],
-    pan: ['rgba(255, 28, 142, 0.4)', 'rgba(255, 215, 0, 0.36)', 'rgba(26, 179, 255, 0.4)', 'rgba(255, 28, 142, 0.28)'],
-    red: ['rgba(228, 3, 3, 0.4)', 'rgba(228, 3, 3, 0.32)', 'rgba(228, 3, 3, 0.45)', 'rgba(228, 3, 3, 0.24)'],
-    orange: ['rgba(255, 140, 0, 0.4)', 'rgba(255, 140, 0, 0.32)', 'rgba(255, 140, 0, 0.45)', 'rgba(255, 140, 0, 0.24)'],
-    yellow: ['rgba(255, 215, 0, 0.4)', 'rgba(255, 215, 0, 0.32)', 'rgba(255, 215, 0, 0.45)', 'rgba(255, 215, 0, 0.24)'],
-    green: ['rgba(0, 128, 38, 0.4)', 'rgba(0, 128, 38, 0.32)', 'rgba(0, 128, 38, 0.45)', 'rgba(0, 128, 38, 0.24)'],
-    blue: ['rgba(37, 99, 235, 0.4)', 'rgba(37, 99, 235, 0.32)', 'rgba(37, 99, 235, 0.45)', 'rgba(37, 99, 235, 0.24)'],
-    purple: [
-        'rgba(156, 89, 209, 0.4)',
-        'rgba(156, 89, 209, 0.32)',
-        'rgba(156, 89, 209, 0.45)',
-        'rgba(156, 89, 209, 0.24)',
-    ],
-};
-const FONT_STACKS = {
+// Font options for the settings: choices + label + the CSS font stack each
+// maps to. The font picker itself lives on the account page's Settings.
+export const FONT_ORDER = ['ubuntu', 'minecraft', 'default', 'mono'];
+export const FONT_LABELS = { ubuntu: 'Default', minecraft: 'Minecraft', default: 'Legacy', mono: 'Monospace' };
+export const FONT_STACKS = {
     ubuntu: "'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     minecraft: "'Minecraft', monospace",
     mono: "'Ubuntu Mono', 'Courier New', monospace",
@@ -206,7 +208,7 @@ const selectTheme = (theme) => ({
         ...theme.colors,
         primary: 'var(--text-1)',
         primary25: 'var(--surface-2)',
-        neutral0: 'var(--glass-1)',
+        neutral0: 'var(--glass-menu)',
         neutral5: 'var(--glass-2)',
         neutral10: 'var(--glass-2)',
         neutral20: 'var(--control-border)',
@@ -222,7 +224,9 @@ const selectStyles = {
     menu: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-function HeaderSelect({ options, value, onChange, instanceId, className, formatOptionLabel }) {
+// The themed react-select used by the header/settings and the account
+// page's Settings card (theme, font, glass controls).
+export function HeaderSelect({ options, value, onChange, instanceId, className, formatOptionLabel }) {
     return (
         <div className={className}>
             <Select
@@ -249,6 +253,7 @@ function HeaderSelect({ options, value, onChange, instanceId, className, formatO
 export function HeaderNav() {
     const [base, setBase] = React.useState('/sts');
     const [open, setOpen] = React.useState(false);
+    const menuPortal = useMenuPortal(open);
     React.useEffect(() => {
         setBase(getStsBase());
     }, []);
@@ -272,6 +277,7 @@ export function HeaderNav() {
             </nav>
             <div className={styles.mobileNav}>
                 <button
+                    ref={menuPortal.ref}
                     type="button"
                     className={styles.menuBtn}
                     onClick={() => setOpen((o) => !o)}
@@ -282,14 +288,21 @@ export function HeaderNav() {
                         <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
                     </svg>
                 </button>
-                {open && <div className={styles.menuBackdrop} onClick={close} />}
-                <div className={`${styles.menuPanel}${open ? ` ${styles.menuOpen}` : ''}`}>
-                    {links.map((link) => (
-                        <Link key={link.href} className={styles.navButton} href={link.href} onClick={close}>
-                            {link.label ? link.label : <TranslatableText identifier={link.translation} />}
-                        </Link>
-                    ))}
-                </div>
+                {open &&
+                    typeof document !== 'undefined' &&
+                    createPortal(
+                        <>
+                            <div className={styles.menuBackdrop} onClick={close} />
+                            <div className={`${styles.menuPanel} ${styles.menuOpen}`} style={menuPortal.style}>
+                                {links.map((link) => (
+                                    <Link key={link.href} className={styles.navButton} href={link.href} onClick={close}>
+                                        {link.label ? link.label : <TranslatableText identifier={link.translation} />}
+                                    </Link>
+                                ))}
+                            </div>
+                        </>,
+                        document.body
+                    )}
             </div>
         </>
     );
@@ -298,8 +311,8 @@ export function HeaderNav() {
 // The STS app settings, rendered on the right side of the shared SiteNav bar.
 export default function Header() {
     const [theme, setTheme] = React.useState('dark');
-    const [font, setFont] = React.useState('ubuntu');
     const [glassScheme, setGlassScheme] = React.useState('enby');
+    const [glassCustom, setGlassCustom] = React.useState([...DEFAULT_GLASS_CUSTOM_COLORS]);
     const [glassAnim, setGlassAnim] = React.useState(false);
     const [glassFlag, setGlassFlag] = React.useState(false);
     const { lowRes, toggle: toggleLowRes } = useLowResource();
@@ -319,15 +332,31 @@ export default function Header() {
             .catch(() => session.setAnonymous(prev));
     }
 
+    // Sync all look settings from storage/attributes. Theme choice itself
+    // happens on the account page; the header only consumes the state to
+    // render the glass backdrop and keep the <html> attributes applied
+    // (data-round drives the rounded-corners styling site-wide).
     React.useEffect(() => {
-        const current = document.documentElement.dataset.theme;
-        if (current === 'light' || current === 'dark' || current === 'glass' || current === 'round') {
-            setTheme(current);
-        } else {
-            const preferred = getPreferredTheme();
-            document.documentElement.dataset.theme = preferred;
-            setTheme(preferred);
-        }
+        const applyState = () => {
+            const state = readThemeState();
+            const root = document.documentElement;
+            root.dataset.theme = state.theme;
+            if (state.round) root.dataset.round = 'true';
+            else delete root.dataset.round;
+            setTheme(state.theme);
+            setGlassScheme(state.glassScheme);
+            root.dataset.glassScheme = state.glassScheme;
+            setGlassCustom(sanitizeCustomColors(state.glassCustom));
+            setGlassAnim(state.glassAnim);
+            if (state.glassAnim) root.dataset.glassAnim = 'true';
+            else delete root.dataset.glassAnim;
+            setGlassFlag(state.glassFlag);
+            if (state.glassFlag) root.dataset.glassFlag = 'true';
+            else delete root.dataset.glassFlag;
+        };
+        applyState();
+        // The font lives on the account page now, but it must still be
+        // applied on load for the CSS rules to kick in site-wide.
         const storedFont = (() => {
             try {
                 return localStorage.getItem('font');
@@ -337,121 +366,50 @@ export default function Header() {
         })();
         if (FONT_ORDER.includes(storedFont)) {
             document.documentElement.dataset.font = storedFont;
-            setFont(storedFont);
         }
-        // The glass backdrop scheme (only meaningful while Glass is active).
-        const storedScheme = (() => {
-            try {
-                return localStorage.getItem('glassScheme');
-            } catch (e) {
-                return null;
-            }
-        })();
-        if (GLASS_SCHEMES.includes(storedScheme)) {
-            document.documentElement.dataset.glassScheme = storedScheme;
-            setGlassScheme(storedScheme);
-        }
-        // Glass backdrop extras: animation and full-page flag gradient mode.
-        for (const [key, setter, attr] of [
-            ['glassAnim', setGlassAnim, 'glassAnim'],
-            ['glassFlag', setGlassFlag, 'glassFlag'],
-        ]) {
-            try {
-                if (localStorage.getItem(key) === 'true') {
-                    document.documentElement.dataset[attr] = 'true';
-                    setter(true);
-                }
-            } catch (e) {
-                // ignore
-            }
-        }
+        // Look changes made elsewhere (the account page) re-sync this state.
+        window.addEventListener('sts-theme-change', applyState);
+        return () => window.removeEventListener('sts-theme-change', applyState);
     }, []);
 
-    const setThemeValue = (nextTheme) => {
-        document.documentElement.dataset.theme = nextTheme;
-        setTheme(nextTheme);
-        try {
-            localStorage.setItem('theme', nextTheme);
-        } catch (e) {
-            // ignore
-        }
-    };
-
-    // While the Glass theme is active, make sure the scheme attribute exists
-    // (the flag-gradient rules key off it), and randomize the flag gradient's
-    // angle per page load. The blob positions themselves are randomized at
-    // render time below (blobSpots).
+    // While Glass is active (either dark or white), randomize the flag
+    // gradient's angle per page load. The blob positions themselves are
+    // randomized at render time below (blobSpots).
     React.useEffect(() => {
-        if (theme !== 'glass') return;
-        const root = document.documentElement;
-        if (!root.dataset.glassScheme) {
-            root.dataset.glassScheme = glassScheme;
-        }
-        root.style.setProperty('--glass-angle', Math.round(115 + Math.random() * 40) + 'deg');
+        if (!isGlassTheme(theme)) return;
+        document.documentElement.style.setProperty('--glass-angle', Math.round(115 + Math.random() * 40) + 'deg');
     }, [theme]);
 
-    const setGlassSchemeValue = (nextScheme) => {
-        document.documentElement.dataset.glassScheme = nextScheme;
-        setGlassScheme(nextScheme);
-        try {
-            localStorage.setItem('glassScheme', nextScheme);
-        } catch (e) {
-            // ignore
+    // Flag-mode body gradients come from CSS for the original schemes, but
+    // newer schemes (and the custom blend) have no CSS rule - paint those
+    // directly and clear the inline style otherwise so CSS applies.
+    React.useEffect(() => {
+        const body = document.body;
+        if (isGlassTheme(theme) && glassFlag) {
+            if (glassScheme === CUSTOM_SCHEME) {
+                const alpha = theme === 'glass' ? 0.6 : 0.72;
+                const colors = sanitizeCustomColors(glassCustom);
+                const stops =
+                    colors.length === 1
+                        ? `${hexToRgba(colors[0], alpha)} 0%, ${hexToRgba(colors[0], alpha)} 100%`
+                        : colors.map((c, i) => `${hexToRgba(c, alpha)} ${(i / (colors.length - 1)) * 100}%`).join(', ');
+                body.style.backgroundImage = `linear-gradient(var(--glass-angle, 135deg), ${stops})`;
+            } else if (!GLASS_FLAG_CSS_SCHEMES.includes(glassScheme)) {
+                const light = theme === 'glass-light';
+                const colors = light ? GLASS_COLORS_LIGHT[glassScheme] : GLASS_COLORS[glassScheme];
+                const stops = colors.map((c, i) => `${c} ${(i / (colors.length - 1)) * 100}%`).join(', ');
+                body.style.backgroundImage = `linear-gradient(var(--glass-angle, 135deg), ${stops})`;
+            } else {
+                body.style.backgroundImage = '';
+            }
+        } else {
+            body.style.backgroundImage = '';
         }
-    };
-
-    // Glass backdrop toggles: animate the glow blobs, or show the flag as a
-    // full-page gradient in the correct stripe order instead of the blobs.
-    const setGlassAnimValue = (next) => {
-        setGlassAnim(next);
-        if (next) document.documentElement.dataset.glassAnim = 'true';
-        else delete document.documentElement.dataset.glassAnim;
-        try {
-            localStorage.setItem('glassAnim', String(next));
-        } catch (e) {
-            // ignore
-        }
-    };
-
-    const setGlassFlagValue = (next) => {
-        setGlassFlag(next);
-        if (next) document.documentElement.dataset.glassFlag = 'true';
-        else delete document.documentElement.dataset.glassFlag;
-        try {
-            localStorage.setItem('glassFlag', String(next));
-        } catch (e) {
-            // ignore
-        }
-    };
-
-    const setFontValue = (nextFont) => {
-        document.documentElement.dataset.font = nextFont;
-        setFont(nextFont);
-        try {
-            localStorage.setItem('font', nextFont);
-        } catch (e) {
-            // ignore
-        }
-    };
-
-    const fontOptions = FONT_ORDER.map((value) => ({
-        value,
-        label: FONT_LABELS[value],
-        fontFamily: FONT_STACKS[value],
-    }));
-    const themeOptions = [
-        { value: 'dark', label: 'Dark' },
-        { value: 'light', label: 'Light' },
-        { value: 'glass', label: 'Glass' },
-        { value: 'round', label: 'Round' },
-    ];
-    const glassSchemeOptions = GLASS_SCHEMES.map((value) => ({
-        value,
-        label: value.charAt(0).toUpperCase() + value.slice(1),
-    }));
+    }, [theme, glassFlag, glassScheme, glassCustom.join(',')]);
 
     const [menuOpen, setMenuOpen] = React.useState(false);
     const closeMenu = () => setMenuOpen(false);
+    const gearMenuPortal = useMenuPortal(menuOpen);
 
     // Random blob spots, stable for the component's lifetime (re-renders and
     // scheme switches keep the positions; only the colors change).
@@ -469,43 +427,53 @@ export default function Header() {
 
     return (
         <>
-            {theme === 'glass' &&
+            {isGlassTheme(theme) &&
                 !glassFlag &&
                 typeof document !== 'undefined' &&
                 createPortal(
                     <div className="glass-backdrop" aria-hidden="true">
-                        {blobSpots.map((spot, i) => (
-                            <span
-                                key={i}
-                                className={`glass-blob${glassAnim ? ' glass-blob-anim' : ''}`}
-                                style={{
-                                    // Anchor by the blob's CENTER, so the glow
-                                    // (strongest at the middle) is what lands at
-                                    // the random spot instead of the top-left
-                                    // corner pushing the glow off to the right
-                                    // and bottom.
-                                    left: `calc(${spot.x}% - ${spot.size / 2}px)`,
-                                    top: `calc(${spot.y}% - ${spot.size / 2}px)`,
-                                    width: spot.size + 'px',
-                                    height: spot.size + 'px',
-                                    background: `radial-gradient(circle at 50% 50%, ${
-                                        GLASS_COLORS[glassScheme][i % GLASS_COLORS[glassScheme].length]
-                                    }, transparent 70%)`,
-                                    ...(glassAnim
-                                        ? {
-                                              animationDuration: spot.dur.toFixed(1) + 's',
-                                              animationDelay: spot.delay.toFixed(1) + 's',
-                                          }
-                                        : {}),
-                                }}
-                            />
-                        ))}
+                        {blobSpots.map((spot, i) => {
+                            const light = theme === 'glass-light';
+                            const colors =
+                                glassScheme === CUSTOM_SCHEME
+                                    ? customBackdropColors(light, sanitizeCustomColors(glassCustom))
+                                    : light
+                                      ? GLASS_COLORS_LIGHT[glassScheme]
+                                      : GLASS_COLORS[glassScheme];
+                            return (
+                                <span
+                                    key={i}
+                                    className={`glass-blob${glassAnim ? ' glass-blob-anim' : ''}`}
+                                    style={{
+                                        // Anchor by the blob's CENTER, so the glow
+                                        // (strongest at the middle) is what lands at
+                                        // the random spot instead of the top-left
+                                        // corner pushing the glow off to the right
+                                        // and bottom.
+                                        left: `calc(${spot.x}% - ${spot.size / 2}px)`,
+                                        top: `calc(${spot.y}% - ${spot.size / 2}px)`,
+                                        width: spot.size + 'px',
+                                        height: spot.size + 'px',
+                                        background: `radial-gradient(circle at 50% 50%, ${
+                                            colors[i % colors.length]
+                                        }, transparent 70%)`,
+                                        ...(glassAnim
+                                            ? {
+                                                  animationDuration: spot.dur.toFixed(1) + 's',
+                                                  animationDelay: spot.delay.toFixed(1) + 's',
+                                              }
+                                            : {}),
+                                    }}
+                                />
+                            );
+                        })}
                     </div>,
                     document.body
                 )}
             <div className={styles.controls}>
                 <AccountChip session={session} />
                 <button
+                    ref={gearMenuPortal.ref}
                     type="button"
                     className={styles.menuBtn}
                     onClick={() => setMenuOpen((o) => !o)}
@@ -516,101 +484,57 @@ export default function Header() {
                         <path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.2 7.2 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.24-1.12.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.65 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.4.31.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96c.21.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z" />
                     </svg>
                 </button>
-                {menuOpen && <div className={styles.menuBackdrop} onClick={closeMenu} />}
-                <div className={`${styles.menuPanel}${menuOpen ? ` ${styles.menuOpen}` : ''}`}>
-                    {session.user && (
-                        <label className={`${styles.toggle} ${styles.loreToggle}`}>
-                            <input
-                                type="checkbox"
-                                checked={session.anonymous}
-                                onChange={toggleAnonymize}
-                                aria-label="Anonymize me"
-                            />
-                            <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                                <TranslatableText identifier="auth.anonymizeMe" />
-                                <span className={itemsStyles.enchantTooltipText}>
-                                    Hide your username on public builds - you will appear as Anonymous.
-                                </span>
-                            </span>
-                        </label>
-                    )}
-                    <label className={`${styles.toggle} ${styles.loreToggle}`}>
-                        <input type="checkbox" checked={lowRes} onChange={toggleLowRes} aria-label="Hide textures" />
-                        <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                            Hide Textures
-                            <span className={itemsStyles.enchantTooltipText}>
-                                Replace item textures with plain placeholders - faster scrolling on low-end devices.
-                            </span>
-                        </span>
-                    </label>
-                    <AnimationsToggle className={styles.loreToggle} />
-                    <LoreToggle className={styles.loreToggle} />
-                    <ObtainmentToggle className={styles.loreToggle} />
-                    <HideSkinsToggle className={styles.loreToggle} />
-                    <FavouritesToggle className={styles.loreToggle} />
-                    <MaxMasterworkToggle className={styles.loreToggle} />
-                    <BuildListToggle className={styles.loreToggle} />
-                    <BuilderLayoutToggle className={styles.loreToggle} />
-                    <CacheSearchToggle className={styles.loreToggle} />
-                    <CacheBuildsToggle className={styles.loreToggle} />
-                    <HeaderSelect
-                        instanceId="font"
-                        options={fontOptions}
-                        value={font}
-                        onChange={(option) => setFontValue(option.value)}
-                        formatOptionLabel={({ label, fontFamily }, { context }) =>
-                            context === 'menu' && fontFamily ? <span style={{ fontFamily }}>{label}</span> : label
-                        }
-                        className={styles.fontSelect}
-                    />
-                    <HeaderSelect
-                        instanceId="theme"
-                        options={themeOptions}
-                        value={theme}
-                        onChange={(option) => setThemeValue(option.value)}
-                        className={styles.themeSelect}
-                    />
-                    {theme === 'glass' && (
+                {menuOpen &&
+                    typeof document !== 'undefined' &&
+                    createPortal(
                         <>
-                            <HeaderSelect
-                                instanceId="glassScheme"
-                                options={glassSchemeOptions}
-                                value={glassScheme}
-                                onChange={(option) => setGlassSchemeValue(option.value)}
-                                className={styles.themeSelect}
-                            />
-                            <label className={`${styles.toggle} ${styles.loreToggle}`}>
-                                <input
-                                    type="checkbox"
-                                    checked={glassAnim}
-                                    onChange={(e) => setGlassAnimValue(e.target.checked)}
-                                    aria-label="Animate glass backdrop"
-                                />
-                                <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                                    Animate backdrop
-                                    <span className={itemsStyles.enchantTooltipText}>
-                                        Drift the glass theme's color glows around the page.
+                            <div className={styles.menuBackdrop} onClick={closeMenu} />
+                            <div className={`${styles.menuPanel} ${styles.menuOpen}`} style={gearMenuPortal.style}>
+                                {session.user && (
+                                    <label className={`${styles.toggle} ${styles.loreToggle}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={session.anonymous}
+                                            onChange={toggleAnonymize}
+                                            aria-label="Anonymize me"
+                                        />
+                                        <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
+                                            <TranslatableText identifier="auth.anonymizeMe" />
+                                            <span className={itemsStyles.enchantTooltipText}>
+                                                Hide your username on public builds - you will appear as Anonymous.
+                                            </span>
+                                        </span>
+                                    </label>
+                                )}
+                                <label className={`${styles.toggle} ${styles.loreToggle}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={lowRes}
+                                        onChange={toggleLowRes}
+                                        aria-label="Hide textures"
+                                    />
+                                    <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
+                                        Hide Textures
+                                        <span className={itemsStyles.enchantTooltipText}>
+                                            Replace item textures with plain placeholders - faster scrolling on low-end
+                                            devices.
+                                        </span>
                                     </span>
-                                </span>
-                            </label>
-                            <label className={`${styles.toggle} ${styles.loreToggle}`}>
-                                <input
-                                    type="checkbox"
-                                    checked={glassFlag}
-                                    onChange={(e) => setGlassFlagValue(e.target.checked)}
-                                    aria-label="Flag gradient backdrop"
-                                />
-                                <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                                    Flag gradient
-                                    <span className={itemsStyles.enchantTooltipText}>
-                                        Show the flag as a full-page gradient in the correct stripe order instead of the
-                                        scattered blobs.
-                                    </span>
-                                </span>
-                            </label>
-                        </>
+                                </label>
+                                <AnimationsToggle className={styles.loreToggle} />
+                                <LoreToggle className={styles.loreToggle} />
+                                <ObtainmentToggle className={styles.loreToggle} />
+                                <HideSkinsToggle className={styles.loreToggle} />
+                                <FavouritesToggle className={styles.loreToggle} />
+                                <MaxMasterworkToggle className={styles.loreToggle} />
+                                <BuildListToggle className={styles.loreToggle} />
+                                <Link className={styles.navButton} href="/settings" onClick={closeMenu}>
+                                    Site settings
+                                </Link>
+                            </div>
+                        </>,
+                        document.body
                     )}
-                </div>
             </div>
         </>
     );

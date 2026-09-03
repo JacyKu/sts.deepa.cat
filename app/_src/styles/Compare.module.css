@@ -1,0 +1,284 @@
+.container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 10px 40px;
+}
+
+.pageTitle {
+    margin: 10px 0;
+    font-size: 40px;
+    font-weight: 500;
+    line-height: 48px;
+    text-align: start;
+    color: var(--text-1);
+}
+
+.pickers {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 1100px;
+    margin-bottom: 6px;
+}
+
+.picker {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 360px;
+    max-width: 520px;
+    padding: 10px 12px;
+    background: var(--glass-1);
+    border: 2px solid var(--glass-border);
+}
+
+.pickerInputWrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.pickerSuggestions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 120;
+    display: flex;
+    flex-direction: column;
+    background: var(--glass-menu);
+    border: 2px solid var(--glass-border);
+    box-shadow: var(--shadow-elevated);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.suggestionRow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-1);
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+}
+
+.suggestionRow:last-child {
+    border-bottom: 0;
+}
+
+.suggestionRow:hover {
+    background: var(--glass-2);
+    filter: brightness(115%);
+}
+
+.suggestionName {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.suggestionMeta {
+    margin-left: auto;
+    color: var(--text-2);
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.pickerInput {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    background: var(--glass-2);
+    border: 1px solid var(--control-border);
+    color: var(--text-1);
+}
+
+.pickerTitle {
+    font-weight: 700;
+    color: var(--text-1);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pickerRow {
+    display: flex;
+    gap: 8px;
+}
+
+.pickerInput {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    background: var(--glass-2);
+    border: 1px solid var(--control-border);
+    color: var(--text-1);
+}
+
+.pickerInput::placeholder {
+    color: var(--text-2);
+    opacity: 0.6;
+}
+
+.pickerButton {
+    padding: 8px 16px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--text-1);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.pickerButton:hover:not(:disabled) {
+    border-color: var(--control-border-hover);
+    filter: brightness(115%);
+}
+
+.pickerButton:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.pickerError {
+    color: #ff8080;
+    font-size: 0.85rem;
+}
+
+.pickerOk {
+    color: #80ffaa;
+    font-size: 0.85rem;
+}
+
+.hint {
+    color: var(--text-2);
+    margin-top: 26px;
+}
+
+.sidesRow {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 1100px;
+    margin-bottom: 10px;
+}
+
+.sidePanel {
+    flex: 1 1 380px;
+    max-width: 540px;
+    padding: 12px 14px;
+    background: var(--glass-1);
+    border: 2px solid var(--glass-border);
+}
+
+.sideTitle {
+    font-weight: 700;
+    color: var(--text-1);
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.equipList {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.equipRow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.equipSlot {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    flex: 0 0 78px;
+}
+
+.equipName {
+    color: var(--text-1);
+}
+
+.equipClass {
+    color: var(--text-2);
+    font-size: 0.8rem;
+    margin-left: auto;
+}
+
+.category {
+    width: 100%;
+    max-width: 900px;
+    margin-top: 16px;
+    background: var(--glass-1);
+    border: 2px solid var(--glass-border);
+}
+
+.categoryTitle {
+    padding: 8px 12px 4px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-1);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.compareRow {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    gap: 10px;
+    padding: 3px 12px;
+}
+
+.rowLabel {
+    text-align: center;
+    color: var(--text-1);
+}
+
+.rowValue {
+    text-align: left;
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.rowValue:last-of-type {
+    text-align: right;
+}
+
+.rowPct {
+    font-size: 0.75em;
+    font-family: monospace;
+}
+
+.pctUp {
+    color: #7ee787;
+}
+
+.pctDown {
+    color: #ffa198;
+}
+
+.rowNone {
+    color: var(--text-2);
+    opacity: 0.5;
+}
+
+.highlightUp {
+    color: #7ee787;
+    font-weight: 600;
+}

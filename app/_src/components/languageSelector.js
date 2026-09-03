@@ -49,7 +49,7 @@ function LanguageSelector({ className } = {}) {
                         ...theme.colors,
                         primary: 'var(--text-1)',
                         primary25: 'var(--surface-2)',
-                        neutral0: 'var(--glass-1)',
+                        neutral0: 'var(--glass-menu)',
                         neutral5: 'var(--glass-2)',
                         neutral10: 'var(--glass-2)',
                         neutral20: 'var(--control-border)',

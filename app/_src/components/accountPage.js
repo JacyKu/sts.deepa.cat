@@ -7,7 +7,8 @@ import { useSessionState } from './header';
 // The signed-in user's account page: Discord identity plus the Minecraft
 // UUIDs linked to it. Linking itself happens in game (/stsmod link); this
 // page is where a player disconnects a UUID so it can be linked to a
-// different Discord account. Account deletion lives here too.
+// different Discord account. Account deletion lives here too. The site
+// look settings live on their own page (/settings) for everyone.
 export default function AccountPage() {
     const session = useSessionState();
     const [links, setLinks] = React.useState([]);
@@ -59,118 +60,131 @@ export default function AccountPage() {
 
     if (!session.checked) return null;
 
-    if (!session.user) {
-        return (
-            <main className={styles.page}>
-                <h1 className={styles.title}>My Account</h1>
-                <p className={styles.muted}>
-                    <a
-                        href={`/api/auth/discord/login?next=${encodeURIComponent('/account')}`}
-                        className={styles.loginLink}
-                    >
-                        Log in with Discord
-                    </a>{' '}
-                    to manage your linked Minecraft profiles.
-                </p>
-            </main>
-        );
-    }
-
     return (
         <main className={styles.page}>
             <h1 className={styles.title}>My Account</h1>
-            <section className={styles.card}>
-                <h2 className={styles.cardTitle}>Discord</h2>
-                <div className={styles.row}>
-                    <span className={styles.rowLabel}>Logged in as</span>
-                    <span className={styles.rowValue}>{session.user.globalName || session.user.username}</span>
-                </div>
-            </section>
-
-            <section className={styles.card}>
-                <h2 className={styles.cardTitle}>Linked Minecraft profiles</h2>
-                <p className={styles.muted}>
-                    Profiles linked from the Spare the Sympathy mod in game. When a profile is linked, saving a build
-                    from the armoury stores it on this account.
-                </p>
-                {error && <p className={styles.error}>{error}</p>}
-                {!loaded ? (
-                    <p className={styles.muted}>Loading…</p>
-                ) : links.length === 0 ? (
-                    <p className={styles.muted}>
-                        No linked profiles. Run <code>/stsmod link</code> in game with the Spare the Sympathy mod
-                        installed to link your Minecraft profile.
-                    </p>
-                ) : (
+            <nav className={styles.tabs} aria-label="Account navigation">
+                <span className={`${styles.tab} ${styles.tabActive}`} aria-current="page">
+                    My Account
+                </span>
+                <a className={styles.tab} href="/settings">
+                    Site settings
+                </a>
+            </nav>
+            {session.user ? (
+                <section className={styles.card}>
+                    <h2 className={styles.cardTitle}>Linked accounts</h2>
                     <ul className={styles.linkList}>
-                        {links.map((link) => (
-                            <li key={link.uuid} className={styles.linkRow}>
-                                {link.mcAvatar && (
-                                    <img
-                                        className={styles.mcAvatar}
-                                        src={link.mcAvatar}
-                                        alt=""
-                                        width="32"
-                                        height="32"
-                                    />
-                                )}
-                                <span className={styles.rowValue}>{link.mcName || link.uuid}</span>
-                                {link.mcName && <code className={styles.uuid}>{link.uuid}</code>}
-                                <span className={styles.linkDate}>
-                                    linked {link.updated_at || link.created_at || ''}
-                                </span>
-                                <button
-                                    type="button"
-                                    className={styles.unlinkButton}
-                                    onClick={() => unlink(link.uuid)}
-                                    disabled={busy === link.uuid}
-                                >
-                                    {busy === link.uuid ? 'Disconnecting…' : 'Disconnect'}
-                                </button>
-                            </li>
-                        ))}
+                        <li className={styles.linkRow}>
+                            {session.user.avatarUrl ? (
+                                <img
+                                    className={styles.mcAvatar}
+                                    src={session.user.avatarUrl}
+                                    alt=""
+                                    width="32"
+                                    height="32"
+                                />
+                            ) : null}
+                            <span className={styles.rowValue}>{session.user.globalName || session.user.username}</span>
+                            <span className={styles.linkDate}>
+                                {session.user.stsCreatedAt ? `created ${session.user.stsCreatedAt.slice(0, 10)}` : ''}
+                            </span>
+                        </li>
                     </ul>
-                )}
-            </section>
+                    {error && <p className={styles.error}>{error}</p>}
+                    {!loaded ? (
+                        <p className={styles.muted}>Loading…</p>
+                    ) : links.length === 0 ? (
+                        <p className={styles.muted}>
+                            No linked profiles. Run <code>/stsmod link</code> in game with the Spare the Sympathy mod
+                            installed to link your Minecraft profile.
+                        </p>
+                    ) : (
+                        <ul className={styles.linkList}>
+                            {links.map((link) => (
+                                <li key={link.uuid} className={styles.linkRow}>
+                                    {link.mcAvatar && (
+                                        <img
+                                            className={styles.mcAvatar}
+                                            src={link.mcAvatar}
+                                            alt=""
+                                            width="32"
+                                            height="32"
+                                        />
+                                    )}
+                                    <span className={styles.rowValue}>{link.mcName || link.uuid}</span>
+                                    {link.mcName && <code className={styles.uuid}>{link.uuid}</code>}
+                                    <span className={styles.linkDate}>
+                                        linked {link.updated_at || link.created_at || ''}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className={styles.unlinkButton}
+                                        onClick={() => unlink(link.uuid)}
+                                        disabled={busy === link.uuid}
+                                    >
+                                        {busy === link.uuid ? 'Disconnecting…' : 'Disconnect'}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            ) : (
+                <section className={styles.card}>
+                    <h2 className={styles.cardTitle}>Linked accounts</h2>
+                    <p className={styles.muted}>
+                        <a
+                            href={`/api/auth/discord/login?next=${encodeURIComponent('/account')}`}
+                            className={styles.loginLink}
+                        >
+                            Log in with Discord
+                        </a>{' '}
+                        to manage your linked Minecraft profiles.
+                    </p>
+                </section>
+            )}
 
-            <section className={styles.card}>
-                <h2 className={styles.cardTitle}>Danger zone</h2>
-                <p className={styles.muted}>
-                    Deleting your profile removes your favourites, custom items and Minecraft profile links. Your saved
-                    builds keep their links but leave the public database and are no longer associated with your
-                    account.
-                </p>
-                {deleteError && <p className={styles.error}>{deleteError}</p>}
-                {!confirmDelete ? (
-                    <button
-                        type="button"
-                        className={styles.deleteButton}
-                        onClick={() => setConfirmDelete(true)}
-                        disabled={deleting}
-                    >
-                        Delete my profile
-                    </button>
-                ) : (
-                    <div className={styles.confirmRow}>
+            {session.user && (
+                <section className={styles.card}>
+                    <h2 className={styles.cardTitle}>Danger zone</h2>
+                    <p className={styles.muted}>
+                        Deleting your profile removes your favourites, custom items and Minecraft profile links. Your
+                        saved builds keep their links but leave the public database and are no longer associated with
+                        your account.
+                    </p>
+                    {deleteError && <p className={styles.error}>{deleteError}</p>}
+                    {!confirmDelete ? (
                         <button
                             type="button"
                             className={styles.deleteButton}
-                            onClick={deleteProfile}
+                            onClick={() => setConfirmDelete(true)}
                             disabled={deleting}
                         >
-                            {deleting ? 'Deleting…' : 'Yes, delete my profile'}
+                            Delete my profile
                         </button>
-                        <button
-                            type="button"
-                            className={styles.cancelButton}
-                            onClick={() => setConfirmDelete(false)}
-                            disabled={deleting}
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                )}
-            </section>
+                    ) : (
+                        <div className={styles.confirmRow}>
+                            <button
+                                type="button"
+                                className={styles.deleteButton}
+                                onClick={deleteProfile}
+                                disabled={deleting}
+                            >
+                                {deleting ? 'Deleting…' : 'Yes, delete my profile'}
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.cancelButton}
+                                onClick={() => setConfirmDelete(false)}
+                                disabled={deleting}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+                </section>
+            )}
         </main>
     );
 }

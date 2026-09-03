@@ -175,6 +175,9 @@
     border: 2px solid var(--glass-border);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
     z-index: 60;
+    /* Frost whatever scrolls behind so the panel stays readable. */
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 
 .menuPanel.menuOpen {

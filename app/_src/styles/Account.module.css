@@ -22,6 +22,36 @@
     gap: 0.75rem;
 }
 
+/* Page tabs (e.g. between My Account and Site settings). */
+.tabs {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.tab {
+    padding: 0.4rem 0.9rem;
+    color: var(--text-2);
+    border: 1px solid var(--glass-border);
+    background: var(--surface-2);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.tab:hover {
+    color: var(--text-1);
+    border-color: var(--text-2);
+    text-decoration: none;
+}
+
+.tabActive,
+.tabActive:hover {
+    color: var(--text-1);
+    border-color: #9c59d1;
+    box-shadow: 0 0 0 1px #9c59d1 inset;
+    cursor: default;
+}
+
 .cardTitle {
     font-size: 1.1rem;
     font-weight: 600;
@@ -174,4 +204,238 @@
     display: flex;
     gap: 0.75rem;
     align-items: center;
+}
+
+/* Theme section: a row of swatch cards (one per look) plus a "Round
+   corners" styling toggle that applies on top of any theme. */
+.themeGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.themeCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    color: var(--text-1);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: left;
+}
+
+.themeCard:hover {
+    border-color: var(--text-2);
+}
+
+.themeCardActive {
+    border-color: #9c59d1;
+    box-shadow: 0 0 0 1px #9c59d1;
+}
+
+.themeSwatch {
+    display: block;
+    height: 64px;
+    border: 1px solid var(--glass-border);
+    /* Per-card layered backgrounds come from inline CSS vars so each
+       swatch can mimic its theme's real look. */
+    background: var(--swatch-bg, #111);
+    position: relative;
+}
+
+.themeToggleRow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    color: var(--text-1);
+    font-size: 0.95rem;
+    width: fit-content;
+}
+
+.themeToggleRow input {
+    margin: 0;
+    cursor: pointer;
+    accent-color: #9c59d1;
+}
+
+/* Backdrop colour list: one chip per scheme, each with a flag-stripe
+   preview, sitting under the theme cards. */
+.glassColours {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid var(--glass-border);
+    padding-top: 0.75rem;
+}
+
+.subTitle {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-1);
+}
+
+/* Tiny labels splitting the backdrop colour chips into pride flags and
+   plain colours. */
+.colourGroup {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0.25rem 0 -0.15rem;
+    color: var(--text-2);
+}
+
+.colourList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.colourChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.6rem 0.3rem 0.35rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    color: var(--text-1);
+    font-size: 0.85rem;
+}
+
+.colourChip:hover {
+    border-color: var(--text-2);
+}
+
+.colourChipActive {
+    border-color: #9c59d1;
+    box-shadow: 0 0 0 1px #9c59d1;
+}
+
+.colourSwatch {
+    display: block;
+    width: 44px;
+    height: 16px;
+    border: 1px solid var(--glass-border);
+    /* Stripe preview comes from an inline --chip-bg gradient. */
+    background: var(--chip-bg, #888);
+}
+
+.glassToggles {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.customEditor {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+}
+
+.colourPickers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 100%;
+}
+
+.colourPickerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.colourPicker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-1);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.colourPicker input[type='color'] {
+    width: 44px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--glass-border);
+    background: none;
+    cursor: pointer;
+}
+
+.colourPicker input[type='color']:hover {
+    border-color: var(--text-2);
+}
+
+.colourRemove,
+.colourAdd {
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.colourRemove:hover,
+.colourAdd:hover {
+    background: var(--glass-3, var(--glass-2));
+    border-color: var(--text-2);
+}
+
+/* Site options (builder/cache toggles + font) that moved from the header
+   settings into the bottom of the Settings card. Kept compact: the toggle
+   chips sit in one wrapping row and the font picker is a slim inline row. */
+.siteOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid var(--glass-border);
+    padding-top: 0.6rem;
+}
+
+.fontRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.fontLabel {
+    color: var(--text-2);
+    font-size: 0.85rem;
+}
+
+.fontSelect {
+    width: 120px;
+}
+
+.siteToggleRow {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+/* The moved toggles draw themselves as bordered chips (SearchForm's
+   toggleLabel); strip that so they match the borderless checkbox rows used
+   by the other settings (Round corners etc). */
+.bareToggle,
+.bareToggle:hover {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 0.85rem;
 }
