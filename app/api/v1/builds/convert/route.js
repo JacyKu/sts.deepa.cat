@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { decodeBuildParam, encodeBuildParam } from '../../../../_src/utils/builder/buildUrlCodec';
-import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData } from '../../../../_src/utils/itemsData';
-import { getBuild } from '../../../../../lib/sts-builds';
 
 // Mirrors the client-side import parsing (app/_src/components/builder/
 // buildImportBar.js): accept a bare token, an old ?build=... URL, or a full
@@ -41,38 +39,11 @@ function parseBuildLink(raw) {
     return valid ? str : null;
 }
 
-// A saved-build short link (/b/<id> or /b/v<version>/<id>, bare or as a full
-// URL) resolves to the row's token instead of a raw token payload.
-function parseShortLinkId(raw) {
-    let str = String(raw || '').trim();
-    try {
-        str = decodeURIComponent(str);
-    } catch (e) {
-        return null;
-    }
-    const m = str.match(/(?:\/|^)b(?:\/v\d+)?\/([A-Za-z0-9_-]+)(?:[?#].*)?$/);
-    return m ? m[1] : null;
-}
-
 export async function GET(request) {
     const link = request.nextUrl.searchParams.get('link') || '';
     if (!link.trim()) {
         return NextResponse.json({ error: 'no build link given' }, { status: 400 });
     }
-
-    // Saved-build short links resolve straight to the stored token (no
-    // re-encoding needed - the builder keeps working on the DB row).
-    const shortId = parseShortLinkId(link);
-    if (shortId) {
-        const row = getBuild(shortId);
-        if (!row) {
-            return NextResponse.json({ error: 'build not found' }, { status: 404 });
-        }
-        const tokenVersion = getBuildTokenVersion(row.token);
-        const url = tokenVersion ? `/b/v${tokenVersion}/${row.id}` : `/b/${row.id}`;
-        return NextResponse.json({ token: row.token, url });
-    }
-
     const token = parseBuildLink(link);
     if (!token) {
         return NextResponse.json({ error: 'could not read that build link' }, { status: 400 });
