@@ -45,7 +45,7 @@ export default function Footer() {
                     <span className={styles.version}> · v{pkg.sts_version}</span>
                 </div>
                 <div className={styles.links}>
-                    <LanguageSelector className={styles.languageSelect} />
+                    <LanguageSelector className={styles.languageSelect} compact />
                     <a
                         className={styles.textLink}
                         href="https://crowdin.com/project/ohthemisery"

@@ -89,20 +89,26 @@ export default function CharmSelector({
     charmNames,
     classSkillNames,
     specSkillNames,
+    selectedClass,
 }) {
     const inputRef = React.useRef();
     const [warn, setWarn] = React.useState(null);
     const warnTimeoutRef = React.useRef();
 
-    // Relevance rule: a charm is offered only if it is a Generalist charm, or
-    // one of its stats affects a skill of the selected class or specialization.
-    // With no class selected every charm is offered.
+    // Relevance rule: a charm is offered only if it is a Generalist charm, a
+    // charm of the currently selected class, or one of its stats affects a
+    // skill of the selected class or specialization. Class-owned charms are
+    // always offered even when their stat names don't line up with a skill
+    // name (e.g. alchemist potion charms like Oversized Flask). With no class
+    // selected every charm is offered.
+    const selectedClassName = selectedClass ? String(selectedClass).toLowerCase() : '';
     const relevantTokens = skillTokens([...(classSkillNames || []), ...(specSkillNames || [])]);
     const isCharmRelevant = (key) => {
         const charm = itemData[key];
         if (!charm || charm.type !== 'Charm') return false;
         if (relevantTokens.size === 0) return true;
         if (charm.class_name === 'Generalist') return true;
+        if (selectedClassName && charm.class_name && charm.class_name.toLowerCase() === selectedClassName) return true;
         const stats = charm.stats || {};
         return Object.keys(stats).some((stat) => {
             const s = stat.toLowerCase();

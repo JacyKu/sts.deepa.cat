@@ -688,12 +688,19 @@ export default function BuildForm({
     const [basicInfusions, setBasicInfusions] = React.useState({}); // slot -> { name, level }    // Delve infusion points: one free-form input per slot, total capped at 24
     // across all slots (6 slots x level IV). Picking an infusion defaults its
     // points to 4 (level IV), clamped to the remaining budget.
-    const DELVE_POINT_CAP = 24;
+    // Delve infusion levels: one per slot, I-IV. Picking an infusion defaults
+    // its level to IV. Six slots at level IV is the 24-point total the delve
+    // budget allows, so a per-slot cap of 4 alone can never exceed it.
     const DELVE_POINT_DEFAULT = 4;
+    const DELVE_POINT_MAX_PER_SLOT = 4;
     const [delvePoints, setDelvePoints] = React.useState({});
     const [revelation, setRevelation] = React.useState(false);
     const [charmSelectKey, setCharmSelectKey] = React.useState(0);
     const [multiplierListKey, setMultiplierListKey] = React.useState(0);
+    // The Extra Multipliers section is collapsed behind a toggle by default;
+    // the five ListSelectors stay mounted while hidden so their typed entries
+    // survive closing and reopening the section.
+    const [multipliersOpen, setMultipliersOpen] = React.useState(false);
     // Big red-x shown on top of the page when filtered words are typed into
     // the build name or notes; the words themselves are stripped.
     const [showRedX, setShowRedX] = React.useState(false);
@@ -875,9 +882,11 @@ export default function BuildForm({
         // Newly picked infusions default to level IV (4 points); clearing the
         // infusion drops its points too.
         if (option) {
-            const used = delvePointsElsewhere(slot);
-            const defaultPoints = Math.max(0, Math.min(DELVE_POINT_DEFAULT, DELVE_POINT_CAP - used));
-            setDelvePoints((prev) => ({ ...prev, [slot]: Math.max(prev[slot] ?? 0, defaultPoints) }));
+            const defaultPoints = Math.min(
+                DELVE_POINT_MAX_PER_SLOT,
+                Math.max(delvePoints[slot] ?? 0, DELVE_POINT_DEFAULT)
+            );
+            setDelvePoints((prev) => ({ ...prev, [slot]: defaultPoints }));
         } else {
             setDelvePoints((prev) => {
                 const next = { ...prev };
@@ -893,18 +902,6 @@ export default function BuildForm({
         }
         const itemNames = Object.fromEntries(entries);
         applyStatsUpdate(itemNames, itemData, setStats, update);
-    }
-
-    // The points other slots already use; this slot can take at most the rest.
-    function delvePointsElsewhere(slot) {
-        return Object.entries(delvePoints)
-            .filter(([s]) => s !== slot)
-            .reduce((sum, [, v]) => sum + (Number(v) || 0), 0);
-    }
-
-    function changeDelvePoints(slot, raw) {
-        const value = Math.max(0, Math.min(DELVE_POINT_CAP - delvePointsElsewhere(slot), Number(raw) || 0));
-        setDelvePoints((prev) => ({ ...prev, [slot]: value }));
     }
 
     function delveSlotSelects(slot) {
@@ -960,6 +957,12 @@ export default function BuildForm({
                 </span>
             );
         };
+        // The level picker mirrors the basic infusion one: I-IV, one per slot.
+        const levelOpts = BASIC_INFUSION_LEVEL_LABELS.slice(0, DELVE_POINT_MAX_PER_SLOT).map((label, i) => ({
+            value: i + 1,
+            label,
+        }));
+        const currentLevel = Math.min(Math.max(Number(delvePoints[slot]) || 0, 1), DELVE_POINT_MAX_PER_SLOT);
         return (
             <div className={styles.delveSlotRow}>
                 <Select
@@ -979,18 +982,21 @@ export default function BuildForm({
                     components={{ Option: InfusionOption }}
                     formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
                 />
-                <input
-                    type="number"
-                    min="0"
-                    max={Math.max(0, DELVE_POINT_CAP - delvePointsElsewhere(slot))}
-                    step="1"
-                    value={delvePoints[slot] ?? 0}
-                    onChange={(e) => changeDelvePoints(slot, e.target.value)}
-                    disabled={!cur}
-                    className={styles.delvePointsInput}
-                    aria-label="Delve infusion points"
-                    title="Delve infusion points (max 24 across all slots)"
-                />
+                {cur && (
+                    <Select
+                        instanceId={`delveLevel-${slot}`}
+                        name={`delveLevel-${slot}`}
+                        isSearchable={false}
+                        options={levelOpts}
+                        value={levelOpts.find((o) => o.value === currentLevel) || levelOpts[levelOpts.length - 1]}
+                        onChange={(opt) => setDelvePoints((prev) => ({ ...prev, [slot]: opt.value }))}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                        theme={infusionSelectTheme}
+                        styles={levelSelectStyles}
+                        aria-label={`${cur} level`}
+                    />
+                )}
             </div>
         );
     }
@@ -2405,6 +2411,56 @@ export default function BuildForm({
         updateCharms(charms.filter((c) => c.name !== charm.name).map((c) => c.name));
     }
 
+    // Drag-to-reorder the stat category cards, same drag-and-drop system as
+    // the equipped charms. Stat cards carry a CSS `order` (grid/flex order
+    // property), so dragging swaps entries in statCardOrder and the layout
+    // follows. The order is a per-session preference (it resets on load).
+    const STAT_CARD_KEYS = ['misc', 'health', 'dr', 'drhn', 'ehp', 'melee', 'projectile', 'magic'];
+    const [statCardOrder, setStatCardOrder] = React.useState([...STAT_CARD_KEYS]);
+    const statCardDragRef = React.useRef(null);
+
+    function startStatCardDrag(key, e) {
+        if (e.dataTransfer) {
+            e.dataTransfer.setData('text/plain', `statCard:${key}`);
+            e.dataTransfer.effectAllowed = 'move';
+            const card = e.currentTarget;
+            if (card) {
+                const ghost = card.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.left = '-9999px';
+                ghost.style.top = '-9999px';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.opacity = '0.85';
+                document.body.appendChild(ghost);
+                e.dataTransfer.setDragImage(ghost, 30, 30);
+                requestAnimationFrame(() => ghost.remove());
+            }
+        }
+        statCardDragRef.current = key;
+    }
+
+    function endStatCardDrag() {
+        statCardDragRef.current = null;
+    }
+
+    function statCardDragOver(key, e) {
+        const dragged = statCardDragRef.current;
+        if (!dragged || dragged === key) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const from = statCardOrder.indexOf(dragged);
+        const to = statCardOrder.indexOf(key);
+        if (from === -1 || to === -1) return;
+        const next = [...statCardOrder];
+        next.splice(from, 1);
+        next.splice(to, 0, dragged);
+        setStatCardOrder(next);
+    }
+
+    function statCardOrderStyle(key) {
+        return { order: statCardOrder.indexOf(key) };
+    }
+
     function itemChanged(newValue, actionMeta) {
         // This is here so you don't have to scroll down to "Recalculate" and then back up to click a situational.
         // It updates the whole form. I don't think this was the original intent but checkboxes do anyway
@@ -2728,6 +2784,7 @@ export default function BuildForm({
                         charmNames={charms.map((c) => c.name)}
                         classSkillNames={currentClassSkills.map((s) => s.name)}
                         specSkillNames={currentSpecSkills.map((s) => s.name)}
+                        selectedClass={gameClass}
                     ></CharmSelector>
                 </div>
             </div>
@@ -2882,6 +2939,19 @@ export default function BuildForm({
                 </span>
             </div>
             <div className="row mb-1 justify-content-center">
+                <div className="col-auto">
+                    <label className={`${styles.delveToggle} ${multipliersOpen ? styles.delveToggleActive : ''}`}>
+                        <input
+                            type="checkbox"
+                            checked={multipliersOpen}
+                            onChange={(e) => setMultipliersOpen(e.target.checked)}
+                            aria-label="Extra multipliers"
+                        />
+                        Multipliers
+                    </label>
+                </div>
+            </div>
+            <div className="row mb-1 justify-content-center" style={multipliersOpen ? undefined : { display: 'none' }}>
                 <div className="col-12 col-md-6 col-lg-2">
                     <ListSelector
                         key={`damage-${multiplierListKey}`}
@@ -3707,6 +3777,11 @@ export default function BuildForm({
                     >
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-1`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('misc', e)}
+                            onDragOver={(e) => statCardDragOver('misc', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('misc')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.misc"></TranslatableText>
@@ -3732,6 +3807,11 @@ export default function BuildForm({
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('health', e)}
+                            onDragOver={(e) => statCardDragOver('health', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('health')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
@@ -3757,6 +3837,11 @@ export default function BuildForm({
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('dr', e)}
+                            onDragOver={(e) => statCardDragOver('dr', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('dr')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.damageReduction"></TranslatableText>
@@ -3784,6 +3869,11 @@ export default function BuildForm({
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('drhn', e)}
+                            onDragOver={(e) => statCardDragOver('drhn', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('drhn')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized"></TranslatableText>
@@ -3811,6 +3901,11 @@ export default function BuildForm({
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('ehp', e)}
+                            onDragOver={(e) => statCardDragOver('ehp', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('ehp')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.effectiveHealth"></TranslatableText>
@@ -3861,6 +3956,11 @@ export default function BuildForm({
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('melee', e)}
+                            onDragOver={(e) => statCardDragOver('melee', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('melee')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.melee"></TranslatableText>
@@ -3891,6 +3991,11 @@ export default function BuildForm({
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('projectile', e)}
+                            onDragOver={(e) => statCardDragOver('projectile', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('projectile')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.projectile"></TranslatableText>
@@ -3921,6 +4026,11 @@ export default function BuildForm({
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('magic', e)}
+                            onDragOver={(e) => statCardDragOver('magic', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('magic')}
                         >
                             <h5 className="text-center fw-bold mb-1">
                                 <TranslatableText identifier="builder.statCategories.magic"></TranslatableText>
