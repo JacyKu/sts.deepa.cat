@@ -7,10 +7,11 @@
 }
 
 .title {
-    margin: 0 0 20px;
-    font-size: 28px;
-    font-weight: 600;
-    text-align: center;
+    margin: 10px 0;
+    font-size: 40px;
+    font-weight: 500;
+    line-height: 48px;
+    text-align: start;
 }
 
 .muted {

@@ -7,9 +7,12 @@
 }
 
 .pageTitle {
-    font-weight: 700;
+    margin: 10px 0;
+    font-size: 40px;
+    font-weight: 500;
+    line-height: 48px;
+    text-align: start;
     color: var(--text-1);
-    margin: 0 0 6px;
 }
 
 .pickers {
