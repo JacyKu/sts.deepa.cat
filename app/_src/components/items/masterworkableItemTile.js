@@ -131,7 +131,7 @@ function doesNameContainNonASCII(name) {
     return false;
 }
 
-export default function MasterworkableItemTile(data) {
+function MasterworkableItemTile(data) {
     // This is an array
     const item = data.item;
     const { hidden: hideLore } = useHideLore();
@@ -430,3 +430,5 @@ export default function MasterworkableItemTile(data) {
         </div>
     );
 }
+
+export default React.memo(MasterworkableItemTile);

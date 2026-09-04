@@ -54,7 +54,7 @@ function doesNameContainNonASCII(name) {
     return false;
 }
 
-export default function ItemTile(data) {
+function ItemTile(data) {
     const item = data.item;
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
@@ -204,3 +204,5 @@ export default function ItemTile(data) {
         </div>
     );
 }
+
+export default React.memo(ItemTile);

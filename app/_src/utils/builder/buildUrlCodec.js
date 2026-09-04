@@ -107,13 +107,16 @@ function getTextCodec() {
     return { encoder, decoder };
 }
 
+let hashLookupCache = null;
 function buildHashLookup(itemData) {
+    if (!itemData) return new Map();
+    if (hashLookupCache && hashLookupCache.data === itemData) return hashLookupCache.map;
     const map = new Map();
-    if (!itemData) return map;
     for (const key of Object.keys(itemData)) {
         const h = fnv1a32(key);
         if (!map.has(h)) map.set(h, key);
     }
+    hashLookupCache = { data: itemData, map };
     return map;
 }
 

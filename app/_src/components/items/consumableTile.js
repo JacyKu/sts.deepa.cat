@@ -50,7 +50,7 @@ function getFishQualityElement(fishQuality) {
     );
 }
 
-export default function ConsumableTile(data) {
+function ConsumableTile(data) {
     const item = data.item;
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
@@ -152,3 +152,5 @@ export default function ConsumableTile(data) {
         </div>
     );
 }
+
+export default React.memo(ConsumableTile);

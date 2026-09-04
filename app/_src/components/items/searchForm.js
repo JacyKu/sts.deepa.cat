@@ -5,6 +5,118 @@ import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
 
+let searchOptionsCache = null;
+function getSearchOptions(itemData) {
+    if (searchOptionsCache && searchOptionsCache.data === itemData) return searchOptionsCache.options;
+    let sortableStats = [];
+    let tiers = [];
+    let locations = [];
+    let pois = [];
+    let charmStats = [];
+    let baseItems = [];
+    let effects = [];
+    let charmPowers = [];
+    let itemNames = Object.keys(itemData).filter((item) => itemData[item].type != 'Charm');
+    let uniqueItemStats = {};
+    for (let itemName of itemNames) {
+        if (itemData[itemName].stats) {
+            Object.keys(itemData[itemName].stats).forEach((stat) => {
+                uniqueItemStats[stat] = 1;
+            });
+        }
+    }
+    Object.keys(uniqueItemStats).forEach((stat) => {
+        sortableStats.push(
+            stat
+                .split('_')
+                .map((part) => part[0].toUpperCase() + part.substring(1))
+                .join(' ')
+        );
+    });
+    let uniqueTiers = {};
+    Object.keys(itemData)
+        .map((item) => itemData[item].tier)
+        .filter((tierName) => tierName != undefined)
+        .forEach((tierName) => {
+            uniqueTiers[tierName] = 1;
+        });
+    // Remove the Charm tier since there is a checkbox for it.
+    delete uniqueTiers.Charm;
+    Object.keys(uniqueTiers).forEach((tierName) => tiers.push(tierName));
+    let charmNames = Object.keys(itemData).filter((item) => itemData[item].type == 'Charm');
+    let uniqueCharmAttributes = {};
+    for (let charmName of charmNames) {
+        Object.keys(itemData[charmName].stats).forEach((attribute) => {
+            uniqueCharmAttributes[attribute] = 1;
+        });
+    }
+    Object.keys(uniqueCharmAttributes).forEach((attribute) => {
+        charmStats.push(
+            attribute
+                .split('_')
+                .map((part) => part[0].toUpperCase() + part.substring(1))
+                .join(' ')
+                .replace(' Flat', '')
+                .replace(' Percent', ' %')
+        );
+    });
+    let uniqueEffects = {};
+    let consumableNames = Object.keys(itemData).filter((item) => itemData[item].type === 'Consumable');
+    for (let name of consumableNames) {
+        let item = itemData[name];
+        if (Array.isArray(item.effects)) {
+            item.effects.forEach((effect) => {
+                if (effect.EffectType) {
+                    uniqueEffects[effect.EffectType] = 1;
+                }
+            });
+        }
+    }
+    Object.keys(uniqueEffects).forEach((effect) => {
+        let formatted = effect.replace('damage', 'Damage');
+        formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
+        effects.push(formatted);
+    });
+    let uniqueLocations = {};
+    Object.keys(itemData)
+        .map((item) => itemData[item].location)
+        .filter((locationName) => locationName != undefined)
+        .forEach((locationName) => {
+            uniqueLocations[locationName] = 1;
+        });
+    Object.keys(uniqueLocations).forEach((locationName) => locations.push(locationName));
+    let uniquePowers = {};
+    Object.keys(itemData)
+        .filter((item) => itemData[item].type == 'Charm')
+        .forEach((item) => {
+            const power = itemData[item].power;
+            if (power !== undefined && power !== null) {
+                uniquePowers[power] = 1;
+            }
+        });
+    Object.keys(uniquePowers)
+        .sort((a, b) => a - b)
+        .forEach((power) => charmPowers.push(Number(power)));
+    let uniqueBaseItems = {};
+    Object.keys(itemData)
+        .map((item) => itemData[item].base_item)
+        .filter((baseItemName) => baseItemName != undefined)
+        .forEach((baseItemName) => {
+            uniqueBaseItems[baseItemName] = 1;
+        });
+    Object.keys(uniqueBaseItems).forEach((baseItemName) => baseItems.push(baseItemName));
+    let uniquePois = {};
+    Object.keys(extras)
+        .filter((extra) => extras[extra].poi != undefined)
+        .map((extra) => extras[extra].poi)
+        .forEach((poiName) => {
+            uniquePois[poiName] = 1;
+        });
+    Object.keys(uniquePois).forEach((poiName) => pois.push(poiName));
+    searchOptionsCache = { data: itemData, options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } };
+    return searchOptionsCache.options;
+}
+
 export default function SearchForm({ update, itemData }) {
     const [itemStatKey, setItemStatKey] = React.useState(getResetKey('search'));
     const [itemTypeKey, setItemTypeKey] = React.useState(getResetKey('itemType'));
@@ -125,15 +237,7 @@ export default function SearchForm({ update, itemData }) {
         'Shaman',
         'Generalist',
     ];
-    let sortableStats = [];
-    let regions = ['Valley', 'Isles', 'Ring'];
-    let tiers = [];
-    let locations = [];
-    let pois = [];
-    let charmStats = [];
-    let baseItems = [];
-    let effects = [];
-    let charmPowers = [];
+    const regions = ['Valley', 'Isles', 'Ring'];
     // The active Charm Class filter. Kept in state (updated by the class
     // select's onChange) because the form's hidden input updates after the
     // re-render, which would lag one selection behind. The DOM is only read
@@ -494,15 +598,7 @@ export default function SearchForm({ update, itemData }) {
         event.preventDefault();
     }
 
-    generateSortableItemStats(itemData);
-    // generateRegions();
-    generateTiers(itemData);
-    generateSortableCharmStats(itemData);
-    generateLocations(itemData);
-    generatePOIs();
-    generateBaseItems(itemData);
-    generateEffects(itemData);
-    generateCharmPowers(itemData);
+    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } = getSearchOptions(itemData);
 
     function addFilter() {
         setFilters((oldFilters) => [
@@ -582,27 +678,6 @@ export default function SearchForm({ update, itemData }) {
         </form>
     );
 
-    function generateSortableItemStats(itemData) {
-        sortableStats = [];
-        let itemNames = Object.keys(itemData).filter((item) => itemData[item].type != 'Charm');
-        let uniqueItemStats = {};
-        for (let itemName of itemNames) {
-            if (itemData[itemName].stats) {
-                Object.keys(itemData[itemName].stats).forEach((stat) => {
-                    uniqueItemStats[stat] = 1;
-                });
-            }
-        }
-        Object.keys(uniqueItemStats).forEach((stat) => {
-            sortableStats.push(
-                stat
-                    .split('_')
-                    .map((part) => part[0].toUpperCase() + part.substring(1))
-                    .join(' ')
-            );
-        });
-    }
-
     /* function generateRegions() {
         regions = [];
         let uniqueRegions = {
@@ -615,41 +690,6 @@ export default function SearchForm({ update, itemData }) {
         });
         Object.keys(uniqueRegions).forEach(regionName => regions.push(regionName));
     } */
-
-    function generateTiers(itemData) {
-        tiers = [];
-        let uniqueTiers = {};
-        Object.keys(itemData)
-            .map((item) => itemData[item].tier)
-            .filter((tierName) => tierName != undefined)
-            .forEach((tierName) => {
-                uniqueTiers[tierName] = 1;
-            });
-        // Remove the Charm tier since there is a checkbox for it.
-        delete uniqueTiers.Charm;
-        Object.keys(uniqueTiers).forEach((tierName) => tiers.push(tierName));
-    }
-
-    function generateSortableCharmStats(itemData) {
-        charmStats = [];
-        let charmNames = Object.keys(itemData).filter((item) => itemData[item].type == 'Charm');
-        let uniqueCharmAttributes = {};
-        for (let charmName of charmNames) {
-            Object.keys(itemData[charmName].stats).forEach((attribute) => {
-                uniqueCharmAttributes[attribute] = 1;
-            });
-        }
-        Object.keys(uniqueCharmAttributes).forEach((attribute) => {
-            charmStats.push(
-                attribute
-                    .split('_')
-                    .map((part) => part[0].toUpperCase() + part.substring(1))
-                    .join(' ')
-                    .replace(' Flat', '')
-                    .replace(' Percent', ' %')
-            );
-        });
-    }
 
     // Charm Skill options: fetch the skill list once (the fetch triggers a
     // re-render through setCharmSkills, so the filter selects pick it up).
@@ -684,81 +724,6 @@ export default function SearchForm({ update, itemData }) {
             active = false;
         };
     }, []);
-    function generateEffects(itemData) {
-        effects = [];
-        let uniqueEffects = {};
-        let consumableNames = Object.keys(itemData).filter((item) => itemData[item].type === 'Consumable');
-
-        for (let name of consumableNames) {
-            let item = itemData[name];
-            if (Array.isArray(item.effects)) {
-                item.effects.forEach((effect) => {
-                    if (effect.EffectType) {
-                        uniqueEffects[effect.EffectType] = 1;
-                    }
-                });
-            }
-        }
-
-        Object.keys(uniqueEffects).forEach((effect) => {
-            let formatted = effect.replace('damage', 'Damage');
-            formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
-
-            effects.push(formatted);
-        });
-    }
-
-    function generateLocations(itemData) {
-        locations = [];
-        let uniqueLocations = {};
-        Object.keys(itemData)
-            .map((item) => itemData[item].location)
-            .filter((locationName) => locationName != undefined)
-            .forEach((locationName) => {
-                uniqueLocations[locationName] = 1;
-            });
-        Object.keys(uniqueLocations).forEach((locationName) => locations.push(locationName));
-    }
-
-    function generateCharmPowers(itemData) {
-        charmPowers = [];
-        let uniquePowers = {};
-        Object.keys(itemData)
-            .filter((item) => itemData[item].type == 'Charm')
-            .forEach((item) => {
-                const power = itemData[item].power;
-                if (power !== undefined && power !== null) {
-                    uniquePowers[power] = 1;
-                }
-            });
-        Object.keys(uniquePowers)
-            .sort((a, b) => a - b)
-            .forEach((power) => charmPowers.push(Number(power)));
-    }
-
-    function generatePOIs() {
-        pois = [];
-        let uniquePois = {};
-        Object.keys(extras)
-            .filter((extra) => extras[extra].poi != undefined)
-            .map((extra) => extras[extra].poi)
-            .forEach((poiName) => {
-                uniquePois[poiName] = 1;
-            });
-        Object.keys(uniquePois).forEach((poiName) => pois.push(poiName));
-    }
-
-    function generateBaseItems(itemData) {
-        baseItems = [];
-        let uniqueBaseItems = {};
-        Object.keys(itemData)
-            .map((item) => itemData[item].base_item)
-            .filter((baseItemName) => baseItemName != undefined)
-            .forEach((baseItemName) => {
-                uniqueBaseItems[baseItemName] = 1;
-            });
-        Object.keys(uniqueBaseItems).forEach((baseItemName) => baseItems.push(baseItemName));
-    }
 }
 
 class SearchCategory {

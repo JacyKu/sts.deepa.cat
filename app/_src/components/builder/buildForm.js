@@ -2202,7 +2202,7 @@ export default function BuildForm({
     }
 
     function getEquipName(type) {
-        const decoded = decodeBuildParam(build, itemData);
+        const decoded = decodedBuild;
         if (!decoded) return undefined;
         let buildParts = decodeURI(decoded).split('&');
         let allowedTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
@@ -2617,10 +2617,8 @@ export default function BuildForm({
           : [];
 
     // Totals of every stat across all equipped charms (effect summary).
-    const charmTotals = computeCharmTotals(
-        itemData,
-        charms.map((c) => c.name)
-    );
+    const equippedCharmNames = charms.map((c) => c.name);
+    const charmTotals = React.useMemo(() => computeCharmTotals(itemData, equippedCharmNames), [itemData, equippedCharmNames]);
 
     const { newLayout } = useBuilderLayout();
     const isDesktop = useIsDesktop();
@@ -2631,6 +2629,36 @@ export default function BuildForm({
     // boots); otherwise they sit in the normal flow above the item tiles.
     // The cells use the module class instead of bootstrap cols in the split
     // layout - bootstrap's col-* grid rules break the 2-column grid.
+    const decodedBuild = React.useMemo(() => decodeBuildParam(build, itemData), [build, itemData]);
+    const slotOptions = React.useMemo(
+        () => ({
+            mainhand: getRelevantItems(
+                [
+                    'mainhand',
+                    'mainhand sword',
+                    'mainhand shield',
+                    'axe',
+                    'pickaxe',
+                    'wand',
+                    'scythe',
+                    'bow',
+                    'crossbow',
+                    'snowball',
+                    'trident',
+                    'alchemist bag',
+                ],
+                itemData,
+                favouriteSet
+            ),
+            offhand: getRelevantItems(['offhand', 'offhand shield', 'offhand sword'], itemData, favouriteSet),
+            helmet: getRelevantItems(['helmet'], itemData, favouriteSet),
+            chestplate: getRelevantItems(['chestplate'], itemData, favouriteSet),
+            leggings: getRelevantItems(['leggings'], itemData, favouriteSet),
+            boots: getRelevantItems(['boots'], itemData, favouriteSet),
+        }),
+        [itemData, favouriteSet]
+    );
+
     const slotCellClass = splitLayout ? `${styles.slotCell} text-center` : 'col-6 col-md-3 col-lg-2 text-center';
     const slotsSection = (
         <div className={`${styles.equipSlots} row justify-content-center mb-1`}>
@@ -2641,24 +2669,7 @@ export default function BuildForm({
                     name="mainhand"
                     default={getEquipName('mainhand')}
                     noneOption={true}
-                    sortableStats={getRelevantItems(
-                        [
-                            'mainhand',
-                            'mainhand sword',
-                            'mainhand shield',
-                            'axe',
-                            'pickaxe',
-                            'wand',
-                            'scythe',
-                            'bow',
-                            'crossbow',
-                            'snowball',
-                            'trident',
-                            'alchemist bag',
-                        ],
-                        itemData,
-                        favouriteSet
-                    )}
+                    sortableStats={slotOptions.mainhand}
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('mainhand')}
@@ -2672,11 +2683,7 @@ export default function BuildForm({
                     name="offhand"
                     default={getEquipName('offhand')}
                     noneOption={true}
-                    sortableStats={getRelevantItems(
-                        ['offhand', 'offhand shield', 'offhand sword'],
-                        itemData,
-                        favouriteSet
-                    )}
+                    sortableStats={slotOptions.offhand}
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('offhand')}
@@ -2690,7 +2697,7 @@ export default function BuildForm({
                     noneOption={true}
                     name="helmet"
                     default={getEquipName('helmet')}
-                    sortableStats={getRelevantItems(['helmet'], itemData, favouriteSet)}
+                    sortableStats={slotOptions.helmet}
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('helmet')}
@@ -2704,7 +2711,7 @@ export default function BuildForm({
                     noneOption={true}
                     name="chestplate"
                     default={getEquipName('chestplate')}
-                    sortableStats={getRelevantItems(['chestplate'], itemData, favouriteSet)}
+                    sortableStats={slotOptions.chestplate}
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('chestplate')}
@@ -2718,7 +2725,7 @@ export default function BuildForm({
                     noneOption={true}
                     name="leggings"
                     default={getEquipName('leggings')}
-                    sortableStats={getRelevantItems(['leggings'], itemData, favouriteSet)}
+                    sortableStats={slotOptions.leggings}
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('leggings')}
@@ -2732,7 +2739,7 @@ export default function BuildForm({
                     noneOption={true}
                     name="boots"
                     default={getEquipName('boots')}
-                    sortableStats={getRelevantItems(['boots'], itemData, favouriteSet)}
+                    sortableStats={slotOptions.boots}
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('boots')}

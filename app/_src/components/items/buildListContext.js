@@ -35,25 +35,35 @@ export function BuildListProvider({ children }) {
         } catch (e) {}
     }
 
-    function toggleItem(name, type) {
-        const adding = !items.some((item) => item.name === name);
-        persist(adding ? [...items, { name, type: type || null }] : items.filter((item) => item.name !== name));
-        if (adding) setAddCount((c) => c + 1);
-    }
-
-    function removeItem(name) {
-        persist(items.filter((item) => item.name !== name));
-    }
-
-    function clear() {
-        persist([]);
-    }
-
-    return (
-        <BuildListContext.Provider value={{ items, addCount, toggleItem, removeItem, clear }}>
-            {children}
-        </BuildListContext.Provider>
+    const toggleItem = React.useCallback(
+        (name, type) => {
+            const adding = !items.some((item) => item.name === name);
+            persist(adding ? [...items, { name, type: type || null }] : items.filter((item) => item.name !== name));
+            if (adding) setAddCount((c) => c + 1);
+        },
+        [items]
     );
+
+    const removeItem = React.useCallback(
+        (name) => {
+            persist(items.filter((item) => item.name !== name));
+        },
+        [items]
+    );
+
+    const clear = React.useCallback(() => {
+        persist([]);
+    }, []);
+
+    const value = React.useMemo(() => ({ items, addCount, toggleItem, removeItem, clear }), [
+        items,
+        addCount,
+        toggleItem,
+        removeItem,
+        clear,
+    ]);
+
+    return <BuildListContext.Provider value={value}>{children}</BuildListContext.Provider>;
 }
 
 export function useBuildList() {

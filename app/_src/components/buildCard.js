@@ -13,6 +13,24 @@ import { useLowResource } from './lowResourceContext';
 import Enchants from './items/enchants';
 import CharmFormatter from '../utils/items/charmFormatter';
 
+let spriteClassNames = null;
+function collectSpriteClassNames() {
+    const names = new Set();
+    try {
+        for (const sheet of document.styleSheets) {
+            let rules;
+            try { rules = sheet.cssRules; } catch (e) { continue; }
+            if (!rules) continue;
+            for (const rule of rules) {
+                const text = rule && rule.selectorText;
+                if (!text) continue;
+                if (/^\.[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text)) names.add(text.slice(1));
+            }
+        }
+    } catch (e) {}
+    return names;
+}
+
 // Per-build-item detail lookup cache, shared across cards.
 const itemDetailCache = new Map();
 
@@ -111,7 +129,7 @@ function loadBuildDetails() {
 // pages like "My Builds" can embed management buttons in the card itself.
 // `compareEnabled` (database page) shows the "add to comparison" picker
 // button below the layout-swap button.
-export default function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
+function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
     const { itemsFirst, toggle: toggleCardLayout } = useCardItemsFirst();
     const { lowRes } = useLowResource();
     const [favBusy, setFavBusy] = React.useState(false);
@@ -327,23 +345,8 @@ export default function BuildCard({ build, user, base, onToggleFavourite, onAddC
         boots: 'Boots',
     };
     function doesStyleExist(className) {
-        try {
-            for (const sheet of document.styleSheets) {
-                let rules;
-                try {
-                    rules = sheet.cssRules;
-                } catch (e) {
-                    continue;
-                }
-                if (!rules) continue;
-                for (const rule of rules) {
-                    if (rule.selectorText === `.${className}`) return true;
-                }
-            }
-        } catch (e) {
-            return false;
-        }
-        return false;
+        if (spriteClassNames === null) spriteClassNames = collectSpriteClassNames();
+        return spriteClassNames.has(className);
     }
     function charmDefaultClass(item) {
         const tier = item.t || 'Base';
@@ -786,3 +789,5 @@ export default function BuildCard({ build, user, base, onToggleFavourite, onAddC
         </Link>
     );
 }
+
+export default React.memo(BuildCard);

@@ -118,20 +118,24 @@ export default function CharmSelector({
             return false;
         });
     };
-    const charmOptions = Object.keys(itemData)
-        .filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key))
-        // Custom charms may be keyed by id (when the name collides with an
-        // existing item); always show the charm's name in the selector.
-        .map((key) => (itemData[key].isCustomItem ? { value: key, label: itemData[key].name } : key));
+    const { favouriteSet } = useItemFavourites();
+    const charmName = (option) => (typeof option === 'object' ? option.label : itemData[option].name);
 
     // Pin the user's favourited charms to the top of the selector. Favourites
     // are stored by display name, while options are keyed by full item keys
     // ("Event Horizon (orange_glazed_terracotta)"), so compare against the
     // charm's display name. The sort is stable, so non-favourites keep their
     // original order.
-    const { favouriteSet } = useItemFavourites();
-    const charmName = (option) => (typeof option === 'object' ? option.label : itemData[option].name);
-    charmOptions.sort((a, b) => Number(favouriteSet.has(charmName(b))) - Number(favouriteSet.has(charmName(a))));
+    const charmOptions = React.useMemo(() => {
+        const options = Object.keys(itemData)
+            .filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key))
+            // Custom charms may be keyed by id (when the name collides with an
+            // existing item); always show the charm's name in the selector.
+            .map((key) => (itemData[key].isCustomItem ? { value: key, label: itemData[key].name } : key));
+        options.sort((a, b) => Number(favouriteSet.has(charmName(b))) - Number(favouriteSet.has(charmName(a))));
+        return options;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [itemData, classSkillNames, specSkillNames, selectedClass, favouriteSet]);
 
     const maxPower = 12;
     const entries = charmNames || [];

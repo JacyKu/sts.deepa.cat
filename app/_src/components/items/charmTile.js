@@ -72,7 +72,7 @@ function doesStyleExist(className) {
     return false;
 }
 
-export default function CharmTile(data) {
+function CharmTile(data) {
     const item = data.item;
     const [cssClass, setCssClass] = React.useState(getCharmSheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
@@ -217,3 +217,5 @@ export default function CharmTile(data) {
         </div>
     );
 }
+
+export default React.memo(CharmTile);

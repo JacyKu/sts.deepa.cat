@@ -331,14 +331,14 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         setPage(1);
     }
 
-    function toggleFavourite(buildId, favourite) {
+    const toggleFavourite = React.useCallback((buildId, favourite) => {
         setBuilds((prev) =>
             prev.map((b) => {
                 if (b.id !== buildId) return b;
                 return { ...b, myFavourite: favourite, favouriteCount: b.favouriteCount + (favourite ? 1 : -1) };
             })
         );
-    }
+    }, []);
 
     // Comparison picking: builds are collected in localStorage, shown on a
     // small dock, and two picks auto-navigate to /compare.
@@ -359,7 +359,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         } catch (e) {}
     }
 
-    function toggleCompare(build) {
+    const toggleCompare = React.useCallback((build) => {
         const url = build.url;
         const current = comparePicks.some((p) => p.url === url);
         let next = comparePicks.filter((p) => p.url !== url);
@@ -378,7 +378,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
             persistCompare([]);
             router.push('/compare?' + qs.toString());
         }
-    }
+    }, [comparePicks, router]);
 
     function goCompareSingle() {
         if (comparePicks.length === 0) return;
