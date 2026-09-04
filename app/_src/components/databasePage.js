@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import Select from 'react-select';
 import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
@@ -13,6 +14,11 @@ import styles from '../styles/Database.module.css';
 import { getStsBase } from '../utils/base';
 
 const REGIONS = ['Valley', 'Isles', 'Ring', 'Darkest Depths', 'Celestial Zenith'];
+
+// Pending comparison picks, shared with the /compare page: entries carry the
+// build's own /b/v<version>/<id> URL + a display name. Two picks jump
+// straight to the comparison; one leaves a dock so another can be added.
+const COMPARE_PICKS_KEY = 'sts-compare-picks';
 
 // The same react-select look the rest of the app uses (builder, items page).
 const selectTheme = (theme) => ({
@@ -334,6 +340,57 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         );
     }
 
+    // Comparison picking: builds are collected in localStorage, shown on a
+    // small dock, and two picks auto-navigate to /compare.
+    const router = useRouter();
+    const [comparePicks, setComparePicks] = React.useState([]);
+    React.useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(COMPARE_PICKS_KEY);
+            if (raw) setComparePicks(JSON.parse(raw).slice(0, 2));
+        } catch (e) {}
+    }, []);
+
+    function persistCompare(next) {
+        setComparePicks(next);
+        try {
+            if (next.length > 0) window.localStorage.setItem(COMPARE_PICKS_KEY, JSON.stringify(next));
+            else window.localStorage.removeItem(COMPARE_PICKS_KEY);
+        } catch (e) {}
+    }
+
+    function toggleCompare(build) {
+        const url = build.url;
+        const current = comparePicks.some((p) => p.url === url);
+        let next = comparePicks.filter((p) => p.url !== url);
+        if (!current) {
+            const display = build.name || [build.class, build.spec].filter(Boolean).join(' · ') || `Build ${build.id}`;
+            next = [...next, { url, id: build.id, name: display }];
+        }
+        persistCompare(next);
+        if (next.length === 2) {
+            // Both sides picked: go compare. Clear the dock so the next pair
+            // starts fresh.
+            const qs = new URLSearchParams({
+                left: next[0].url,
+                right: next[1].url,
+            });
+            persistCompare([]);
+            router.push('/compare?' + qs.toString());
+        }
+    }
+
+    function goCompareSingle() {
+        if (comparePicks.length === 0) return;
+        const qs = new URLSearchParams({ left: comparePicks[0].url });
+        persistCompare([]);
+        router.push('/compare?' + qs.toString());
+    }
+
+    function clearCompare() {
+        persistCompare([]);
+    }
+
     const sortOptions = [
         { value: 'top', label: t('database.sort.top') },
         { value: 'new', label: t('database.sort.new') },
@@ -413,9 +470,40 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
                             user={authChecked ? user : null}
                             base={base}
                             onToggleFavourite={toggleFavourite}
+                            onAddCompare={toggleCompare}
+                            compareActive={comparePicks.some((p) => p.url === build.url)}
                         />
                     ))}
                 </InfiniteScroll>
+            )}
+
+            {comparePicks.length > 0 && (
+                <div className={styles.compareDock}>
+                    <div className={styles.compareDockInfo}>
+                        <span className={styles.compareDockTitle}>Compare</span>
+                        {comparePicks.map((p) => (
+                            <span key={p.url} className={styles.compareDockPick}>
+                                {p.name}
+                            </span>
+                        ))}
+                        <span className={styles.compareDockHint}>
+                            {comparePicks.length === 1 ? 'Pick one more build to compare' : ''}
+                        </span>
+                    </div>
+                    <div className={styles.compareDockActions}>
+                        <button type="button" className={styles.compareDockBtn} onClick={goCompareSingle}>
+                            Compare
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.compareDockClear}
+                            onClick={clearCompare}
+                            aria-label="Clear comparison picks"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

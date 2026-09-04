@@ -315,6 +315,68 @@ export const GLASS_CHIPS = {
 
 export const glassSchemeLabel = (scheme) => (scheme ? scheme.charAt(0).toUpperCase() + scheme.slice(1) : '');
 
+// App accent colour per backdrop scheme, chosen from the scheme's palette to
+// stay readable as text/borders/backgrounds on the theme's surface. Bright
+// colours get a darker counterpart for the white Glass theme.
+export const GLASS_ACCENT_DARK = {
+    enby: '#9c59d1',
+    trans: '#38bdf8',
+    rainbow: '#ff5566',
+    gay: '#159a7b',
+    lesbian: '#ef7627',
+    bi: '#d60270',
+    pan: '#ff1c8e',
+    genderfluid: '#c011d7',
+    aroace: '#2c739c',
+    aro: '#3da542',
+    ace: '#a04dc0',
+    matrix: '#00ff41',
+    wawa: '#cf9a63',
+    red: '#e40303',
+    orange: '#ff8c00',
+    yellow: '#eab308',
+    green: '#16a34a',
+    blue: '#3b82f6',
+    purple: '#9c59d1',
+};
+
+export const GLASS_ACCENT_LIGHT = {
+    enby: '#7a45b5',
+    trans: '#0284c7',
+    rainbow: '#dc2626',
+    gay: '#0f766e',
+    lesbian: '#ea580c',
+    bi: '#be185d',
+    pan: '#db2777',
+    genderfluid: '#a21caf',
+    aroace: '#155e75',
+    aro: '#15803d',
+    ace: '#7c3aed',
+    matrix: '#16a34a',
+    wawa: '#92612e',
+    red: '#dc2626',
+    orange: '#ea580c',
+    yellow: '#a16207',
+    green: '#15803d',
+    blue: '#1d4ed8',
+    purple: '#7c3aed',
+};
+
+// Pick a custom-blend accent: the first non-white/non-black colour (white
+// or black reads badly as an accent), defaulting to the site purple.
+function customAccent(colors) {
+    const list = sanitizeCustomColors(colors);
+    const usable = list.find((c) => !/^#f{6}$/i.test(c) && !/^#0{6}$/i.test(c));
+    return usable || '#9c59d1';
+}
+
+// The accent for a scheme, or null to keep the theme's default accent.
+export function getGlassAccent(scheme, customColors, light) {
+    if (scheme === CUSTOM_SCHEME) return customAccent(customColors);
+    const map = light ? GLASS_ACCENT_LIGHT : GLASS_ACCENT_DARK;
+    return map[scheme] || null;
+}
+
 const readStored = (key) => {
     try {
         return localStorage.getItem(key);

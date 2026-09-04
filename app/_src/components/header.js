@@ -29,6 +29,7 @@ import {
     customBackdropColors,
     hexToRgba,
     sanitizeCustomColors,
+    getGlassAccent,
 } from './themeSettings';
 
 // Discord login state chip: "Log in" when logged out, avatar + "My Builds"
@@ -264,6 +265,7 @@ export function HeaderNav() {
         { href: base + '/items', translation: 'index.pages.items.title' },
         { href: base + '/builder', translation: 'index.pages.builder.title' },
         { href: base + '/database', translation: 'index.pages.database.title' },
+        { href: base + '/compare', label: 'Compare' },
     ];
 
     const close = () => setOpen(false);
@@ -450,6 +452,16 @@ export default function Header() {
         if (!isGlassTheme(theme)) return;
         document.documentElement.style.setProperty('--glass-angle', Math.round(115 + Math.random() * 40) + 'deg');
     }, [theme]);
+
+    // Theme accent: the app's --accent (hover states, selected chips, links,
+    // highlight borders) follows the selected colour/pride backdrop scheme.
+    // Reset to the theme's own accent whenever Glass isn't active.
+    React.useEffect(() => {
+        const root = document.documentElement;
+        const accent = isGlassTheme(theme) ? getGlassAccent(glassScheme, glassCustom, theme === 'glass-light') : null;
+        if (accent) root.style.setProperty('--accent', accent);
+        else root.style.removeProperty('--accent');
+    }, [theme, glassScheme, glassCustom.join(',')]);
 
     // Flag-mode body gradients come from CSS for the original schemes, but
     // newer schemes (and the custom blend) have no CSS rule - paint those

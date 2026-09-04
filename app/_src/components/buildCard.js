@@ -109,7 +109,9 @@ function loadBuildDetails() {
 // One build card in the public database / favourites / my-builds grids.
 // The optional children render inside the card (after the bottom row), so
 // pages like "My Builds" can embed management buttons in the card itself.
-export default function BuildCard({ build, user, base, onToggleFavourite, children }) {
+// `compareEnabled` (database page) shows the "add to comparison" picker
+// button below the layout-swap button.
+export default function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
     const { itemsFirst, toggle: toggleCardLayout } = useCardItemsFirst();
     const { lowRes } = useLowResource();
     const [favBusy, setFavBusy] = React.useState(false);
@@ -617,6 +619,32 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                             </span>
                         </span>
                     </button>
+                    {onAddCompare && (
+                        <button
+                            type="button"
+                            className={`${styles.compareLayoutBtn}${
+                                compareActive ? ` ${styles.compareLayoutBtnOn}` : ''
+                            }`}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onAddCompare(build);
+                            }}
+                            aria-label="Add to comparison"
+                            title={compareActive ? 'Remove from comparison' : 'Add to comparison'}
+                        >
+                            <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                                    <path d="M3 5h14v2H3zM3 9h10v2H3zM3 13h14v2H3zM3 17h10v2H3z" />
+                                    <path d="M19 6v12h2V6zM17 8h6v2h-6zM17 14h6v2h-6z" opacity="0" />
+                                    <path d="M19 5l3 3-3 3V9h-2a1 1 0 0 1 0-2h2V5zM19 19v-2h-2a1 1 0 0 1 0-2h2v-2l3 3-3 3z" />
+                                </svg>
+                                <span className={itemsStyles.enchantTooltipText}>
+                                    {compareActive ? 'Remove from comparison' : 'Add to comparison'}
+                                </span>
+                            </span>
+                        </button>
+                    )}
                 </span>
             </div>
 

@@ -63,7 +63,7 @@
 
 .checkboxWithLabel:hover {
     background-color: var(--glass-1);
-    border-color: var(--text-2);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .checkboxWithLabel input {
@@ -1001,8 +1001,9 @@
 }
 
 .publiciseBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
+    color: var(--accent, #9c59d1);
 }
 
 .publiciseBtn:disabled {
@@ -1104,8 +1105,9 @@
 }
 
 .skillActionButton:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
+    color: var(--accent, #9c59d1);
 }
 
 .skillsGrid {
@@ -1141,7 +1143,7 @@
 }
 
 .skillRow:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .dragHandle {
@@ -1269,7 +1271,7 @@
 }
 
 .czTreeHeader:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .czTreeDesc {
@@ -1341,8 +1343,9 @@
 }
 
 .importMenuBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
+    color: var(--accent, #9c59d1);
 }
 
 .importPanel {
@@ -1386,8 +1389,9 @@
 }
 
 .importButton:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
+    color: var(--accent, #9c59d1);
 }
 
 .importError {
@@ -1608,8 +1612,9 @@
 }
 
 .listClearButton:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
+    color: var(--accent, #9c59d1);
 }
 
 .listRowInfo {
@@ -1758,7 +1763,8 @@ div.charmTotals {
     gap: 10px;
     padding: 10px 18px;
     border: 2px solid var(--glass-border);
-    background: var(--surface-1);
+    background: var(--glass-1);
+    backdrop-filter: blur(12px);
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
     color: var(--text-1);
     font-size: 14px;
@@ -1843,8 +1849,9 @@ div.charmTotals {
 }
 
 .modalClose:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
+    color: var(--accent, #9c59d1);
 }
 
 .modalHint {

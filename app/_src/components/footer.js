@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import styles from '../styles/Footer.module.css';
 import LanguageSelector from './languageSelector';
@@ -37,84 +38,95 @@ export default function Footer() {
         setInviteOpen(true);
     }
 
+    // The dialog must render OUTSIDE the footer: the footer's backdrop-filter
+    // makes it a containing block, so a position:fixed overlay nested inside
+    // it would anchor to the footer (landing far below the viewport) instead
+    // of the screen. Portaled to <body>, it overlays the whole page.
     return (
-        <footer className={styles.footer}>
-            <div className={styles.inner}>
-                <div className={styles.text}>
-                    Forked by <b>JC</b>, originally developed by <b>Albin</b>, <b>FlamingoBike</b> and <b>Alecaboo</b>
-                    <span className={styles.version}> · v{pkg.sts_version}</span>
-                </div>
-                <div className={styles.links}>
-                    <LanguageSelector className={styles.languageSelect} compact />
-                    <a
-                        className={styles.textLink}
-                        href="https://crowdin.com/project/ohthemisery"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Help translate
-                    </a>
-                    <button className={styles.textLink} onClick={openInvite}>
-                        Discord bot
-                    </button>
-                    <Link className={styles.textLink} href="/privacy">
-                        Privacy Policy
-                    </Link>
-                    <Link className={styles.textLink} href="/terms">
-                        Terms
-                    </Link>
-                    <a
-                        className={styles.link}
-                        href="https://github.com/JacyKu/sts.deepa.cat"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="GitHub"
-                        title="GitHub"
-                    >
-                        <GitHubIcon />
-                    </a>
-                    <a className={styles.link} href="#top" aria-label="Back to top" title="Back to top">
-                        <ArrowUpIcon />
-                    </a>
-                </div>
-            </div>
-            {inviteOpen ? (
-                <div className={styles.overlay} onClick={() => setInviteOpen(false)}>
-                    <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.modalTitle}>Invite the STS bot</div>
-                        {inviteUrls ? (
-                            <>
-                                <p className={styles.modalText}>
-                                    Add the bot to a server, or install it as your personal app so it works in your DMs.
-                                </p>
-                                <a
-                                    className={styles.textLink}
-                                    href={inviteUrls.serverUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Add to a server
-                                </a>
-                                <a
-                                    className={styles.textLink}
-                                    href={inviteUrls.userUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Install as your app
-                                </a>
-                            </>
-                        ) : (
-                            <p className={styles.modalText}>
-                                The bot invite is not configured on this server. Try again later.
-                            </p>
-                        )}
-                        <button className={styles.modalClose} onClick={() => setInviteOpen(false)}>
-                            Close
+        <>
+            <footer className={styles.footer}>
+                <div className={styles.inner}>
+                    <div className={styles.text}>
+                        Forked by <b>JC</b>, originally developed by <b>Albin</b>, <b>FlamingoBike</b> and{' '}
+                        <b>Alecaboo</b>
+                        <span className={styles.version}> · v{pkg.sts_version}</span>
+                    </div>
+                    <div className={styles.links}>
+                        <LanguageSelector className={styles.languageSelect} compact />
+                        <a
+                            className={styles.textLink}
+                            href="https://crowdin.com/project/ohthemisery"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Help translate
+                        </a>
+                        <button className={styles.textLink} onClick={openInvite}>
+                            Discord bot
                         </button>
+                        <Link className={styles.textLink} href="/privacy">
+                            Privacy Policy
+                        </Link>
+                        <Link className={styles.textLink} href="/terms">
+                            Terms
+                        </Link>
+                        <a
+                            className={styles.link}
+                            href="https://github.com/JacyKu/sts.deepa.cat"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="GitHub"
+                            title="GitHub"
+                        >
+                            <GitHubIcon />
+                        </a>
+                        <a className={styles.link} href="#top" aria-label="Back to top" title="Back to top">
+                            <ArrowUpIcon />
+                        </a>
                     </div>
                 </div>
-            ) : null}
-        </footer>
+            </footer>
+            {inviteOpen &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                    <div className={styles.overlay} onClick={() => setInviteOpen(false)}>
+                        <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+                            <div className={styles.modalTitle}>Invite the STS bot</div>
+                            {inviteUrls ? (
+                                <>
+                                    <p className={styles.modalText}>
+                                        Add the bot to a server, or install it as your personal app so it works in your
+                                        DMs.
+                                    </p>
+                                    <a
+                                        className={styles.textLink}
+                                        href={inviteUrls.serverUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Add to a server
+                                    </a>
+                                    <a
+                                        className={styles.textLink}
+                                        href={inviteUrls.userUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Install as your app
+                                    </a>
+                                </>
+                            ) : (
+                                <p className={styles.modalText}>
+                                    The bot invite is not configured on this server. Try again later.
+                                </p>
+                            )}
+                            <button className={styles.modalClose} onClick={() => setInviteOpen(false)}>
+                                Close
+                            </button>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+        </>
     );
 }

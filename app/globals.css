@@ -29,6 +29,22 @@
     --glass-menu: rgba(17, 17, 17, 0.97);
 
     --text-on-accent: #fff;
+
+    /* Accent (recoloured by the active colour/pride backdrop scheme) + soft
+       derivatives used for hover rings, selection and focus states. */
+    --accent: #9c59d1;
+    --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+    --accent-line: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* Accent touches sprinkled across the app. */
+::selection {
+    background: var(--accent-soft);
+}
+
+:where(button, a, [role='button'], input, select, textarea):focus-visible {
+    outline: 2px solid var(--accent-line);
+    outline-offset: 1px;
 }
 
 :root[data-theme='light'] {

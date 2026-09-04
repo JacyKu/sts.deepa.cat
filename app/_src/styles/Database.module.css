@@ -47,7 +47,7 @@
 
 .addBtn:hover {
     background: var(--glass-2);
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .addBtn:active {
@@ -70,7 +70,7 @@
 
 .searchName:focus {
     outline: none;
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .valueInput {
@@ -86,7 +86,7 @@
 
 .valueInput:focus {
     outline: none;
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .cascade {
@@ -261,7 +261,7 @@
 }
 
 .card:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: #1a1a1a;
     text-decoration: none;
 }
@@ -505,6 +505,119 @@
 .swapLayoutBtn:hover {
     color: var(--accent, #9c59d1);
     border-color: var(--accent, #9c59d1);
+}
+
+/* Add-to-comparison button: sits to the LEFT of the favourite button and is
+   always visible (unlike the swap button, which stays hover-only below). */
+.compareLayoutBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    order: -1;
+    box-sizing: border-box;
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease;
+}
+
+.compareLayoutBtn:hover {
+    color: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+}
+
+.compareLayoutBtnOn {
+    color: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+}
+
+/* Dock listing the builds picked for comparison (bottom-right). */
+.compareDock {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--glass-menu);
+    border: 2px solid var(--glass-border);
+    box-shadow: var(--shadow-elevated);
+    max-width: min(560px, calc(100vw - 32px));
+}
+
+.compareDockInfo {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.compareDockTitle {
+    font-weight: 700;
+    color: var(--text-1);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.compareDockPick {
+    padding: 2px 8px;
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compareDockHint {
+    color: var(--text-2);
+    font-size: 0.78rem;
+}
+
+.compareDockActions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.compareDockBtn {
+    padding: 6px 14px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--text-1);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.compareDockBtn:hover {
+    border-color: var(--control-border-hover);
+    filter: brightness(115%);
+}
+
+.compareDockClear {
+    padding: 4px 10px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.compareDockClear:hover {
+    color: var(--negative, #ce2d27);
+    border-color: var(--negative, #ce2d27);
 }
 
 .cardTitle {
