@@ -391,8 +391,37 @@ function getRelevantItems(types, itemData, favourites = new Set()) {
     });
 }
 
+// The Stats engine is deterministic: identical inputs produce the identical
+// result. Cache the last few instances keyed on a cheap signature of exactly
+// what the engine reads (item names, region, infusions, stat inputs, and the
+// mutable enabledBoxes/extraStats/enabledClassAbilityBuffs objects), so an
+// interaction that doesn't change those inputs reuses the previous result
+// instead of recomputing. itemData is keyed by reference (it is stable for the
+// session) so the 2.6 MB data object is never serialized.
+const STATS_CACHE_MAX = 8;
+const statsCache = new Map(); // signature -> { itemData, stats }
 function recalcBuild(data, itemData) {
-    let tempStats = new Stats(itemData, data, enabledBoxes, extraStats, enabledClassAbilityBuffs);
+    const signature = JSON.stringify({
+        region: data.region ?? null,
+        items: [data.mainhand ?? null, data.offhand ?? null, data.helmet ?? null, data.chestplate ?? null, data.leggings ?? null, data.boots ?? null],
+        infusions: ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'].map((slot) => data[`delveInfusion-${slot}`] ?? null),
+        revelation: data.revelation ?? null,
+        stats: [data.tenacity ?? null, data.vitality ?? null, data.vigor ?? null, data.focus ?? null, data.perspicacity ?? null, data.health ?? null],
+        eb: enabledBoxes,
+        es: extraStats,
+        eca: enabledClassAbilityBuffs,
+    });
+    const hit = statsCache.get(signature);
+    if (hit && hit.itemData === itemData) {
+        statsCache.delete(signature); // refresh recency (LRU order)
+        statsCache.set(signature, hit);
+        return hit.stats;
+    }
+    const tempStats = new Stats(itemData, data, enabledBoxes, extraStats, enabledClassAbilityBuffs);
+    statsCache.set(signature, { itemData, stats: tempStats });
+    if (statsCache.size > STATS_CACHE_MAX) {
+        statsCache.delete(statsCache.keys().next().value);
+    }
     return tempStats;
 }
 
@@ -400,12 +429,26 @@ function recalcBuild(data, itemData) {
 // the interaction that triggered it (item select, checkbox, ...) paints and
 // responds immediately. The two state updates (local stats + parent item
 // display) are batched into a single transition render.
+// Rapid stat-affecting edits (checkbox clicks, skill buffs, item swaps,
+// infusion picks) are coalesced into a single recompute shortly after they
+// settle - the displayed stats lag imperceptibly and the calculation itself
+// is unchanged.
+const statsRecalcPending = { timer: null, itemNames: null, itemData: null, setStats: null, update: null };
 function applyStatsUpdate(itemNames, itemData, setStats, update) {
-    React.startTransition(() => {
-        const tempStats = recalcBuild(itemNames, itemData);
-        setStats(tempStats);
-        update(tempStats);
-    });
+    statsRecalcPending.itemNames = itemNames;
+    statsRecalcPending.itemData = itemData;
+    statsRecalcPending.setStats = setStats;
+    statsRecalcPending.update = update;
+    if (statsRecalcPending.timer) clearTimeout(statsRecalcPending.timer);
+    statsRecalcPending.timer = setTimeout(() => {
+        statsRecalcPending.timer = null;
+        const { itemNames: names, itemData: data, setStats: s, update: u } = statsRecalcPending;
+        React.startTransition(() => {
+            const tempStats = recalcBuild(names, data);
+            s(tempStats);
+            u(tempStats);
+        });
+    }, 120);
 }
 
 function createMasterworkData(name, itemData) {
