@@ -48,7 +48,7 @@
 }
 
 .loginBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
 }
 
@@ -141,7 +141,7 @@
 }
 
 .rowBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--surface-2);
 }
 
@@ -182,7 +182,7 @@
 }
 
 .subNavBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
 }
 

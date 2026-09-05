@@ -6,6 +6,34 @@
     padding: 18px 10px 40px;
 }
 
+.togglesPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 900px;
+    margin: 6px 0 14px;
+}
+
+.toggleGroup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.toggleGroupTitle {
+    font-weight: 600;
+    color: var(--text-1);
+}
+
+.toggleList {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 14px;
+}
+
 .pageTitle {
     margin: 10px 0;
     font-size: 40px;
@@ -221,10 +249,21 @@
     margin-left: auto;
 }
 
+/* Stat category cards flow side by side when the width allows, otherwise
+   stack. Each card spans the full row content; the grid fits as many
+   columns as the available width permits. */
+.categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr));
+    gap: 12px;
+    width: 100%;
+    max-width: 1100px;
+    margin-top: 16px;
+}
+
 .category {
     width: 100%;
-    max-width: 900px;
-    margin-top: 16px;
+    margin: 0;
     background: var(--glass-1);
     border: 2px solid var(--glass-border);
 }
@@ -239,14 +278,16 @@
 
 .compareRow {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
     align-items: baseline;
-    gap: 10px;
+    gap: 8px;
     padding: 3px 12px;
 }
 
 .rowLabel {
+    min-width: 0;
     text-align: center;
+    overflow-wrap: anywhere;
     color: var(--text-1);
 }
 

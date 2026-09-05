@@ -7,6 +7,7 @@ import Stats from '../utils/builder/stats';
 import CharmShortener from '../utils/builder/charmShortener';
 import { computeCharmTotals } from './builder/charmSelector';
 import { decodeBuildParam } from '../utils/builder/buildUrlCodec';
+import CheckboxWithLabel from './items/checkboxWithLabel';
 
 // Stat categories, matching the builder's stat cards (buildForm.js) and the
 // categories of Monumenta's Player Stats calculator. Values are read from the
@@ -168,6 +169,55 @@ const DEFAULT_BUFF_FLAGS = {
     toughness_enhancement: false,
 };
 
+// Situational stat toggles, mirroring the builder's stat cards. Toggling one
+// re-runs the Stats engine for both sides so the comparison reflects the
+// active situational (defense/damage) enchants. Retaliation has no
+// per-enchant level in the engine (its three variants are separate toggles).
+const situationalDefenses = [
+    'shielding',
+    'poise',
+    'inure',
+    'steadfast',
+    'guard',
+    'second_wind',
+    'ethereal',
+    'reflexes',
+    'evasion',
+    'tempo',
+    'cloaked',
+    'earth_aspect',
+    'curse_of_the_veil',
+];
+const situationalFlatDamage = ['smite', 'duelist', 'slayer', 'point_blank', 'sniper'];
+const situationalPercentDamage = [
+    'first_strike',
+    'regicide',
+    'trivium',
+    'stamina',
+    'technique',
+    'abyssal',
+    'fractal',
+    'skyseeker',
+    'backstab',
+    'retaliation_normal',
+    'retaliation_elite',
+    'retaliation_boss',
+];
+
+const DEFAULT_ENABLED_BOXES = {};
+for (const situ of [...situationalDefenses, ...situationalFlatDamage, ...situationalPercentDamage]) {
+    DEFAULT_ENABLED_BOXES[situ] = false;
+}
+
+function formatSituationalName(situ) {
+    const ret = situ
+        .split('_')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
+    if (ret.match('Retaliation')) return ret.split(' ')[0] + ' (' + ret.split(' ')[1].toLowerCase() + ')';
+    return ret;
+}
+
 function parseLegacyParts(decoded) {
     try {
         return decodeURI(decoded).split('&');
@@ -231,7 +281,7 @@ function buildBuffFlags(parts, gameClass) {
     return flags;
 }
 
-function parseBuild(build, itemData) {
+function parseBuild(build, itemData, enabledBoxes = {}) {
     const decoded = decodeBuildParam(build, itemData);
     if (!decoded) return null;
     const parts = parseLegacyParts(decoded);
@@ -259,7 +309,7 @@ function parseBuild(build, itemData) {
         engine = new Stats(
             itemData,
             buildFormFromParts(parts, itemData),
-            {},
+            enabledBoxes,
             {},
             buildBuffFlags(parts, gameClassFrom(parts))
         );
@@ -329,6 +379,10 @@ function parseBuild(build, itemData) {
         specName: specPart || null,
         charmStats,
         categories: categoryDefs.map((cat) => ({ key: cat.key, title: cat.title, rows: categoryRows[cat.key] })),
+        // The engine's situational levels + retaliation, used to decide which
+        // stat toggles are relevant for each side.
+        situationals: engine ? engine.situationals : null,
+        retaliation: engine ? Number(engine.retaliation) || 0 : 0,
     };
 }
 
@@ -440,12 +494,15 @@ async function resolveInput(raw, itemData) {
 }
 
 export default function ComparePage({ itemData }) {
-    const [left, setLeft] = React.useState(null); // { token, parsed, error }
+    const [left, setLeft] = React.useState(null); // { token, error }
     const [right, setRight] = React.useState(null);
     const [leftInput, setLeftInput] = React.useState('');
     const [rightInput, setRightInput] = React.useState('');
     const [loadingSide, setLoadingSide] = React.useState(null);
     const autoLoaded = React.useRef(false);
+    // Situational stat toggles, shared by both sides. Changing one re-parses
+    // both builds through the Stats engine so the comparison updates live.
+    const [enabledBoxes, setEnabledBoxes] = React.useState(() => ({ ...DEFAULT_ENABLED_BOXES }));
 
     // Live database suggestions under each input bar.
     const [suggestions, setSuggestions] = React.useState({ left: null, right: null });
@@ -459,8 +516,12 @@ export default function ComparePage({ itemData }) {
         const setter = side === 'left' ? setLeft : setRight;
         const result = await resolveInput(raw, itemData);
         if (result.error) setter({ error: result.error });
-        else setter({ token: result.token, parsed: result.parsed });
+        else setter({ token: result.token });
         setLoadingSide(null);
+    }
+
+    function toggleBox(name, checked) {
+        setEnabledBoxes((prev) => ({ ...prev, [name]: checked }));
     }
 
     function pickSuggestion(side, build) {
@@ -539,7 +600,50 @@ export default function ComparePage({ itemData }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const showCompare = left && !left.error && left.parsed && right && !right.error && right.parsed;
+    // Re-parse both sides whenever the loaded tokens or the situational
+    // toggles change, so the toggles update the comparison live.
+    const leftParsed = React.useMemo(
+        () => (left && left.token ? parseBuild(left.token, itemData, enabledBoxes) : null),
+        [left, itemData, enabledBoxes]
+    );
+    const rightParsed = React.useMemo(
+        () => (right && right.token ? parseBuild(right.token, itemData, enabledBoxes) : null),
+        [right, itemData, enabledBoxes]
+    );
+
+    // Which situational toggles are relevant: the union across both sides of
+    // the engine's situational levels (>0) plus retaliation.
+    const toggleRows = React.useMemo(() => {
+        const defs = new Set();
+        const flat = new Set();
+        const percent = new Set();
+        let retaliation = false;
+        for (const parsed of [leftParsed, rightParsed]) {
+            if (!parsed) continue;
+            if (parsed.retaliation > 0) retaliation = true;
+            if (!parsed.situationals) continue;
+            for (const s of situationalDefenses) {
+                if (parsed.situationals[s] && parsed.situationals[s].level > 0) defs.add(s);
+            }
+            for (const s of situationalFlatDamage) {
+                if (parsed.situationals[s] && parsed.situationals[s].level > 0) flat.add(s);
+            }
+            for (const s of situationalPercentDamage) {
+                if (parsed.situationals[s] && parsed.situationals[s].level > 0) percent.add(s);
+            }
+        }
+        if (retaliation) {
+            ['retaliation_normal', 'retaliation_elite', 'retaliation_boss'].forEach((s) => percent.add(s));
+        }
+        const rows = [];
+        if (defs.size > 0) rows.push({ key: 'defense', title: 'Situational Defense', items: [...defs] });
+        if (flat.size > 0 || percent.size > 0) {
+            rows.push({ key: 'damage', title: 'Situational Damage', items: [...flat, ...percent] });
+        }
+        return rows;
+    }, [leftParsed, rightParsed]);
+
+    const showCompare = left && !left.error && leftParsed && right && !right.error && rightParsed;
 
     return (
         <div className={styles.container}>
@@ -548,6 +652,7 @@ export default function ComparePage({ itemData }) {
             <div className={styles.pickers}>
                 {['left', 'right'].map((side) => {
                     const state = side === 'left' ? left : right;
+                    const parsed = side === 'left' ? leftParsed : rightParsed;
                     const list = suggestions[side];
                     const open = suggestOpen[side];
                     return (
@@ -620,10 +725,9 @@ export default function ComparePage({ itemData }) {
                             </div>
                             {state && state.error ? (
                                 <div className={styles.pickerError}>{state.error}</div>
-                            ) : state && state.parsed ? (
+                            ) : parsed ? (
                                 <div className={styles.pickerOk}>
-                                    {[state.parsed.className, state.parsed.specName].filter(Boolean).join(' · ') ||
-                                        'Build loaded'}
+                                    {[parsed.className, parsed.specName].filter(Boolean).join(' · ') || 'Build loaded'}
                                 </div>
                             ) : null}
                         </div>
@@ -632,7 +736,29 @@ export default function ComparePage({ itemData }) {
             </div>
 
             {showCompare ? (
-                <CompareTable left={left.parsed} right={right.parsed} />
+                <>
+                    {toggleRows.length > 0 && (
+                        <div className={styles.togglesPanel}>
+                            {toggleRows.map((group) => (
+                                <div key={group.key} className={styles.toggleGroup}>
+                                    <span className={styles.toggleGroupTitle}>{group.title}</span>
+                                    <div className={styles.toggleList}>
+                                        {group.items.map((name) => (
+                                            <CheckboxWithLabel
+                                                key={name}
+                                                name={formatSituationalName(name)}
+                                                enchantName={name}
+                                                checked={Boolean(enabledBoxes[name])}
+                                                onChange={(e) => toggleBox(name, e.target.checked)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <CompareTable left={leftParsed} right={rightParsed} />
+                </>
             ) : (
                 <p className={styles.hint}>Load two builds to compare their stats, items and charms side by side.</p>
             )}
@@ -661,6 +787,7 @@ function CompareTable({ left, right }) {
                 </div>
             </div>
 
+            <div className={styles.categories}>
             {allCategories.map((cat) => {
                 const rowsByKey = new Map();
                 for (const row of cat.rows) rowsByKey.set(row.labelKey, { left: row });
@@ -708,6 +835,7 @@ function CompareTable({ left, right }) {
                     </section>
                 );
             })()}
+            </div>
         </>
     );
 }

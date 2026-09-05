@@ -47,8 +47,8 @@
 .tabActive,
 .tabActive:hover {
     color: var(--text-1);
-    border-color: #9c59d1;
-    box-shadow: 0 0 0 1px #9c59d1 inset;
+    border-color: var(--accent, #9c59d1);
+    box-shadow: 0 0 0 1px var(--accent, #9c59d1) inset;
     cursor: default;
 }
 
@@ -161,8 +161,8 @@
 
 .confirmButton {
     align-self: flex-start;
-    background: #9c59d1;
-    border-color: #9c59d1;
+    background: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
     color: #fff;
     font-weight: 600;
     padding: 0.55rem 1.5rem;
@@ -296,8 +296,8 @@
 }
 
 .themeCardActive {
-    border-color: #9c59d1;
-    box-shadow: 0 0 0 1px #9c59d1;
+    border-color: var(--accent, #9c59d1);
+    box-shadow: 0 0 0 1px var(--accent, #9c59d1);
 }
 
 .themeSwatch {
@@ -323,7 +323,7 @@
 .themeToggleRow input {
     margin: 0;
     cursor: pointer;
-    accent-color: #9c59d1;
+    accent-color: var(--accent, #9c59d1);
 }
 
 /* Backdrop colour list: one chip per scheme, each with a flag-stripe
@@ -377,8 +377,8 @@
 }
 
 .colourChipActive {
-    border-color: #9c59d1;
-    box-shadow: 0 0 0 1px #9c59d1;
+    border-color: var(--accent, #9c59d1);
+    box-shadow: 0 0 0 1px var(--accent, #9c59d1);
 }
 
 .colourSwatch {
@@ -475,7 +475,7 @@
 .blurRow input[type='range'] {
     flex: 1;
     min-width: 140px;
-    accent-color: #9c59d1;
+    accent-color: var(--accent, #9c59d1);
     cursor: pointer;
 }
 

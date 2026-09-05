@@ -173,7 +173,7 @@
 }
 
 .loginBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
 }
 
@@ -274,7 +274,7 @@
 .cardExpanded {
     z-index: 20;
     background: #1a1a1a;
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 :global(html[data-theme='light']) .cardExpanded,
@@ -329,7 +329,7 @@
 }
 
 .cardExpanded .cardSide {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .cardSideOpen {
@@ -601,7 +601,7 @@
 }
 
 .compareDockBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     filter: brightness(115%);
 }
 
