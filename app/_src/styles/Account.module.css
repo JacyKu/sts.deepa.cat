@@ -488,6 +488,21 @@
 }
 
 /* Uploaded backdrop image (stored in the browser only). */
+.accentRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.accentRow .colourRemove {
+    margin-left: auto;
+}
+
 .uploadRow {
     display: flex;
     align-items: center;

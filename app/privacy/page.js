@@ -63,8 +63,7 @@ export default function PrivacyPolicyPage() {
                         <>We do not use cookies or tracking technologies for advertising or analytics.</>,
                         <>
                             When you log in with Discord, we set a session cookie to keep you signed in; it contains no
-                            more than your Discord identity and is deleted when you log out. Your site preferences and
-                            saved builds are stored locally in your browser and are not transmitted to us.
+                            more than your Discord identity and is deleted when you log out. Your site preferences are stored locally in your browser and are not transmitted to us.
                         </>,
                     ],
                 },

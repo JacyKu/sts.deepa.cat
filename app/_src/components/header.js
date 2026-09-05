@@ -30,6 +30,7 @@ import {
     hexToRgba,
     sanitizeCustomColors,
     getGlassAccent,
+    parseGlassAccent,
 } from './themeSettings';
 
 // Discord login state chip: "Log in" when logged out, avatar + "My Builds"
@@ -383,6 +384,7 @@ export default function Header() {
     const [glassFlag, setGlassFlag] = React.useState(false);
     const [glassBlur, setGlassBlur] = React.useState(0);
     const [glassCustomImage, setGlassCustomImage] = React.useState(null);
+    const [glassAccent, setGlassAccent] = React.useState('');
     const { lowRes, toggle: toggleLowRes } = useLowResource();
     const session = useSessionState();
 
@@ -426,6 +428,10 @@ export default function Header() {
             root.dataset.glassBlur = String(blur);
             root.style.setProperty('--glass-frost-blur', blur + 'px');
             setGlassCustomImage(state.glassCustomImage);
+            const accent = parseGlassAccent(state.glassAccent);
+            setGlassAccent(accent);
+            if (accent) root.dataset.glassAccent = accent;
+            else delete root.dataset.glassAccent;
         };
         applyState();
         // The font lives on the account page now, but it must still be
@@ -455,13 +461,16 @@ export default function Header() {
 
     // Theme accent: the app's --accent (hover states, selected chips, links,
     // highlight borders) follows the selected colour/pride backdrop scheme.
-    // Reset to the theme's own accent whenever Glass isn't active.
+    // A custom accent colour overrides it on every theme; otherwise reset to
+    // the theme's own accent whenever Glass isn't active.
     React.useEffect(() => {
         const root = document.documentElement;
-        const accent = isGlassTheme(theme) ? getGlassAccent(glassScheme, glassCustom, theme === 'glass-light') : null;
+        const accent =
+            glassAccent ||
+            (isGlassTheme(theme) ? getGlassAccent(glassScheme, glassCustom, theme === 'glass-light') : null);
         if (accent) root.style.setProperty('--accent', accent);
         else root.style.removeProperty('--accent');
-    }, [theme, glassScheme, glassCustom.join(',')]);
+    }, [theme, glassScheme, glassCustom.join(','), glassAccent]);
 
     // Flag-mode body gradients come from CSS for the original schemes, but
     // newer schemes (and the custom blend) have no CSS rule - paint those

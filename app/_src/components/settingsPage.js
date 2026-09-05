@@ -23,6 +23,7 @@ import {
     glassSchemeLabel,
     systemTheme,
     isGlassTheme,
+    parseGlassAccent,
 } from './themeSettings';
 
 // The font picker is a small pill select, deliberately different from the
@@ -199,6 +200,17 @@ export default function SettingsPage() {
         updateState({ glassCustom: [...themeState.glassCustom, '#4a78fc'] });
     }
 
+    function setAccent(value) {
+        const parsed = parseGlassAccent(value);
+        if (parsed === themeState.glassAccent) return;
+        updateState({ glassAccent: parsed });
+    }
+
+    function resetAccent() {
+        if (!themeState.glassAccent) return;
+        updateState({ glassAccent: '' });
+    }
+
     function removeCustomColor(index) {
         if (themeState.glassCustom.length <= 1) return;
         const colors = [...themeState.glassCustom];
@@ -315,6 +327,27 @@ export default function SettingsPage() {
                     />
                     Round corners
                 </label>
+                <div className={styles.accentRow}>
+                    <label className={styles.colourPicker}>
+                        Accent colour
+                        <input
+                            type="color"
+                            value={themeState?.glassAccent || '#9c59d1'}
+                            onChange={(e) => setAccent(e.target.value)}
+                            aria-label="Accent colour"
+                        />
+                    </label>
+                    {themeState?.glassAccent && (
+                        <button
+                            type="button"
+                            className={styles.colourRemove}
+                            onClick={resetAccent}
+                            aria-label="Reset accent colour"
+                        >
+                            Follow scheme
+                        </button>
+                    )}
+                </div>
                 {glassActive && (
                     <div className={styles.glassColours}>
                         <h4 className={styles.colourGroup}>Pride</h4>

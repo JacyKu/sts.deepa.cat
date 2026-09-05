@@ -131,6 +131,13 @@ export const parseGlassBlur = (value) => {
     return Number.isFinite(n) ? Math.min(MAX_GLASS_BLUR, Math.max(0, n)) : 0;
 };
 
+// A custom accent colour (plain #rrggbb), or empty to follow the active
+// glass scheme's accent. Applies site-wide when set.
+export const parseGlassAccent = (value) => {
+    const v = typeof value === 'string' ? value.trim() : '';
+    return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
+};
+
 // Schemes whose full-page flag gradient is painted from CSS (globals.css).
 // Anything newer falls back to an inline gradient built from the blob
 // colors, so the flag view works for every scheme.
@@ -396,6 +403,7 @@ export function readThemeState() {
     let glassCustom = null;
     let glassBlur = null;
     let glassCustomImage = null;
+    let glassAccent = '';
     if (typeof window !== 'undefined') {
         theme = readStored('theme');
         round = readStored('roundStyle');
@@ -405,6 +413,7 @@ export function readThemeState() {
         glassCustom = readStored('glassCustom');
         glassBlur = readStored('glassBlur');
         glassCustomImage = readStored('glassCustomImage');
+        glassAccent = parseGlassAccent(readStored('glassAccent'));
     }
     const root = typeof document !== 'undefined' ? document.documentElement : null;
     const attrTheme = root ? root.dataset.theme : null;
@@ -445,6 +454,8 @@ export function readThemeState() {
             typeof glassCustomImage === 'string' && glassCustomImage.startsWith('data:image/')
                 ? glassCustomImage
                 : null,
+        // Custom accent colour override ('' = follow the scheme's accent).
+        glassAccent: glassAccent || (root ? parseGlassAccent(root.dataset.glassAccent) : ''),
     };
 }
 
@@ -465,6 +476,9 @@ export function applyThemeState(changes) {
     const blur = parseGlassBlur(next.glassBlur);
     root.dataset.glassBlur = String(blur);
     root.style.setProperty('--glass-frost-blur', blur + 'px');
+    const accent = parseGlassAccent(next.glassAccent);
+    if (accent) root.dataset.glassAccent = accent;
+    else delete root.dataset.glassAccent;
     try {
         localStorage.setItem('theme', next.theme);
         localStorage.setItem('roundStyle', next.round ? '1' : '0');
@@ -473,6 +487,8 @@ export function applyThemeState(changes) {
         localStorage.setItem('glassFlag', String(next.glassFlag));
         localStorage.setItem('glassCustom', JSON.stringify(sanitizeCustomColors(next.glassCustom)));
         localStorage.setItem('glassBlur', String(blur));
+        if (accent) localStorage.setItem('glassAccent', accent);
+        else localStorage.removeItem('glassAccent');
         const img = next.glassCustomImage;
         if (typeof img === 'string' && img.startsWith('data:image/')) {
             localStorage.setItem('glassCustomImage', img);
