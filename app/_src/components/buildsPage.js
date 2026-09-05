@@ -9,8 +9,15 @@ import dbStyles from '../styles/Database.module.css';
 import DatabaseSkeleton from './databaseSkeleton';
 import { getStsBase } from '../utils/base';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
+import { useLanguageContext } from './languageContext';
+import SupportedLanguages from '../utils/translation/languages';
+import sf from '../styles/SearchForm.module.css';
+import { FilterRow, buildFilterCategories, buildSlotOptions } from './builds/filterRow';
 
-export default function BuildsPage() {
+export default function BuildsPage({ classOptions, specMap, itemGroups }) {
+    const { lang } = useLanguageContext();
+    const t = (id) => (SupportedLanguages[lang] && SupportedLanguages[lang][id]) || id;
+
     const [authChecked, setAuthChecked] = React.useState(false);
     const [user, setUser] = React.useState(null);
     const [builds, setBuilds] = React.useState([]);
@@ -20,6 +27,14 @@ export default function BuildsPage() {
     const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [base, setBase] = React.useState('/sts');
+
+    // The same filter rows + search as the public database page. Rows are the
+    // applied filters (category + value); sorting is a "sort" category row.
+    const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]);
+    const [searchName, setSearchName] = React.useState('');
+
+    const slotOptions = React.useMemo(() => buildSlotOptions(t), [t]);
+    const categories = React.useMemo(() => buildFilterCategories(classOptions, specMap, t), [classOptions, specMap, t]);
 
     React.useEffect(() => {
         setBase(getStsBase());
@@ -52,6 +67,94 @@ export default function BuildsPage() {
         } catch (e) {
             return 'Unnamed build';
         }
+    }
+
+    // Apply the search + filters + sort client-side over the already-fetched
+    // list. Semantics mirror the database's server-side query: first row wins
+    // per category, "Any" means no filter, and sort defaults to "top".
+    const visibleBuilds = React.useMemo(() => {
+        const query = searchName.trim().toLowerCase();
+        let result = query ? builds.filter((b) => displayName(b).toLowerCase().includes(query)) : builds;
+
+        const applied = {};
+        for (const r of rows) {
+            if (!r.category || !r.value || r.value === 'Any' || r.category === 'sort' || applied[r.category]) continue;
+            applied[r.category] = r.value;
+        }
+        if (applied.class) result = result.filter((b) => (b.class || '') === applied.class);
+        if (applied.region) result = result.filter((b) => (b.region || '') === applied.region);
+        if (applied.spec) result = result.filter((b) => (b.spec || '') === applied.spec);
+        if (applied.hasCharms !== undefined) {
+            const want = applied.hasCharms === '1';
+            result = result.filter((b) => Boolean(b.hasCharms) === want);
+        }
+        if (applied.item) {
+            const item = applied.item.toLowerCase();
+            result = result.filter((b) => ((b.itemsJson || '') + ' ').toLowerCase().includes(item));
+        }
+        if (applied.skill) {
+            const skill = applied.skill.toLowerCase();
+            result = result.filter((b) => ((b.skillsJson || '') + ' ').toLowerCase().includes(skill));
+        }
+        if (applied.author) {
+            const author = applied.author.toLowerCase();
+            result = result.filter((b) => ((b.authorName || '') + ' ').toLowerCase().includes(author));
+        }
+
+        let sort = 'top';
+        for (const r of rows) {
+            if (r.category === 'sort' && r.value) {
+                sort = r.value;
+                break;
+            }
+        }
+        return [...result].sort((a, b) => {
+            const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+            const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+            if (sort === 'new') return bTime - aTime;
+            if (sort === 'power') {
+                const diff = (Number(b.power) || 0) - (Number(a.power) || 0);
+                return diff !== 0 ? diff : bTime - aTime;
+            }
+            const favDiff = (b.favouriteCount || 0) - (a.favouriteCount || 0);
+            return favDiff !== 0 ? favDiff : bTime - aTime;
+        });
+    }, [builds, rows, searchName]);
+
+    function addFilterRow() {
+        setRows((prev) => [...prev, { key: Date.now(), category: null, value: null }]);
+    }
+
+    function changeCategory(key, category) {
+        setRows((prev) =>
+            prev.map((r) => {
+                if (r.key !== key) return r;
+                const cat = categories.find((c) => c.name === category);
+                if (cat && cat.type === 'cascade') return { ...r, category, slot: 'Mainhand', value: 'Any' };
+                const first =
+                    cat && cat.type === 'select'
+                        ? cat.options.map((o) => (typeof o === 'string' ? o : o.value))[0]
+                        : null;
+                return { ...r, category, value: first, slot: null };
+            })
+        );
+    }
+
+    function changeSlot(key, slot) {
+        setRows((prev) => prev.map((r) => (r.key === key ? { ...r, slot, value: 'Any' } : r)));
+    }
+
+    function changeValue(key, value) {
+        setRows((prev) => prev.map((r) => (r.key === key ? { ...r, value: value || null } : r)));
+    }
+
+    function deleteRow(key) {
+        setRows((prev) => prev.filter((r) => r.key !== key));
+    }
+
+    function resetFilters() {
+        setRows([{ key: Date.now(), category: null, value: null }]);
+        setSearchName('');
     }
 
     function startRename(build) {
@@ -165,76 +268,124 @@ export default function BuildsPage() {
                         <TranslatableText identifier="builds.empty" />
                     </p>
                 ) : (
-                    <div className={dbStyles.grid}>
-                        {builds.map((build) => (
-                            <div key={build.id} className={styles.cell}>
-                                <BuildCard build={build} user={user} base={base} onToggleFavourite={toggleFavourite}>
-                                    <div className={styles.cardActions}>
-                                        {editingId === build.id ? (
-                                            <input
-                                                type="text"
-                                                className={styles.nameInput}
-                                                value={editName}
-                                                onChange={(e) => setEditName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        submitRename(build);
-                                                    }
-                                                    if (e.key === 'Escape') setEditingId(null);
-                                                }}
-                                                onBlur={() => submitRename(build)}
-                                                autoFocus
-                                            />
-                                        ) : (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    className={`${styles.rowBtn}${
-                                                        build.isPublic ? ` ${styles.rowBtnPublic}` : ''
-                                                    }`}
-                                                    onClick={stop(() => togglePublic(build))}
-                                                    disabled={build.publicBusy}
-                                                    title={build.isPublic ? 'Make private' : 'Publicise'}
-                                                >
-                                                    {build.isPublic ? (
-                                                        <TranslatableText identifier="database.publicBadge" />
-                                                    ) : (
-                                                        <TranslatableText identifier="database.publicise" />
-                                                    )}
-                                                    {build.isPublic && build.anonymous && (
-                                                        <span className={styles.anonBadge}>
-                                                            <TranslatableText identifier="database.anonBadge" />
-                                                        </span>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={styles.rowBtn}
-                                                    onClick={stop(() => startRename(build))}
-                                                    title="Rename"
-                                                >
-                                                    <TranslatableText identifier="builds.rename" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={styles.rowBtn}
-                                                    onClick={stop(() => requestDelete(build))}
-                                                    title="Delete"
-                                                >
-                                                    {confirmDeleteId === build.id ? (
-                                                        <TranslatableText identifier="builds.confirmDelete" />
-                                                    ) : (
-                                                        <TranslatableText identifier="builds.delete" />
-                                                    )}
-                                                </button>
-                                            </>
-                                        )}
+                    <>
+                        {rows.length > 0 && (
+                            <div className={dbStyles.rows}>
+                                {rows.map((row) => (
+                                    <div className={dbStyles.rowWrap} key={row.key}>
+                                        <FilterRow
+                                            categories={categories}
+                                            row={row}
+                                            onChangeCategory={changeCategory}
+                                            onChangeSlot={changeSlot}
+                                            onChangeValue={changeValue}
+                                            onDelete={deleteRow}
+                                            t={t}
+                                            itemGroups={itemGroups}
+                                            slotOptions={slotOptions}
+                                        />
                                     </div>
-                                </BuildCard>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        )}
+                        <div className={dbStyles.toolbar}>
+                            <input
+                                type="button"
+                                className={dbStyles.addBtn}
+                                value="+ Add"
+                                aria-label={t('database.addFilter')}
+                                onClick={addFilterRow}
+                            />
+                        </div>
+                        <input
+                            type="text"
+                            className={dbStyles.searchName}
+                            value={searchName}
+                            onChange={(e) => setSearchName(e.target.value)}
+                            placeholder={t('database.filters.search')}
+                            aria-label={t('database.filters.search')}
+                        />
+                        <div className={sf.filterActions}>
+                            <input type="button" className={sf.submitButton} value="Search" onClick={() => {}} />
+                            <input type="button" className={sf.warningButton} value="Reset" onClick={resetFilters} />
+                        </div>
+                        {visibleBuilds.length === 0 ? (
+                            <p className={styles.muted}>
+                                <TranslatableText identifier="database.empty" />
+                            </p>
+                        ) : (
+                            <div className={dbStyles.grid}>
+                                {visibleBuilds.map((build) => (
+                                    <div key={build.id} className={styles.cell}>
+                                        <BuildCard build={build} user={user} base={base} onToggleFavourite={toggleFavourite}>
+                                            <div className={styles.cardActions}>
+                                                {editingId === build.id ? (
+                                                    <input
+                                                        type="text"
+                                                        className={styles.nameInput}
+                                                        value={editName}
+                                                        onChange={(e) => setEditName(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                submitRename(build);
+                                                            }
+                                                            if (e.key === 'Escape') setEditingId(null);
+                                                        }}
+                                                        onBlur={() => submitRename(build)}
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className={`${styles.rowBtn}${
+                                                                build.isPublic ? ` ${styles.rowBtnPublic}` : ''
+                                                            }`}
+                                                            onClick={stop(() => togglePublic(build))}
+                                                            disabled={build.publicBusy}
+                                                            title={build.isPublic ? 'Make private' : 'Publicise'}
+                                                        >
+                                                            {build.isPublic ? (
+                                                                <TranslatableText identifier="database.publicBadge" />
+                                                            ) : (
+                                                                <TranslatableText identifier="database.publicise" />
+                                                            )}
+                                                            {build.isPublic && build.anonymous && (
+                                                                <span className={styles.anonBadge}>
+                                                                    <TranslatableText identifier="database.anonBadge" />
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.rowBtn}
+                                                            onClick={stop(() => startRename(build))}
+                                                            title="Rename"
+                                                        >
+                                                            <TranslatableText identifier="builds.rename" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.rowBtn}
+                                                            onClick={stop(() => requestDelete(build))}
+                                                            title="Delete"
+                                                        >
+                                                            {confirmDeleteId === build.id ? (
+                                                                <TranslatableText identifier="builds.confirmDelete" />
+                                                            ) : (
+                                                                <TranslatableText identifier="builds.delete" />
+                                                            )}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </BuildCard>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
                 )}
             </main>
         </div>
