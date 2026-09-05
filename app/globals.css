@@ -405,7 +405,9 @@ html [class*='overlay'] {
     backdrop-filter: blur(var(--glass-frost-blur, 0px));
 }
 
-/* Wawa cat full-screen backdrop. */
+/* Wawa cat full-screen backdrop. Blur is applied as a filter directly on the
+   layer (like matrix/photo): the extra-scheme backdrops skip the backdrop-
+   filter frost veil, so the slider amount is mirrored here instead. */
 .glass-wawa {
     position: fixed;
     inset: 0;
@@ -413,6 +415,7 @@ html [class*='overlay'] {
     background-image: url('/images/wawa.jpg');
     background-size: cover;
     background-position: center;
+    filter: blur(var(--glass-frost-blur, 0px));
 }
 
 /* Visitor-uploaded backdrop image (stored as a data URL in their browser). */

@@ -60,6 +60,7 @@ const ITEM_TYPES = [
     'Leggings',
     'Boots',
     'Bow',
+    'Crossbow',
     'Wand',
     'Trinket',
     'Charm',
