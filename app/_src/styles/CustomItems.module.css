@@ -41,6 +41,12 @@
     margin: 4px 0;
 }
 
+.formActions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .field {
     display: flex;
     flex-direction: column;

@@ -30,5 +30,8 @@ export default function Page({ params }) {
 async function CustomItemView({ params }) {
     const { id } = await params;
     const [item, user] = await Promise.all([getCustomItem(id), getDiscordUser()]);
-    return <CustomItemPage item={item} isOwner={Boolean(user && item && item.userId === user.id)} />;
+    // Custom items are private to their creator: only the owner gets the
+    // item data. Everyone else sees the plain "not found" state.
+    const isOwner = Boolean(user && item && item.userId === user.id);
+    return <CustomItemPage item={isOwner ? item : null} isOwner={isOwner} />;
 }

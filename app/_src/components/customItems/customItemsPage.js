@@ -108,6 +108,7 @@ export default function CustomItemsPage({ statCategories }) {
     const [textureName, setTextureName] = React.useState('');
     const [textureOpen, setTextureOpen] = React.useState(false);
     const [statRows, setStatRows] = React.useState([]);
+    const [editingId, setEditingId] = React.useState(null);
 
     React.useEffect(() => {
         loadItemSpriteMap().then(setSpriteMap);
@@ -167,12 +168,43 @@ export default function CustomItemsPage({ statCategories }) {
             .then((data) => setItems(Array.isArray(data.items) ? data.items : []));
     }
 
+    function startEdit(item) {
+        setName(item.name);
+        setType(item.type);
+        setTextureQuery(item.textureName || item.name);
+        setTextureToken(item.textureToken);
+        setTextureName(item.textureName || '');
+        setStatRows(
+            Object.entries(item.stats || {}).map(([key, value]) => ({ key, value: String(value) }))
+        );
+        setEditingId(item.id);
+        setError(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+        setEditingId(null);
+        setName('');
+        setType('Offhand');
+        setTextureQuery('');
+        setTextureToken(null);
+        setTextureName('');
+        setStatRows([]);
+        setError(null);
+    }
+
     function saveItem(event) {
         event.preventDefault();
         if (!name.trim() || !textureToken || saving) return;
         // Warn immediately for a name the user already has (duplicates would
-        // silently overwrite each other in the builder).
-        if (items && items.some((item) => item.name.toLowerCase() === name.trim().toLowerCase())) {
+        // silently overwrite each other in the builder). The item being
+        // edited keeps its own name.
+        if (
+            items &&
+            items.some(
+                (item) => item.id !== editingId && item.name.toLowerCase() === name.trim().toLowerCase()
+            )
+        ) {
             setError('duplicate');
             return;
         }
@@ -186,8 +218,8 @@ export default function CustomItemsPage({ statCategories }) {
         }
         setSaving(true);
         setError(null);
-        fetch(`${base}/api/v1/custom-items`, {
-            method: 'POST',
+        fetch(`${base}/api/v1/custom-items${editingId ? '/' + editingId : ''}`, {
+            method: editingId ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: name.trim(), type, textureToken, textureName, stats }),
         })
@@ -201,14 +233,7 @@ export default function CustomItemsPage({ statCategories }) {
                 });
             })
             .then(() => refreshItems())
-            .then(() => {
-                setName('');
-                setType('Offhand');
-                setTextureQuery('');
-                setTextureToken(null);
-                setTextureName('');
-                setStatRows([]);
-            })
+            .then(() => cancelEdit())
             .catch((err) => setError(err.code || 'save'))
             .finally(() => setSaving(false));
     }
@@ -284,7 +309,7 @@ export default function CustomItemsPage({ statCategories }) {
                 <h1 className={styles.title}>Custom Items</h1>
 
                 <form className={styles.form} onSubmit={saveItem}>
-                    <h2 className={styles.formTitle}>New item</h2>
+                    <h2 className={styles.formTitle}>{editingId ? 'Edit item' : 'New item'}</h2>
 
                     <label className={styles.field}>
                         <span className={styles.fieldLabel}>Name</span>
@@ -418,9 +443,20 @@ export default function CustomItemsPage({ statCategories }) {
                         </p>
                     )}
                     {error === 'save' && <p className={styles.errorText}>Failed to save the item. Try again.</p>}
-                    <button type="submit" className={styles.addBtn} disabled={!name.trim() || !textureToken || saving}>
-                        {saving ? 'Saving…' : 'Save item'}
-                    </button>
+                    <div className={styles.formActions}>
+                        <button
+                            type="submit"
+                            className={styles.addBtn}
+                            disabled={!name.trim() || !textureToken || saving}
+                        >
+                            {saving ? 'Saving…' : editingId ? 'Save changes' : 'Save item'}
+                        </button>
+                        {editingId && (
+                            <button type="button" className={styles.addBtn} onClick={cancelEdit}>
+                                Cancel
+                            </button>
+                        )}
+                    </div>
                 </form>
 
                 {error === 'load' && <p className={styles.errorText}>Failed to load your custom items.</p>}
@@ -489,6 +525,9 @@ export default function CustomItemsPage({ statCategories }) {
                                     </span>
                                 </div>
                                 <div className={styles.itemActions}>
+                                    <button type="button" className={styles.addBtn} onClick={() => startEdit(item)}>
+                                        Edit
+                                    </button>
                                     <button type="button" className={styles.addBtn} onClick={() => addToBuild(item)}>
                                         {addedId === item.id ? 'Added!' : 'Add to build'}
                                     </button>
