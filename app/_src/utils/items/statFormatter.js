@@ -45,6 +45,12 @@ const MAINHAND_ATTRIBUTES = new Set([
     'potion_recharge_rate',
 ]);
 
+// Weapon base stats that are inherently percentages: a wand's base spell
+// power and a weapon's base attack speed read as "+X% ..." on the item,
+// like the regular attribute lines, instead of the flat "_base" display.
+const PERCENT_BASE_STATS = new Set(['spell_power_base', 'attack_speed_base']);
+const PERCENT_BASE_LABELS = new Set(['Spell Power Base', 'Attack Speed Base']);
+
 function attributeBaseName(name) {
     return name.replace(/_percent$/, '').replace(/_flat$/, '').replace(/_base$/, '');
 }
@@ -54,6 +60,7 @@ function inferFormat(name, value) {
     if (name.startsWith('curse_')) return Formats.CURSE;
     if (name.endsWith('_fragility')) return Formats.CURSE;
     if (PLAIN_CURSES.has(name)) return Formats.CURSE;
+    if (PERCENT_BASE_STATS.has(name)) return Formats.ATTRIBUTE;
     if (name.endsWith('_percent') || name.endsWith('_flat')) return Formats.ATTRIBUTE;
     if (name.endsWith('_base')) return Formats.BASE_STAT;
     if (Number.isInteger(value) && value >= 1) return Formats.ENCHANT;
@@ -104,7 +111,9 @@ class StatFormatter {
                 break;
             }
             case Formats.ATTRIBUTE: {
-                humanStr = `${value > 0 ? '+' : ''}${value}${humanStr.includes(' Percent') || humanStr == 'Spell Power Base' ? '%' : ''} ${humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '')}`;
+                humanStr = `${value > 0 ? '+' : ''}${value}${
+                    humanStr.includes(' Percent') || PERCENT_BASE_LABELS.has(humanStr) ? '%' : ''
+                } ${humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '')}`;
                 break;
             }
             case Formats.CURSE: {
@@ -127,6 +136,9 @@ class StatFormatter {
         switch (stat.format) {
             case Formats.ATTRIBUTE: {
                 if (value < 0) return 'negativeStat';
+                // The percentage weapon bases (spell power / attack speed)
+                // read as regular blue attributes rather than mainhand-green.
+                if (PERCENT_BASE_STATS.has(stat.name)) return 'statAttribute';
                 const base = attributeBaseName(stat.name);
                 if (ARMOR_AGILITY_STATS.has(base)) return 'statArmorAgility';
                 if (MAINHAND_ATTRIBUTES.has(base)) return 'statMainhand';
