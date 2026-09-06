@@ -537,6 +537,38 @@ html[data-round='true'] [class*='betaDialog'] {
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-Italic.otf') format('opentype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-BoldItalic.otf') format('opentype');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}
+
 html,
 html body {
     padding: 0;
@@ -585,6 +617,11 @@ html[data-font='mono'] body {
 /* "Minecraft" mode: everything (including the platform nav) in the pixel font. */
 html[data-font='minecraft'] * {
     font-family: 'Minecraft', monospace;
+}
+
+/* "Dyslexia friendly" mode: OpenDyslexic everywhere. */
+html[data-font='dyslexia'] * {
+    font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif;
 }
 
 html[data-font='minecraft'] body {
@@ -822,4 +859,67 @@ html :is(
         [class*='negative']
     ):not([class*='logout']):not([class*='unlink']):focus {
     border-color: var(--accent-line, var(--control-border-hover)) !important;
+}
+
+/* ---------- Accessibility ---------- */
+
+/* Reduce motion globally: kill CSS transitions/animations and smooth
+   scrolling (stepped spritesheet textures still animate; they need frames). */
+html[data-motion='off'] *,
+html[data-motion='off'] *::before,
+html[data-motion='off'] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* High contrast: near-opaque surfaces, pure text colours and strong borders
+   on top of whichever theme is active. Dark bases first; light bases
+   override below (same specificity, later wins). */
+:root[data-contrast='high'] {
+    --bg-0: #000;
+    --surface-1: #0d0d0d;
+    --surface-2: #1c1c1c;
+    --text-1: #ffffff;
+    --text-2: #e6e6e6;
+    --border-1: #ffffff;
+    --glass-1: #0a0a0a;
+    --glass-2: #161616;
+    --glass-border: #ffffff;
+    --glass-menu: #000000;
+    --control-border: #ffffff;
+    --control-border-hover: #ffffff;
+    --control-border-focus: #ffffff;
+    --control-focus-ring: rgba(255, 255, 255, 0.5);
+    --shadow-elevated: none;
+}
+
+:root[data-contrast='high'][data-theme='light'],
+:root[data-contrast='high'][data-theme='glass-light'] {
+    --bg-0: #ffffff;
+    --surface-1: #f2f2f2;
+    --surface-2: #e0e0e0;
+    --text-1: #000000;
+    --text-2: #1f1f1f;
+    --border-1: #000000;
+    --glass-1: #ffffff;
+    --glass-2: #ededed;
+    --glass-border: #000000;
+    --glass-menu: #ffffff;
+    --control-border: #000000;
+    --control-border-hover: #000000;
+    --control-border-focus: #000000;
+    --control-focus-ring: rgba(0, 0, 0, 0.5);
+    --shadow-elevated: none;
+}
+
+/* Solid surfaces under cards/panels so text never fights a busy backdrop. */
+html[data-contrast='high'] [class*='itemTile'],
+html[data-contrast='high'] [class*='card'],
+html[data-contrast='high'] [class*='menuPanel'],
+html[data-contrast='high'] [class*='modal'],
+html[data-contrast='high'] [class*='betaDialog'],
+html[data-contrast='high'] [class*='skeleton'] {
+    backdrop-filter: none !important;
 }

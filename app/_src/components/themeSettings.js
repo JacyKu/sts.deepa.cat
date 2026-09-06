@@ -138,6 +138,70 @@ export const parseGlassAccent = (value) => {
     return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
 };
 
+// ---------- Accessibility ----------
+
+export const COLORBLIND_MODES = ['deuteranopia', 'protanopia', 'tritanopia'];
+export const COLORBLIND_LABELS = {
+    deuteranopia: 'Deuteranopia (red-green)',
+    protanopia: 'Protanopia (red-green)',
+    tritanopia: 'Tritanopia (blue-yellow)',
+};
+export const parseColorblind = (value) =>
+    COLORBLIND_MODES.includes(value) ? value : '';
+
+// Colour-vision-simulation matrices (approximations of the three common
+// deficiencies), as 20 values for an SVG feColorMatrix. Null when no mode.
+export function colorblindMatrix(mode) {
+    return mode === 'protanopia'
+        ? [0.567, 0.433, 0, 0, 0, 0.558, 0.442, 0, 0, 0, 0, 0.242, 0.758, 0, 0, 0, 0, 0, 1, 0]
+        : mode === 'deuteranopia'
+          ? [0.625, 0.375, 0, 0, 0, 0.7, 0.3, 0, 0, 0, 0, 0.3, 0.7, 0, 0, 0, 0, 0, 1, 0]
+          : mode === 'tritanopia'
+            ? [0.95, 0.05, 0, 0, 0, 0, 0.433, 0.567, 0, 0, 0, 0.475, 0.525, 0, 0, 0, 0, 0, 1, 0]
+            : null;
+}
+
+let cbFilterSvg = null;
+
+// Applies a colour filter to the whole page by pointing <html>'s CSS filter
+// at an inline SVG feColorMatrix (CSS `matrix()` cannot express a 4x5
+// colour matrix, but SVG can). Clears the filter when no mode is active.
+function applyCbFilter(mode) {
+    const root = document.documentElement;
+    if (!mode) {
+        root.style.removeProperty('filter');
+        return;
+    }
+    if (!cbFilterSvg || !cbFilterSvg.isConnected) {
+        cbFilterSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        cbFilterSvg.setAttribute('width', '0');
+        cbFilterSvg.setAttribute('height', '0');
+        cbFilterSvg.style.position = 'absolute';
+        const filterEl = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+        filterEl.setAttribute('id', 'sts-cb-filter');
+        const matrixEl = document.createElementNS('http://www.w3.org/2000/svg', 'feColorMatrix');
+        filterEl.appendChild(matrixEl);
+        cbFilterSvg.appendChild(filterEl);
+        cbFilterSvg.style.display = 'none';
+        (document.body || document.documentElement).appendChild(cbFilterSvg);
+    }
+    const values = colorblindMatrix(mode);
+    cbFilterSvg.querySelector('feColorMatrix').setAttribute('values', values.join(' '));
+    root.style.setProperty('filter', 'url(#sts-cb-filter)');
+}
+
+// Applies the active accessibility attributes to <html>. `changes` can be
+// null to re-apply from storage/attributes.
+export function applyAccessibility(root, state) {
+    if (state.highContrast) root.dataset.contrast = 'high';
+    else delete root.dataset.contrast;
+    if (state.colorblind) root.dataset.cb = state.colorblind;
+    else delete root.dataset.cb;
+    if (state.reduceMotion) root.dataset.motion = 'off';
+    else delete root.dataset.motion;
+    applyCbFilter(parseColorblind(state.colorblind));
+}
+
 // Schemes whose full-page flag gradient is painted from CSS (globals.css).
 // Anything newer falls back to an inline gradient built from the blob
 // colors, so the flag view works for every scheme.
@@ -404,6 +468,9 @@ export function readThemeState() {
     let glassBlur = null;
     let glassCustomImage = null;
     let glassAccent = '';
+    let highContrast = false;
+    let colorblind = '';
+    let reduceMotion = false;
     if (typeof window !== 'undefined') {
         theme = readStored('theme');
         round = readStored('roundStyle');
@@ -414,6 +481,9 @@ export function readThemeState() {
         glassBlur = readStored('glassBlur');
         glassCustomImage = readStored('glassCustomImage');
         glassAccent = parseGlassAccent(readStored('glassAccent'));
+        highContrast = readStored('contrast') === '1';
+        colorblind = parseColorblind(readStored('colorblind'));
+        reduceMotion = readStored('reduceMotion') === '1';
     }
     const root = typeof document !== 'undefined' ? document.documentElement : null;
     const attrTheme = root ? root.dataset.theme : null;
@@ -456,6 +526,12 @@ export function readThemeState() {
                 : null,
         // Custom accent colour override ('' = follow the scheme's accent).
         glassAccent: glassAccent || (root ? parseGlassAccent(root.dataset.glassAccent) : ''),
+        // Accessibility: attribute fallbacks for pages that render before the
+        // storage read runs (the header mirrors these back in applyState).
+        highContrast:
+            highContrast || Boolean(root && root.dataset.contrast === 'high'),
+        colorblind: colorblind || (root ? parseColorblind(root.dataset.cb) : ''),
+        reduceMotion: reduceMotion || Boolean(root && root.dataset.motion === 'off'),
     };
 }
 
@@ -479,6 +555,12 @@ export function applyThemeState(changes) {
     const accent = parseGlassAccent(next.glassAccent);
     if (accent) root.dataset.glassAccent = accent;
     else delete root.dataset.glassAccent;
+    const colorblind = parseColorblind(next.colorblind);
+    applyAccessibility(root, {
+        highContrast: Boolean(next.highContrast),
+        colorblind,
+        reduceMotion: Boolean(next.reduceMotion),
+    });
     try {
         localStorage.setItem('theme', next.theme);
         localStorage.setItem('roundStyle', next.round ? '1' : '0');
@@ -489,6 +571,10 @@ export function applyThemeState(changes) {
         localStorage.setItem('glassBlur', String(blur));
         if (accent) localStorage.setItem('glassAccent', accent);
         else localStorage.removeItem('glassAccent');
+        localStorage.setItem('contrast', next.highContrast ? '1' : '0');
+        if (colorblind) localStorage.setItem('colorblind', colorblind);
+        else localStorage.removeItem('colorblind');
+        localStorage.setItem('reduceMotion', next.reduceMotion ? '1' : '0');
         const img = next.glassCustomImage;
         if (typeof img === 'string' && img.startsWith('data:image/')) {
             localStorage.setItem('glassCustomImage', img);

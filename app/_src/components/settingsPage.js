@@ -24,6 +24,8 @@ import {
     systemTheme,
     isGlassTheme,
     parseGlassAccent,
+    COLORBLIND_MODES,
+    COLORBLIND_LABELS,
 } from './themeSettings';
 
 // The font picker is a small pill select, deliberately different from the
@@ -269,6 +271,39 @@ export default function SettingsPage() {
             // ignore
         }
     }
+
+    // Accessibility state.
+    const highContrast = themeState ? Boolean(themeState.highContrast) : false;
+    const colorblind = themeState ? themeState.colorblind || '' : '';
+    const reduceMotion = themeState ? Boolean(themeState.reduceMotion) : false;
+    const fontBeforeDyslexia = React.useRef('ubuntu');
+
+    function setHighContrast(next) {
+        updateState({ highContrast: next });
+    }
+
+    function setColorblind(next) {
+        updateState({ colorblind: COLORBLIND_MODES.includes(next) ? next : '' });
+    }
+
+    function setReduceMotion(next) {
+        updateState({ reduceMotion: next });
+    }
+
+    function setDyslexia(next) {
+        if (next) {
+            if (font !== 'dyslexia') fontBeforeDyslexia.current = font;
+            setFontValue('dyslexia');
+        } else {
+            setFontValue(FONT_ORDER.includes(fontBeforeDyslexia.current) ? fontBeforeDyslexia.current : 'ubuntu');
+        }
+    }
+
+    const cbOptions = [
+        { value: '', label: 'Off' },
+        ...COLORBLIND_MODES.map((mode) => ({ value: mode, label: COLORBLIND_LABELS[mode] })),
+    ];
+    const currentCb = cbOptions.find((option) => option.value === colorblind) || cbOptions[0];
 
     // Derived look state. Computed before any guard so the font pill's
     // styles can be memoized from the round setting.
@@ -566,9 +601,18 @@ export default function SettingsPage() {
                                     (opt) => opt.value === (FONT_ORDER.includes(font) ? font : 'ubuntu')
                                 )}
                                 onChange={(option) => setFontValue(option.value)}
-                                formatOptionLabel={({ label, fontFamily }, { context }) =>
+                                formatOptionLabel={({ label, fontFamily, value }, { context }) =>
                                     context === 'value' || context === 'menu' ? (
-                                        <span style={{ fontFamily }}>{label}</span>
+                                        <span
+                                            style={{
+                                                fontFamily,
+                                                // OpenDyslexic glyphs run large; keep the entry in
+                                                // the picker smaller so it lines up with the rest.
+                                                ...(value === 'dyslexia' ? { fontSize: '0.8em' } : {}),
+                                            }}
+                                        >
+                                            {label}
+                                        </span>
                                     ) : (
                                         label
                                     )
@@ -582,6 +626,56 @@ export default function SettingsPage() {
                         </div>
                     </label>
                     <BuilderLayoutToggle className={styles.bareToggle} />
+                </div>
+            </section>
+
+            <section className={styles.card}>
+                <h2 className={styles.cardTitle}>Accessibility</h2>
+                <div className={styles.siteOptions}>
+                    <label className={styles.themeToggleRow}>
+                        <input
+                            type="checkbox"
+                            checked={highContrast}
+                            onChange={(e) => setHighContrast(e.target.checked)}
+                            aria-label="High contrast"
+                        />
+                        High contrast
+                    </label>
+                    <label className={styles.themeToggleRow}>
+                        <input
+                            type="checkbox"
+                            checked={font === 'dyslexia'}
+                            onChange={(e) => setDyslexia(e.target.checked)}
+                            aria-label="Dyslexia-friendly font"
+                        />
+                        Dyslexia-friendly font
+                    </label>
+                    <label className={styles.fontRow}>
+                        <span className={styles.fontLabel}>Colour-blind mode</span>
+                        <div className={styles.fontSelect}>
+                            <Select
+                                instanceId="colorblind"
+                                name="colorblind"
+                                options={cbOptions}
+                                value={currentCb}
+                                onChange={(option) => setColorblind(option ? option.value : '')}
+                                isSearchable={false}
+                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                menuPosition="fixed"
+                                theme={fontSelectTheme}
+                                styles={fontSelectStyles}
+                            />
+                        </div>
+                    </label>
+                    <label className={styles.themeToggleRow}>
+                        <input
+                            type="checkbox"
+                            checked={reduceMotion}
+                            onChange={(e) => setReduceMotion(e.target.checked)}
+                            aria-label="Turn off animations"
+                        />
+                        Turn off animations
+                    </label>
                 </div>
             </section>
 

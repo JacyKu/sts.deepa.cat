@@ -31,6 +31,7 @@ import {
     sanitizeCustomColors,
     getGlassAccent,
     parseGlassAccent,
+    applyAccessibility,
 } from './themeSettings';
 
 // Discord login state chip: "Log in" when logged out, avatar + "My Builds"
@@ -195,10 +196,17 @@ export function AccountChip({ session }) {
 
 // Font options for the settings: choices + label + the CSS font stack each
 // maps to. The font picker itself lives on the account page's Settings.
-export const FONT_ORDER = ['ubuntu', 'minecraft', 'default', 'mono'];
-export const FONT_LABELS = { ubuntu: 'Default', minecraft: 'Minecraft', default: 'Legacy', mono: 'Monospace' };
+export const FONT_ORDER = ['ubuntu', 'dyslexia', 'minecraft', 'default', 'mono'];
+export const FONT_LABELS = {
+    ubuntu: 'Default',
+    dyslexia: 'OpenDyslexic',
+    minecraft: 'Minecraft',
+    default: 'Legacy',
+    mono: 'Monospace',
+};
 export const FONT_STACKS = {
     ubuntu: "'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    dyslexia: "'OpenDyslexic', 'Comic Sans MS', sans-serif",
     minecraft: "'Minecraft', monospace",
     mono: "'Ubuntu Mono', 'Courier New', monospace",
     default:
@@ -432,6 +440,11 @@ export default function Header() {
             setGlassAccent(accent);
             if (accent) root.dataset.glassAccent = accent;
             else delete root.dataset.glassAccent;
+            applyAccessibility(root, {
+                highContrast: Boolean(state.highContrast),
+                colorblind: state.colorblind || '',
+                reduceMotion: Boolean(state.reduceMotion),
+            });
         };
         applyState();
         // The font lives on the account page now, but it must still be
