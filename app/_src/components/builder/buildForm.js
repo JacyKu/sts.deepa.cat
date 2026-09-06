@@ -7,6 +7,7 @@ import ItemTile from '../items/itemTile';
 import MasterworkableItemTile from '../items/masterworkableItemTile';
 import CharmTile from '../items/charmTile';
 import BuildImportBar from './buildImportBar';
+import SavedSetsPanel from './savedSetsPanel';
 import BuilderHeader from '../items/builderHeader';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
@@ -655,6 +656,81 @@ const CZ_MAIN_TREES = [
     'Prismatic',
 ];
 
+function safeDecodeComponent(value) {
+    try {
+        return decodeURIComponent(String(value || ''));
+    } catch (e) {
+        return '';
+    }
+}
+
+// Reads the skill portion (class, spec, class/spec skill points,
+// enhancements, CZ abilities) out of a build token, mirroring the URL-load
+// logic below. Returns null when the token has no class part.
+function decodeSkillsFromToken(token, itemData) {
+    if (!token) return null;
+    let decoded = null;
+    try {
+        decoded = decodeBuildParam(token, itemData);
+    } catch (e) {
+        return null;
+    }
+    if (!decoded) return null;
+    let parts = [];
+    try {
+        parts = decodeURI(decoded).split('&');
+    } catch (e) {
+        return null;
+    }
+    const find = (key) => {
+        const part = parts.find((p) => p.startsWith(`${key}=`));
+        return part ? part.slice(key.length + 1) : null;
+    };
+    const rawClass = find('cl');
+    if (!rawClass) return null;
+    const parsePoints = (raw) => {
+        const out = {};
+        safeDecodeComponent(raw)
+            .split(',')
+            .forEach((entry) => {
+                const [id, pts] = entry.split(':');
+                const points = Number(pts);
+                if (id && Number.isInteger(points) && points > 0) out[id] = points;
+            });
+        return out;
+    };
+    const parseSet = (raw) => {
+        const out = {};
+        safeDecodeComponent(raw)
+            .split(',')
+            .forEach((entry) => {
+                if (entry) out[entry] = true;
+            });
+        return out;
+    };
+    const parseCz = (raw) => {
+        const out = {};
+        safeDecodeComponent(raw)
+            .split(',')
+            .forEach((entry) => {
+                // Legacy "Name:rarity" suffixes are dropped - abilities are
+                // always Twisted.
+                const name = entry.split(':')[0];
+                if (name) out[name] = true;
+            });
+        return out;
+    };
+    const rawSpec = find('sp');
+    return {
+        cl: rawClass.toLowerCase(),
+        sp: rawSpec ? safeDecodeComponent(rawSpec) : null,
+        sk: parsePoints(find('sk')),
+        ssk: parsePoints(find('ssk')),
+        en: parseSet(find('en')),
+        cz: parseCz(find('cz')),
+    };
+}
+
 // Resource-pack icons: class/spec skills live in images/skills (unofficial
 // mod textures where available - those are transparent), CZ abilities in
 // images/cz. Both are keyed by the snake_case of the skill name.
@@ -752,6 +828,9 @@ export default function BuildForm({
     // so an absolutely-positioned tooltip inside it would be clipped. This
     // one renders on document.body, always on top.
     const [tip, setTip] = React.useState(null); // { left, top, info }
+    // Saved skill/delve sets modal ("copy skills from a build" + apply saved
+    // sets); opened by the "Skill sets" button under the import bar.
+    const [setsOpen, setSetsOpen] = React.useState(false);
 
     function triggerRedX() {
         setShowRedX(true);
@@ -903,6 +982,101 @@ export default function BuildForm({
         }
         statLastRecalcRef.current = Date.now();
         recalcBuildStats();
+    }
+
+    // --- Saved sets (panel API) ---
+
+    // The snapshot the panel POSTs: the skill portion of the build, or the
+    // delve infusions, as plain JSON.
+    function getSnapshot(kind) {
+        if (kind === 'skills') {
+            if (gameClass === 'none') return null;
+            return {
+                cl: gameClass,
+                sp: spec || null,
+                sk: { ...skillPoints },
+                ssk: { ...specSkillPoints },
+                en: { ...enhancements },
+                cz: { ...czAbilities },
+            };
+        }
+        if (kind === 'delve') {
+            return {
+                infusions: { ...delveInfusions },
+                points: { ...delvePoints },
+                revelation: Boolean(revelation),
+            };
+        }
+        return null;
+    }
+
+    // Replaces the class/spec/skills portion of the form with a snapshot
+    // (from a saved set or another build). Returns an error string or null.
+    function applySkillPayload(payload) {
+        if (!payload || !payload.cl) return 'That set has no class.';
+        const sk = payload.sk && typeof payload.sk === 'object' ? { ...payload.sk } : {};
+        const ssk = payload.ssk && typeof payload.ssk === 'object' ? { ...payload.ssk } : {};
+        const en = payload.en && typeof payload.en === 'object' ? { ...payload.en } : {};
+        const cz = payload.cz && typeof payload.cz === 'object' ? { ...payload.cz } : {};
+        setGameClass(String(payload.cl).toLowerCase());
+        setClassSelectKey((k) => k + 1);
+        const nextSpec = payload.sp ? String(payload.sp) : null;
+        setSpec(nextSpec);
+        setSpecSelectKey((k) => k + 1);
+        setSkillPoints(sk);
+        setSpecSkillPoints(ssk);
+        setEnhancements(en);
+        setCzAbilities(cz);
+        setCzOpen(Object.keys(cz).length > 0);
+        refreshClassBuffs(sk, ssk, en);
+        return null;
+    }
+
+    // Replaces the delve infusions (and Revelation) with a delve snapshot.
+    // Returns an error string or null.
+    function applyDelvePayload(payload) {
+        if (!payload || typeof payload !== 'object') return 'That set is empty.';
+        const infusions = payload.infusions && typeof payload.infusions === 'object' ? { ...payload.infusions } : {};
+        const points = payload.points && typeof payload.points === 'object' ? { ...payload.points } : {};
+        setDelveInfusions(infusions);
+        setDelvePoints(points);
+        setRevelation(Boolean(payload.revelation));
+        if (Object.keys(infusions).length > 0) setDelveOpen(true);
+        // Recalculate the stats the same way a manual infusion pick does:
+        // patch the form entries (the selects write their choices there) and
+        // run one stats update.
+        const entries = Array.from(new FormData(formRef.current).entries()).filter(
+            ([key]) =>
+                !key.startsWith('delveInfusion-') && !key.startsWith('delveLevel-') && key !== 'revelation'
+        );
+        for (const [slot, value] of Object.entries(infusions)) {
+            entries.push([`delveInfusion-${slot}`, value]);
+            const level = points[slot] !== undefined ? points[slot] : 4;
+            entries.push([`delveLevel-${slot}`, String(level)]);
+        }
+        for (const slot of ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots']) {
+            if (!infusions[slot]) entries.push([`delveInfusion-${slot}`, 'None']);
+        }
+        if (payload.revelation) entries.push(['revelation', '1']);
+        applyStatsUpdate(Object.fromEntries(entries), itemData, setStats, update);
+        return null;
+    }
+
+    // "Copy skills" from one of the caller's saved builds: decode its token
+    // and reuse the same apply path.
+    async function copyBuildSkills(build) {
+        const parsed = build && build.token ? decodeSkillsFromToken(build.token, itemData) : null;
+        if (!parsed) return 'Could not read that build.';
+        return applySkillPayload(parsed);
+    }
+
+    async function deleteSavedSet(id) {
+        try {
+            const res = await fetch(`/api/v1/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
     }
 
     function revelationChanged(event) {
@@ -3303,8 +3477,40 @@ export default function BuildForm({
                 />
                 <div style={{ justifySelf: 'end', width: 'min(400px, 100%)' }}>
                     <BuildImportBar embedded />
+                    <button
+                        type="button"
+                        className={styles.setsOpenButton}
+                        onClick={() => setSetsOpen(true)}
+                        aria-haspopup="dialog"
+                    >
+                        Skill sets
+                    </button>
                 </div>
             </div>
+
+            {setsOpen && (
+                <div className={styles.setsModalBackdrop} onClick={() => setSetsOpen(false)}>
+                    <div
+                        className={styles.setsModalDialog}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Skill sets"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <span className={styles.setsModalTitle}>Skill sets</span>
+                        <SavedSetsPanel
+                            getSnapshot={getSnapshot}
+                            deleteSet={deleteSavedSet}
+                            applySkillPayload={applySkillPayload}
+                            applyDelvePayload={applyDelvePayload}
+                            copyBuildSkills={copyBuildSkills}
+                        />
+                        <button type="button" className={styles.setsModalClose} onClick={() => setSetsOpen(false)}>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {!czOpen && gameClass != 'none' && (
                 <div className="row justify-content-center pt-1 mb-1">
