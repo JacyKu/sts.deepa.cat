@@ -83,7 +83,11 @@ export default async function StsLayout({ children }) {
                                                             <CardItemsFirstProvider>
                                                                 <FavouritesEnabledProvider>
                                                                     <ItemFavouritesProvider>
-                                                                        <SiteNav center={<HeaderNav />}>
+                                                                        <SiteNav
+                                                                            center={<HeaderNav />}
+                                                                            brand="Spare the Sympathy"
+                                                                            brandHref="https://sts.deepa.cat"
+                                                                        >
                                                                             <Header />
                                                                         </SiteNav>
                                                                         <NotificationsBar />
