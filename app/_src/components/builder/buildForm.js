@@ -3081,7 +3081,7 @@ export default function BuildForm({
                                     }}
                                     placeholder="Add notes about this build..."
                                     rows={3}
-                                    maxLength={2000}
+                                    maxLength={500}
                                 />
                                 <div className={styles.buildNotesActions}>
                                     {canEditNotes ? (
