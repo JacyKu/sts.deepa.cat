@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic } from '../../../../../lib/sts-builds';
+import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic, buildNameTakenByUser } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
@@ -60,6 +60,18 @@ export async function PATCH(request, { params }) {
         const wantsPublic = body.publicise !== undefined ? Boolean(body.publicise) : row && row.is_public === 1;
         if (wantsPublic && hasProfanity({ name: update.name, notes: update.notes, token, itemData })) {
             return NextResponse.json({ error: 'profanity' }, { status: 400 });
+        }
+        // One saved build per name per author: renaming to a name another of
+        // the user's builds already carries is rejected; the same applies
+        // when this row gets claimed onto the account (anonymous re-save
+        // while signed in) and its current name already conflicts.
+        if (row && user) {
+            if (update.name !== undefined && update.name !== row.name && buildNameTakenByUser(user.id, update.name, p.id)) {
+                return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+            }
+            if (update.name === undefined && row.user_id !== user.id && row.name && buildNameTakenByUser(user.id, row.name, p.id)) {
+                return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+            }
         }
         if (row && row.is_public === 1) {
             update.summary = summary;
@@ -141,6 +153,15 @@ export async function PATCH(request, { params }) {
     }
     if (Object.keys(update).length === 0) {
         return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
+    }
+
+    // Renaming to a name another of the user's saved builds already carries
+    // is rejected (unchanged names pass through).
+    if (update.name !== undefined) {
+        const current = getBuild(p.id);
+        if (current && update.name !== current.name && buildNameTakenByUser(user.id, update.name, p.id)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
     }
 
     if (!updateBuild(p.id, user.id, update)) {

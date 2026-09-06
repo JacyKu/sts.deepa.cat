@@ -1509,6 +1509,7 @@ export default function BuildForm({
             payload.anonymous = publicState.anonymous;
         }
         let profanityHit = false;
+        let duplicateHit = false;
 
         if (activeBuildId && !forking) {
             setSaveState('saving');
@@ -1537,6 +1538,12 @@ export default function BuildForm({
                             throw new Error('profanity');
                         }
                     }
+                    if (r.status === 409) {
+                        duplicateHit = true;
+                        setSaveState('duplicate');
+                        setTimeout(() => setSaveState(null), 6000);
+                        throw new Error('duplicate');
+                    }
                     if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status));
                     return r.json();
                 })
@@ -1556,10 +1563,11 @@ export default function BuildForm({
                     return link;
                 })
                 .catch(() => {
-                    if (!profanityHit) {
+                    if (!profanityHit && !duplicateHit) {
                         setSaveState('error');
                         throw new Error('save failed');
                     }
+                    if (duplicateHit) throw new Error('duplicate');
                 });
         }
 
@@ -1579,6 +1587,12 @@ export default function BuildForm({
                         setTimeout(() => setPubliciseState(null), 5000);
                         throw new Error('profanity');
                     }
+                }
+                if (r.status === 409) {
+                    duplicateHit = true;
+                    setSaveState('duplicate');
+                    setTimeout(() => setSaveState(null), 6000);
+                    throw new Error('duplicate');
                 }
                 if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status));
                 return r.json();
@@ -1606,10 +1620,11 @@ export default function BuildForm({
                 return link;
             })
             .catch(() => {
-                if (!profanityHit) {
+                if (!profanityHit && !duplicateHit) {
                     setSaveState('error');
                     throw new Error('save failed');
                 }
+                if (duplicateHit) throw new Error('duplicate');
             });
     }
 
@@ -3783,7 +3798,7 @@ export default function BuildForm({
             {(saveState === 'copied' || saveState === 'error' || savedAnonymous) && (
                 <div
                     className={`${styles.copyToast}${
-                        saveState === 'error'
+                        saveState === 'error' || saveState === 'duplicate'
                             ? ` ${styles.copyToastError}`
                             : savedAnonymous
                               ? ` ${styles.copyToastWarn}`
@@ -3794,6 +3809,8 @@ export default function BuildForm({
                 >
                     {saveState === 'error' ? (
                         'Could not save the build.'
+                    ) : saveState === 'duplicate' ? (
+                        <b>You already have a saved build with this name - rename it and save again.</b>
                     ) : savedAnonymous ? (
                         <>
                             <b>Saved, but not to your account!</b>

@@ -171,11 +171,14 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name }),
         })
-            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((r) => (r.ok ? r.json() : Promise.reject(r)))
             .then(() => {
                 setBuilds((prev) => prev.map((b) => (b.id === build.id ? { ...b, name } : b)));
             })
-            .catch(() => setError('rename'));
+            .catch((err) => {
+                if (err && err.status === 409) setError('duplicate');
+                else setError('rename');
+            });
     }
 
     function requestDelete(build) {
@@ -257,7 +260,9 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                     ? 'builds.renameError'
                                     : error === 'delete'
                                       ? 'builds.deleteError'
-                                      : 'database.publiciseError'
+                                      : error === 'duplicate'
+                                        ? 'builds.duplicateName'
+                                        : 'database.publiciseError'
                             }
                         />
                     </p>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getLinkByUuid, saveBuild, countRecentModSaves } from '../../../../../lib/sts-builds';
+import { getLinkByUuid, saveBuild, countRecentModSaves, buildNameTakenByUser, findBuildByState } from '../../../../../lib/sts-builds';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { computeBuildSummary } from '../../../../../lib/public-builds';
@@ -61,6 +61,15 @@ export async function POST(request) {
     }
 
     const summary = computeBuildSummary(token, itemData, skillsData);
+    // Linked saves land on the Discord account: one saved build per name per
+    // author, so a loadout whose name another of the player's saved builds
+    // already carries is rejected (re-saving the identical build is fine).
+    if (link && name) {
+        const sameStateId = findBuildByState(link.discord_id, { token, infusions, revelation: false });
+        if (buildNameTakenByUser(link.discord_id, name, sameStateId || null)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
+    }
     const result = saveBuild({
         state: { token, infusions, revelation: false },
         userId: link ? link.discord_id : null,

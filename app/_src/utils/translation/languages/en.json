@@ -412,5 +412,6 @@
     "database.yes": "Yes",
     "database.no": "No",
     "database.any": "Any",
-    "database.filters.sort": "Sort by"
+    "database.filters.sort": "Sort by",
+    "builds.duplicateName": "That name is already used by another one of your saved builds."
 }

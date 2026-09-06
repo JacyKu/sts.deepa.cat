@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { saveBuild, setBuildPublic } from '../../../../lib/sts-builds';
+import { saveBuild, setBuildPublic, buildNameTakenByUser, findBuildByState } from '../../../../lib/sts-builds';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
@@ -30,6 +30,15 @@ export async function POST(request) {
         infusions: body.infusions && typeof body.infusions === 'object' ? body.infusions : {},
         revelation: Boolean(body.revelation),
     };
+    // One saved build per name per author: re-saving the identical build is
+    // fine (it maps back onto the same row), but a different build whose name
+    // one of the user's saved builds already carries is rejected.
+    if (user && body.name) {
+        const sameStateId = findBuildByState(user.id, state);
+        if (buildNameTakenByUser(user.id, body.name, sameStateId || null)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
+    }
     const summary = computeBuildSummary(token, itemData, skillsData);
     const result = saveBuild({
         state,
