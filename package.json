@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start -p 6678",
     "update:items": "node scripts/update-items.mjs",
-    "update:spritesheet": "node scripts/spritesheetmaker/index.js",
+    "update:spritesheet": "node scripts/spritesheetmaker/import-mod-dump.js",
     "update:minecraft-sheet": "node scripts/update-minecraft-sheet.mjs",
     "embed:debug": "node scripts/embed-debug.mjs",
     "update:cz-data": "node scripts/update-cz-data.mjs",
