@@ -14,7 +14,7 @@ const path = require('path');
 const DEFAULT_DUMP = path.join(
     process.env.APPDATA || '',
     'PrismLauncher', 'instances', 'deepaaaaar monumenta', 'minecraft', 'config', 'sparethesympathy');
-const DEFAULT_PACK = path.join(__dirname, 'MonumentaRP_v6.1.0');
+const DEFAULT_PACK = path.join(__dirname, 'MonumentaRP_v6.3.0');
 
 const dumpDir = process.argv[2] || DEFAULT_DUMP;
 const packDir = process.argv[3] || DEFAULT_PACK;

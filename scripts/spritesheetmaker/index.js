@@ -13,7 +13,7 @@ const INCLUDE_MINECRAFT_COLORS = false;
 const RESIZE_IMAGES_TO_SPRITE_SIZE = true;
 
 // Set STS_PACK_ZIP to point at a different Monumenta resource pack zip.
-const ZIP_PATH = process.env.STS_PACK_ZIP || path.join(__dirname, "MonumentaRP_v6.1.0.zip");
+const ZIP_PATH = process.env.STS_PACK_ZIP || path.join(__dirname, "MonumentaRP_v6.3.0.zip");
 const ASSETS_ROOT = "assets/";
 const OUTPUT_DIR = path.join(__dirname, "..", "..", "public", "spritesheets");
 const ITEM_DATA_PATH = path.join(__dirname, "..", "..", "public", "items", "items.json");

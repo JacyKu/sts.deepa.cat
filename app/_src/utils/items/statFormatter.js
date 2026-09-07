@@ -45,11 +45,12 @@ const MAINHAND_ATTRIBUTES = new Set([
     'potion_recharge_rate',
 ]);
 
-// Weapon base stats that are inherently percentages: a wand's base spell
-// power and a weapon's base attack speed read as "+X% ..." on the item,
-// like the regular attribute lines, instead of the flat "_base" display.
-const PERCENT_BASE_STATS = new Set(['spell_power_base', 'attack_speed_base']);
-const PERCENT_BASE_LABELS = new Set(['Spell Power Base', 'Attack Speed Base']);
+// Spell power on wands reads as "+X% ..." on the item, like the regular
+// attribute lines, instead of the flat "_base" display. A weapon's base
+// attack speed is a plain speed value (e.g. 1.6 / 0.8), NOT a percentage, so
+// it stays on the "_base" (base stat) format.
+const PERCENT_BASE_STATS = new Set(['spell_power_base']);
+const PERCENT_BASE_LABELS = new Set(['Spell Power Base']);
 
 function attributeBaseName(name) {
     return name.replace(/_percent$/, '').replace(/_flat$/, '').replace(/_base$/, '');
@@ -136,8 +137,8 @@ class StatFormatter {
         switch (stat.format) {
             case Formats.ATTRIBUTE: {
                 if (value < 0) return 'negativeStat';
-                // The percentage weapon bases (spell power / attack speed)
-                // read as regular blue attributes rather than mainhand-green.
+                // Wand spell power base reads as a regular blue attribute
+                // rather than a mainhand-green line.
                 if (PERCENT_BASE_STATS.has(stat.name)) return 'statAttribute';
                 const base = attributeBaseName(stat.name);
                 if (ARMOR_AGILITY_STATS.has(base)) return 'statArmorAgility';
