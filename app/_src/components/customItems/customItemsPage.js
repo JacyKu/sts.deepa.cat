@@ -29,10 +29,7 @@ function readCustomItemsCache(userId) {
 function writeCustomItemsCache(userId, items) {
     if (!isCustomItemsCacheEnabled()) return;
     try {
-        window.localStorage.setItem(
-            CUSTOM_ITEMS_CACHE_KEY,
-            JSON.stringify({ userId, items, savedAt: Date.now() })
-        );
+        window.localStorage.setItem(CUSTOM_ITEMS_CACHE_KEY, JSON.stringify({ userId, items, savedAt: Date.now() }));
     } catch (e) {
         // storage full/unavailable - the fetch result still displays
     }
@@ -138,6 +135,21 @@ function humanizeStat(stat) {
         .replace(' Base', '');
 }
 
+// Stable per-row id so drag/drop can reorder rows without React losing which
+// select/value belongs to which row (index-based keys would shuffle the DOM
+// children under the inputs' feet). Drafts saved before ids existed get them
+// lazily on restore.
+function makeRowId() {
+    return typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'row-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+function ensureStatRowIds(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => (row && row.id ? row : { ...row, id: makeRowId() }));
+}
+
 function avatarSrc(item) {
     if (!item.authorAvatar) return null;
     if (item.authorAvatar.startsWith('http')) return item.authorAvatar;
@@ -168,6 +180,13 @@ export default function CustomItemsPage({ statCategories }) {
     const [textureOpen, setTextureOpen] = React.useState(false);
     const [statRows, setStatRows] = React.useState([]);
     const [editingId, setEditingId] = React.useState(null);
+    // Drag-to-reorder stats: the whole row is draggable and the list is
+    // reordered live on dragOver (same system as the builder's charm cards -
+    // a ref keeps the dragged row id readable inside the drag handlers across
+    // re-renders). Touch devices have no HTML5 drag, so the up/down arrows in
+    // each row are only shown there.
+    const statDragRef = React.useRef(null);
+    const [statDragging, setStatDragging] = React.useState(null);
     // Reset works like the builder's: first click arms it ("Confirm"),
     // second click clears the form.
     const [resetConfirm, setResetConfirm] = React.useState(false);
@@ -185,7 +204,7 @@ export default function CustomItemsPage({ statCategories }) {
         setTextureQuery(draft.textureQuery || '');
         setTextureToken(draft.textureToken || null);
         setTextureName(draft.textureName || '');
-        setStatRows(Array.isArray(draft.statRows) ? draft.statRows : []);
+        setStatRows(ensureStatRowIds(draft.statRows));
         setError(null);
     }
 
@@ -295,6 +314,72 @@ export default function CustomItemsPage({ statCategories }) {
         setStatRows((rows) => rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
     }
 
+    function moveStatRow(fromIndex, toIndex) {
+        if (toIndex === fromIndex) return;
+        setStatRows((rows) => {
+            const next = rows.slice();
+            const [moved] = next.splice(fromIndex, 1);
+            next.splice(toIndex, 0, moved);
+            return next;
+        });
+    }
+
+    function statRowIndex(rowId) {
+        return statRows.findIndex((row) => row.id === rowId);
+    }
+
+    // Drag-to-reorder stats, same system as the builder's charm cards: the
+    // grip button starts the drag, the dragged row id lives in a ref (so
+    // dragOver always sees it, even mid-reorder), and hovering another row
+    // swaps the two live - no drop event needed.
+    function startStatDrag(row, e) {
+        if (e.dataTransfer) {
+            e.dataTransfer.setData('text/plain', row.id);
+            e.dataTransfer.effectAllowed = 'move';
+            // Ghost the whole row (not just the grip) so the user sees
+            // exactly what is being moved. The clone is appended to <body>,
+            // where the row's "width: 100%" would resolve against the whole
+            // window instead of the form - pin it to the row's real size
+            // first so the drag image never balloons past the viewport.
+            const rowEl = e.currentTarget.closest('[data-stat-row]');
+            if (rowEl) {
+                const rect = rowEl.getBoundingClientRect();
+                const ghost = rowEl.cloneNode(true);
+                ghost.style.position = 'fixed';
+                ghost.style.left = '-9999px';
+                ghost.style.top = '-9999px';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.opacity = '0.85';
+                ghost.style.width = rect.width + 'px';
+                ghost.style.boxSizing = 'border-box';
+                document.body.appendChild(ghost);
+                e.dataTransfer.setDragImage(ghost, 30, 30);
+                requestAnimationFrame(() => ghost.remove());
+            }
+        }
+        statDragRef.current = row.id;
+        setStatDragging(row.id);
+    }
+
+    function endStatDrag() {
+        statDragRef.current = null;
+        setStatDragging(null);
+    }
+
+    function statDragOver(row, e) {
+        const dragged = statDragRef.current;
+        if (!dragged || dragged === row.id) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const from = statRowIndex(dragged);
+        const to = statRowIndex(row.id);
+        if (from === -1 || to === -1) return;
+        const next = [...statRows];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        setStatRows(next);
+    }
+
     function refreshItems() {
         const userId = user ? user.id : null;
         return fetch(`${base}/api/v1/custom-items`)
@@ -315,10 +400,12 @@ export default function CustomItemsPage({ statCategories }) {
         setTextureToken(item.textureToken);
         setTextureName(item.textureName || '');
         setStatRows(
-            Object.entries(item.stats || {}).map(([key, value]) => ({ key, value: String(value) }))
+            ensureStatRowIds(Object.entries(item.stats || {}).map(([key, value]) => ({ key, value: String(value) })))
         );
         setEditingId(item.id);
         setError(null);
+        statDragRef.current = null;
+        setStatDragging(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -331,6 +418,8 @@ export default function CustomItemsPage({ statCategories }) {
         setTextureName('');
         setStatRows([]);
         setError(null);
+        statDragRef.current = null;
+        setStatDragging(null);
     }
 
     function handleResetClick() {
@@ -360,9 +449,7 @@ export default function CustomItemsPage({ statCategories }) {
         // edited keeps its own name.
         if (
             items &&
-            items.some(
-                (item) => item.id !== editingId && item.name.toLowerCase() === name.trim().toLowerCase()
-            )
+            items.some((item) => item.id !== editingId && item.name.toLowerCase() === name.trim().toLowerCase())
         ) {
             setError('duplicate');
             return;
@@ -551,7 +638,38 @@ export default function CustomItemsPage({ statCategories }) {
                         <span className={styles.fieldLabel}>Stats</span>
                         {statRows.length === 0 && <p className={styles.muted}>No stats yet - add some below.</p>}
                         {statRows.map((row, index) => (
-                            <div key={index} className={styles.statRow}>
+                            <div
+                                key={row.id || index}
+                                data-stat-row={row.id}
+                                className={`${styles.statRow}${
+                                    statDragging === row.id ? ' ' + styles.statRowDragging : ''
+                                }`}
+                                onDragOver={(e) => statDragOver(row, e)}
+                            >
+                                <button
+                                    type="button"
+                                    className={styles.statHandle}
+                                    draggable
+                                    onDragStart={(e) => startStatDrag(row, e)}
+                                    onDragEnd={endStatDrag}
+                                    aria-label="Drag to reorder stat"
+                                    title="Drag to reorder"
+                                >
+                                    <svg
+                                        width="12"
+                                        height="14"
+                                        viewBox="0 0 16 16"
+                                        fill="currentColor"
+                                        aria-hidden="true"
+                                    >
+                                        <circle cx="5" cy="3.5" r="1.4" />
+                                        <circle cx="11" cy="3.5" r="1.4" />
+                                        <circle cx="5" cy="8" r="1.4" />
+                                        <circle cx="11" cy="8" r="1.4" />
+                                        <circle cx="5" cy="12.5" r="1.4" />
+                                        <circle cx="11" cy="12.5" r="1.4" />
+                                    </svg>
+                                </button>
                                 <Select
                                     instanceId={`custom-item-stat-${index}`}
                                     name={`custom-item-stat-${index}`}
@@ -577,6 +695,28 @@ export default function CustomItemsPage({ statCategories }) {
                                     onChange={(event) => updateStatRow(index, 'value', event.target.value)}
                                     placeholder="Value"
                                 />
+                                <span className={styles.statMoveControls}>
+                                    <button
+                                        type="button"
+                                        className={styles.statMoveBtn}
+                                        disabled={index === 0}
+                                        onClick={() => moveStatRow(index, index - 1)}
+                                        aria-label="Move stat up"
+                                        title="Move stat up"
+                                    >
+                                        ↑
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.statMoveBtn}
+                                        disabled={index === statRows.length - 1}
+                                        onClick={() => moveStatRow(index, index + 1)}
+                                        aria-label="Move stat down"
+                                        title="Move stat down"
+                                    >
+                                        ↓
+                                    </button>
+                                </span>
                                 <button
                                     type="button"
                                     className={styles.iconBtn}
@@ -590,7 +730,7 @@ export default function CustomItemsPage({ statCategories }) {
                         <button
                             type="button"
                             className={styles.addBtn}
-                            onClick={() => setStatRows((rows) => [...rows, { key: '', value: '' }])}
+                            onClick={() => setStatRows((rows) => [...rows, { id: makeRowId(), key: '', value: '' }])}
                         >
                             + Add stat
                         </button>

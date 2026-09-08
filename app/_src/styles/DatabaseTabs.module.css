@@ -1,0 +1,34 @@
+.dbTabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    /* Symmetric spacing: the gap above the tabs (below the title) equals
+       the gap below them (to the page content) on both database pages. */
+    margin: 12px 0 22px;
+}
+
+.dbTab {
+    padding: 8px 22px;
+    border: 2px solid var(--control-border);
+    background: var(--glass-1);
+    color: var(--text-2);
+    text-decoration: none;
+    font-size: 0.95em;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.dbTab:hover {
+    color: var(--text-1);
+    border-color: var(--control-border-hover);
+    background: var(--glass-2);
+}
+
+.dbTabActive,
+.dbTabActive:hover {
+    color: var(--text-on-accent, #fff);
+    background: var(--accent, #3d3286);
+    border-color: var(--accent, #3d3286);
+}
