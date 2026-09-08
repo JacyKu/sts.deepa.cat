@@ -830,7 +830,7 @@ html :is(
         input[type='url'],
         select,
         textarea
-    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not([class*='favBtn']):not(
+    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not([class*='resetButton']):not([class*='favBtn']):not(
         [class*='favourite']
     ):not([class*='iconBtn']):not([class*='delete']):not([class*='Remove']):not([class*='remove']):not(
         [class*='Clear']
@@ -851,7 +851,7 @@ html :is(
         input[type='url'],
         select,
         textarea
-    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not([class*='favBtn']):not(
+    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not([class*='resetButton']):not([class*='favBtn']):not(
         [class*='favourite']
     ):not([class*='iconBtn']):not([class*='delete']):not([class*='Remove']):not([class*='remove']):not(
         [class*='Clear']

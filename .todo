@@ -43,11 +43,8 @@ generalise all buttons to use same size/height
 [x] add tooltips for multipliers and stat toggles
 [x] render checkboxes in menu to the left and text to the right
 [x] fix stat colors correctly
-- add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise
 [x] add discord application to quickshare builds/search for items and maybe some other misc (must connect, works as independent app, doesnt need to be in a discord server)
-- add actual 3d model of the blobcat on deepa.cat
-- let people select skins for items (need to be signed in with discord) (later update)
-- items (at least animated ones) dont render properly for discord app icons
+[x] items (at least animated ones) dont render properly for discord app icons
 [x] move stat toggles back to where they were
 [x] maybe generate gifs for animated items in embeds/discord bot embeds?
 [x] show texture of items in item sharing embed
@@ -98,22 +95,125 @@ generalise all buttons to use same size/height
 [x] seems like some builds for some reason dont import properly after being shared ("kCnshTiy" is an example)
 [x] importing items with item import while max masterwork is on resets the masterwork on builder page
 
-[] 30-08-2026
-- dedicated build viewer page
-- refactor menus on mobile ui and desktop ui
-- live (webhook notifs probably) notifs i can send with a discord bot to the UI.
-- 64x64 textures dont always scale correctly
-- create setting to disable caching for search and build page separately
-- place builder inputs to left of page as experimental layout
+[] 02-09-2026
+[x] refactor menus on mobile ui and desktop ui
+[x] live (webhook notifs probably) notifs i can send with a discord bot to the UI.
+[x] create setting to disable caching for search and build page separately
+[x] place builder inputs to left of page as experimental layout
 
-- build comparison page
-    - like ps page in monu
+[x] theme section on my account
+    [x] round should be a styling option
+    [x] glass supports both white and dark theme
+    [x] more themes
+[x] add aro and ace and aroace
+[x] matrix code fall effect
+[x] giant ohthemisery cat on backdrop
+[x] genderfluid pride
+[x] make backdrops blurry
+[x] hide backdrop options when using only dark/white theme
+[x] update skeletons for all pages
+[x] give people the ability to use their own backdrop for the site (like a custom image upload) (stored locally, not on our server)
+
+[x] oversized flask doesnt show in charms while alch is selected
+    also not bottled infinity and some other charms
+[x] set max delve infusion level to 4
+[x] set multipliers as a toggle before showing them
+[x] draggable stat cards
+[x] generalise all buttons in footer to use same height
+
+
+[x] add a command to import/convert builds from old links on discord bot
+
+[x] build comparison page
+    like ps page in monu
+[x] notification backdrop is not blurred
+[x] add char limit
+
+
+[x] mod stuff
+[x] creates b token > sends to api > saves and returns share link
+[x] creates b token > sends to api together with uuid > saves to profile and returns share link
+
+
+[] 05-09-2026
+- improve general performance and responsiveness
+
+[x] add autoconfig
+[x] add link gen in chat after running command
+[x] config option for buttons position mod
+[x] add tooltips to buttons
+[x] exalted items dont seem to upload from the mod when exporting a build or saving it
+
+[x] fix that curses should also show tooltips
+[x] sorting options and search for personal builds page
+- shouldnt show overworld charms in cz/dd (theres no reason to hide them)
+- charm dont have +- colors (the charm data should show in blue/red so it does exist)
+[x] comparison page doesnt have stat toggles
+[x] move some of the comparison cards side by side instead of stacked
+[x] some borders are not the correct accent
+[x] extended card on builds doesnt correctly show the border accent either
+[x] when wawa background is selected, blur slider does not work
+[x] make sure that the build cards height are all equal (extend if others are taller)
+[x] crossbows should have their own category
+[x] it doesnt seem to upload the class and spec correctly from the mod when exporting a build
+[x] add setting for accent color
+[x] generalise the accent color for all inputs and buttons except the search, reset, copy and share buttons
+[x] prevent duplicate names on public database
+[x] some stats show incorrectly, spell power alongside attack speed should show as blue color with a +percentage on item cards
+[x] core collapse has a pink colored enchantment
+[x] set char limit for build notes to 500 characters
+[x] add a high contrast mode
+[x] add a dyslexia friendly font option
+[x] add colorblind modes
+[x] add option to turn off animations globally
+
+[x] make custom items able to be changed after already being made
+[x] update info on custom items that they cant be seen by others
+[x] copy skills from existing build
+[x] apply skills from saved skill sets
+
+[x] create a builds database viewer for bot
+- fix heart icon cutting off when using rounded corners
+- add correct offhand types into custom item creation
+
+[x] check if the % conversions from earlier were done incorrectly as 1 should be base and not %
+[x] a lot of wands are missing textures
+    Frost Giant's Staff has both
+[x] other textures are also wrong/missing
+[x] silverwind distortion, rogue planet, and severed universe textures are wrong
+- cache custom items too
+- ability to drag stats around on custom items
+- copy stats from custom items like skill sets
+- custom items should should become visibile to others as well as having the ability to copy them
+- custom items database
+- add ability to change base item for custom items
+- dropdowns on custom item inputs don't have a blurred backdrop
+
+- allow ability to upload custom items from the game to sts (or at least items that dont exist in the sts items database)
+
+- curses should show above base and attribute stats on item cards
+
+- update skeleton for all pages, make sure they are correct and consistent with the width of the window
+
+- enchantment index
+- mob index
+
+- mod button button sticks as active and doesnt update
+- add back position settings in autoconfig
+- fix lang not showing correctly
+
+- history for items that were nerfed/buffed
+- add stat toggle for frenzy (warrior, berserker skill)
+
+- update TOS to include new mod and cloudflare stuff
 - add entire enemy lyrics to status
+[x] change deepa.cat to Spare the Sympathy
+- 64x64 textures dont always scale correctly in embed
+- make a test list before each update to see if anything is broken
 
 - model for build design?
     - could use the monu code for enemies
 
-
-[] mod stuff
-- creates b token > sends to api > saves and returns share link
-- creates b token > sends to api together with uuid > saves to profile and returns share link
+- add actual 3d model of the blobcat on deepa.cat
+- let people select skins for items (need to be signed in with discord) (later update)
+- add willow.deepa.cat with image https://discord.com/channels/1477301297131819039/1477304584010465352/1540841300755218502 with squeak noise

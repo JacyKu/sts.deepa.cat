@@ -47,6 +47,12 @@
     flex-wrap: wrap;
 }
 
+.formActionWrap {
+    flex: 1 1 200px;
+    min-width: 0;
+    display: flex;
+}
+
 .field {
     display: flex;
     flex-direction: column;

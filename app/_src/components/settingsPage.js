@@ -5,7 +5,7 @@ import Select from 'react-select';
 import styles from '../styles/Account.module.css';
 import { FONT_ORDER, FONT_LABELS, FONT_STACKS } from './header';
 import BuilderLayoutToggle from './builderLayoutToggle';
-import { CacheSearchToggle, CacheBuildsToggle } from './cachingToggles';
+import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
 import {
     applyThemeState,
     readThemeState,
@@ -684,6 +684,7 @@ export default function SettingsPage() {
                 <div className={styles.siteToggleRow}>
                     <CacheSearchToggle className={styles.bareToggle} />
                     <CacheBuildsToggle className={styles.bareToggle} />
+                    <CacheCustomItemsToggle className={styles.bareToggle} />
                 </div>
             </section>
         </main>

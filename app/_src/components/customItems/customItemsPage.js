@@ -8,6 +8,65 @@ import { loadItemSpriteMap } from '../../utils/items/spritesheetMap';
 import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
 import StatFormatter from '../../utils/items/statFormatter';
+import { isCustomItemsCacheEnabled, CUSTOM_ITEMS_CACHE_KEY, CUSTOM_ITEMS_DRAFT_KEY } from '../../utils/cachePrefs';
+
+// The custom-items list is personal, so its cache is scoped to the logged-in
+// user (a later login as someone else never sees the previous account's
+// items). Reading the cache is best-effort; any storage error just means the
+// regular network fetch is used.
+function readCustomItemsCache(userId) {
+    try {
+        const raw = window.localStorage.getItem(CUSTOM_ITEMS_CACHE_KEY);
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        if (entry && entry.userId === userId && Array.isArray(entry.items)) return entry.items;
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function writeCustomItemsCache(userId, items) {
+    if (!isCustomItemsCacheEnabled()) return;
+    try {
+        window.localStorage.setItem(
+            CUSTOM_ITEMS_CACHE_KEY,
+            JSON.stringify({ userId, items, savedAt: Date.now() })
+        );
+    } catch (e) {
+        // storage full/unavailable - the fetch result still displays
+    }
+}
+
+// Unsaved form draft (name/type/texture/stats mid-edit), restored when you
+// come back to the page - same idea as the builder's draft autosave.
+function readCustomItemsDraft(userId) {
+    try {
+        const raw = window.localStorage.getItem(CUSTOM_ITEMS_DRAFT_KEY);
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        return entry && entry.userId === userId ? entry : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function writeCustomItemsDraft(userId, payload) {
+    if (!isCustomItemsCacheEnabled()) return;
+    try {
+        window.localStorage.setItem(CUSTOM_ITEMS_DRAFT_KEY, JSON.stringify({ ...payload, userId }));
+    } catch (e) {
+        // storage unavailable; nothing to do
+    }
+}
+
+function clearCustomItemsDraft(userId) {
+    try {
+        window.localStorage.removeItem(CUSTOM_ITEMS_DRAFT_KEY);
+    } catch (e) {
+        // storage unavailable; nothing to do
+    }
+}
 
 const selectTheme = (theme) => ({
     ...theme,
@@ -109,6 +168,66 @@ export default function CustomItemsPage({ statCategories }) {
     const [textureOpen, setTextureOpen] = React.useState(false);
     const [statRows, setStatRows] = React.useState([]);
     const [editingId, setEditingId] = React.useState(null);
+    // Reset works like the builder's: first click arms it ("Confirm"),
+    // second click clears the form.
+    const [resetConfirm, setResetConfirm] = React.useState(false);
+    const resetTimerRef = React.useRef(null);
+
+    const draftRestoredRef = React.useRef(false);
+    const draftReadyRef = React.useRef(false);
+
+    // Fills the form from a stored draft (same account only). Used once on
+    // mount when the cache setting is on and a draft exists.
+    function applyDraft(draft) {
+        setEditingId(draft.editingId || null);
+        setName(draft.name || '');
+        setType(draft.type || 'Offhand');
+        setTextureQuery(draft.textureQuery || '');
+        setTextureToken(draft.textureToken || null);
+        setTextureName(draft.textureName || '');
+        setStatRows(Array.isArray(draft.statRows) ? draft.statRows : []);
+        setError(null);
+    }
+
+    function draftHasContent() {
+        return Boolean(editingId) || Boolean(name.trim()) || Boolean(textureToken) || statRows.length > 0;
+    }
+
+    // Restore the unsaved form draft when returning to the page.
+    React.useEffect(() => {
+        if (!authChecked || !user || draftRestoredRef.current) return;
+        draftRestoredRef.current = true;
+        if (!isCustomItemsCacheEnabled()) return;
+        const draft = readCustomItemsDraft(user.id);
+        if (draft) applyDraft(draft);
+    }, [authChecked, user]);
+
+    // Autosave the draft while typing; clearing every field (or saving or
+    // cancelling) clears the stored draft. The first pass only marks the
+    // restore step as done - it must not clear a draft that the restore
+    // effect above just applied (effects run in order in the same flush, but
+    // the restored state only lands on the next render).
+    React.useEffect(() => {
+        if (!authChecked || !user || !isCustomItemsCacheEnabled()) return;
+        if (!draftReadyRef.current) {
+            draftReadyRef.current = true;
+            return;
+        }
+        const userId = user.id;
+        if (draftHasContent()) {
+            writeCustomItemsDraft(userId, {
+                editingId,
+                name,
+                type,
+                textureQuery,
+                textureToken,
+                textureName,
+                statRows,
+            });
+        } else {
+            clearCustomItemsDraft(userId);
+        }
+    }, [authChecked, user, editingId, name, type, textureQuery, textureToken, textureName, statRows]);
 
     React.useEffect(() => {
         loadItemSpriteMap().then(setSpriteMap);
@@ -117,15 +236,29 @@ export default function CustomItemsPage({ statCategories }) {
     React.useEffect(() => {
         if (!authChecked || !user) return;
         let active = true;
+        const userId = user.id;
+        // Cache-first: show the stored list immediately (when the "Cache
+        // custom items" setting is on), then refresh from the server.
+        if (isCustomItemsCacheEnabled()) {
+            const cached = readCustomItemsCache(userId);
+            if (cached && active) setItems(cached);
+        }
         fetch(`${base}/api/v1/custom-items`)
             .then((response) => (response.ok ? response.json() : Promise.reject(new Error('HTTP ' + response.status))))
             .then((data) => {
-                if (active) setItems(Array.isArray(data.items) ? data.items : []);
+                if (!active) return;
+                const list = Array.isArray(data.items) ? data.items : [];
+                setItems(list);
+                writeCustomItemsCache(userId, list);
             })
             .catch(() => {
                 if (active) {
-                    setItems([]);
-                    setError('load');
+                    // Only surface an error when there was no cached list to
+                    // fall back on.
+                    if (!readCustomItemsCache(userId)) {
+                        setItems([]);
+                        setError('load');
+                    }
                 }
             });
         return () => {
@@ -163,9 +296,16 @@ export default function CustomItemsPage({ statCategories }) {
     }
 
     function refreshItems() {
+        const userId = user ? user.id : null;
         return fetch(`${base}/api/v1/custom-items`)
             .then((response) => (response.ok ? response.json() : Promise.reject(new Error('HTTP ' + response.status))))
-            .then((data) => setItems(Array.isArray(data.items) ? data.items : []));
+            .then((data) => {
+                const list = Array.isArray(data.items) ? data.items : [];
+                setItems(list);
+                // Mutations refresh through here, so the cache always tracks
+                // saves/edits/deletes.
+                if (userId) writeCustomItemsCache(userId, list);
+            });
     }
 
     function startEdit(item) {
@@ -192,6 +332,25 @@ export default function CustomItemsPage({ statCategories }) {
         setStatRows([]);
         setError(null);
     }
+
+    function handleResetClick() {
+        if (!resetConfirm) {
+            setResetConfirm(true);
+            if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+            resetTimerRef.current = setTimeout(() => setResetConfirm(false), 2500);
+            return;
+        }
+        if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+        setResetConfirm(false);
+        cancelEdit();
+    }
+
+    // Clear the pending confirm if the form is unmounted mid-arming.
+    React.useEffect(() => {
+        return () => {
+            if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+        };
+    }, []);
 
     function saveItem(event) {
         event.preventDefault();
@@ -444,18 +603,26 @@ export default function CustomItemsPage({ statCategories }) {
                     )}
                     {error === 'save' && <p className={styles.errorText}>Failed to save the item. Try again.</p>}
                     <div className={styles.formActions}>
-                        <button
-                            type="submit"
-                            className={styles.addBtn}
-                            disabled={!name.trim() || !textureToken || saving}
-                        >
-                            {saving ? 'Saving…' : editingId ? 'Save changes' : 'Save item'}
-                        </button>
-                        {editingId && (
-                            <button type="button" className={styles.addBtn} onClick={cancelEdit}>
-                                Cancel
+                        <span className={styles.formActionWrap}>
+                            <button
+                                type="submit"
+                                className={itemsStyles.shareButton}
+                                disabled={!name.trim() || !textureToken || saving}
+                            >
+                                {saving ? 'Saving…' : editingId ? 'Save changes' : 'Save item'}
                             </button>
-                        )}
+                        </span>
+                        <span className={styles.formActionWrap}>
+                            <button
+                                type="button"
+                                className={itemsStyles.resetButton}
+                                onClick={handleResetClick}
+                                disabled={saving}
+                                aria-label="Reset item form"
+                            >
+                                {resetConfirm ? 'Confirm' : 'Reset'}
+                            </button>
+                        </span>
                     </div>
                 </form>
 

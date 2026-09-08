@@ -6,8 +6,10 @@ import itemsStyles from '../styles/Items.module.css';
 import {
     isSearchCacheEnabled,
     isBuildsCacheEnabled,
+    isCustomItemsCacheEnabled,
     setSearchCacheEnabled,
     setBuildsCacheEnabled,
+    setCustomItemsCacheEnabled,
 } from '../utils/cachePrefs';
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
@@ -58,6 +60,20 @@ export function CacheBuildsToggle({ className } = {}) {
             hint="Keep your current build draft and custom skill order in this browser. Turn off to never save or restore builder state."
             readPref={isBuildsCacheEnabled}
             writePref={setBuildsCacheEnabled}
+        />
+    );
+}
+
+// "Cache custom items": whether your custom items page restores its list
+// instantly from this browser while the fresh list loads.
+export function CacheCustomItemsToggle({ className } = {}) {
+    return (
+        <CacheToggle
+            className={className}
+            label="Cache custom items"
+            hint="Show your custom items instantly from this browser while the latest list loads. Only ever stores your own items."
+            readPref={isCustomItemsCacheEnabled}
+            writePref={setCustomItemsCacheEnabled}
         />
     );
 }
