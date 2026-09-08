@@ -170,6 +170,17 @@ export default function CustomItemsPage({ statCategories }) {
     const [error, setError] = React.useState(null);
     const [copiedId, setCopiedId] = React.useState(null);
     const [addedId, setAddedId] = React.useState(null);
+    // "Stat sets" dialog - same system as the builder's skill sets modal:
+    // copy the stat rows of any of your custom items into the form, or save
+    // the form's current stats as a named set to apply later.
+    const [statSetsOpen, setStatSetsOpen] = React.useState(false);
+    const [feedback, setFeedback] = React.useState(null);
+    const feedbackTimerRef = React.useRef(null);
+    const [statSets, setStatSets] = React.useState(null); // null = not loaded yet
+    const [busy, setBusy] = React.useState(false);
+    const [statSetName, setStatSetName] = React.useState('');
+    const [confirmDelSet, setConfirmDelSet] = React.useState(null); // set id awaiting 2nd click
+    const confirmDelTimerRef = React.useRef(null);
     const [spriteMap, setSpriteMap] = React.useState(null);
 
     const [name, setName] = React.useState('');
@@ -501,6 +512,133 @@ export default function CustomItemsPage({ statCategories }) {
             .catch(() => {});
     }
 
+    // Drops a stat payload (an array of { key, value } rows, the shape saved
+    // in stat sets and mirrored by copyStatsFromItem below) into the form.
+    // Interrupting an edit starts a fresh form so a later save can never
+    // silently overwrite the item that was being edited - the result is
+    // always a new item to name and tweak.
+    function applyStatRows(rows) {
+        if (editingId) cancelEdit();
+        setStatRows(ensureStatRowIds((rows || []).map((row) => ({ key: row.key, value: String(row.value) }))));
+        setError(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // "Copy stats" from one of the caller's items (mirrors the builder's
+    // "copy skills from your builds").
+    function copyStatsFromItem(item) {
+        const rows = Object.entries(item.stats || {}).map(([key, value]) => ({ key, value: String(value) }));
+        applyStatRows(rows);
+        say(true, `Stats from "${item.name}" copied into the form.`);
+    }
+
+    function say(ok, text) {
+        setFeedback({ ok, text });
+        window.clearTimeout(feedbackTimerRef.current);
+        feedbackTimerRef.current = window.setTimeout(() => setFeedback(null), 4000);
+    }
+
+    // Clear the timers if the page unmounts mid-display.
+    React.useEffect(() => {
+        return () => {
+            if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+            if (confirmDelTimerRef.current) clearTimeout(confirmDelTimerRef.current);
+        };
+    }, []);
+
+    // --- Saved stat sets (same system as the builder's skill sets) ---
+
+    function refreshStatSets() {
+        fetch(`${base}/api/v1/skill-sets`)
+            .then((response) => (response.ok ? response.json() : { sets: [] }))
+            .then((data) => setStatSets((data.sets || []).filter((set) => set.kind === 'stats')))
+            .catch(() => setStatSets([]));
+    }
+
+    // Load the sets when the dialog opens (and keep the cached list between
+    // visits); stat sets only exist for logged-in users, so this dialog only
+    // renders after the auth gate below.
+    React.useEffect(() => {
+        if (!statSetsOpen) return;
+        refreshStatSets();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [statSetsOpen]);
+
+    // The current form's stats, as rows without ids - the shape that gets
+    // stored in a set and re-applied later.
+    function currentStatPayload() {
+        return statRows
+            .filter((row) => row.key && String(row.value).trim() !== '')
+            .map((row) => ({ key: row.key, value: String(row.value) }));
+    }
+
+    async function saveStatSet(event) {
+        event.preventDefault();
+        const setName = String(statSetName || '').trim();
+        if (!setName) {
+            say(false, 'Pick a name for the set first.');
+            return;
+        }
+        const rows = currentStatPayload();
+        if (rows.length === 0) {
+            say(false, 'Nothing to save yet - add some stats to the form first.');
+            return;
+        }
+        setBusy(true);
+        try {
+            const response = await fetch(`${base}/api/v1/skill-sets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kind: 'stats', name: setName, payload: { rows } }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                say(false, 'Could not save the set.');
+            } else {
+                setStatSetName('');
+                say(true, data.isNew ? `"${setName}" saved.` : `"${setName}" updated.`);
+                refreshStatSets();
+            }
+        } catch (e) {
+            say(false, 'Could not save the set.');
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    function applyStatSet(entry) {
+        const rows = entry.payload && Array.isArray(entry.payload.rows) ? entry.payload.rows : null;
+        if (!rows || rows.length === 0) {
+            say(false, 'That set is empty.');
+            return;
+        }
+        applyStatRows(rows);
+        say(true, `"${entry.name}" applied.`);
+    }
+
+    function requestDeleteStatSet(id) {
+        if (confirmDelSet === id) {
+            clearDelConfirm();
+            setBusy(true);
+            fetch(`${base}/api/v1/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' })
+                .then((response) => {
+                    say(response.ok, response.ok ? 'Set deleted.' : 'Could not delete the set.');
+                    if (response.ok) refreshStatSets();
+                })
+                .catch(() => say(false, 'Could not delete the set.'))
+                .finally(() => setBusy(false));
+            return;
+        }
+        setConfirmDelSet(id);
+        if (confirmDelTimerRef.current) clearTimeout(confirmDelTimerRef.current);
+        confirmDelTimerRef.current = setTimeout(() => setConfirmDelSet(null), 3000);
+    }
+
+    function clearDelConfirm() {
+        if (confirmDelTimerRef.current) clearTimeout(confirmDelTimerRef.current);
+        setConfirmDelSet(null);
+    }
+
     // Adds the custom item to the builder's build list (localStorage) so it
     // can be equipped on /builder. Only the owner's browser has the item, so
     // the build list import works exactly like it does for regular items.
@@ -763,11 +901,151 @@ export default function CustomItemsPage({ statCategories }) {
                                 {resetConfirm ? 'Confirm' : 'Reset'}
                             </button>
                         </span>
+                        <span className={styles.formActionWrap}>
+                            <button
+                                type="button"
+                                className={styles.statSetsButton}
+                                onClick={() => setStatSetsOpen(true)}
+                                aria-haspopup="dialog"
+                            >
+                                Stat sets
+                            </button>
+                        </span>
                     </div>
                 </form>
 
                 {error === 'load' && <p className={styles.errorText}>Failed to load your custom items.</p>}
                 {error === 'delete' && <p className={styles.errorText}>Failed to delete the item.</p>}
+
+                {statSetsOpen && (
+                    <div className={itemsStyles.setsModalBackdrop} onClick={() => setStatSetsOpen(false)}>
+                        <div
+                            className={`${itemsStyles.setsModalDialog} ${styles.statSetsDialog}`}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Stat sets"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <span className={itemsStyles.setsModalTitle}>Stat sets</span>
+                            <p className={itemsStyles.setsHint}>
+                                Copy the stats of one of your items into the form above, or save the current stats as a
+                                named set to reuse later.
+                            </p>
+                            <div className={`${itemsStyles.setsColumns} ${styles.statSetsColumns}`}>
+                                <section className={itemsStyles.setsGroup}>
+                                    <h3 className={itemsStyles.setsGroupTitle}>Copy stats from your items</h3>
+                                    {items === null ? (
+                                        <p className={itemsStyles.setsEmpty}>Loading…</p>
+                                    ) : items.length === 0 ? (
+                                        <p className={itemsStyles.setsEmpty}>No custom items yet.</p>
+                                    ) : (
+                                        <ul className={itemsStyles.setsList}>
+                                            {items.map((item) => (
+                                                <li key={item.id} className={itemsStyles.setsRow}>
+                                                    <span className={itemsStyles.setsRowName}>
+                                                        {item.name}
+                                                        <span className={itemsStyles.setsMeta}>
+                                                            {item.type}
+                                                            {Object.keys(item.stats || {}).length > 0
+                                                                ? ` · ${Object.keys(item.stats || {}).length} stats`
+                                                                : ' · no stats'}
+                                                            {item.createdAt
+                                                                ? ` · ${new Date(item.createdAt + 'Z').toLocaleDateString()}`
+                                                                : ''}
+                                                        </span>
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        className={itemsStyles.setsBtn}
+                                                        disabled={busy}
+                                                        onClick={() => copyStatsFromItem(item)}
+                                                    >
+                                                        Copy stats
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </section>
+
+                                <section className={itemsStyles.setsGroup}>
+                                    <h3 className={itemsStyles.setsGroupTitle}>Stat sets</h3>
+                                    <form className={itemsStyles.setsSaveRow} onSubmit={saveStatSet}>
+                                        <input
+                                            className={itemsStyles.setsInput}
+                                            placeholder="Set name"
+                                            maxLength={40}
+                                            value={statSetName}
+                                            onChange={(e) => setStatSetName(e.target.value)}
+                                        />
+                                        <button
+                                            type="submit"
+                                            className={itemsStyles.setsBtn}
+                                            disabled={busy}
+                                            title="Save the current stats as a set"
+                                        >
+                                            Save current
+                                        </button>
+                                    </form>
+                                    {statSets === null ? (
+                                        <p className={itemsStyles.setsEmpty}>Loading…</p>
+                                    ) : statSets.length === 0 ? (
+                                        <p className={itemsStyles.setsEmpty}>No stat sets saved yet.</p>
+                                    ) : (
+                                        <ul className={itemsStyles.setsList}>
+                                            {statSets.map((entry) => (
+                                                <li key={entry.id} className={itemsStyles.setsRow}>
+                                                    <span className={itemsStyles.setsRowName}>
+                                                        {entry.name}
+                                                        {entry.updatedAt ? (
+                                                            <span className={itemsStyles.setsMeta}>
+                                                                {new Date(
+                                                                    String(entry.updatedAt).replace(' ', 'T') + 'Z'
+                                                                ).toLocaleDateString()}
+                                                            </span>
+                                                        ) : (
+                                                            ''
+                                                        )}
+                                                    </span>
+                                                    <span className={itemsStyles.setsRowActions}>
+                                                        <button
+                                                            type="button"
+                                                            className={itemsStyles.setsBtn}
+                                                            disabled={busy}
+                                                            onClick={() => applyStatSet(entry)}
+                                                        >
+                                                            Apply
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={`${itemsStyles.setsBtn} ${itemsStyles.setsBtnDanger}`}
+                                                            disabled={busy}
+                                                            onClick={() => requestDeleteStatSet(entry.id)}
+                                                        >
+                                                            {confirmDelSet === entry.id ? 'Sure?' : '✕'}
+                                                        </button>
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </section>
+                            </div>
+                            {feedback && (
+                                <p className={feedback.ok ? itemsStyles.setsFeedbackOk : itemsStyles.setsFeedbackErr}>
+                                    {feedback.text}
+                                </p>
+                            )}
+                            <button
+                                type="button"
+                                className={itemsStyles.setsModalClose}
+                                onClick={() => setStatSetsOpen(false)}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className={styles.listHeader}>
                     <h2 className={styles.formTitle}>My items ({items ? items.length : 0})</h2>

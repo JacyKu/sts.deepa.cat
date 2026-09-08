@@ -53,6 +53,46 @@
     display: flex;
 }
 
+/* Neutral sibling of the Save/Reset buttons: same sizing (padding/margins)
+   so the row keeps one height, but without the accent gradients. */
+.statSetsButton {
+    margin-block: 0.5vh;
+    margin-inline: 0.25vw;
+    padding: 0.5vh;
+    width: 100%;
+    border: 2px solid var(--control-border);
+    background: var(--glass-1);
+    color: var(--text-1);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        transform 75ms ease;
+}
+
+.statSetsButton:hover {
+    border-color: var(--control-border-hover);
+    background: var(--glass-2);
+}
+
+.statSetsButton:active {
+    transform: translateY(1px);
+}
+
+/* The stat sets dialog only carries two short columns, so it does not need
+   the 1050px the builder's three-column skill sets dialog does. Items.module
+   css loads after this file, so bump specificity to win the cascade. */
+.statSetsDialog[class] {
+    width: min(800px, 100%);
+}
+
+/* The shared column grid is fixed at three tracks; two sections would leave
+   the third empty. Override it to two equal tracks for this dialog. */
+.statSetsColumns[class] {
+    grid-template-columns: 1fr 1fr;
+}
+
 .field {
     display: flex;
     flex-direction: column;
@@ -366,6 +406,7 @@
 
 .listHeader {
     margin-top: 12px;
+    margin-bottom: 18px;
     width: 100%;
     max-width: 720px;
     text-align: center;
