@@ -121,6 +121,23 @@ const MAINHAND_TYPES = new Set([
 const OFFHAND_TYPES = new Set(['offhand', 'offhand shield', 'offhand sword']);
 const EQUIP_SLOTS = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
 
+// True when any gear slot actually holds an item (vs. the 'None' default).
+// The share/copy buttons read this so an empty, never-built form can't be
+// saved into a junk share link. The slot selects write hidden inputs with
+// their `name`, so a plain FormData pass tells us what is equipped.
+function formHasEquippedItem(formEl) {
+    if (!formEl) return false;
+    try {
+        const form = new FormData(formEl);
+        return EQUIP_SLOTS.some((slot) => {
+            const value = form.get(slot);
+            return value != null && String(value) !== 'None';
+        });
+    } catch (e) {
+        return false;
+    }
+}
+
 function resolveItemKey(itemData, displayName) {
     if (itemData[displayName]) return displayName;
     return Object.keys(itemData).find((key) => itemData[key].name === displayName) || null;
@@ -404,10 +421,26 @@ const statsCache = new Map(); // signature -> { itemData, stats }
 function recalcBuild(data, itemData) {
     const signature = JSON.stringify({
         region: data.region ?? null,
-        items: [data.mainhand ?? null, data.offhand ?? null, data.helmet ?? null, data.chestplate ?? null, data.leggings ?? null, data.boots ?? null],
-        infusions: ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'].map((slot) => data[`delveInfusion-${slot}`] ?? null),
+        items: [
+            data.mainhand ?? null,
+            data.offhand ?? null,
+            data.helmet ?? null,
+            data.chestplate ?? null,
+            data.leggings ?? null,
+            data.boots ?? null,
+        ],
+        infusions: ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'].map(
+            (slot) => data[`delveInfusion-${slot}`] ?? null
+        ),
         revelation: data.revelation ?? null,
-        stats: [data.tenacity ?? null, data.vitality ?? null, data.vigor ?? null, data.focus ?? null, data.perspicacity ?? null, data.health ?? null],
+        stats: [
+            data.tenacity ?? null,
+            data.vitality ?? null,
+            data.vigor ?? null,
+            data.focus ?? null,
+            data.perspicacity ?? null,
+            data.health ?? null,
+        ],
         eb: enabledBoxes,
         es: extraStats,
         eca: enabledClassAbilityBuffs,
@@ -1046,8 +1079,7 @@ export default function BuildForm({
         // patch the form entries (the selects write their choices there) and
         // run one stats update.
         const entries = Array.from(new FormData(formRef.current).entries()).filter(
-            ([key]) =>
-                !key.startsWith('delveInfusion-') && !key.startsWith('delveLevel-') && key !== 'revelation'
+            ([key]) => !key.startsWith('delveInfusion-') && !key.startsWith('delveLevel-') && key !== 'revelation'
         );
         for (const [slot, value] of Object.entries(infusions)) {
             entries.push([`delveInfusion-${slot}`, value]);
@@ -2850,7 +2882,10 @@ export default function BuildForm({
 
     // Totals of every stat across all equipped charms (effect summary).
     const equippedCharmNames = charms.map((c) => c.name);
-    const charmTotals = React.useMemo(() => computeCharmTotals(itemData, equippedCharmNames), [itemData, equippedCharmNames]);
+    const charmTotals = React.useMemo(
+        () => computeCharmTotals(itemData, equippedCharmNames),
+        [itemData, equippedCharmNames]
+    );
 
     const { newLayout } = useBuilderLayout();
     const isDesktop = useIsDesktop();
@@ -3300,6 +3335,10 @@ export default function BuildForm({
                 )}
         </>
     );
+
+    // Copy/save only makes sense once something is actually built (a build
+    // with no gear and no charms would just create an empty share link).
+    const buildContentReady = formHasEquippedItem(formRef.current) || charms.length > 0;
 
     return (
         <form ref={formRef} onSubmit={sendUpdate} onReset={resetForm} id="buildForm">
@@ -3901,6 +3940,8 @@ export default function BuildForm({
                         className={styles.shareButton}
                         id="copyLinkForDiscord"
                         onClick={copyBuildDiscord}
+                        disabled={!buildContentReady}
+                        title={buildContentReady ? '' : 'Equip some items first - an empty build has nothing to share.'}
                     >
                         <TranslatableText identifier="builder.buttons.copyLinkForDiscord"></TranslatableText>
                     </button>
@@ -3911,7 +3952,8 @@ export default function BuildForm({
                         className={styles.shareButton}
                         id="saveBuild"
                         onClick={() => saveBuildToServer()}
-                        disabled={saveState === 'saving'}
+                        disabled={!buildContentReady || saveState === 'saving'}
+                        title={buildContentReady ? '' : 'Equip some items first - an empty build has nothing to save.'}
                     >
                         {saveState === 'saving' ? 'Saving...' : saveState === 'copied' ? 'Copied!' : 'Copy/Save'}
                     </button>
@@ -3923,8 +3965,12 @@ export default function BuildForm({
                             className={styles.shareButton}
                             id="saveAsNewCopy"
                             onClick={() => saveBuildToServer(true)}
-                            disabled={saveState === 'saving'}
-                            title="Keep this build's link unchanged and save the current edits as a new build"
+                            disabled={!buildContentReady || saveState === 'saving'}
+                            title={
+                                buildContentReady
+                                    ? "Keep this build's link unchanged and save the current edits as a new build"
+                                    : 'Equip some items first - an empty build has nothing to copy.'
+                            }
                         >
                             Save as new copy
                         </button>
