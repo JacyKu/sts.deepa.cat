@@ -386,6 +386,12 @@ html [class*='tooltipText'] {
     backdrop-filter: blur(16px);
 }
 
+/* react-select dropdown menus (portaled or not) get the same frosted look
+   as the app's other menu surfaces, site-wide. */
+html [class$='-menu'] {
+    backdrop-filter: blur(16px);
+}
+
 /* The dim layers behind dialogs/modals frost the page they cover, so the
    content doesn't fight the dialog text. Dropdown menus don't need this:
    blurring just the panel itself is enough, without frosting the whole
@@ -816,7 +822,8 @@ button:disabled {
    semantic controls - favourite hearts, delete/remove, colour pickers -
    keep their own colours. Plain text links have no border, so they are
    unaffected. */
-html :is(
+html
+    :is(
         a,
         button,
         input[type='button'],
@@ -830,14 +837,15 @@ html :is(
         input[type='url'],
         select,
         textarea
-    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not([class*='resetButton']):not([class*='favBtn']):not(
-        [class*='favourite']
-    ):not([class*='iconBtn']):not([class*='delete']):not([class*='Remove']):not([class*='remove']):not(
-        [class*='Clear']
-    ):not([class*='clear']):not([class*='colourChip']):not([class*='themeCard']):not([class*='danger']):not(
-        [class*='negative']
-    ):not([class*='logout']):not([class*='unlink']):hover,
-    html :is(
+    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not(
+        [class*='resetButton']
+    ):not([class*='favBtn']):not([class*='favourite']):not([class*='iconBtn']):not([class*='delete']):not(
+        [class*='Remove']
+    ):not([class*='remove']):not([class*='Clear']):not([class*='clear']):not([class*='colourChip']):not(
+        [class*='themeCard']
+    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):hover,
+html
+    :is(
         a,
         button,
         input[type='button'],
@@ -851,13 +859,13 @@ html :is(
         input[type='url'],
         select,
         textarea
-    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not([class*='resetButton']):not([class*='favBtn']):not(
-        [class*='favourite']
-    ):not([class*='iconBtn']):not([class*='delete']):not([class*='Remove']):not([class*='remove']):not(
-        [class*='Clear']
-    ):not([class*='clear']):not([class*='colourChip']):not([class*='themeCard']):not([class*='danger']):not(
-        [class*='negative']
-    ):not([class*='logout']):not([class*='unlink']):focus {
+    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not(
+        [class*='resetButton']
+    ):not([class*='favBtn']):not([class*='favourite']):not([class*='iconBtn']):not([class*='delete']):not(
+        [class*='Remove']
+    ):not([class*='remove']):not([class*='Clear']):not([class*='clear']):not([class*='colourChip']):not(
+        [class*='themeCard']
+    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):focus {
     border-color: var(--accent-line, var(--control-border-hover)) !important;
 }
 

@@ -220,6 +220,8 @@
     overflow-y: auto;
     background: var(--glass-1);
     border: 2px solid var(--glass-border);
+    /* Same frosted look as every other dropdown surface. */
+    backdrop-filter: blur(16px);
     z-index: 10;
 }
 
