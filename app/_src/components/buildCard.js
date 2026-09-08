@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import TranslatableText from './translatableText';
 import styles from '../styles/Database.module.css';
+import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
@@ -19,7 +20,11 @@ function collectSpriteClassNames() {
     try {
         for (const sheet of document.styleSheets) {
             let rules;
-            try { rules = sheet.cssRules; } catch (e) { continue; }
+            try {
+                rules = sheet.cssRules;
+            } catch (e) {
+                continue;
+            }
             if (!rules) continue;
             for (const rule of rules) {
                 const text = rule && rule.selectorText;
@@ -749,9 +754,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                     {avatar && <img className={styles.avatar} src={avatar} alt="" width={18} height={18} />}
                     {build.authorName || <TranslatableText identifier="database.anonymous" />}
                 </span>
-                <span className={styles.date}>
-                    {new Date((build.updatedAt || build.createdAt) + 'Z').toLocaleDateString()}
-                </span>
+                <span className={styles.date}>{formatDateString(build.updatedAt || build.createdAt)}</span>
             </div>
 
             {children}

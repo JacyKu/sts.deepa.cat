@@ -6,6 +6,7 @@ import styles from '../styles/Account.module.css';
 import { FONT_ORDER, FONT_LABELS, FONT_STACKS } from './header';
 import BuilderLayoutToggle from './builderLayoutToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
+import DateFormatToggle from './dateFormatToggle';
 import {
     applyThemeState,
     readThemeState,
@@ -685,6 +686,7 @@ export default function SettingsPage() {
                     <CacheSearchToggle className={styles.bareToggle} />
                     <CacheBuildsToggle className={styles.bareToggle} />
                     <CacheCustomItemsToggle className={styles.bareToggle} />
+                    <DateFormatToggle className={styles.bareToggle} />
                 </div>
             </section>
         </main>

@@ -9,6 +9,7 @@ import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
 import StatFormatter from '../../utils/items/statFormatter';
 import { isCustomItemsCacheEnabled, CUSTOM_ITEMS_CACHE_KEY, CUSTOM_ITEMS_DRAFT_KEY } from '../../utils/cachePrefs';
+import { formatDateString } from '../../utils/dateFormat';
 import { ITEM_TYPE_OPTIONS } from '../../utils/customItemTypes';
 
 // The custom-items list is personal, so its cache is scoped to the logged-in
@@ -975,7 +976,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                                 ? ` · ${Object.keys(item.stats || {}).length} stats`
                                                                 : ' · no stats'}
                                                             {item.createdAt
-                                                                ? ` · ${new Date(item.createdAt + 'Z').toLocaleDateString()}`
+                                                                ? ` · ${formatDateString(item.createdAt)}`
                                                                 : ''}
                                                         </span>
                                                     </span>
@@ -1024,9 +1025,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                         {entry.name}
                                                         {entry.updatedAt ? (
                                                             <span className={itemsStyles.setsMeta}>
-                                                                {new Date(
-                                                                    String(entry.updatedAt).replace(' ', 'T') + 'Z'
-                                                                ).toLocaleDateString()}
+                                                                {formatDateString(entry.updatedAt, { spaceToT: true })}
                                                             </span>
                                                         ) : (
                                                             ''
@@ -1130,9 +1129,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                         )}
                                         {item.authorName || 'You'}
                                     </span>
-                                    <span className={styles.date}>
-                                        {new Date(item.createdAt + 'Z').toLocaleDateString()}
-                                    </span>
+                                    <span className={styles.date}>{formatDateString(item.createdAt)}</span>
                                 </div>
                                 <div className={styles.itemActions}>
                                     <button type="button" className={styles.addBtn} onClick={() => startEdit(item)}>

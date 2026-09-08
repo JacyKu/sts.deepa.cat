@@ -10,6 +10,7 @@
 // callbacks below so the panel stays decoupled from the giant form.
 import React from 'react';
 import styles from '../../styles/Items.module.css';
+import { formatDateString } from '../../utils/dateFormat';
 
 const KIND_LABELS = {
     skills: 'Skill sets',
@@ -22,9 +23,7 @@ function humanClass(cl) {
 }
 
 function formatDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso.replace(' ', 'T') + 'Z');
-    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+    return formatDateString(iso, { spaceToT: true });
 }
 
 export default function SavedSetsPanel({
@@ -204,7 +203,7 @@ export default function SavedSetsPanel({
                             )}
                         </section>
 
-                        {(['skills', 'delve']).map((kind) => {
+                        {['skills', 'delve'].map((kind) => {
                             const list = kindGroups(kind);
                             return (
                                 <section key={kind} className={styles.setsGroup}>
@@ -215,9 +214,7 @@ export default function SavedSetsPanel({
                                             placeholder="Set name"
                                             maxLength={40}
                                             value={names[kind]}
-                                            onChange={(e) =>
-                                                setNames((prev) => ({ ...prev, [kind]: e.target.value }))
-                                            }
+                                            onChange={(e) => setNames((prev) => ({ ...prev, [kind]: e.target.value }))}
                                         />
                                         <button
                                             type="button"
@@ -279,9 +276,7 @@ export default function SavedSetsPanel({
                         })}
                     </div>
                     {feedback && (
-                        <p className={feedback.ok ? styles.setsFeedbackOk : styles.setsFeedbackErr}>
-                            {feedback.text}
-                        </p>
+                        <p className={feedback.ok ? styles.setsFeedbackOk : styles.setsFeedbackErr}>{feedback.text}</p>
                     )}
                 </>
             )}

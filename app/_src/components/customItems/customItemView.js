@@ -4,6 +4,7 @@ import React from 'react';
 import styles from '../../styles/CustomItems.module.css';
 import { getStsBase } from '../../utils/base';
 import StatFormatter from '../../utils/items/statFormatter';
+import { formatDateString } from '../../utils/dateFormat';
 
 function avatarSrc(item) {
     if (!item.authorAvatar) return null;
@@ -47,9 +48,13 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
         );
     }
 
-    // Same short date format as the build cards (buildCard.js uses
-    // toLocaleDateString() without options on a UTC timestamp).
-    const created = new Date(item.createdAt + 'Z').toLocaleDateString();
+    // Same short date format as the build cards. Rendered after mount so
+    // the user's date-format preference (stored in the browser) can apply
+    // without a hydration mismatch against the server's first paint.
+    const [created, setCreated] = React.useState('');
+    React.useEffect(() => {
+        setCreated(formatDateString(item.createdAt));
+    }, [item]);
 
     // Retry the name with a " (copy)" / " (copy 2)" suffix while the viewer
     // already owns an item with that name; anything else is a real failure.
