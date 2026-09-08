@@ -1,9 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mergeHistory } from './item-history.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
+const HISTORY_TARGET = path.join(__dirname, '..', 'public', 'items', 'item-history.json');
 const SKILLS_TARGET = path.join(__dirname, '..', 'public', 'items', 'skills.json');
 const MIN_ITEMS = 1000;
 
@@ -92,6 +94,31 @@ async function main() {
     if (dryRun) {
         console.log('\nDry run - not writing.');
         return;
+    }
+
+    // Archive every item whose data changed before overwriting: the old
+    // version moves into item-history.json instead of being lost forever.
+    let historyRaw = null;
+    try {
+        historyRaw = await fs.readFile(HISTORY_TARGET, 'utf8');
+    } catch (err) {
+        historyRaw = null; // first run - the archive file doesn't exist yet
+    }
+    const { raw: historyNext, summary } = mergeHistory(historyRaw, current, result.data);
+    if (historyNext) {
+        const tmpH = HISTORY_TARGET + '.tmp';
+        await fs.writeFile(tmpH, historyNext);
+        await fs.rename(tmpH, HISTORY_TARGET);
+        console.log(
+            `\nArchived stat history: ${summary.changed.length} changed, ${summary.removed.length} removed, ${summary.added.length} added`
+        );
+        for (const key of summary.changed.slice(0, 10)) console.log(`  changed: ${key}`);
+        if (summary.removed.length) {
+            for (const key of summary.removed.slice(0, 10)) console.log(`  removed: ${key}`);
+        }
+        if (summary.changed.length > 10) console.log(`  ... and ${summary.changed.length - 10} more`);
+    } else {
+        console.log('\nNo item stat changes detected - history left unchanged.');
     }
 
     const tmp = TARGET + '.tmp';

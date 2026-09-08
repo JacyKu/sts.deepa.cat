@@ -9,6 +9,8 @@ let skillsCache = null;
 let skillsCacheKey = null;
 let czCache = null;
 let czCacheKey = null;
+let historyCache = null;
+let historyCacheKey = null;
 
 async function readJson(segments) {
     const filePath = path.join(process.cwd(), 'public', ...segments);
@@ -138,4 +140,24 @@ export async function getCzData() {
     czCache = await readJson(['items', 'czAbilities.json']);
     czCacheKey = key;
     return czCache;
+}
+
+// Item stat change archive (public/items/item-history.json), written by
+// scripts/update-items.mjs whenever an item dump is imported. Returns null
+// when no archive has been recorded yet. Cached by file mtime like the rest.
+export async function getItemHistory() {
+    const historyPath = path.join(process.cwd(), 'public', 'items', 'item-history.json');
+    let stat;
+    try {
+        stat = await fs.stat(historyPath);
+    } catch (err) {
+        return null; // no history recorded yet
+    }
+    const key = stat.mtimeMs;
+
+    if (historyCache && historyCacheKey === key) return historyCache;
+
+    historyCache = await readJson(['items', 'item-history.json']);
+    historyCacheKey = key;
+    return historyCache;
 }

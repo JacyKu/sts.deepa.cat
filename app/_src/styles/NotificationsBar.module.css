@@ -35,6 +35,16 @@
     word-break: break-word;
 }
 
+.devLink {
+    color: var(--accent-line, var(--accent, #4a78fc));
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.devLink:hover {
+    filter: brightness(120%);
+}
+
 .dismiss {
     position: absolute;
     top: 50%;

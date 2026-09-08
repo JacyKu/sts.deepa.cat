@@ -203,4 +203,33 @@ class StatFormatter {
     }
 }
 
+// History page support: describe a single stat the same way formatStats
+// renders it, so change logs can diff one version against another.
+export function describeStat(name, rawValue) {
+    const format = inferFormat(name, rawValue);
+    return {
+        name,
+        rawValue,
+        format,
+        text: StatFormatter.toHumanReadable({ name, format }, rawValue),
+        style: StatFormatter.statStyle({ name, format }, rawValue),
+        rank: formatRank(format),
+    };
+}
+
+// Unwraps an item's stats object into a Map of stat name -> describeStat
+// (hides the same internal flags formatStats skips).
+export function statSnapshot(stats) {
+    const out = new Map();
+    if (!stats || typeof stats !== 'object') return out;
+    for (const name of Object.keys(stats)) {
+        if (HIDDEN_STATS.has(name)) continue;
+        let raw = stats[name];
+        if (raw !== undefined && raw !== null && typeof raw === 'object' && 'value' in raw) raw = raw.value;
+        if (raw === undefined) continue;
+        out.set(name, describeStat(name, raw));
+    }
+    return out;
+}
+
 export default StatFormatter;

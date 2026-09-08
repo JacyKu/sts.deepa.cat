@@ -318,6 +318,20 @@
     margin: 6px 0 10px;
 }
 
+.historyLinkRow {
+    margin: -4px 0 8px;
+}
+
+.historyLink {
+    font-size: 13px;
+    color: var(--accent-line, var(--accent, #4a78fc));
+    text-decoration: none;
+}
+
+.historyLink:hover {
+    text-decoration: underline;
+}
+
 .enchants {
     display: flex;
     flex-direction: column;

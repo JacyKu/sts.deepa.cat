@@ -10,6 +10,7 @@ import SearchForm from './items/searchForm';
 import React from 'react';
 import InfiniteScroll from './infiniteScroll';
 import TranslatableText from './translatableText';
+import Link from 'next/link';
 import { useHideSkins } from './items/hideSkinsContext';
 import skinNames from '../data/skins.json';
 import { groupMasterworkItems } from '../utils/itemList';
@@ -434,6 +435,11 @@ export default function ItemsPage({ itemData }) {
                     <TranslatableText identifier="items.searchForm.itemsFound"></TranslatableText>{' '}
                     {relevantItems.length}
                 </h4>
+                <div className={styles.historyLinkRow}>
+                    <Link href="/items/history" className={styles.historyLink}>
+                        View item stat change history
+                    </Link>
+                </div>
                 {relevantItems.length === 0 ? (
                     <div className={styles.emptyState}>
                         <b>No items found.</b>
