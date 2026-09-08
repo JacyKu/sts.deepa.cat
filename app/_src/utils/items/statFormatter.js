@@ -53,7 +53,10 @@ const PERCENT_BASE_STATS = new Set(['spell_power_base']);
 const PERCENT_BASE_LABELS = new Set(['Spell Power Base']);
 
 function attributeBaseName(name) {
-    return name.replace(/_percent$/, '').replace(/_flat$/, '').replace(/_base$/, '');
+    return name
+        .replace(/_percent$/, '')
+        .replace(/_flat$/, '')
+        .replace(/_base$/, '');
 }
 
 function inferFormat(name, value) {
@@ -73,12 +76,14 @@ function formatRank(format) {
         case Formats.ENCHANT:
         case Formats.SINGLE_ENCHANT:
             return 0;
-        case Formats.ATTRIBUTE:
+        case Formats.CURSE:
             return 1;
-        case Formats.BASE_STAT:
+        case Formats.ATTRIBUTE:
             return 2;
+        case Formats.BASE_STAT:
+            return 3;
         default:
-            return 3; // curses
+            return 4;
     }
 }
 
@@ -181,8 +186,9 @@ class StatFormatter {
             entries.push({ name, rawValue, format: inferFormat(name, rawValue) });
         }
 
-        // Group by stat type (enchants, attributes, base stats, curses),
-        // then alphabetically within each group.
+        // Group by stat type (enchants, curses, attributes, base stats),
+        // then alphabetically within each group. Curses sit right below the
+        // enchants and above the attribute/base lines.
         entries.sort((a, b) => {
             const rankDiff = formatRank(a.format) - formatRank(b.format);
             if (rankDiff !== 0) return rankDiff;
