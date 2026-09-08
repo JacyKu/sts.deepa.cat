@@ -397,9 +397,12 @@
     transform: translateY(1px);
 }
 
-.iconBtn:hover {
-    color: var(--text-1);
-    border-color: #fc5454;
+.copyDone {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    color: var(--text-2);
 }
 
 /* Saved items ---------------------------------------------------------- */
@@ -418,6 +421,41 @@
     gap: 10px;
     width: 100%;
     max-width: 760px;
+}
+
+/* Custom item tiles on the database page. The tile grid gets the same
+   clearance below the filter form as the builds database grid; the View
+   chip overlays each tile (inside its bounds) so the card stays intact. */
+.dbTiles {
+    margin-top: 28px;
+}
+
+.dbTileWrap {
+    position: relative;
+    margin: 4px;
+    /* Behave like the items page grid: rows stretch so every card in a row
+       is the same height. Making the wrap a flex row lets the inner tile
+       stretch to the wrap's full height too (the wrap height matches the
+       tallest tile of the row, so chips stay anchored inside each tile). */
+    display: flex;
+}
+
+/* The whole card is the link: it behaves like a card the tile components
+   already animate on hover (their own CSS), the wrapper adds the pointer and
+   a focus ring for keyboard use. Inner anchors (the tile's wiki name link)
+   are click-through so a card click always opens the item's share view. */
+.dbTileWrap {
+    cursor: pointer;
+    outline: none;
+}
+
+.dbTileWrap:focus-visible {
+    outline: 2px solid var(--control-border-focus);
+    outline-offset: 2px;
+}
+
+.dbTileWrap :global(a) {
+    pointer-events: none;
 }
 
 /* Card format mirrors the public build database cards (Database.module.css):

@@ -29,6 +29,8 @@ export async function POST(request) {
     const type = typeof body.type === 'string' && body.type.length <= 32 ? body.type : 'Miscellaneous';
     const textureName =
         typeof body.textureName === 'string' && body.textureName.length <= 128 ? body.textureName : null;
+    const baseItem =
+        typeof body.baseItem === 'string' && body.baseItem.trim().length <= 64 ? body.baseItem.trim() : null;
 
     const stats = {};
     if (body.stats && typeof body.stats === 'object') {
@@ -51,6 +53,7 @@ export async function POST(request) {
         textureToken,
         textureName,
         stats,
+        baseItem,
         authorName: user.globalName || user.username || null,
         authorAvatar: user.avatar || null,
     });

@@ -2,16 +2,14 @@ import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../../lib/session';
 import { getCustomItem, deleteCustomItem, updateCustomItem, hasCustomItemName } from '../../../../../lib/sts-builds';
 
-// Custom items are private to their creator: the item is only ever served to
-// the owner (404 for everyone else, so the link reveals nothing).
+// Custom items are shareable: anyone with the item's link can view it (read
+// only - editing/deleting stays with the owner, and copying is done through
+// the authenticated list route, which stamps the copy with the viewer's own
+// account). 404 only when the item does not exist.
 export async function GET(_request, { params }) {
-    const user = await getDiscordUser();
-    if (!user) {
-        return NextResponse.json({ error: 'not found' }, { status: 404 });
-    }
     const { id } = await params;
     const item = getCustomItem(id);
-    if (!item || item.userId !== user.id) {
+    if (!item) {
         return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
     return NextResponse.json({ item });
@@ -61,6 +59,10 @@ export async function PATCH(request, { params }) {
     if (body && body.textureName !== undefined) {
         update.textureName =
             typeof body.textureName === 'string' && body.textureName.length <= 128 ? body.textureName : null;
+    }
+    if (body && body.baseItem !== undefined) {
+        update.baseItem =
+            typeof body.baseItem === 'string' && body.baseItem.trim().length <= 64 ? body.baseItem.trim() : null;
     }
     if (body && body.stats !== undefined) {
         const stats = {};

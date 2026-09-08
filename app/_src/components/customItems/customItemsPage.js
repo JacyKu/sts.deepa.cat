@@ -9,6 +9,7 @@ import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
 import StatFormatter from '../../utils/items/statFormatter';
 import { isCustomItemsCacheEnabled, CUSTOM_ITEMS_CACHE_KEY, CUSTOM_ITEMS_DRAFT_KEY } from '../../utils/cachePrefs';
+import { ITEM_TYPE_OPTIONS } from '../../utils/customItemTypes';
 
 // The custom-items list is personal, so its cache is scoped to the logged-in
 // user (a later login as someone else never sees the previous account's
@@ -108,22 +109,6 @@ const selectStyles = {
     indicatorsContainer: (base) => ({ ...base, height: 42 }),
 };
 
-const ITEM_TYPES = [
-    'Offhand',
-    'Mainhand',
-    'Helmet',
-    'Chestplate',
-    'Leggings',
-    'Boots',
-    'Bow',
-    'Crossbow',
-    'Wand',
-    'Trinket',
-    'Charm',
-    'Consumable',
-    'Miscellaneous',
-];
-
 function humanizeStat(stat) {
     return stat
         .split('_')
@@ -156,7 +141,7 @@ function avatarSrc(item) {
     return `https://cdn.discordapp.com/avatars/${item.userId}/${item.authorAvatar}.png?size=32`;
 }
 
-export default function CustomItemsPage({ statCategories }) {
+export default function CustomItemsPage({ statCategories, baseItemOptions = [] }) {
     const session = useSessionState();
     const user = session.user;
     const authChecked = session.checked;
@@ -185,6 +170,7 @@ export default function CustomItemsPage({ statCategories }) {
 
     const [name, setName] = React.useState('');
     const [type, setType] = React.useState('Offhand');
+    const [baseItem, setBaseItem] = React.useState('');
     const [textureQuery, setTextureQuery] = React.useState('');
     const [textureToken, setTextureToken] = React.useState(null);
     const [textureName, setTextureName] = React.useState('');
@@ -212,6 +198,7 @@ export default function CustomItemsPage({ statCategories }) {
         setEditingId(draft.editingId || null);
         setName(draft.name || '');
         setType(draft.type || 'Offhand');
+        setBaseItem(draft.baseItem || '');
         setTextureQuery(draft.textureQuery || '');
         setTextureToken(draft.textureToken || null);
         setTextureName(draft.textureName || '');
@@ -249,6 +236,7 @@ export default function CustomItemsPage({ statCategories }) {
                 editingId,
                 name,
                 type,
+                baseItem,
                 textureQuery,
                 textureToken,
                 textureName,
@@ -257,7 +245,7 @@ export default function CustomItemsPage({ statCategories }) {
         } else {
             clearCustomItemsDraft(userId);
         }
-    }, [authChecked, user, editingId, name, type, textureQuery, textureToken, textureName, statRows]);
+    }, [authChecked, user, editingId, name, type, baseItem, textureQuery, textureToken, textureName, statRows]);
 
     React.useEffect(() => {
         loadItemSpriteMap().then(setSpriteMap);
@@ -296,7 +284,10 @@ export default function CustomItemsPage({ statCategories }) {
         };
     }, [authChecked, user, base]);
 
-    const typeOptions = React.useMemo(() => ITEM_TYPES.map((option) => ({ value: option, label: option })), []);
+    // Type = the item family, mirroring the items page's "Item Type" filter
+    // options exactly. The stored value is the real item type string, so the
+    // builder treats the custom item like the real item of that type.
+    const typeOptions = React.useMemo(() => ITEM_TYPE_OPTIONS, []);
     const statOptions = React.useMemo(
         () =>
             statCategories.map((category) => ({
@@ -407,6 +398,7 @@ export default function CustomItemsPage({ statCategories }) {
     function startEdit(item) {
         setName(item.name);
         setType(item.type);
+        setBaseItem(item.baseItem || '');
         setTextureQuery(item.textureName || item.name);
         setTextureToken(item.textureToken);
         setTextureName(item.textureName || '');
@@ -424,6 +416,7 @@ export default function CustomItemsPage({ statCategories }) {
         setEditingId(null);
         setName('');
         setType('Offhand');
+        setBaseItem('');
         setTextureQuery('');
         setTextureToken(null);
         setTextureName('');
@@ -478,7 +471,14 @@ export default function CustomItemsPage({ statCategories }) {
         fetch(`${base}/api/v1/custom-items${editingId ? '/' + editingId : ''}`, {
             method: editingId ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name.trim(), type, textureToken, textureName, stats }),
+            body: JSON.stringify({
+                name: name.trim(),
+                type,
+                textureToken,
+                textureName,
+                stats,
+                baseItem: baseItem || null,
+            }),
         })
             .then((response) => {
                 if (response.ok) return response.json();
@@ -712,9 +712,34 @@ export default function CustomItemsPage({ statCategories }) {
                             instanceId="custom-item-type"
                             name="custom-item-type"
                             options={typeOptions}
-                            value={typeOptions.find((option) => option.value === type)}
+                            value={
+                                type
+                                    ? typeOptions
+                                          .flatMap((group) => group.options)
+                                          .find((option) => option.value === type) || { value: type, label: type }
+                                    : null
+                            }
                             onChange={(option) => setType(option ? option.value : 'Offhand')}
-                            isSearchable={false}
+                            isOptionDisabled={(option) => Boolean(option && option.isDisabled)}
+                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                            menuPosition="fixed"
+                            theme={selectTheme}
+                            styles={selectStyles}
+                        />
+                    </label>
+
+                    <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Base item (vanilla)</span>
+                        <Select
+                            instanceId="custom-item-base-item"
+                            name="custom-item-base-item"
+                            options={baseItemOptions}
+                            value={
+                                baseItem ? baseItemOptions.find((option) => option.value === baseItem) || null : null
+                            }
+                            onChange={(option) => setBaseItem(option ? option.value : '')}
+                            isClearable
+                            placeholder="e.g. Wooden Axe, Netherite Sword"
                             menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                             menuPosition="fixed"
                             theme={selectTheme}

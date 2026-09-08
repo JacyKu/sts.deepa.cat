@@ -177,7 +177,7 @@ function ItemTile(data) {
             </span>
             <span className={styles.infoText}>
                 <TranslatableText identifier={`items.type.${getItemType(item)}`}></TranslatableText>
-                {` - ${item['base_item']} `}
+                {item['base_item'] ? ` - ${item['base_item']} ` : ''}
             </span>
             {item['original_item'] ? (
                 <span className={styles.infoText}>{`Skin for ${item['original_item']} `}</span>

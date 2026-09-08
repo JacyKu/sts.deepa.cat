@@ -6,6 +6,7 @@ import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
 import DatabaseSkeleton from './databaseSkeleton';
 import InfiniteScroll from './infiniteScroll';
+import DatabaseTabs from './databaseTabs';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
 import sf from '../styles/SearchForm.module.css';
@@ -185,26 +186,30 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         } catch (e) {}
     }
 
-    const toggleCompare = React.useCallback((build) => {
-        const url = build.url;
-        const current = comparePicks.some((p) => p.url === url);
-        let next = comparePicks.filter((p) => p.url !== url);
-        if (!current) {
-            const display = build.name || [build.class, build.spec].filter(Boolean).join(' · ') || `Build ${build.id}`;
-            next = [...next, { url, id: build.id, name: display }];
-        }
-        persistCompare(next);
-        if (next.length === 2) {
-            // Both sides picked: go compare. Clear the dock so the next pair
-            // starts fresh.
-            const qs = new URLSearchParams({
-                left: next[0].url,
-                right: next[1].url,
-            });
-            persistCompare([]);
-            router.push('/compare?' + qs.toString());
-        }
-    }, [comparePicks, router]);
+    const toggleCompare = React.useCallback(
+        (build) => {
+            const url = build.url;
+            const current = comparePicks.some((p) => p.url === url);
+            let next = comparePicks.filter((p) => p.url !== url);
+            if (!current) {
+                const display =
+                    build.name || [build.class, build.spec].filter(Boolean).join(' · ') || `Build ${build.id}`;
+                next = [...next, { url, id: build.id, name: display }];
+            }
+            persistCompare(next);
+            if (next.length === 2) {
+                // Both sides picked: go compare. Clear the dock so the next pair
+                // starts fresh.
+                const qs = new URLSearchParams({
+                    left: next[0].url,
+                    right: next[1].url,
+                });
+                persistCompare([]);
+                router.push('/compare?' + qs.toString());
+            }
+        },
+        [comparePicks, router]
+    );
 
     function goCompareSingle() {
         if (comparePicks.length === 0) return;
@@ -228,6 +233,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
             <h1 className={styles.title}>
                 <TranslatableText identifier="database.title" />
             </h1>
+            <DatabaseTabs active="builds" />
 
             {rows.length > 0 && (
                 <div className={styles.rows}>

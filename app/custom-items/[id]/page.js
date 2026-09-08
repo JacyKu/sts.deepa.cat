@@ -30,8 +30,8 @@ export default function Page({ params }) {
 async function CustomItemView({ params }) {
     const { id } = await params;
     const [item, user] = await Promise.all([getCustomItem(id), getDiscordUser()]);
-    // Custom items are private to their creator: only the owner gets the
-    // item data. Everyone else sees the plain "not found" state.
+    // Share links are public: anyone with the link sees the item. Only the
+    // owner can manage it, and only logged-in visitors can copy it.
     const isOwner = Boolean(user && item && item.userId === user.id);
-    return <CustomItemPage item={isOwner ? item : null} isOwner={isOwner} />;
+    return <CustomItemPage item={item} isOwner={isOwner} loggedIn={Boolean(user)} />;
 }
