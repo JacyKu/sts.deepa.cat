@@ -246,6 +246,9 @@ const enabledBoxes = {
     retaliation_elite: false,
     retaliation_boss: false,
 
+    // Class-ability situationals (Warrior Frenzy's on-kill buff).
+    frenzy: false,
+
     // Delve infusion situationals: the infusion's stat effect only counts
     // while its checkbox is ticked (matches the infusion's in-game condition).
     vengeful: false,
@@ -330,6 +333,7 @@ const skillBuffKeys = {
     Celestial: 'celestial_blessing',
     WeaponMastery: 'weapon_mastery',
     Toughness: 'toughness',
+    Frenzy: 'frenzy',
 };
 
 // Spec skill scoreboardIds that feed the stat calculation.
@@ -361,6 +365,10 @@ const enabledClassAbilityBuffs = {
     toughness_lv1: false,
     toughness_lv2: false,
     toughness_enhancement: false,
+    frenzy: false,
+    frenzy_lv1: false,
+    frenzy_lv2: false,
+    frenzy_lv3: false,
 };
 
 function groupMasterwork(items, itemData) {
@@ -520,11 +528,14 @@ function formatSituationalName(situ) {
     return ret;
 }
 
-function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions) {
+function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, classAbilityContext) {
     let tempDef = [];
     let tempFlatDmg = [];
     let tempPercentDmg = [];
     let tempInfusions = [];
+    // Class-ability conditional toggles (e.g. Warrior's Frenzy): visible while
+    // the ability has points, ticked to count its triggered effect.
+    let tempClass = [];
 
     situationalDefenses.forEach(function (situ) {
         if (!itemsToDisplay.situationals) return;
@@ -607,6 +618,27 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
             );
         });
     }
+    // Warrior Frenzy: on-kill attack-speed buff. Only counts while the box is
+    // ticked (its magnitude depends on the Frenzy skill level).
+    if (classAbilityContext && classAbilityContext.frenzyLevel > 0) {
+        tempClass.push(
+            <div className="col-auto" key={'classabilitybox-frenzy'}>
+                <CheckboxWithLabel
+                    name={
+                        classAbilityContext.frenzyLevel >= 3
+                            ? 'Frenzy (Lv 3)'
+                            : classAbilityContext.frenzyLevel === 2
+                              ? 'Frenzy (Lv 2)'
+                              : 'Frenzy'
+                    }
+                    enchantName="frenzy"
+                    checked={enabledBoxes.frenzy}
+                    onChange={checkboxChanged}
+                />
+            </div>
+        );
+    }
+
     /* if(itemsToDisplay.meleeDamagePercent > 100 || itemsToDisplay.projectileDamagePercent > 100){
         tempPercentDmg.push(<CheckboxWithLabel key={"situationalbox-versatile"} name="Versatile" checked={false} onChange={checkboxChanged} />)
     } */
@@ -628,6 +660,11 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         // spacer between enchantment situationals and infusion situationals if both exist
     }
     temp.push(...tempInfusions);
+    if (temp.length > 0 && tempClass.length > 0) {
+        temp.push(<span key="spacer-class" style={{ width: '10px', padding: '0px' }}></span>);
+        // spacer between infusion situationals and class-ability situationals if both exist
+    }
+    temp.push(...tempClass);
     if (temp.length == 0) {
         temp.push(
             <div className="col-auto" key="builder.info.noSituationals">
@@ -1497,6 +1534,7 @@ export default function BuildForm({
             enabledClassAbilityBuffs[buffKey] = pts >= 1;
             enabledClassAbilityBuffs[`${buffKey}_lv1`] = pts >= 1;
             enabledClassAbilityBuffs[`${buffKey}_lv2`] = pts >= 2;
+            enabledClassAbilityBuffs[`${buffKey}_lv3`] = pts >= 3;
         }
         for (const [id, pts] of Object.entries(nextSpecPoints)) {
             const buffKey = specSkillBuffKeys[id];
@@ -3135,7 +3173,9 @@ export default function BuildForm({
                     identifier="builder.misc.situationals"
                     className="text-center mb-1"
                 ></TranslatableText>
-                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions)}
+                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, {
+                    frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
+                })}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
                 <div className="text-center mx-2">

@@ -203,6 +203,16 @@ class Stats {
             this.classProjectileDamagePercent.add(bonus);
             this.classMagicDamagePercent.add(bonus);
         }
+        // Frenzy (Warrior): on-kill buff, counted only while its situational
+        // toggle is ticked. +30% attack speed (lv1), +40% attack speed and
+        // +20% movement speed (lv2), plus +20% melee on the next attack (lv3).
+        if (this.enabledBoxes.frenzy && this.enabledClassAbilityBuffs.frenzy) {
+            const lv3 = this.enabledClassAbilityBuffs.frenzy_lv3;
+            const lv2 = lv3 || this.enabledClassAbilityBuffs.frenzy_lv2;
+            this.attackSpeedPercent.add(lv2 ? 40 : 30);
+            if (lv2) this.speedPercent.add(20);
+            if (lv3) this.classAttackDamagePercent.add(20);
+        }
         // Melee Stats
 
         // base damage
