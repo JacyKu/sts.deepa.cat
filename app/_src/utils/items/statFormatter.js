@@ -163,7 +163,7 @@ class StatFormatter {
         }
     }
 
-    static formatStats(stats) {
+    static formatStats(stats, statColors) {
         if (stats == undefined) {
             return '';
         }
@@ -195,22 +195,33 @@ class StatFormatter {
             return a.name.localeCompare(b.name);
         });
 
-        return entries.map(({ name, rawValue, format }) => (
-            <TranslatableEnchant key={name} title={name} className={styles[this.statStyle({ name, format }, rawValue)]}>
-                {this.toHumanReadable({ name, format }, rawValue)}
-            </TranslatableEnchant>
-        ));
+        return entries.map(({ name, rawValue, format }) => {
+            // The Monumenta API provides the exact color of each stat line;
+            // it overrides the convention-based class when present.
+            const color = statColors && statColors[name];
+            return (
+                <TranslatableEnchant
+                    key={name}
+                    title={name}
+                    className={styles[this.statStyle({ name, format }, rawValue)]}
+                    style={color ? { color } : undefined}
+                >
+                    {this.toHumanReadable({ name, format }, rawValue)}
+                </TranslatableEnchant>
+            );
+        });
     }
 }
 
 // History page support: describe a single stat the same way formatStats
 // renders it, so change logs can diff one version against another.
-export function describeStat(name, rawValue) {
+export function describeStat(name, rawValue, color) {
     const format = inferFormat(name, rawValue);
     return {
         name,
         rawValue,
         format,
+        color: color || null,
         text: StatFormatter.toHumanReadable({ name, format }, rawValue),
         style: StatFormatter.statStyle({ name, format }, rawValue),
         rank: formatRank(format),
@@ -219,7 +230,7 @@ export function describeStat(name, rawValue) {
 
 // Unwraps an item's stats object into a Map of stat name -> describeStat
 // (hides the same internal flags formatStats skips).
-export function statSnapshot(stats) {
+export function statSnapshot(stats, statColors) {
     const out = new Map();
     if (!stats || typeof stats !== 'object') return out;
     for (const name of Object.keys(stats)) {
@@ -227,7 +238,7 @@ export function statSnapshot(stats) {
         let raw = stats[name];
         if (raw !== undefined && raw !== null && typeof raw === 'object' && 'value' in raw) raw = raw.value;
         if (raw === undefined) continue;
-        out.set(name, describeStat(name, raw));
+        out.set(name, describeStat(name, raw, statColors && statColors[name]));
     }
     return out;
 }

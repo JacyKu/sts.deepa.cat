@@ -43,6 +43,18 @@ export function deepEqualStable(a, b) {
     return JSON.stringify(sortify(a)) === JSON.stringify(sortify(b));
 }
 
+// Fields that don't represent a gameplay change: statColors is display-only
+// metadata attached at import time, nbt is stripped before writing. Ignoring
+// them keeps color-only updates out of the archive.
+const IGNORED_COMPARE_FIELDS = ['statColors', 'nbt'];
+
+function withoutIgnored(item) {
+    if (!item || typeof item !== 'object') return item;
+    const copy = { ...item };
+    for (const field of IGNORED_COMPARE_FIELDS) delete copy[field];
+    return copy;
+}
+
 function loadHistory(raw) {
     if (!raw) return { updatedAt: null, runs: [], items: {} };
     try {
@@ -75,7 +87,7 @@ export function mergeHistory(historyRaw, currentItems, nextItems, now = new Date
             removed.push(key);
             continue;
         }
-        if (!deepEqualStable(currentItems[key], nextItems[key])) {
+        if (!deepEqualStable(withoutIgnored(currentItems[key]), withoutIgnored(nextItems[key]))) {
             changed.push(key);
         }
     }

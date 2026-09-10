@@ -85,13 +85,24 @@ class CharmFormatter {
         };
     }
 
-    static formatCharm(charm) {
+    // Exact per-stat color from the Monumenta API (items.json statColors);
+    // null when unavailable so the class-based fallback applies.
+    static statColor(stat, statColors) {
+        return (statColors && statColors[stat]) || null;
+    }
+
+    static formatCharm(charm, statColors) {
         let formattedStats = [];
 
         for (const stat in charm) {
             if (charm[stat]) {
+                const color = this.statColor(stat, statColors);
                 formattedStats.push(
-                    <span className={styles[this.statStyle(stat, charm[stat])]} key={stat}>
+                    <span
+                        className={styles[this.statStyle(stat, charm[stat])]}
+                        style={color ? { color } : undefined}
+                        key={stat}
+                    >
                         {this.toHumanReadable(stat, charm[stat])}
                     </span>
                 );

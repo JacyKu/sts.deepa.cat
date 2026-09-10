@@ -6,7 +6,7 @@ import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/History.module.css';
 import TranslatableEnchant from '../translatableEnchant';
 import { formatDateString } from '../../utils/dateFormat';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { statSnapshot } from '../../utils/items/statFormatter';
 
@@ -57,7 +57,7 @@ function HistoryIcon({ item }) {
     }, []);
 
     React.useEffect(() => {
-        if (item.textureToken) {
+        if (item.textureToken && (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken))) {
             setBaseClass('monumenta-items');
             setCssClass(`monumenta-${item.textureToken}`);
             return;
@@ -102,8 +102,8 @@ function valueKey(value) {
 }
 
 function diffStats(beforeItem, afterItem) {
-    const beforeSnap = statSnapshot(beforeItem && beforeItem.stats);
-    const afterSnap = statSnapshot(afterItem && afterItem.stats);
+    const beforeSnap = statSnapshot(beforeItem && beforeItem.stats, beforeItem && beforeItem.statColors);
+    const afterSnap = statSnapshot(afterItem && afterItem.stats, afterItem && afterItem.statColors);
     const names = [...new Set([...beforeSnap.keys(), ...afterSnap.keys()])];
     const lines = [];
     for (const name of names) {
@@ -153,7 +153,11 @@ function DiffLine({ line }) {
         return (
             <div className={styles.diffLine}>
                 <span className={`${styles.kindDot} ${styles.addedDot}`} aria-hidden="true"></span>
-                <TranslatableEnchant title={line.name} className={itemsStyles[line.fresh.style]}>
+                <TranslatableEnchant
+                    title={line.name}
+                    className={itemsStyles[line.fresh.style]}
+                    style={line.fresh.color ? { color: line.fresh.color } : undefined}
+                >
                     {line.fresh.text}
                 </TranslatableEnchant>
             </div>
@@ -163,7 +167,12 @@ function DiffLine({ line }) {
         return (
             <div className={styles.diffLine}>
                 <span className={`${styles.kindDot} ${styles.removedDot}`} aria-hidden="true"></span>
-                <s className={`${itemsStyles[line.old.style]} ${styles.removedText}`}>{line.old.text}</s>
+                <s
+                    className={`${itemsStyles[line.old.style]} ${styles.removedText}`}
+                    style={line.old.color ? { color: line.old.color } : undefined}
+                >
+                    {line.old.text}
+                </s>
             </div>
         );
     }
@@ -178,12 +187,21 @@ function DiffLine({ line }) {
                     aria-hidden="true"
                 ></span>
                 <span className={styles.oldText}>
-                    <TranslatableEnchant title={line.name}>{line.old.text}</TranslatableEnchant>
+                    <TranslatableEnchant
+                        title={line.name}
+                        style={line.old.color ? { color: line.old.color } : undefined}
+                    >
+                        {line.old.text}
+                    </TranslatableEnchant>
                 </span>
                 <span className={styles.arrow} aria-hidden="true">
                     →
                 </span>
-                <TranslatableEnchant title={line.name} className={itemsStyles[line.fresh.style]}>
+                <TranslatableEnchant
+                    title={line.name}
+                    className={itemsStyles[line.fresh.style]}
+                    style={line.fresh.color ? { color: line.fresh.color } : undefined}
+                >
                     {line.fresh.text}
                 </TranslatableEnchant>
                 {Number.isFinite(line.delta) && line.delta !== 0 && (

@@ -415,7 +415,7 @@
 }
 
 .baseStats {
-    color: #00a800;
+    color: #00AA00;
 }
 
 .positiveDefence {
@@ -466,7 +466,7 @@
 
 .curses,
 .negativeStat {
-    color: #fc5454;
+    color: #FF5555;
 }
 
 .enchantTooltip {

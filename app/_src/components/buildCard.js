@@ -433,7 +433,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                                     <span className={styles.previewStars}>{'★'.repeat(Number(item.pw) || 0)}</span>
                                     {detail.class_name ? ` - ${detail.class_name}` : ''}
                                 </div>
-                                {CharmFormatter.formatCharm(detail.stats)}
+                                {CharmFormatter.formatCharm(detail.stats, detail.statColors)}
                             </>
                         ) : (
                             <Enchants item={detail} />

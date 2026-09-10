@@ -83,7 +83,7 @@ function CharmTile(data) {
     const { enabled: buildListEnabled } = useBuildListEnabled();
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
 
-    let formattedCharm = CharmFormatter.formatCharm(item.stats);
+    let formattedCharm = CharmFormatter.formatCharm(item.stats, item.statColors);
 
     React.useEffect(() => {
         let active = true;

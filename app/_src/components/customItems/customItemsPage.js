@@ -4,7 +4,7 @@ import React from 'react';
 import Select from 'react-select';
 import styles from '../../styles/CustomItems.module.css';
 import itemsStyles from '../../styles/Items.module.css';
-import { loadItemSpriteMap } from '../../utils/items/spritesheetMap';
+import { loadItemSpriteMap, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
 import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
 import StatFormatter from '../../utils/items/statFormatter';
@@ -1112,9 +1112,15 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 </div>
                                 <div className={styles.cardBody}>
                                     <div className={styles.imageIcon}>
-                                        <div className={`monumenta-items monumenta-${item.textureToken}`}></div>
+                                        <div
+                                            className={
+                                                !spriteMap || isKnownSpriteToken(spriteMap, item.textureToken)
+                                                    ? `monumenta-items monumenta-${item.textureToken}`
+                                                    : 'monumenta-items'
+                                            }
+                                        ></div>
                                     </div>
-                                    <div className={styles.stats}>{StatFormatter.formatStats(item.stats)}</div>
+                                    <div className={styles.stats}>{StatFormatter.formatStats(item.stats, item.statColors)}</div>
                                 </div>
                                 <div className={styles.cardBottom}>
                                     <span className={styles.author} title={item.authorName || 'You'}>

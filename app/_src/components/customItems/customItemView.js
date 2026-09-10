@@ -5,6 +5,32 @@ import styles from '../../styles/CustomItems.module.css';
 import { getStsBase } from '../../utils/base';
 import StatFormatter from '../../utils/items/statFormatter';
 import { formatDateString } from '../../utils/dateFormat';
+import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
+
+// Custom items store a spritesheet token; if a later spritesheet import
+// dropped it, fall back to the item's name mapping / base texture so the
+// card never renders a wrong sheet cell.
+function useIconClass(item) {
+    const [spriteMap, setSpriteMap] = React.useState(null);
+    React.useEffect(() => {
+        let active = true;
+        loadItemSpriteMap().then((map) => {
+            if (active) setSpriteMap(map);
+        });
+        return () => {
+            active = false;
+        };
+    }, []);
+    if (!item.textureToken) return { base: 'monumenta-items', icon: null };
+    if (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken)) {
+        return { base: 'monumenta-items', icon: `monumenta-${item.textureToken}` };
+    }
+    const mapped = getMappedSpriteClass(spriteMap, item.name);
+    if (mapped) return { base: 'monumenta-items', icon: mapped };
+    if (item.baseItem) return { base: 'minecraft', icon: `minecraft-${getMinecraftTextureKey(item.baseItem)}` };
+    return { base: 'monumenta-items', icon: null };
+}
 
 function avatarSrc(item) {
     if (!item.authorAvatar) return null;
@@ -26,6 +52,7 @@ function duplicateName(base, attempt) {
 // copy with the viewer's account.
 export default function CustomItemView({ item, isOwner, loggedIn }) {
     const [base, setBase] = React.useState('/sts');
+    const icon = useIconClass(item);
     React.useEffect(() => {
         setBase(getStsBase());
     }, []);
@@ -119,9 +146,9 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                     </div>
                     <div className={styles.cardBody}>
                         <div className={styles.imageIcon}>
-                            <div className={`monumenta-items monumenta-${item.textureToken}`}></div>
+                            <div className={[icon.base, icon.icon].join(' ')}></div>
                         </div>
-                        <div className={styles.stats}>{StatFormatter.formatStats(item.stats)}</div>
+                        <div className={styles.stats}>{StatFormatter.formatStats(item.stats, item.statColors)}</div>
                     </div>
                     <div className={styles.cardBottom}>
                         <span className={styles.author} title={item.authorName || 'a player'}>

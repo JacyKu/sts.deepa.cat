@@ -16,7 +16,7 @@ import { getStsBase } from '../../utils/base';
 import Stats from '../../utils/builder/stats';
 import TranslatableText from '../translatableText';
 import ListSelector from './listSelector';
-import CharmSelector, { resolveCharmKey, computeCharmTotals } from './charmSelector';
+import CharmSelector, { resolveCharmKey, computeCharmTotals, computeCharmStatColors } from './charmSelector';
 import CharmFormatter from '../../utils/items/charmFormatter';
 import CharmShortener from '../../utils/builder/charmShortener';
 import { useItemFavourites } from '../items/itemFavouritesContext';
@@ -2924,6 +2924,10 @@ export default function BuildForm({
         () => computeCharmTotals(itemData, equippedCharmNames),
         [itemData, equippedCharmNames]
     );
+    const charmStatColors = React.useMemo(
+        () => computeCharmStatColors(itemData, equippedCharmNames),
+        [itemData, equippedCharmNames]
+    );
 
     const { newLayout } = useBuilderLayout();
     const isDesktop = useIsDesktop();
@@ -3145,11 +3149,13 @@ export default function BuildForm({
                         <>
                             {Object.entries(charmTotals).map(([stat, obj]) => {
                                 const parts = CharmFormatter.charmStatParts(stat, obj);
+                                const color = CharmFormatter.statColor(stat, charmStatColors);
                                 return (
                                     <p key={stat} className={`${styles.statRow} mb-0 mt-1`}>
                                         <b>{parts.label}</b>
                                         <span
                                             className={`${styles.monoValue} ${styles[CharmFormatter.statStyle(stat, obj)]}`}
+                                            style={color ? { color } : undefined}
                                         >
                                             {parts.value}
                                         </span>

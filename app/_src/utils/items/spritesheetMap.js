@@ -40,6 +40,22 @@ export function getMappedSpriteClass(map, itemName) {
     return tiered.length > 0 ? `monumenta-${map[tiered[0]]}` : null;
 }
 
+// Custom items store a chosen texture token, but a later spritesheet import
+// can drop tokens (renamed items, changed normalization). Check the token
+// still exists before applying its class, so those items fall back to their
+// name/base texture instead of rendering a wrong sheet cell.
+let tokenSetCache = null;
+let tokenSetCacheMap = null;
+
+export function isKnownSpriteToken(map, token) {
+    if (!map || !token) return false;
+    if (tokenSetCacheMap !== map) {
+        tokenSetCache = new Set(Object.values(map));
+        tokenSetCacheMap = map;
+    }
+    return tokenSetCache.has(token);
+}
+
 function tierOf(name) {
     const m = /-(\d+)$/.exec(name);
     return m ? Number(m[1]) : 0;

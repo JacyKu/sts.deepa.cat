@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mergeHistory } from './item-history.mjs';
+import { extractStatColors } from './stat-colors.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
@@ -12,7 +13,9 @@ const MIN_ITEMS = 1000;
 const sources = [
     {
         name: 'Monumenta API',
-        url: 'https://api.playmonumenta.com/items',
+        // itemswithnbt is a superset of /items: same item fields plus the
+        // in-game NBT, whose lore carries the exact color of every stat line.
+        url: 'https://api.playmonumenta.com/itemswithnbt',
         headers: {},
     },
     {
@@ -84,6 +87,23 @@ async function main() {
             result.data[key].type = TYPE_OVERRIDES[name];
         }
     }
+
+    // Pull the exact per-stat display colors out of the NBT lore and drop the
+    // NBT itself (the site never consumes it). Items from sources without NBT
+    // simply get no statColors and render with the site's fallback palette.
+    let coloredItems = 0;
+    let coloredStats = 0;
+    for (const key of result.keys) {
+        const item = result.data[key];
+        const colors = extractStatColors(item);
+        if (colors) {
+            item.statColors = colors;
+            coloredItems++;
+            coloredStats += Object.keys(colors).length;
+        }
+        delete item.nbt;
+    }
+    console.log(`stat colors: ${coloredItems} items, ${coloredStats} stat lines`);
 
     const removed = currentCount - result.keys.length;
     console.log(

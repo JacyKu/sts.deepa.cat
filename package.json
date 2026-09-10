@@ -12,7 +12,12 @@
     "update:minecraft-sheet": "node scripts/update-minecraft-sheet.mjs",
     "embed:debug": "node scripts/embed-debug.mjs",
     "update:cz-data": "node scripts/update-cz-data.mjs",
-    "update:enchant-descriptions": "node scripts/update-enchant-descriptions.mjs"
+    "update:enchant-descriptions": "node scripts/update-enchant-descriptions.mjs",
+    "check:data": "node scripts/validate-data.mjs",
+    "update:data": "node scripts/update-items.mjs && node scripts/spritesheetmaker/import-mod-dump.js && node scripts/validate-data.mjs",
+    "deploy:data": "node scripts/deploy-data.mjs",
+    "deploy:data:dev": "node scripts/deploy-data.mjs --target dev",
+    "dump:deploy": "npm run update:data && npm run deploy:data"
   },
   "dependencies": {
     "@deepa/shared": "*",

@@ -11,7 +11,11 @@
 //
 // Run from apps/sts:
 //   node scripts/spritesheetmaker/import-mod-dump.js [dumpDir]
-// dumpDir defaults to the PrismLauncher instance config folder.
+// dumpDir is, in order of precedence: the CLI argument, the STS_DUMP_DIR
+// environment variable, or the devumenta PrismLauncher instance (the only
+// instance used for dumps - the old "deepaaaaar monumenta" one is ignored).
+// An import whose dump is older than the current spritesheets is refused
+// unless --force is passed (an explicit dumpDir only warns).
 //
 // Everything else (tiles, charm fallbacks, stylesheet loading) keeps working because
 // the generated artifacts match the contract the rest of the site consumes.
@@ -27,7 +31,7 @@ const DEFAULT_DUMP_DIR = path.join(
     process.env.APPDATA || '',
     'PrismLauncher',
     'instances',
-    'deepaaaaar monumenta',
+    'devumenta',
     'minecraft',
     'config',
     'sparethesympathy'
@@ -153,8 +157,190 @@ function measureContentMax(sheet, entry) {
     return maxContent;
 }
 
+// ---------------------------------------------------------------------------
+// Output validation. A wrong keyframe formula or a manifest/sheet mismatch
+// makes animated sprites drift sideways ("sliding") instead of stepping
+// through their frames - a silent visual bug that is easy to miss until
+// someone notices. Before anything is written, verify:
+//   1. every animated strip fits in its sheet and sits on the expected pitch
+//      (2px transparent gap columns between frames - checks x/pitch against
+//      the actual packed PNG),
+//   2. the emitted CSS animation walks exactly the strip's frame positions
+//      (uniform strips: span === frameCount * pitch; variable strips: every
+//      stop on the x + k*pitch grid),
+//   3. multi-row animated strips (cols > 1) are rejected: the CSS generator
+//      only walks horizontally, so wrapped strips would slide across rows.
+// Returns a list of human-readable problems; empty means everything is sane.
+function validateAnimations(manifest, sheets, stylesFile, hasAnimSheet) {
+    const errors = [];
+    const firstByToken = new Map();
+    for (const entry of manifest.entries) {
+        const token = tokenForName(entry.key);
+        if (!firstByToken.has(token)) firstByToken.set(token, entry);
+    }
+
+    for (const [token, entry] of firstByToken) {
+        const frameCount = Number(entry.frameCount) || 1;
+        if (frameCount < 2) continue;
+        const pitch = Number.isInteger(entry.pitch) && entry.pitch > 0 ? entry.pitch : SPRITE_SIZE + 2;
+        const sheet = sheets[entry.sheet === 'anim' ? 'anim' : 'main'];
+        if (!sheet) continue;
+        const label = `${entry.key} (${token})`;
+
+        if ((entry.cols || 1) > 1) {
+            errors.push(
+                `${label}: multi-row animated strip (cols=${entry.cols}) is not supported by the CSS generator`
+            );
+            continue;
+        }
+
+        // 1. strip bounds + gap alignment against the packed sheet
+        const stripEnd = entry.x + (frameCount - 1) * pitch + entry.width;
+        if (entry.x < 0 || entry.y < 0 || stripEnd > sheet.width || entry.y + entry.height > sheet.height) {
+            errors.push(`${label}: strip exceeds its sheet bounds`);
+            continue;
+        }
+        const gap = pitch - entry.width;
+        if (gap > 0) {
+            for (let frame = 0; frame < frameCount - 1; frame++) {
+                const gapX = entry.x + frame * pitch + entry.width;
+                let opaque = 0;
+                for (let y = entry.y; y < entry.y + entry.height; y++) {
+                    for (let x = gapX; x < gapX + gap; x++) {
+                        if (sheet.data[(y * sheet.width + x) * 4 + 3] > 0) opaque++;
+                    }
+                }
+                if (opaque > 0) {
+                    errors.push(
+                        `${label}: frame ${frame} does not end on the expected ${pitch}px pitch (${opaque} opaque pixels in the gap)`
+                    );
+                    break;
+                }
+            }
+        }
+        // first frame cell must actually contain artwork
+        let content = 0;
+        for (let y = entry.y; y < entry.y + entry.height && content === 0; y++) {
+            for (let x = entry.x; x < entry.x + entry.width; x++) {
+                if (sheet.data[(y * sheet.width + x) * 4 + 3] > 0) {
+                    content++;
+                    break;
+                }
+            }
+        }
+        if (content === 0) {
+            errors.push(`${label}: first frame cell is empty`);
+        }
+
+        // 2. emitted CSS animation geometry
+        const name = `sts-anim-${token}`;
+        const keyframes = new RegExp(
+            `@keyframes ${name}\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}`,
+            'g'
+        ).exec(stylesFile);
+        if (!keyframes) {
+            errors.push(`${label}: no @keyframes emitted`);
+            continue;
+        }
+        const positions = [...keyframes[1].matchAll(/background-position:\s*(-?\d+)px\s+(-?\d+)px/g)].map((m) => ({
+            x: Math.abs(Number(m[1])),
+            y: Math.abs(Number(m[2])),
+        }));
+        if (positions.length === 0) {
+            errors.push(`${label}: keyframes contain no positions`);
+            continue;
+        }
+        const expectedX = new Set();
+        for (let frame = 0; frame < frameCount; frame++) expectedX.add(entry.x + frame * pitch);
+        // Uniform strips animate with `steps(N, end)` from the strip start to
+        // x + N*pitch (the end target is intentionally one pitch past the last
+        // frame and is never displayed). Variable strips list every frame stop
+        // explicitly, so every position must sit on the frame grid.
+        const ruleMatch = new RegExp(
+            `\\.${CLASS_PREFIX}-${token}\\s*\\{[^}]*animation:\\s*${name}\\s+(\\d+)ms\\s+steps\\((\\d+),\\s*end\\)`
+        ).exec(stylesFile);
+        if (ruleMatch) {
+            const steps = Number(ruleMatch[2]);
+            const first = positions[0];
+            const last = positions[positions.length - 1];
+            if (steps !== frameCount || last.x - first.x !== frameCount * pitch) {
+                errors.push(
+                    `${label}: uniform animation is steps(${steps}) over ${last.x - first.x}px, expected steps(${frameCount}) over ${frameCount * pitch}px`
+                );
+            } else if (first.x !== entry.x || first.y !== entry.y) {
+                errors.push(`${label}: uniform animation starts at x=${first.x} y=${first.y}, expected x=${entry.x} y=${entry.y}`);
+            }
+        } else {
+            const offGrid = positions.filter((p) => !expectedX.has(p.x) || p.y !== entry.y);
+            if (offGrid.length > 0) {
+                errors.push(
+                    `${label}: keyframes step to x=${offGrid[0].x} which is not a frame position (expected x + k*${pitch})`
+                );
+            } else if (
+                positions[0].x !== entry.x ||
+                positions[positions.length - 1].x !== entry.x + (frameCount - 1) * pitch
+            ) {
+                errors.push(`${label}: variable animation does not start/end on the strip's first/last frame`);
+            }
+        }
+        if (
+            hasAnimSheet &&
+            entry.sheet === 'anim' &&
+            !new RegExp(`\\.${CLASS_PREFIX}-${token}\\s*\\{[^}]*background-image`).test(stylesFile)
+        ) {
+            errors.push(`${label}: animated rule does not point at the animated sheet`);
+        }
+    }
+    return errors;
+}
+
+// Reject malformed manifests before doing any work: a dump missing frame
+// metadata would otherwise silently render animated items as static (or
+// worse), which is exactly the kind of "updated dump caused weirdness"
+// surprise this pipeline is supposed to prevent.
+function validateManifest(manifest, hasAnimSheet) {
+    const errors = [];
+    for (const entry of manifest.entries) {
+        const label = entry && typeof entry.key === 'string' ? entry.key : JSON.stringify(entry).slice(0, 60);
+        if (!entry || typeof entry.key !== 'string') {
+            errors.push('entry without a string key');
+            continue;
+        }
+        for (const field of ['x', 'y']) {
+            if (!Number.isFinite(entry[field])) errors.push(`${label}: missing/invalid ${field}`);
+        }
+        if (!Number.isInteger(entry.frameCount) || entry.frameCount < 1) {
+            errors.push(`${label}: invalid frameCount ${entry.frameCount}`);
+            continue;
+        }
+        if (entry.frameCount >= 2) {
+            if (!Array.isArray(entry.dwells) || entry.dwells.length !== entry.frameCount) {
+                const found = Array.isArray(entry.dwells) ? entry.dwells.length : 'missing';
+                errors.push(`${label}: ${entry.frameCount} frames but dwells ${found}`);
+            }
+            if (!Number.isInteger(entry.pitch) || entry.pitch <= 0) {
+                errors.push(`${label}: animated entry has no valid pitch`);
+            }
+            if (hasAnimSheet && entry.sheet !== 'main' && entry.sheet !== 'anim') {
+                errors.push(`${label}: invalid sheet "${entry.sheet}"`);
+            }
+        }
+        for (const field of ['width', 'height']) {
+            if (entry[field] !== undefined && (!Number.isInteger(entry[field]) || entry[field] <= 0)) {
+                errors.push(`${label}: invalid ${field} ${entry[field]}`);
+            }
+        }
+    }
+    return errors;
+}
+
 async function main() {
-    const dumpDir = process.argv[2] || DEFAULT_DUMP_DIR;
+    const flags = process.argv.slice(2).filter((arg) => arg.startsWith('--'));
+    const explicitDir = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
+    const force = flags.includes('--force');
+    const explicit = Boolean(explicitDir || process.env.STS_DUMP_DIR);
+    const dumpDir = explicitDir || process.env.STS_DUMP_DIR || DEFAULT_DUMP_DIR;
+    console.log(`[spritesheet-import] dump source: ${dumpDir}`);
     const stsSheetPath = path.join(dumpDir, 'itemsheet.png');
     const stsAnimSheetPath = path.join(dumpDir, 'itemsheet-anim.png');
     const stsJsonPath = path.join(dumpDir, 'itemsheet-manifest.json');
@@ -168,12 +354,42 @@ async function main() {
         process.exit(1);
     }
 
+    // Guard against importing an old dump over fresher data by accident.
+    // An explicitly chosen dump dir only warns; the default (devumenta) dump
+    // refuses unless --force is passed.
+    try {
+        const manifestStat = await fs.stat(stsJsonPath);
+        const cssStat = await fs.stat(path.join(OUTPUT_DIR, `_${SHEET_NAME}.css`));
+        if (manifestStat.mtimeMs < cssStat.mtimeMs && !force) {
+            const message =
+                `this dump (${manifestStat.mtime.toISOString()}) is older than the current spritesheets ` +
+                `(${cssStat.mtime.toISOString()}) - dump in-game first if you meant to refresh them`;
+            if (explicit) {
+                console.warn(`[spritesheet-import] WARNING: ${message}`);
+            } else {
+                console.error(`[spritesheet-import] ${message}.`);
+                console.error('[spritesheet-import] Nothing written. Pass --force to import this dump anyway.');
+                process.exit(1);
+            }
+        }
+    } catch (error) {
+        // no previous generated spritesheets - nothing to compare against
+    }
+
     if (!manifest.entries || !Array.isArray(manifest.entries)) {
         console.error('[spritesheet-import] Invalid itemsheet-manifest.json: missing entries.');
         process.exit(1);
     }
     // Animated entries live on a dedicated spritesheet (manifest.animSheet).
     const hasAnimSheet = Boolean(manifest.animSheet);
+
+    const manifestErrors = validateManifest(manifest, hasAnimSheet);
+    if (manifestErrors.length > 0) {
+        console.error(`[spritesheet-import] Invalid manifest (${manifestErrors.length} problem(s)) - nothing written:`);
+        for (const error of manifestErrors.slice(0, 25)) console.error(`  - ${error}`);
+        if (manifestErrors.length > 25) console.error(`  ... and ${manifestErrors.length - 25} more`);
+        process.exit(1);
+    }
 
     // One token per manifest key (each masterwork rank is rendered and has its
     // own cell); base and ranked entries that share a cell get separate rules
@@ -314,11 +530,6 @@ async function main() {
         }
     }
 
-    await fs.copyFile(stsSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}.png`));
-    if (hasAnimSheet) {
-        await fs.copyFile(stsAnimSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}-anim.png`));
-    }
-
     // Decode both sheets and measure the painted content of every cell/strip,
     // then scale up the cells whose content is smaller than the cell so the
     // artwork renders at the same size as full cells on the site.
@@ -327,6 +538,24 @@ async function main() {
         const file = path.join(dumpDir, name === 'main' ? `${SHEET_NAME}.png` : `${SHEET_NAME}-anim.png`);
         const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
         sheets[name] = { width: info.width, height: info.height, data };
+    }
+
+    // Refuse to write a broken spritesheet revision: if any animated strip's
+    // geometry or emitted keyframes are off (the "sliding sprites" bug), fail
+    // loudly and leave the previous, working files in place.
+    const validationErrors = validateAnimations(manifest, sheets, stylesFile, hasAnimSheet);
+    if (validationErrors.length > 0) {
+        console.error(`[spritesheet-import] Validation failed (${validationErrors.length} problem(s)) - nothing written:`);
+        for (const error of validationErrors.slice(0, 25)) console.error(`  - ${error}`);
+        if (validationErrors.length > 25) {
+            console.error(`  ... and ${validationErrors.length - 25} more`);
+        }
+        process.exit(1);
+    }
+
+    await fs.copyFile(stsSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}.png`));
+    if (hasAnimSheet) {
+        await fs.copyFile(stsAnimSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}-anim.png`));
     }
     const scaledByToken = new Map();
     const seenTokens = new Set();
@@ -350,6 +579,24 @@ async function main() {
     }
 
     await fs.writeFile(path.join(OUTPUT_DIR, `_${SHEET_NAME}.css`), stylesFile);
+
+    // Warn when tokens disappear: custom items store a chosen texture token,
+    // so a dropped token means those items fall back to name/base textures
+    // (the site handles that gracefully, but it's worth surfacing here).
+    try {
+        const previousMap = JSON.parse(await fs.readFile(path.join(OUTPUT_DIR, `${SHEET_NAME}-map.json`), 'utf8'));
+        const newTokens = new Set(Object.values(itemMap));
+        const lost = [...new Set(Object.values(previousMap))].filter((token) => !newTokens.has(token));
+        if (lost.length > 0) {
+            console.warn(
+                `[spritesheet-import] WARNING: ${lost.length} sprite token(s) disappeared from the map ` +
+                    `(custom items using them will fall back): ${lost.slice(0, 8).join(', ')}${lost.length > 8 ? ', ...' : ''}`
+            );
+        }
+    } catch (error) {
+        // no previous map - nothing to compare against
+    }
+
     await fs.writeFile(path.join(OUTPUT_DIR, `${SHEET_NAME}-map.json`), JSON.stringify(itemMap, null, 2));
 
     // Prerender every animated item into its own GIF (textures/<token>.gif)

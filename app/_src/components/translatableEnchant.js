@@ -22,13 +22,14 @@ function formatTitle(str) {
         .replace(/[\s+-]/g, '');
 }
 
-export default function TranslatableEnchant({ title, className, children }) {
+export default function TranslatableEnchant({ title, className, style, children }) {
     const { lang } = useLanguageContext();
     const key = `items.enchant.${formatTitle(title)}`;
     const description = SupportedLanguages[lang][key];
     return (
         <span
             className={className ? `${styles.enchantTooltip} ${className}` : styles.enchantTooltip}
+            style={style}
             key={`${lang}-${key}`}
         >
             {children}

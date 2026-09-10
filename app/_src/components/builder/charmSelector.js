@@ -67,6 +67,21 @@ export function computeCharmTotals(itemData, charmNames) {
     return Object.fromEntries(Object.entries(totals).filter(([, obj]) => obj.value !== 0));
 }
 
+// Per-stat display colors (from the API's NBT lore) for the equipped charms:
+// the first charm that provides a stat defines the color of the summed line.
+export function computeCharmStatColors(itemData, charmNames) {
+    const colors = {};
+    for (const name of charmNames || []) {
+        const key = resolveCharmKey(itemData, name);
+        const statColors = key ? itemData[key].statColors : null;
+        if (!statColors) continue;
+        for (const [stat, color] of Object.entries(statColors)) {
+            if (!colors[stat]) colors[stat] = color;
+        }
+    }
+    return colors;
+}
+
 // Skill names -> snake tokens ("Hand of Light" -> "hand_of_light"), used to
 // match charm stats that name the skill they affect.
 function skillTokens(names) {
