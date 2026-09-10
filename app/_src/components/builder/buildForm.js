@@ -823,6 +823,7 @@ export default function BuildForm({
     canPublicise,
     isPublic,
     isAnonymous,
+    sharedSet,
     parentLoaded,
     itemData,
     itemsToDisplay,
@@ -2253,6 +2254,19 @@ export default function BuildForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [skillsData]);
 
+    // A shared skill/infusion set opened from /sets/<id> (the builder's
+    // ?set=<id> link): apply it once, after the build/draft restore effect
+    // above has run. Skill sets wait for the class data so buffs resolve.
+    const sharedSetApplied = React.useRef(false);
+    React.useEffect(() => {
+        if (!sharedSet || sharedSetApplied.current || !parentLoaded) return;
+        if (sharedSet.kind === 'skills' && !skillsData) return;
+        sharedSetApplied.current = true;
+        if (sharedSet.kind === 'delve') applyDelvePayload(sharedSet.payload);
+        else applySkillPayload(sharedSet.payload);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sharedSet, parentLoaded, skillsData]);
+
     // Import the build list (items collected on the items page) into empty
     // slots; charms append within the 12-power budget. Equipped items are
     // removed from the list, leftovers (misc, consumables, extra same-slot
@@ -3580,7 +3594,17 @@ export default function BuildForm({
                         aria-label="Skill sets"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <span className={styles.setsModalTitle}>Skill sets</span>
+                        <div className={styles.setsModalHead}>
+                            <span className={styles.setsModalTitle}>Skill sets</span>
+                            <button
+                                type="button"
+                                className={styles.setsModalClose}
+                                onClick={() => setSetsOpen(false)}
+                                aria-label="Close"
+                            >
+                                ✕
+                            </button>
+                        </div>
                         <SavedSetsPanel
                             getSnapshot={getSnapshot}
                             deleteSet={deleteSavedSet}
@@ -3588,9 +3612,6 @@ export default function BuildForm({
                             applyDelvePayload={applyDelvePayload}
                             copyBuildSkills={copyBuildSkills}
                         />
-                        <button type="button" className={styles.setsModalClose} onClick={() => setSetsOpen(false)}>
-                            Close
-                        </button>
                     </div>
                 </div>
             )}

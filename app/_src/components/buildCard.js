@@ -135,7 +135,11 @@ function loadBuildDetails() {
 // `compareEnabled` (database page) shows the "add to comparison" picker
 // button below the layout-swap button.
 function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
-    const { itemsFirst, toggle: toggleCardLayout } = useCardItemsFirst();
+    const { itemsFirst: globalItemsFirst } = useCardItemsFirst();
+    // The card's swap button overrides the global setting for this card only;
+    // null follows the global default set on the settings page.
+    const [layoutOverride, setLayoutOverride] = React.useState(null);
+    const itemsFirst = layoutOverride === null ? globalItemsFirst : layoutOverride;
     const { lowRes } = useLowResource();
     const [favBusy, setFavBusy] = React.useState(false);
     const [expanded, setExpanded] = React.useState(false);
@@ -667,7 +671,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            toggleCardLayout();
+                            setLayoutOverride(!itemsFirst);
                         }}
                         aria-label="Swap card layout"
                     >

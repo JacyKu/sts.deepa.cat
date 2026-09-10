@@ -47,7 +47,7 @@ export default function Footer() {
             <footer className={styles.footer}>
                 <div className={styles.inner}>
                     <div className={styles.text}>
-                        Forked by <b>JC</b>, originally developed by <b>Albin</b>, <b>FlamingoBike</b> and{' '}
+                        Forked by <b>jkitter</b>, originally developed by <b>Albin</b>, <b>FlamingoBike</b> and{' '}
                         <b>Alecaboo</b>
                         <span className={styles.version}> · v{pkg.sts_version}</span>
                     </div>

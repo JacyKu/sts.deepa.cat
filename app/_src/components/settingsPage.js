@@ -5,6 +5,7 @@ import Select from 'react-select';
 import styles from '../styles/Account.module.css';
 import { FONT_ORDER, FONT_LABELS, FONT_STACKS } from './header';
 import BuilderLayoutToggle from './builderLayoutToggle';
+import CardItemsFirstToggle from './cardItemsFirstToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
 import DateFormatToggle from './dateFormatToggle';
 import {
@@ -687,6 +688,7 @@ export default function SettingsPage() {
                     <CacheBuildsToggle className={styles.bareToggle} />
                     <CacheCustomItemsToggle className={styles.bareToggle} />
                     <DateFormatToggle className={styles.bareToggle} />
+                    <CardItemsFirstToggle className={styles.bareToggle} />
                 </div>
             </section>
         </main>

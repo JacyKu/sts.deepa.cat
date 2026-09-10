@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { getItemData, getSkillsData } from '../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../_src/utils/buildPreview';
-import { mergeReferencedCustomItems } from '../../lib/sts-builds';
+import { mergeReferencedCustomItems, getPublicSkillSet } from '../../lib/sts-builds';
 import { getBuildItemHashes } from '../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../lib/session';
 import BuilderPage from '../_src/components/builderPage';
@@ -13,6 +13,33 @@ const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
 export async function generateMetadata({ searchParams }) {
     const sp = await searchParams;
     const build = sp?.build ? String(sp.build) : null;
+
+    // ?set=<id> opens a shared skill/infusion set in the builder.
+    if (!build && sp?.set) {
+        const set = getPublicSkillSet(String(sp.set));
+        if (set) {
+            const title = `${set.name} · Monumenta Builder`;
+            const description = 'A shared skill/infusion set - open it in the Monumenta builder.';
+            return {
+                title,
+                description,
+                keywords,
+                openGraph: {
+                    siteName: 'SPARE THE SYMPATHY',
+                    type: 'website',
+                    title,
+                    description,
+                    images: [{ url: '/favicon/favicon.png' }],
+                },
+                twitter: {
+                    card: 'summary',
+                    title,
+                    description,
+                    images: ['/favicon/favicon.png'],
+                },
+            };
+        }
+    }
 
     if (!build) {
         return {
@@ -63,16 +90,24 @@ export async function generateMetadata({ searchParams }) {
 export default async function Page({ searchParams }) {
     const sp = await searchParams;
     const build = sp?.build ? String(sp.build) : null;
+    const setId = sp?.set ? String(sp.set) : null;
     return (
         <Suspense fallback={<BuilderSkeleton />}>
-            <BuilderView build={build} />
+            <BuilderView build={build} setId={setId} />
         </Suspense>
     );
 }
 
-async function BuilderView({ build }) {
+async function BuilderView({ build, setId }) {
     const itemData = await getItemData();
     const user = await getDiscordUser();
     const hashes = getBuildItemHashes(build);
-    return <BuilderPage build={build} itemData={mergeReferencedCustomItems(itemData, user ? user.id : null, hashes)} />;
+    const sharedSet = setId ? getPublicSkillSet(setId) : null;
+    return (
+        <BuilderPage
+            build={build}
+            sharedSet={sharedSet}
+            itemData={mergeReferencedCustomItems(itemData, user ? user.id : null, hashes)}
+        />
+    );
 }

@@ -20,6 +20,7 @@ export async function GET() {
             className: s.class_name,
             spec: s.spec,
             payload: s.payload,
+            isPublic: s.isPublic === true,
             createdAt: s.created_at,
             updatedAt: s.updated_at,
         })),

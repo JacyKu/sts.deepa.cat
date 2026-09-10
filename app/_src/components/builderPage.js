@@ -15,6 +15,7 @@ export default function BuilderPage({
     canPublicise,
     isPublic,
     isAnonymous,
+    sharedSet,
 }) {
     // The build name lives in a ref: the header reads/writes it directly, so
     // renaming never re-renders BuildForm (which is expensive to render).
@@ -44,6 +45,7 @@ export default function BuilderPage({
                     canPublicise={canPublicise}
                     isPublic={isPublic}
                     isAnonymous={isAnonymous}
+                    sharedSet={sharedSet}
                     parentLoaded={parentLoaded}
                     itemData={itemData}
                     itemsToDisplay={itemsToDisplay}

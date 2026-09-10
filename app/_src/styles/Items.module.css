@@ -2416,39 +2416,64 @@ div.builderStatCard {
     padding: 16px;
 }
 
+/* The dialog mirrors the app's cards (database/custom-item): solid card
+   background, 2px glass border, elevated shadow, with a header row carrying
+   the title and a close button. */
 .setsModalDialog {
     margin: auto;
     width: min(1050px, 100%);
-    background: var(--glass-1);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
+    background: #111111;
+    border: 2px solid var(--glass-border);
     box-shadow: var(--shadow-elevated);
-    padding: 24px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
+    gap: 14px;
+}
+
+:global(html[data-theme='light']) .setsModalDialog,
+:global(html[data-theme='glass-light']) .setsModalDialog {
+    background: #ffffff;
+}
+
+.setsModalHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--glass-border);
 }
 
 .setsModalTitle {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 17px;
+    font-weight: 600;
     color: var(--text-1);
 }
 
 .setsModalClose {
-    align-self: flex-end;
-    padding: 8px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
     border: 2px solid var(--glass-border);
     background: var(--glass-2);
-    color: var(--text-1);
-    font-weight: bold;
-    font-size: 13px;
+    color: var(--text-2);
+    font-size: 15px;
+    line-height: 1;
     cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
 }
 
 .setsModalClose:hover {
-    border-color: var(--control-border-hover);
-    filter: brightness(115%);
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--glass-1);
+    color: var(--text-1);
 }
 
 .setsModalDialog .setsPanel {
@@ -2514,6 +2539,19 @@ div.builderStatCard {
     font-style: italic;
 }
 
+/* Fixed-height scroll area for the "copy from your builds" list: filtering
+   it must not resize the dialog (which would re-center it and make the modal
+   jump while searching). */
+.setsBuildList {
+    height: 220px;
+    overflow-y: auto;
+}
+
+.setsBuildList .setsList {
+    max-height: none;
+    overflow: visible;
+}
+
 .setsList {
     list-style: none;
     margin: 0;
@@ -2552,6 +2590,8 @@ div.builderStatCard {
 
 .setsRowActions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 4px;
     flex-shrink: 0;
 }

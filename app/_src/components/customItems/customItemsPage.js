@@ -954,7 +954,17 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                             aria-label="Stat sets"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <span className={itemsStyles.setsModalTitle}>Stat sets</span>
+                            <div className={itemsStyles.setsModalHead}>
+                                <span className={itemsStyles.setsModalTitle}>Stat sets</span>
+                                <button
+                                    type="button"
+                                    className={itemsStyles.setsModalClose}
+                                    onClick={() => setStatSetsOpen(false)}
+                                    aria-label="Close"
+                                >
+                                    ✕
+                                </button>
+                            </div>
                             <p className={itemsStyles.setsHint}>
                                 Copy the stats of one of your items into the form above, or save the current stats as a
                                 named set to reuse later.
@@ -1062,13 +1072,6 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     {feedback.text}
                                 </p>
                             )}
-                            <button
-                                type="button"
-                                className={itemsStyles.setsModalClose}
-                                onClick={() => setStatSetsOpen(false)}
-                            >
-                                Close
-                            </button>
                         </div>
                     </div>
                 )}

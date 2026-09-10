@@ -5,7 +5,9 @@
 //   1. copy the skill portion (class/spec/points/enhancements/CZ) out of any
 //      of the caller's own saved builds,
 //   2. save the current skill layout (or the current delve infusions) as a
-//      named set for later, and apply/delete saved sets.
+//      named set for later, and apply/delete saved sets,
+//   3. share a set as a public link (/sets/<id>) that anyone can open and
+//      apply in the builder; sharing can be stopped again.
 // All API work happens here; the BuildForm drives state changes through the
 // callbacks below so the panel stays decoupled from the giant form.
 import React from 'react';
@@ -36,6 +38,7 @@ export default function SavedSetsPanel({
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const [sets, setSets] = React.useState([]);
     const [myBuilds, setMyBuilds] = React.useState([]);
+    const [buildQuery, setBuildQuery] = React.useState('');
     const [busy, setBusy] = React.useState(false);
     const [names, setNames] = React.useState({ skills: '', delve: '' });
     const [feedback, setFeedback] = React.useState(null); // { ok, text }
@@ -157,7 +160,62 @@ export default function SavedSetsPanel({
         }
     }
 
+    // Public link for a shared set. The URL is stable while sharing is on;
+    // unsharing makes it 404 for everyone.
+    function copyShareLink(id) {
+        const url = `${window.location.origin}/sets/${id}`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+                .writeText(url)
+                .then(() => say(true, 'Share link copied to clipboard.'))
+                .catch(() => say(true, `Share link: ${url}`));
+        } else {
+            say(true, `Share link: ${url}`);
+        }
+    }
+
+    // Toggles a set's public share state (owner only, enforced server-side)
+    // and copies the link when sharing starts.
+    async function toggleShare(entry, next) {
+        setBusy(true);
+        try {
+            const res = await fetch(`/api/v1/skill-sets/${encodeURIComponent(entry.id)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ public: next }),
+            });
+            if (!res.ok) {
+                say(false, next ? 'Could not share the set.' : 'Could not stop sharing the set.');
+                return;
+            }
+            setSets((prev) => prev.map((s) => (s.id === entry.id ? { ...s, isPublic: next } : s)));
+            if (next) {
+                say(true, `"${entry.name}" shared.`);
+                copyShareLink(entry.id);
+            } else {
+                say(true, 'Sharing stopped - the link no longer works.');
+            }
+        } catch (e) {
+            say(false, next ? 'Could not share the set.' : 'Could not stop sharing the set.');
+        } finally {
+            setBusy(false);
+        }
+    }
+
     const kindGroups = (kind) => sets.filter((s) => s.kind === kind);
+
+    // The "copy from your builds" list can get long, so it filters by name,
+    // class or spec as the user types.
+    const buildQueryTrimmed = buildQuery.trim().toLowerCase();
+    const visibleBuilds = buildQueryTrimmed
+        ? myBuilds.filter((b) =>
+              [b.name, b.class, b.spec].some((value) =>
+                  String(value || '')
+                      .toLowerCase()
+                      .includes(buildQueryTrimmed)
+              )
+          )
+        : myBuilds;
 
     return (
         <div className={styles.setsPanel}>
@@ -175,31 +233,51 @@ export default function SavedSetsPanel({
                             {myBuilds.length === 0 ? (
                                 <p className={styles.setsEmpty}>No saved builds yet.</p>
                             ) : (
-                                <ul className={styles.setsList}>
-                                    {myBuilds.map((b) => (
-                                        <li key={b.id} className={styles.setsRow}>
-                                            <span className={styles.setsRowName}>
-                                                {b.name || 'Unnamed build'}
-                                                {b.class ? (
-                                                    <span className={styles.setsMeta}>
-                                                        {humanClass(b.class)}
-                                                        {b.spec ? ` / ${b.spec}` : ''}
-                                                    </span>
-                                                ) : (
-                                                    ''
-                                                )}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                className={styles.setsBtn}
-                                                disabled={busy}
-                                                onClick={() => handleCopyBuild(b)}
-                                            >
-                                                Copy skills
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
+                                <>
+                                    <div className={styles.setsSaveRow}>
+                                        <input
+                                            className={styles.setsInput}
+                                            type="search"
+                                            placeholder="Search your builds"
+                                            value={buildQuery}
+                                            onChange={(e) => setBuildQuery(e.target.value)}
+                                            aria-label="Search your builds"
+                                        />
+                                    </div>
+                                    {visibleBuilds.length === 0 ? (
+                                        <div className={styles.setsBuildList}>
+                                            <p className={styles.setsEmpty}>No builds match your search.</p>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.setsBuildList}>
+                                            <ul className={styles.setsList}>
+                                                {visibleBuilds.map((b) => (
+                                                    <li key={b.id} className={styles.setsRow}>
+                                                        <span className={styles.setsRowName}>
+                                                            {b.name || 'Unnamed build'}
+                                                            {b.class ? (
+                                                                <span className={styles.setsMeta}>
+                                                                    {humanClass(b.class)}
+                                                                    {b.spec ? ` / ${b.spec}` : ''}
+                                                                </span>
+                                                            ) : (
+                                                                ''
+                                                            )}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.setsBtn}
+                                                            disabled={busy}
+                                                            onClick={() => handleCopyBuild(b)}
+                                                        >
+                                                            Copy skills
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </section>
 
@@ -258,6 +336,35 @@ export default function SavedSetsPanel({
                                                         >
                                                             Apply
                                                         </button>
+                                                        {entry.isPublic ? (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    className={styles.setsBtn}
+                                                                    disabled={busy}
+                                                                    onClick={() => copyShareLink(entry.id)}
+                                                                >
+                                                                    Copy link
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className={styles.setsBtn}
+                                                                    disabled={busy}
+                                                                    onClick={() => toggleShare(entry, false)}
+                                                                >
+                                                                    Unshare
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className={styles.setsBtn}
+                                                                disabled={busy}
+                                                                onClick={() => toggleShare(entry, true)}
+                                                            >
+                                                                Share
+                                                            </button>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             className={`${styles.setsBtn} ${styles.setsBtnDanger}`}
