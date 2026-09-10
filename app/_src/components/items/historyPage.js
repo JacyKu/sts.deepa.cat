@@ -363,8 +363,6 @@ export default function HistoryPage({ itemData, history }) {
                 {groups.length === 0 ? (
                     <div className={itemsStyles.emptyState}>
                         <b>No stat history yet.</b>
-                        <br />
-                        Archived item versions appear here after the next item dump import picks up a stat change.
                     </div>
                 ) : (
                     <div className={styles.groupList}>
