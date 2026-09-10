@@ -471,6 +471,12 @@ html[data-round='true'] * {
     border-radius: 8px !important;
 }
 
+/* ...but not icon artwork: an <svg> has overflow: hidden by default, so a
+   border-radius clips the vector's corners (e.g. the heart favourite icon). */
+html[data-round='true'] svg {
+    border-radius: 0 !important;
+}
+
 /* Native checkboxes ignore border-radius; draw them rounded instead. */
 html[data-round='true'] input[type='checkbox'] {
     -webkit-appearance: none;
