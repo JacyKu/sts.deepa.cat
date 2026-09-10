@@ -225,6 +225,7 @@ export default function CustomItemsDatabase() {
                                 type: item.type,
                                 base_item: item.baseItem,
                                 stats: item.stats,
+                                statColors: item.statColors,
                                 textureToken: item.textureToken,
                                 isCustomItem: true,
                             };

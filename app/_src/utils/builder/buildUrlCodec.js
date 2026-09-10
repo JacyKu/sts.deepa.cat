@@ -23,18 +23,42 @@ export function getBuildTokenVersion(token) {
     }
 }
 
-function isLegacyBuildString(value) {
-    // Current legacy format is a querystring-like payload containing keys like m=, o=, ...
-    return typeof value === 'string' && value.includes('=') && value.includes('&');
+// The six equipment item-key hashes stored in a v1 binary token (little
+// endian, right after the version byte), zero slots removed. Returns null for
+// legacy tokens. Used to resolve which public custom items a build references
+// without decoding the whole token.
+export function getBuildItemHashes(token) {
+    if (typeof token !== 'string' || !token.startsWith(BINARY_V1_PREFIX)) return null;
+    try {
+        const bytes = fromBase64Url(token.slice(BINARY_V1_PREFIX.length));
+        if (bytes.length < 25) return null;
+        const hashes = [];
+        for (let i = 0; i < 6; i++) {
+            const offset = 1 + i * 4;
+            const hash =
+                (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+            if (hash !== 0) hashes.push(hash);
+        }
+        return hashes;
+    } catch (e) {
+        return null;
+    }
 }
 
-function fnv1a32(str) {
+// FNV-1a over UTF-16 code units - the same hash the token stores for item
+// keys (kept in sync with the encoder above and the Java BuildTokenEncoder).
+export function fnv1a32(str) {
     let hash = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) {
         hash ^= str.charCodeAt(i);
         hash = Math.imul(hash, 0x01000193);
     }
     return hash >>> 0;
+}
+
+function isLegacyBuildString(value) {
+    // Current legacy format is a querystring-like payload containing keys like m=, o=, ...
+    return typeof value === 'string' && value.includes('=') && value.includes('&');
 }
 
 function writeVarint(num) {

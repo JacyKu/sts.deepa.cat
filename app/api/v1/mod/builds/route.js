@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getLinkByUuid, saveBuild, countRecentModSaves, buildNameTakenByUser, findBuildByState } from '../../../../../lib/sts-builds';
+import { createUploadedCustomItems, findUnknownItemNames } from '../../../../../lib/item-uploads';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { computeBuildSummary } from '../../../../../lib/public-builds';
+import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
 
 // Save a build from the STS mod. The mod sends the v1_ build token it
 // generated, optionally with the player's Minecraft UUID:
@@ -81,11 +83,32 @@ export async function POST(request) {
     if (!result) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
+
+    // Equipment the site doesn't know about (unreleased/event items) is
+    // uploaded by the mod alongside the build; create those as custom items
+    // on the linked account so the build renders correctly for its owner.
+    let createdItems = [];
+    if (link && Array.isArray(body?.items) && body.items.length > 0) {
+        const unknown = new Set(findUnknownItemNames(body.items.map((item) => item?.name), itemData));
+        const payloads = body.items.filter((item) => unknown.has(item?.name));
+        if (payloads.length > 0) {
+            const profile = await getMinecraftProfile(body.uuid).catch(() => null);
+            createdItems = createUploadedCustomItems({
+                userId: link.discord_id,
+                authorName: profile ? profile.name : null,
+                authorAvatar: null,
+                items: payloads,
+                itemData,
+            }).created;
+        }
+    }
+
     return NextResponse.json({
         linked: Boolean(link),
         saved: true,
         id: result.id,
         isNew: result.isNew,
         url: `/b/v${tokenVersion}/${result.id}`,
+        createdItems,
     });
 }

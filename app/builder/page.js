@@ -2,7 +2,8 @@ import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { getItemData, getSkillsData } from '../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../_src/utils/buildPreview';
-import { mergeCustomItems } from '../../lib/sts-builds';
+import { mergeReferencedCustomItems } from '../../lib/sts-builds';
+import { getBuildItemHashes } from '../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../lib/session';
 import BuilderPage from '../_src/components/builderPage';
 import BuilderSkeleton from '../_src/components/builderSkeleton';
@@ -72,5 +73,6 @@ export default async function Page({ searchParams }) {
 async function BuilderView({ build }) {
     const itemData = await getItemData();
     const user = await getDiscordUser();
-    return <BuilderPage build={build} itemData={mergeCustomItems(itemData, user ? user.id : null)} />;
+    const hashes = getBuildItemHashes(build);
+    return <BuilderPage build={build} itemData={mergeReferencedCustomItems(itemData, user ? user.id : null, hashes)} />;
 }

@@ -5,6 +5,7 @@ import Select from 'react-select';
 import styles from '../../styles/CustomItems.module.css';
 import itemsStyles from '../../styles/Items.module.css';
 import { loadItemSpriteMap, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
 import StatFormatter from '../../utils/items/statFormatter';
@@ -1114,9 +1115,12 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     <div className={styles.imageIcon}>
                                         <div
                                             className={
-                                                !spriteMap || isKnownSpriteToken(spriteMap, item.textureToken)
+                                                item.textureToken &&
+                                                (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken))
                                                     ? `monumenta-items monumenta-${item.textureToken}`
-                                                    : 'monumenta-items'
+                                                    : item.baseItem
+                                                      ? `minecraft minecraft-${getMinecraftTextureKey(item.baseItem)}`
+                                                      : 'monumenta-items'
                                             }
                                         ></div>
                                     </div>

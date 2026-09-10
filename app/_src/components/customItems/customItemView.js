@@ -22,7 +22,11 @@ function useIconClass(item) {
             active = false;
         };
     }, []);
-    if (!item.textureToken) return { base: 'monumenta-items', icon: null };
+    if (!item.textureToken) {
+        // In-game uploads may have no site sprite: use the vanilla base item.
+        if (item.baseItem) return { base: 'minecraft', icon: `minecraft-${getMinecraftTextureKey(item.baseItem)}` };
+        return { base: 'monumenta-items', icon: null };
+    }
     if (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken)) {
         return { base: 'monumenta-items', icon: `monumenta-${item.textureToken}` };
     }
