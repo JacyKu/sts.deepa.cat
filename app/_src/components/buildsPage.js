@@ -14,6 +14,48 @@ import SupportedLanguages from '../utils/translation/languages';
 import sf from '../styles/SearchForm.module.css';
 import { FilterRow, buildFilterCategories, buildSlotOptions } from './builds/filterRow';
 
+// Inline rename field with its own local state so typing does not re-render
+// the whole builds list (every BuildCard re-render is expensive). Commits
+// once on Enter or blur; Escape cancels.
+function RenameInput({ initialName, onCommit, onCancel }) {
+    const [value, setValue] = React.useState(initialName);
+    const done = React.useRef(false);
+
+    function commit() {
+        if (done.current) return;
+        done.current = true;
+        onCommit(value);
+    }
+
+    function cancel() {
+        if (done.current) return;
+        done.current = true;
+        onCancel();
+    }
+
+    return (
+        <input
+            type="text"
+            className={styles.nameInput}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commit();
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancel();
+                }
+            }}
+            onBlur={commit}
+            autoFocus
+            maxLength={30}
+        />
+    );
+}
+
 export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     const { lang } = useLanguageContext();
     const t = (id) => (SupportedLanguages[lang] && SupportedLanguages[lang][id]) || id;
@@ -23,7 +65,6 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     const [builds, setBuilds] = React.useState([]);
     const [loaded, setLoaded] = React.useState(false);
     const [editingId, setEditingId] = React.useState(null);
-    const [editName, setEditName] = React.useState('');
     const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [base, setBase] = React.useState('/sts');
@@ -159,13 +200,12 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
 
     function startRename(build) {
         setEditingId(build.id);
-        setEditName(displayName(build));
     }
 
-    function submitRename(build) {
-        const name = editName.trim();
+    function submitRename(build, rawName) {
+        const name = rawName.trim();
         setEditingId(null);
-        if (!name) return;
+        if (!name || name === displayName(build)) return;
         fetch(`/api/v1/builds/${build.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -325,20 +365,10 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                         <BuildCard build={build} user={user} base={base} onToggleFavourite={toggleFavourite}>
                                             <div className={styles.cardActions}>
                                                 {editingId === build.id ? (
-                                                    <input
-                                                        type="text"
-                                                        className={styles.nameInput}
-                                                        value={editName}
-                                                        onChange={(e) => setEditName(e.target.value)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                submitRename(build);
-                                                            }
-                                                            if (e.key === 'Escape') setEditingId(null);
-                                                        }}
-                                                        onBlur={() => submitRename(build)}
-                                                        autoFocus
+                                                    <RenameInput
+                                                        initialName={displayName(build)}
+                                                        onCommit={(name) => submitRename(build, name)}
+                                                        onCancel={() => setEditingId(null)}
                                                     />
                                                 ) : (
                                                     <>

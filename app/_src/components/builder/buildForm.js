@@ -826,10 +826,7 @@ export default function BuildForm({
     parentLoaded,
     itemData,
     itemsToDisplay,
-    buildName,
-    setBuildName,
-    updateLink,
-    setUpdateLink,
+    buildNameRef,
 }) {
     const [stats, setStats] = React.useState({});
     const [charms, setCharms] = React.useState([]);
@@ -911,7 +908,16 @@ export default function BuildForm({
     function setBuildNameFiltered(value) {
         const { cleaned, found } = filterBadWords(String(value ?? ''));
         if (found) triggerRedX();
-        setBuildName(cleaned);
+        // Header commits only update the ref: no state change, no re-render.
+        buildNameRef.current = cleaned || 'Monumenta Builder';
+    }
+
+    // Programmatic name changes (draft restore, reset) bump a signal so the
+    // header re-reads the ref; typing in the header never re-renders the form.
+    const [nameSignal, setNameSignal] = React.useState(0);
+    function applyBuildName(name) {
+        buildNameRef.current = name || 'Monumenta Builder';
+        setNameSignal((v) => v + 1);
     }
     const [draft, setDraft] = React.useState(null); // restored session draft, if any
 
@@ -1743,7 +1749,7 @@ export default function BuildForm({
             token,
             infusions: delveInfusions,
             revelation,
-            name: buildName !== 'Monumenta Builder' ? buildName : null,
+            name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
             notes: notesDraft.trim() ? notesDraft : null,
         };
         // Signed-in users can publicise / post anonymously straight from the
@@ -1893,8 +1899,8 @@ export default function BuildForm({
                           ? 'Celestial Zenith'
                           : `R${regionValue}`;
                 const tempBuildName =
-                    buildName && buildName != 'Monumenta Builder'
-                        ? buildName
+                    buildNameRef.current && buildNameRef.current != 'Monumenta Builder'
+                        ? buildNameRef.current
                         : classLabel
                           ? `${regionLabel} ${spec || classLabel} build`
                           : 'Monumenta Builder';
@@ -2178,9 +2184,9 @@ export default function BuildForm({
         // A build renamed on the "My Builds" page stores its display name in
         // the DB; surface it in the header so re-saving keeps the new name.
         if (effDraft && effDraft.name) {
-            setBuildName(effDraft.name);
+            applyBuildName(effDraft.name);
         } else if (isLoadedBuild && savedName) {
-            setBuildName(savedName);
+            applyBuildName(savedName);
         }
 
         // Drafts also restore the notes text and remember the row they
@@ -2366,7 +2372,7 @@ export default function BuildForm({
                         token: makeBuildString(),
                         infusions: delveInfusions,
                         revelation,
-                        name: buildName !== 'Monumenta Builder' ? buildName : null,
+                        name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
                         notes: notesDraft.trim() ? notesDraft : null,
                         buildId: activeBuildId || null,
                         savedAt: Date.now(),
@@ -2389,7 +2395,6 @@ export default function BuildForm({
         delveInfusions,
         revelation,
         notesDraft,
-        buildName,
         activeBuildId,
     ]);
 
@@ -2455,7 +2460,7 @@ export default function BuildForm({
         setRevelation(false);
         setCzAbilities({});
         setCzSelectedTree(CZ_MAIN_TREES[0]);
-        setBuildName('Monumenta Builder');
+        applyBuildName('Monumenta Builder');
         setNotesDraft('');
         setActiveBuildId(null);
         for (let box in enabledBoxes) {
@@ -2548,8 +2553,8 @@ export default function BuildForm({
             legacy += `charm=${encodeURIComponent(CharmShortener.shortenCharmList(charmsToLookAt))}`;
         }
 
-        if (buildName != 'Monumenta Builder') {
-            legacy += `&name=${encodeURIComponent(buildName)}`;
+        if (buildNameRef.current != 'Monumenta Builder') {
+            legacy += `&name=${encodeURIComponent(buildNameRef.current)}`;
         }
 
         const classForUrl = classOverride ?? gameClass;
@@ -2881,13 +2886,6 @@ export default function BuildForm({
         { type: 'spellDamage', name: 'builder.stats.magic.spellDamage', percent: true },
         { type: 'potionDamage', name: 'builder.stats.magic.potionDamage', percent: false },
     ];
-
-    React.useEffect(() => {
-        if (updateLink) {
-            // The name edit no longer rewrites the URL; it just clears the flag.
-            setUpdateLink(false);
-        }
-    }, [updateLink]);
 
     const czAllSkills = czData ? czData.trees.flatMap((t) => t.skills) : [];
     const czAbilityMap = new Map(czAllSkills.map((s) => [s.name, s]));
@@ -3552,13 +3550,13 @@ export default function BuildForm({
                     </label>
                 </div>
                 <BuilderHeader
-                    text={buildName}
-                    setText={setBuildNameFiltered}
+                    buildNameRef={buildNameRef}
+                    setBuildName={setBuildNameFiltered}
+                    nameSignal={nameSignal}
                     onFiltered={triggerRedX}
                     parentLoaded={parentLoaded}
                     build={build}
                     savedName={savedName}
-                    setUpdateLink={setUpdateLink}
                 />
                 <div style={{ justifySelf: 'end', width: 'min(400px, 100%)' }}>
                     <BuildImportBar embedded />

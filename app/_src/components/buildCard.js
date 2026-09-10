@@ -409,7 +409,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                 >
                     <span className={styles.previewIcon}>
                         {lowRes ? (
-                            <span className={itemsStyles.lowResIcon} aria-hidden="true" />
+                            <span className={styles.previewLowRes} aria-hidden="true" />
                         ) : cls ? (
                             <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
                         ) : null}

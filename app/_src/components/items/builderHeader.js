@@ -19,12 +19,17 @@ function EditIcon({ className, onClick }) {
     );
 }
 
-export default function BuilderHeader(data) {
-    let text = data.text;
-    let setText = data.setText;
+function setDocumentTitle(name) {
+    document.title = name && name !== 'Monumenta Builder' ? name + ' - Monumenta Builder' : 'Monumenta Builder';
+}
 
+// The build name lives in a ref (owned by BuilderPage) so renaming never
+// re-renders the (very large) BuildForm. This header keeps the displayed text
+// in local state while typing; only the commit writes the ref.
+export default function BuilderHeader(data) {
     const [editing, setEditing] = React.useState(false);
     const [loaded, setLoaded] = React.useState(false);
+    const [text, setText] = React.useState('Monumenta Builder');
     const [tempText, setTempText] = React.useState('Monumenta Builder');
 
     // Matches the server-side clamp when saving builds.
@@ -35,12 +40,24 @@ export default function BuilderHeader(data) {
             let tempName = 'Monumenta Builder';
             // A DB-saved build can carry a display name from "My Builds" renaming.
             const name = data.savedName || decodeBuildName(data.build);
-            if (name) tempName = name;
-            setText(decodeURIComponent(tempName));
-            setTempText(decodeURIComponent(tempName));
+            if (name) tempName = decodeURIComponent(name);
+            setText(tempName);
+            setTempText(tempName);
+            data.buildNameRef.current = tempName;
+            setDocumentTitle(tempName);
             setLoaded(true);
         }
     }, [data.parentLoaded]);
+
+    // Programmatic name changes (draft restore, reset) arrive through the
+    // signal; re-read the ref instead of re-rendering the form.
+    React.useEffect(() => {
+        if (!data.parentLoaded || !data.nameSignal) return;
+        const name = data.buildNameRef.current || 'Monumenta Builder';
+        setText(name);
+        setTempText(name);
+        setDocumentTitle(name);
+    }, [data.nameSignal]);
 
     function editButtonClicked(e) {
         setEditing(true);
@@ -70,9 +87,11 @@ export default function BuilderHeader(data) {
             reallyTempText = 'Monumenta Builder';
         }
         setTempText(reallyTempText);
-        setText(reallyTempText); // text and temptext are split so window title isn't updated by builder.js while we're typing
+        setText(reallyTempText);
+        setDocumentTitle(reallyTempText);
+        // Writes the ref (bad-word filtered); does not re-render the form.
+        data.setBuildName(reallyTempText);
         setEditing(false);
-        data.setUpdateLink(true);
     }
 
     function textchanged(e) {
