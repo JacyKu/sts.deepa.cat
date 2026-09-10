@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getLinkByUuid, saveBuild, countRecentModSaves, buildNameTakenByUser, findBuildByState } from '../../../../../lib/sts-builds';
+import {
+    getLinkByUuid,
+    saveBuild,
+    countRecentModSaves,
+    countRecentBuilds,
+    countRecentCustomItems,
+    buildNameTakenByUser,
+    findBuildByState,
+} from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems, findUnknownItemNames } from '../../../../../lib/item-uploads';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { computeBuildSummary } from '../../../../../lib/public-builds';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
+import { consumeRateLimit, dayWindowMs, rateLimitResponse, readRateLimits } from '../../../../../lib/rate-limit';
 
 // Save a build from the STS mod. The mod sends the v1_ build token it
 // generated, optionally with the player's Minecraft UUID:
@@ -26,7 +35,8 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid token' }, { status: 400 });
     }
 
-    const link = getLinkByUuid(typeof body?.uuid === 'string' ? body.uuid : '');
+    const uuid = typeof body?.uuid === 'string' ? body.uuid : '';
+    const link = getLinkByUuid(uuid);
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     // Decode must produce a real build querystring: the codec passes unknown
     // strings through as "legacy" best effort, which would let junk through.
@@ -62,6 +72,20 @@ export async function POST(request) {
         }
     }
 
+    // Daily upload limit: linked accounts are counted from the database (site
+    // and mod saves share the budget); unlinked UUIDs are counted in memory.
+    const limits = readRateLimits();
+    if (link) {
+        if (limits.buildsPerDay > 0 && countRecentBuilds(link.discord_id) >= limits.buildsPerDay) {
+            return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
+        }
+    } else {
+        const quota = consumeRateLimit(`anon-mod-build:${uuid}`, limits.anonymousBuildsPerDay, dayWindowMs());
+        if (!quota.allowed) {
+            return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Daily build limit reached. Try again tomorrow.' });
+        }
+    }
+
     const summary = computeBuildSummary(token, itemData, skillsData);
     // Linked saves land on the Discord account: one saved build per name per
     // author, so a loadout whose name another of the player's saved builds
@@ -91,13 +115,20 @@ export async function POST(request) {
     if (link && Array.isArray(body?.items) && body.items.length > 0) {
         const unknown = new Set(findUnknownItemNames(body.items.map((item) => item?.name), itemData));
         const payloads = body.items.filter((item) => unknown.has(item?.name));
-        if (payloads.length > 0) {
+        // Embedded uploads share the account's daily custom-item budget; when
+        // it is exhausted the build still saves, only the items are skipped.
+        const usedItems = countRecentCustomItems(link.discord_id, 24 * 60);
+        const allowed =
+            limits.customItemsPerDay > 0
+                ? payloads.slice(0, Math.max(0, limits.customItemsPerDay - usedItems))
+                : payloads;
+        if (allowed.length > 0) {
             const profile = await getMinecraftProfile(body.uuid).catch(() => null);
             createdItems = createUploadedCustomItems({
                 userId: link.discord_id,
                 authorName: profile ? profile.name : null,
                 authorAvatar: null,
-                items: payloads,
+                items: allowed,
                 itemData,
             }).created;
         }

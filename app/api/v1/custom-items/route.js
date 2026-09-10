@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../lib/session';
-import { saveCustomItem, listCustomItems, hasCustomItemName } from '../../../../lib/sts-builds';
+import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems } from '../../../../lib/sts-builds';
+import { rateLimitResponse, readRateLimits } from '../../../../lib/rate-limit';
 
 export async function POST(request) {
     const user = await getDiscordUser();
@@ -44,6 +45,12 @@ export async function POST(request) {
     }
     if (Object.keys(stats).length > 50) {
         return NextResponse.json({ error: 'too many stats' }, { status: 400 });
+    }
+
+    // Daily upload limit (site and mod item uploads share the account budget).
+    const limits = readRateLimits();
+    if (limits.customItemsPerDay > 0 && countRecentCustomItems(user.id, 24 * 60) >= limits.customItemsPerDay) {
+        return rateLimitResponse({ hint: 'Daily custom item limit reached. Try again tomorrow.' });
     }
 
     const item = saveCustomItem({

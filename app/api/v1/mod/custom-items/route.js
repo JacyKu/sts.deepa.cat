@@ -3,6 +3,7 @@ import { getLinkByUuid, countRecentCustomItems } from '../../../../../lib/sts-bu
 import { createUploadedCustomItems } from '../../../../../lib/item-uploads';
 import { getItemData } from '../../../../_src/utils/itemsData';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
+import { rateLimitResponse, readRateLimits } from '../../../../../lib/rate-limit';
 
 // Upload items from the game as custom items on the linked account.
 //
@@ -33,6 +34,15 @@ export async function POST(request) {
     const used = countRecentCustomItems(link.discord_id, UPLOAD_BUDGET.minutes);
     if (used + items.length > UPLOAD_BUDGET.per) {
         return NextResponse.json({ error: 'too many uploads', hint: 'Try again in a bit.' }, { status: 429 });
+    }
+
+    // Daily upload limit on top of the hourly burst budget.
+    const limits = readRateLimits();
+    if (
+        limits.customItemsPerDay > 0 &&
+        countRecentCustomItems(link.discord_id, 24 * 60) + items.length > limits.customItemsPerDay
+    ) {
+        return rateLimitResponse({ hint: 'Daily custom item limit reached. Try again tomorrow.' });
     }
 
     // Author display: the linked Minecraft profile name (the uploader has no

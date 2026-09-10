@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
-import { saveBuild, setBuildPublic, buildNameTakenByUser, findBuildByState } from '../../../../lib/sts-builds';
+import {
+    saveBuild,
+    setBuildPublic,
+    buildNameTakenByUser,
+    findBuildByState,
+    countRecentBuilds,
+} from '../../../../lib/sts-builds';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
+import { consumeRateLimit, dayWindowMs, getClientIp, rateLimitResponse, readRateLimits } from '../../../../lib/rate-limit';
 
 export async function POST(request) {
     const body = await request.json().catch(() => null);
@@ -39,6 +46,21 @@ export async function POST(request) {
             return NextResponse.json({ error: 'duplicate' }, { status: 409 });
         }
     }
+
+    // Daily upload limit: accounts are counted from the database (site and mod
+    // saves share the budget); anonymous saves are counted per IP in memory.
+    const limits = readRateLimits();
+    if (user) {
+        if (limits.buildsPerDay > 0 && countRecentBuilds(user.id) >= limits.buildsPerDay) {
+            return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
+        }
+    } else {
+        const quota = consumeRateLimit(`anon-build:${getClientIp(request)}`, limits.anonymousBuildsPerDay, dayWindowMs());
+        if (!quota.allowed) {
+            return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Daily build limit reached. Try again tomorrow.' });
+        }
+    }
+
     const summary = computeBuildSummary(token, itemData, skillsData);
     const result = saveBuild({
         state,
