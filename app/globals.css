@@ -843,7 +843,9 @@ html
         [class*='Remove']
     ):not([class*='remove']):not([class*='Clear']):not([class*='clear']):not([class*='colourChip']):not(
         [class*='themeCard']
-    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):hover,
+    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):not(
+        [class*='cardExpanded']
+    ):hover,
 html
     :is(
         a,
@@ -865,7 +867,9 @@ html
         [class*='Remove']
     ):not([class*='remove']):not([class*='Clear']):not([class*='clear']):not([class*='colourChip']):not(
         [class*='themeCard']
-    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):focus {
+    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):not(
+        [class*='cardExpanded']
+    ):focus {
     border-color: var(--accent-line, var(--control-border-hover)) !important;
 }
 

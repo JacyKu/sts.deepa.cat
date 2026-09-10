@@ -406,6 +406,54 @@
     width: calc(100% + 340px);
 }
 
+/* Round-corners mode: an expanded card and its extensions must read as one
+   surface. The corners where the panels attach are squared off (only the outer
+   corners stay rounded) and the borders that meet inside are hidden, so no
+   seams show between the card, the side extension and the notes panel.
+   `!important` is needed to beat the global `html[data-round] *` rules. */
+:global(html[data-round='true']) .cardExpanded:has(.cardSideRight) {
+    border-radius: 12px 0 0 12px !important;
+    border-right-color: transparent !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardSideLeft) {
+    border-radius: 0 12px 12px 0 !important;
+    border-left-color: transparent !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardNotes) {
+    border-radius: 12px 12px 0 0 !important;
+    border-bottom-color: transparent !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardSideRight):has(.cardNotes) {
+    border-radius: 12px 0 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardSideLeft):has(.cardNotes) {
+    border-radius: 0 12px 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardSideRight {
+    border-radius: 0 12px 12px 0 !important;
+}
+
+:global(html[data-round='true']) .cardSideLeft {
+    border-radius: 12px 0 0 12px !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideRight {
+    border-radius: 0 12px 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideLeft {
+    border-radius: 12px 0 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardNotes {
+    border-radius: 0 0 12px 12px !important;
+}
+
 .cardNotesLabel {
     font-size: 11px;
     text-transform: uppercase;
