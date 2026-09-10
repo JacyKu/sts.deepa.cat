@@ -7,9 +7,14 @@ import {
     countRecentCustomItems,
     buildNameTakenByUser,
     findBuildByState,
+    mergeReferencedCustomItems,
 } from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems, findUnknownItemNames } from '../../../../../lib/item-uploads';
-import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
+import {
+    decodeBuildParam,
+    getBuildTokenVersion,
+    getBuildItemHashes,
+} from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { computeBuildSummary } from '../../../../../lib/public-builds';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
@@ -86,31 +91,10 @@ export async function POST(request) {
         }
     }
 
-    const summary = computeBuildSummary(token, itemData, skillsData);
-    // Linked saves land on the Discord account: one saved build per name per
-    // author, so a loadout whose name another of the player's saved builds
-    // already carries is rejected (re-saving the identical build is fine).
-    if (link && name) {
-        const sameStateId = findBuildByState(link.discord_id, { token, infusions, revelation: false });
-        if (buildNameTakenByUser(link.discord_id, name, sameStateId || null)) {
-            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
-        }
-    }
-    const result = saveBuild({
-        state: { token, infusions, revelation: false },
-        userId: link ? link.discord_id : null,
-        name,
-        notes: null,
-        summary,
-        source: 'mod',
-    });
-    if (!result) {
-        return NextResponse.json({ error: 'invalid build' }, { status: 400 });
-    }
-
     // Equipment the site doesn't know about (unreleased/event items) is
     // uploaded by the mod alongside the build; create those as custom items
-    // on the linked account so the build renders correctly for its owner.
+    // on the linked account first so they can be resolved into the summary
+    // below (and shown on build cards).
     let createdItems = [];
     if (link && Array.isArray(body?.items) && body.items.length > 0) {
         const unknown = new Set(findUnknownItemNames(body.items.map((item) => item?.name), itemData));
@@ -132,6 +116,35 @@ export async function POST(request) {
                 itemData,
             }).created;
         }
+    }
+
+    // Custom items are not part of the static item data; merge the ones this
+    // build references so the saved summary keeps them (otherwise they are
+    // dropped from items_json and never show on build cards).
+    const summaryData = link
+        ? mergeReferencedCustomItems(itemData, link.discord_id, getBuildItemHashes(token))
+        : itemData;
+    const summary = computeBuildSummary(token, summaryData, skillsData);
+
+    // Linked saves land on the Discord account: one saved build per name per
+    // author, so a loadout whose name another of the player's saved builds
+    // already carries is rejected (re-saving the identical build is fine).
+    if (link && name) {
+        const sameStateId = findBuildByState(link.discord_id, { token, infusions, revelation: false });
+        if (buildNameTakenByUser(link.discord_id, name, sameStateId || null)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
+    }
+    const result = saveBuild({
+        state: { token, infusions, revelation: false },
+        userId: link ? link.discord_id : null,
+        name,
+        notes: null,
+        summary,
+        source: 'mod',
+    });
+    if (!result) {
+        return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
 
     return NextResponse.json({

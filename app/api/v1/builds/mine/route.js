@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listBuildsByUser, getFavouriteState } from '../../../../../lib/sts-builds';
+import { listBuildsByUser, getFavouriteState, customItemsForBuilds } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
 import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 
@@ -8,10 +8,13 @@ export async function GET() {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
-    const builds = listBuildsByUser(user.id).map((b) => ({
+    const rows = listBuildsByUser(user.id);
+    const customItems = customItemsForBuilds(rows);
+    const builds = rows.map((b, i) => ({
         id: b.id,
         name: b.name || null,
         notes: b.notes || null,
+        customItems: customItems[i],
         token: b.token,
         createdAt: b.created_at,
         updatedAt: b.updated_at,

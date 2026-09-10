@@ -102,7 +102,7 @@
 
 .skeletonCards {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1160px;
     display: flex;
     flex-wrap: wrap;
     justify-content: space-evenly;
@@ -111,7 +111,7 @@
 }
 
 .skeletonCard {
-    width: 360px;
+    width: 380px;
     height: 210px;
     padding: 16px;
     display: flex;
@@ -230,7 +230,7 @@
 
 .grid {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1160px;
     display: flex;
     flex-wrap: wrap;
     justify-content: space-evenly;
@@ -243,7 +243,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    width: 360px;
+    width: 380px;
     padding: 18px;
     background: #111111;
     border: 2px solid var(--glass-border);
@@ -350,6 +350,82 @@
 
 .cardSideOpen .previewRowWrap {
     animation: sideIn 250ms ease both;
+}
+
+/* Custom items are called out in yellow wherever their name or slot type is
+   shown (quickview rows and the compact item strip); the rule lives after
+   .previewSlot/.itemStripLabel so it wins the color cascade. */
+
+/* Notes panel: opens below the card on hover and grows with the text up to a
+   maximum height (then scrolls). With the side extension open it stretches
+   underneath it as well. */
+.cardNotes {
+    position: absolute;
+    top: calc(100% - 2px);
+    width: 0;
+    max-height: 0;
+    opacity: 0;
+    padding: 0 10px;
+    background: #1a1a1a;
+    border: 2px solid var(--glass-border);
+    border-top: none;
+    overflow: hidden;
+    transition:
+        width 220ms ease,
+        max-height 220ms ease,
+        opacity 180ms ease,
+        padding 220ms ease;
+}
+
+:global(html[data-theme='light']) .cardNotes,
+:global(html[data-theme='glass-light']) .cardNotes {
+    background: #f5f5f5;
+}
+
+.cardExpanded .cardNotes {
+    border-color: var(--accent-line, var(--control-border-hover));
+}
+
+.cardNotesRight {
+    left: -2px;
+}
+
+.cardNotesLeft {
+    right: -2px;
+}
+
+.cardNotesOpen {
+    width: calc(100% + 4px);
+    max-height: 220px;
+    opacity: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.cardNotesWide {
+    width: calc(100% + 340px);
+}
+
+.cardNotesLabel {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-2);
+    margin-bottom: 4px;
+}
+
+.cardNotesBody {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-1);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.mobileNotes {
+    border-top: 1px solid var(--glass-border);
+    margin-top: 2px;
+    padding-top: 10px;
 }
 
 .previewRowWrap {
@@ -859,6 +935,13 @@
     letter-spacing: 0.4px;
 }
 
+/* Custom items are called out in yellow wherever their name or slot type is
+   shown (quickview rows and the compact item strip). Defined after the
+   classes it overrides so it wins the color cascade. */
+.customItem {
+    color: #fcb23d;
+}
+
 .skillAbbr {
     font-weight: 600;
 }
@@ -901,6 +984,30 @@
     justify-content: space-between;
     gap: 8px;
     margin-top: auto;
+}
+
+/* Custom items / notes indicators: same box shape as the layout-swap button,
+   shown at the end of the card tags row (yellow for custom items, blue for
+   notes). They stretch to the tag height like the other tags so the region tag
+   and icons stay the same size. The notes themselves open on card hover. */
+.cardIndicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 28px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    flex-shrink: 0;
+}
+
+.cardIndicatorCustom {
+    color: #fcb23d;
+}
+
+.cardIndicatorNotes {
+    color: #7cc4ff;
 }
 
 .cardMeta {

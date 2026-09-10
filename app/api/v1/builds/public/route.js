@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listPublicBuilds } from '../../../../../lib/sts-builds';
+import { listPublicBuilds, customItemsForBuilds } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
 import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 
@@ -24,9 +24,12 @@ export async function GET(request) {
         userId: user ? user.id : null,
     });
 
-    const builds = result.builds.map((b) => ({
+    const customItems = customItemsForBuilds(result.builds);
+    const builds = result.builds.map((b, i) => ({
         id: b.id,
         name: b.name || null,
+        notes: b.notes || null,
+        customItems: customItems[i],
         class: b.class_name,
         spec: b.spec,
         region: b.region,

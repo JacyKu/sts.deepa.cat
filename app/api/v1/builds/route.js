@@ -5,8 +5,9 @@ import {
     buildNameTakenByUser,
     findBuildByState,
     countRecentBuilds,
+    mergeReferencedCustomItems,
 } from '../../../../lib/sts-builds';
-import { decodeBuildParam, getBuildTokenVersion } from '../../../_src/utils/builder/buildUrlCodec';
+import { decodeBuildParam, getBuildTokenVersion, getBuildItemHashes } from '../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
@@ -61,7 +62,11 @@ export async function POST(request) {
         }
     }
 
-    const summary = computeBuildSummary(token, itemData, skillsData);
+    // Custom items are not part of the static item data; merge the ones this
+    // build references so the saved summary keeps them (otherwise they are
+    // dropped from items_json and never show on build cards).
+    const summaryData = user ? mergeReferencedCustomItems(itemData, user.id, getBuildItemHashes(token)) : itemData;
+    const summary = computeBuildSummary(token, summaryData, skillsData);
     const result = saveBuild({
         state,
         userId: user ? user.id : null,

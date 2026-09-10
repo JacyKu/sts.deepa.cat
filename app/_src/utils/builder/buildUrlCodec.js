@@ -45,6 +45,28 @@ export function getBuildItemHashes(token) {
     }
 }
 
+// Same hashes but paired with their equipment slot, so a referenced custom
+// item can be placed on the build card in the right slot. Returns null for
+// legacy tokens.
+export function getBuildItemSlots(token) {
+    if (typeof token !== 'string' || !token.startsWith(BINARY_V1_PREFIX)) return null;
+    try {
+        const bytes = fromBase64Url(token.slice(BINARY_V1_PREFIX.length));
+        if (bytes.length < 25) return null;
+        const keys = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+        const slots = [];
+        for (let i = 0; i < 6; i++) {
+            const offset = 1 + i * 4;
+            const hash =
+                (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+            if (hash !== 0) slots.push({ slot: keys[i], hash });
+        }
+        return slots;
+    } catch (e) {
+        return null;
+    }
+}
+
 // FNV-1a over UTF-16 code units - the same hash the token stores for item
 // keys (kept in sync with the encoder above and the Java BuildTokenEncoder).
 export function fnv1a32(str) {

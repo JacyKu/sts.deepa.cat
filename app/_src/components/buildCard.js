@@ -229,6 +229,20 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             return;
         }
         setOpenItem(i);
+        // Custom items are not in the static items API; their stats come with
+        // the build annotation instead.
+        const custom = customByName.get(item.n);
+        if (custom) {
+            setDetail({
+                name: custom.name,
+                type: custom.type,
+                base_item: custom.baseItem,
+                stats: custom.stats,
+                statColors: custom.statColors,
+                isCustomItem: true,
+            });
+            return;
+        }
         const cacheKey = `${item.n}|${item.pw || ''}`;
         const cached = itemDetailCache.get(cacheKey);
         if (cached) {
@@ -337,6 +351,26 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         }
     }
 
+    // Custom items the build references (annotated by the builds API from the
+    // token's item hashes) and whether the author left notes. Builds saved
+    // before custom items were kept in items_json still get the missing ones
+    // merged into the item list here, so the card can show the custom item and
+    // its texture. The notes themselves open below the card on hover.
+    const customItems = Array.isArray(build.customItems) ? build.customItems : [];
+    const customByName = new Map(customItems.map((item) => [item.name, item]));
+    const hasNotes = typeof build.notes === 'string' && build.notes.trim().length > 0;
+    const missingCustom = customItems.filter((item) => item.slot && !items.some((entry) => entry.n === item.name));
+    if (missingCustom.length > 0) {
+        const SLOT_ORDER = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+        const bySlot = new Map(items.filter((entry) => entry.sl && !entry.c).map((entry) => [entry.sl, entry]));
+        for (const item of missingCustom) {
+            bySlot.set(item.slot, { n: item.name, b: item.baseItem || undefined, sl: item.slot });
+        }
+        const equipment = SLOT_ORDER.map((slot) => bySlot.get(slot)).filter(Boolean);
+        const rest = items.filter((entry) => entry.c || !entry.sl);
+        items = [...equipment, ...rest];
+    }
+
     // Sprite class resolution mirrors the items page: explicit map entry, else
     // a minecraft texture keyed by the base item. Charms fall back to their
     // class default texture on the charmsheet (tier/class/power based), like
@@ -367,6 +401,12 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         return `monumenta-${image}`;
     }
     function itemSprite(item) {
+        // Custom items render their own texture when the referenced token is
+        // part of the spritesheet; otherwise they fall back like unknown items.
+        const custom = customByName.get(item.n);
+        if (custom && custom.textureToken && doesStyleExist(`monumenta-${custom.textureToken}`)) {
+            return `monumenta-items monumenta-${custom.textureToken}`;
+        }
         const mapped = getMappedSpriteClass(spriteMap, item.n);
         if (mapped && doesStyleExist(mapped)) return `monumenta-items ${mapped}`;
         if (spriteMap) {
@@ -383,20 +423,25 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         }
         return null;
     }
-    const itemStars = (item) => {
+    const itemStars = (item, isCustom) => {
         if (item.c) {
             return (Number(item.pw) || 0) > 0 ? (
                 <span className={styles.previewStars}>{'★'.repeat(Number(item.pw) || 0)}</span>
             ) : null;
         }
         if (item.sl && SLOT_LABELS[item.sl]) {
-            return <span className={styles.previewSlot}>{SLOT_LABELS[item.sl]}</span>;
+            return (
+                <span className={`${styles.previewSlot}${isCustom ? ` ${styles.customItem}` : ''}`}>
+                    {SLOT_LABELS[item.sl]}
+                </span>
+            );
         }
         return null;
     };
 
     function renderItemRow(item, i) {
         const cls = itemSprite(item);
+        const isCustom = customByName.has(item.n);
         return (
             <div key={i} className={styles.previewRowWrap}>
                 <div
@@ -415,8 +460,10 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         ) : null}
                     </span>
                     <span className={styles.previewInfo}>
-                        <span className={styles.previewName}>{item.n}</span>
-                        {itemStars(item)}
+                        <span className={`${styles.previewName}${isCustom ? ` ${styles.customItem}` : ''}`}>
+                            {item.n}
+                        </span>
+                        {itemStars(item, isCustom)}
                     </span>
                 </div>
                 {openItem === i && detail && (
@@ -469,6 +516,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         const charms = items.filter((item) => item.c);
         const renderIcon = (item, i) => {
             const cls = itemSprite(item);
+            const isCustom = customByName.has(item.n);
             return (
                 <span key={i} className={`${styles.itemStripWrap} ${itemsStyles.enchantTooltip}`}>
                     <span className={styles.itemStripIcon}>
@@ -478,11 +526,13 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                             <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
                         ) : null}
                     </span>
-                    <span className={styles.itemStripLabel}>
+                    <span className={`${styles.itemStripLabel}${isCustom ? ` ${styles.customItem}` : ''}`}>
                         {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && SLOT_ABBR[item.sl]}
                     </span>
                     <span className={itemsStyles.enchantTooltipText}>
-                        <span style={{ fontWeight: 600 }}>{item.n}</span>
+                        <span className={isCustom ? styles.customItem : undefined} style={{ fontWeight: 600 }}>
+                            {item.n}
+                        </span>
                         {item.b && item.b !== item.n && (
                             <span style={{ display: 'block', marginTop: 3 }}>{item.b}</span>
                         )}
@@ -568,6 +618,9 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     // hover panel; the "items first" toggle swaps them. A build with no
     // skills falls back to the item strip so the card isn't empty.
     const showItemStrip = itemsFirst || skills.length === 0;
+    // Whether the hover side extension has anything to show; the notes panel
+    // only stretches over it when it is actually open.
+    const sideHasContent = itemsFirst ? skills.length > 0 : items.length > 0;
 
     return (
         <Link
@@ -737,6 +790,28 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         {build.tree}
                     </span>
                 )}
+                {customItems.length > 0 && (
+                    <span
+                        className={`${styles.cardIndicator} ${styles.cardIndicatorCustom} ${itemsStyles.enchantTooltip}`}
+                        style={chipTooltipStyle}
+                    >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2zm6.2 10l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9.9-2.4zM6 14l.9 2.4 2.4.9-2.4.9L6 20.6l-.9-2.4-2.4-.9 2.4-.9L6 14z" />
+                        </svg>
+                        <span className={itemsStyles.enchantTooltipText}>Uses custom items</span>
+                    </span>
+                )}
+                {hasNotes && (
+                    <span
+                        className={`${styles.cardIndicator} ${styles.cardIndicatorNotes} ${itemsStyles.enchantTooltip}`}
+                        style={chipTooltipStyle}
+                    >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                            <path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V9h4.5L13 4.5zM7 12h10v2H7v-2zm0 4h10v2H7v-2z" />
+                        </svg>
+                        <span className={itemsStyles.enchantTooltipText}>Has notes - hover the card to read them</span>
+                    </span>
+                )}
             </div>
 
             {!itemsFirst && skills.length > 0 && (
@@ -767,6 +842,13 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                 </div>
             )}
 
+            {isTouch && expanded && hasNotes && (
+                <div className={styles.mobileNotes}>
+                    <div className={styles.cardNotesLabel}>Notes</div>
+                    <div className={styles.cardNotesBody}>{build.notes}</div>
+                </div>
+            )}
+
             {!isTouch && expanded && (itemsFirst ? skills.length > 0 : items.length > 0) && (
                 <div
                     className={`${styles.cardSide} ${side === 'left' ? styles.cardSideLeft : styles.cardSideRight}${sideOpen ? ` ${styles.cardSideOpen}` : ''}`}
@@ -774,6 +856,17 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                     {(itemsFirst ? skills : items).map(
                         itemsFirst ? (s, i) => renderSkillChip(s, i, true) : renderItemRow
                     )}
+                </div>
+            )}
+
+            {!isTouch && expanded && hasNotes && (
+                <div
+                    className={`${styles.cardNotes} ${
+                        side === 'left' ? styles.cardNotesLeft : styles.cardNotesRight
+                    }${sideOpen ? ` ${styles.cardNotesOpen}` : ''}${sideHasContent ? ` ${styles.cardNotesWide}` : ''}`}
+                >
+                    <div className={styles.cardNotesLabel}>Notes</div>
+                    <div className={styles.cardNotesBody}>{build.notes}</div>
                 </div>
             )}
 
