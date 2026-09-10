@@ -3,6 +3,7 @@ import { getItemData } from '../_src/utils/itemsData';
 import { buildStatCategories } from '../_src/utils/items/statCategories';
 import { baseItemOptionsFrom } from '../_src/utils/items/baseItems';
 import CustomItemsPage from '../_src/components/customItems/customItemsPage';
+import CustomItemsSkeleton from '../_src/components/customItems/customItemsSkeleton';
 
 export const metadata = {
     title: 'Custom Items',
@@ -22,7 +23,7 @@ export const metadata = {
 
 export default function Page() {
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<CustomItemsSkeleton />}>
             <CustomItemsView />
         </Suspense>
     );

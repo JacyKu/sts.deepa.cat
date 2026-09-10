@@ -233,3 +233,45 @@
     border-radius: 999px;
     padding: 1px 8px;
 }
+
+/* Loading placeholder: mirrors .groupList/.card/.groupHeader geometry. */
+.skeletonSummary {
+    height: 14px;
+    width: 260px;
+    margin: 4px 0 12px;
+}
+
+.skeletonCard {
+    width: 100%;
+    background: var(--glass-2, #1d1a24);
+    border: 1px solid var(--glass-border, #444);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    height: 78px;
+}
+
+.skeletonIcon {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 auto;
+}
+
+.skeletonLines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.skeletonLine {
+    height: 15px;
+    width: 45%;
+}
+
+.skeletonLineShort {
+    height: 12px;
+    width: 25%;
+}

@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { getRawItems, getItemHistory } from '../../_src/utils/itemsData';
 import HistoryPage from '../../_src/components/items/historyPage';
-import ItemsSkeleton from '../../_src/components/itemsSkeleton';
+import HistorySkeleton from '../../_src/components/items/historySkeleton';
 
 export const metadata = {
     title: 'Monumenta Item Stat History',
@@ -21,7 +21,7 @@ export const metadata = {
 
 export default function Page() {
     return (
-        <Suspense fallback={<ItemsSkeleton />}>
+        <Suspense fallback={<HistorySkeleton />}>
             <HistoryView />
         </Suspense>
     );

@@ -175,9 +175,10 @@
 }
 
 .skeletonTile {
-    width: 280px;
+    width: 260px;
     height: 220px;
-    margin: 15px;
+    margin: 4px 8px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
 }
@@ -185,12 +186,54 @@
 .skeletonSearchForm {
     width: min(1000px, 100%);
     margin: 0 15px;
-    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    background: var(--glass-1);
-    border: 2px solid var(--glass-border);
+    gap: 6px;
+}
+
+/* Real search fields: width 100%, max-width 560, height 4vh, stacked. */
+.skeletonField {
+    height: 4vh;
+    min-height: 34px;
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto 6px;
+}
+
+/* "+ Add" toolbar button: max-width 560, left aligned. */
+.skeletonToolbarButton {
+    height: 42px;
+    width: 100%;
+    max-width: 560px;
+    margin: 4px auto;
+}
+
+/* Search + Reset row: two flex-1 buttons, max-width 560, centered. */
+.skeletonActions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 560px;
+    margin: 4px auto 0;
+}
+
+.skeletonActions > * {
+    flex: 1;
+    height: 42px;
+}
+
+/* Toggle pills row. */
+.skeletonToggleRow {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.skeletonToggle {
+    width: 130px;
+    height: 34px;
 }
 
 .skeletonRow {
@@ -204,7 +247,6 @@
     height: 42px;
     flex: 1;
     min-width: 140px;
-    border-width: 1px;
 }
 
 .skeletonButton {
@@ -219,20 +261,27 @@
 }
 
 .skeletonIcon {
-    width: 80px;
-    height: 80px;
+    width: 64px;
+    height: 64px;
     margin: 20px auto 12px;
 }
 
 .skeletonText {
     height: 12px;
-    margin: 6px 14px;
+    margin: 6px 6px;
 }
 
 .skeletonTextShort {
     height: 12px;
-    margin: 6px 14px;
+    margin: 6px 6px;
     width: 60%;
+}
+
+/* Mirrors the result count + history link lines on the items page. */
+.skeletonLink {
+    height: 14px;
+    width: 180px;
+    margin: -4px 0 8px;
 }
 
 .skeletonImportBar {
@@ -243,18 +292,17 @@
 }
 
 .skeletonForm {
-    width: min(1000px, 100%);
-    margin: 0 15px;
-    padding: 16px;
+    width: 100%;
+    margin: 0 0 24px;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    background: var(--glass-1);
-    border: 2px solid var(--glass-border);
+    gap: 12px;
 }
 
 .skeletonSelectCol {
-    flex: 1;
+    flex: 1 1 160px;
+    max-width: 260px;
     min-width: 140px;
     display: flex;
     flex-direction: column;
@@ -272,7 +320,6 @@
     height: 42px;
     width: 100%;
     max-width: 260px;
-    border-width: 1px;
 }
 
 .skeletonStatCards {

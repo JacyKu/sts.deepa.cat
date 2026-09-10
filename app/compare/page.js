@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { getItemData } from '../_src/utils/itemsData';
 import ComparePage from '../_src/components/comparePage';
+import CompareSkeleton from '../_src/components/compareSkeleton';
 
 export const metadata = {
     title: 'Build Comparison',
@@ -16,7 +17,7 @@ export const metadata = {
 export default async function Page() {
     const itemData = await getItemData();
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<CompareSkeleton />}>
             <ComparePage itemData={itemData} />
         </Suspense>
     );

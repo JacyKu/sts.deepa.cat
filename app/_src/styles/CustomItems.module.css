@@ -571,3 +571,45 @@
     gap: 6px;
     flex-wrap: wrap;
 }
+
+/* Loading placeholder geometry (mirrors the form and .customItem cards). */
+.skeletonForm {
+    width: 100%;
+    max-width: 720px;
+    height: 320px;
+    margin: 8px 0 16px;
+}
+
+.skeletonHeading {
+    height: 20px;
+    width: 180px;
+    margin: 4px 0 10px;
+}
+
+.skeletonCardLine {
+    height: 16px;
+    width: 60%;
+}
+
+.skeletonCardTag {
+    height: 20px;
+    width: 70px;
+}
+
+.skeletonCardLines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.skeletonCardIcon {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 auto;
+}
+
+.skeletonCardShort {
+    height: 12px;
+    width: 35%;
+}

@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { getCustomItem } from '../../../lib/sts-builds';
 import { getDiscordUser } from '../../../lib/session';
 import CustomItemPage from '../../_src/components/customItems/customItemView';
+import CustomItemSkeleton from '../../_src/components/customItems/customItemSkeleton';
 
 export const metadata = {
     title: 'Custom Item',
@@ -21,7 +22,7 @@ export const metadata = {
 
 export default function Page({ params }) {
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<CustomItemSkeleton />}>
             <CustomItemView params={params} />
         </Suspense>
     );

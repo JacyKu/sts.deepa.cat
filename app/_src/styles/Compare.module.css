@@ -323,3 +323,27 @@
     color: #7ee787;
     font-weight: 600;
 }
+
+/* Loading placeholder geometry (mirrors .pickers/.picker/.pickerRow). */
+.skeletonPickerTitle {
+    height: 14px;
+    width: 70px;
+}
+
+.skeletonInput {
+    height: 38px;
+    flex: 1;
+    min-width: 0;
+}
+
+.skeletonButton {
+    height: 38px;
+    width: 90px;
+}
+
+.skeletonHint {
+    height: 16px;
+    width: 320px;
+    max-width: 80%;
+    margin-top: 12px;
+}
