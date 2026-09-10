@@ -3,8 +3,8 @@ node_modules/
 .turbo/
 public/items/
 public/spritesheets/
-data/
-embed-debug/
+/data/
+/embed-debug/
 package-lock.json
 *.db
 *.db-wal
