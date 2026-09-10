@@ -17,10 +17,15 @@
     "update:data": "node scripts/update-items.mjs && node scripts/spritesheetmaker/import-mod-dump.js && node scripts/validate-data.mjs",
     "deploy:data": "node scripts/deploy-data.mjs",
     "deploy:data:dev": "node scripts/deploy-data.mjs --target dev",
-    "dump:deploy": "npm run update:data && npm run deploy:data"
+    "dump:deploy": "npm run update:data && npm run deploy:data",
+    "backup:db": "node scripts/backup-db.mjs create",
+    "backup:db:list": "node scripts/backup-db.mjs list --remote",
+    "backup:db:prune": "node scripts/backup-db.mjs prune --remote",
+    "restore:db": "node scripts/backup-db.mjs restore"
   },
   "dependencies": {
     "@deepa/shared": "*",
+    "aws4fetch": "^1.0.20",
     "better-sqlite3": "^13.0.1",
     "cookies-next": "^6.1.1",
     "iron-session": "^8.0.0",
