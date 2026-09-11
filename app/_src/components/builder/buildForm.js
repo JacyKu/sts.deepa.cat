@@ -2254,9 +2254,9 @@ export default function BuildForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [skillsData]);
 
-    // A shared skill/infusion set opened from /sets/<id> (the builder's
-    // ?set=<id> link): apply it once, after the build/draft restore effect
-    // above has run. Skill sets wait for the class data so buffs resolve.
+    // A shared skill/infusion set opened from /builder?set=<id>: apply it
+    // once, after the build/draft restore effect above has run. Skill sets
+    // wait for the class data so buffs resolve.
     const sharedSetApplied = React.useRef(false);
     React.useEffect(() => {
         if (!sharedSet || sharedSetApplied.current || !parentLoaded) return;

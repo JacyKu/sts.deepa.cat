@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { getItemData, getSkillsData } from '../_src/utils/itemsData';
-import { getLinkPreviewTitle, getLinkPreviewDescription } from '../_src/utils/buildPreview';
+import { getLinkPreviewTitle, getLinkPreviewDescription, getSetPreviewDescription } from '../_src/utils/buildPreview';
 import { mergeReferencedCustomItems, getPublicSkillSet } from '../../lib/sts-builds';
 import { getBuildItemHashes } from '../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../lib/session';
@@ -14,12 +14,14 @@ export async function generateMetadata({ searchParams }) {
     const sp = await searchParams;
     const build = sp?.build ? String(sp.build) : null;
 
-    // ?set=<id> opens a shared skill/infusion set in the builder.
+    // ?set=<id> imports a shared skill/infusion set into the builder; the
+    // embed shows the set's skills through the build-card OG renderer.
     if (!build && sp?.set) {
         const set = getPublicSkillSet(String(sp.set));
         if (set) {
-            const title = `${set.name} · Monumenta Builder`;
-            const description = 'A shared skill/infusion set - open it in the Monumenta builder.';
+            const title = `${set.name} - Monumenta Builder`;
+            const description = getSetPreviewDescription(set, await getSkillsData());
+            const imageUrl = '/api/v1/og?set=' + encodeURIComponent(set.id);
             return {
                 title,
                 description,
@@ -29,13 +31,13 @@ export async function generateMetadata({ searchParams }) {
                     type: 'website',
                     title,
                     description,
-                    images: [{ url: '/favicon/favicon.png' }],
+                    images: [{ url: imageUrl, width: 1200, height: 630 }],
                 },
                 twitter: {
-                    card: 'summary',
+                    card: 'summary_large_image',
                     title,
                     description,
-                    images: ['/favicon/favicon.png'],
+                    images: [imageUrl],
                 },
             };
         }

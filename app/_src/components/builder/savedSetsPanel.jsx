@@ -6,8 +6,8 @@
 //      of the caller's own saved builds,
 //   2. save the current skill layout (or the current delve infusions) as a
 //      named set for later, and apply/delete saved sets,
-//   3. share a set as a public link (/sets/<id>) that anyone can open and
-//      apply in the builder; sharing can be stopped again.
+//   3. share a set as a public link (/builder?set=<id>) that anyone can open
+//      and apply in the builder; sharing can be stopped again.
 // All API work happens here; the BuildForm drives state changes through the
 // callbacks below so the panel stays decoupled from the giant form.
 import React from 'react';
@@ -160,10 +160,11 @@ export default function SavedSetsPanel({
         }
     }
 
-    // Public link for a shared set. The URL is stable while sharing is on;
-    // unsharing makes it 404 for everyone.
+    // Public link for a shared set: it opens the builder with the set
+    // applied. The URL is stable while sharing is on; unsharing makes it
+    // fall back to a plain builder link for everyone.
     function copyShareLink(id) {
-        const url = `${window.location.origin}/sets/${id}`;
+        const url = `${window.location.origin}/builder?set=${id}`;
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard
                 .writeText(url)

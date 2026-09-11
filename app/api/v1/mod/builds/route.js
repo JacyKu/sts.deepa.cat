@@ -8,6 +8,7 @@ import {
     buildNameTakenByUser,
     findBuildByState,
     mergeReferencedCustomItems,
+    getStsUserProfile,
 } from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems, findUnknownItemNames } from '../../../../../lib/item-uploads';
 import {
@@ -107,11 +108,15 @@ export async function POST(request) {
                 ? payloads.slice(0, Math.max(0, limits.customItemsPerDay - usedItems))
                 : payloads;
         if (allowed.length > 0) {
-            const profile = await getMinecraftProfile(body.uuid).catch(() => null);
+            // Attribute created items to the Discord identity: the uploader has
+            // no Discord session here, so the stored profile snapshot is used;
+            // accounts predating it fall back to the Minecraft profile name.
+            const discord = getStsUserProfile(link.discord_id);
+            const profile = discord ? null : await getMinecraftProfile(body.uuid).catch(() => null);
             createdItems = createUploadedCustomItems({
                 userId: link.discord_id,
-                authorName: profile ? profile.name : null,
-                authorAvatar: null,
+                authorName: discord ? discord.name : profile ? profile.name : null,
+                authorAvatar: discord ? discord.avatar : null,
                 items: allowed,
                 itemData,
             }).created;

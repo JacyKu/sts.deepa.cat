@@ -8,7 +8,8 @@ export async function GET() {
     if (user) {
         // Sessions are stateless cookies; keep the account-creation date in
         // the database and register the account the first time it is seen.
-        ensureStsUser(user.id);
+        // The profile snapshot lets mod uploads use the Discord name/avatar.
+        ensureStsUser(user.id, user);
     }
     return NextResponse.json({
         user: user

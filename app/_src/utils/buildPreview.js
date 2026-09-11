@@ -255,3 +255,92 @@ export function getLinkPreviewTitle(build, itemData, buildName, skillsData) {
     const name = getEffectiveBuildName(data, buildName);
     return (name ? name + ' - ' : '') + 'Monumenta Builder';
 }
+
+// --- Shared skill/infusion sets (lib/sts-builds.js) ---
+//
+// Saved sets are plain JSON snapshots, not build tokens, so their payload is
+// mapped onto the same shape getLinkPreviewData produces; the embed's
+// SkillPanel/InfusionPanel can then render them unchanged.
+
+export function getSetPreviewData(set, skillsData) {
+    const payload = (set && set.payload) || {};
+    const className = (set && set.className) || payload.cl || null;
+    const spec = (set && set.spec) || payload.sp || null;
+    const classData =
+        className && skillsData && Array.isArray(skillsData.classes)
+            ? skillsData.classes.find((c) => (c.className || '').toLowerCase() === String(className).toLowerCase())
+            : null;
+    const specData = classData && spec ? classData.specs?.find((s) => s.specName === spec) : null;
+    const nameOf = (id) => {
+        const match =
+            classData?.skills?.find((s) => s.scoreboardId === id) ||
+            specData?.specSkills?.find((s) => s.scoreboardId === id);
+        return match ? match.displayName || match.name : id;
+    };
+    const parsePoints = (raw) =>
+        Object.entries(raw && typeof raw === 'object' ? raw : {})
+            .map(([id, points]) => ({ id, points: Number(points) }))
+            .filter((s) => s.id && Number.isFinite(s.points) && s.points > 0)
+            .map((s) => ({ ...s, name: nameOf(s.id) }));
+
+    return {
+        className,
+        spec,
+        skills: parsePoints(payload.sk),
+        specSkills: parsePoints(payload.ssk),
+        enhancements: Object.keys(payload.en || {}).map((id) => ({ id, name: nameOf(id) })),
+        czAbilities: Object.keys(payload.cz || {}),
+        infusions: payload.infusions && typeof payload.infusions === 'object' ? payload.infusions : null,
+        points: payload.points && typeof payload.points === 'object' ? payload.points : null,
+        revelation: Boolean(payload.revelation),
+    };
+}
+
+const SET_SLOT_SHORT = {
+    mainhand: 'MH',
+    offhand: 'OH',
+    helmet: 'HELM',
+    chestplate: 'CHEST',
+    leggings: 'LEGS',
+    boots: 'BOOTS',
+};
+
+// Discord embed description for a shared set (skills or delve infusions).
+export function getSetPreviewDescription(set, skillsData) {
+    const data = getSetPreviewData(set, skillsData);
+    const parts = [];
+    if (set && set.kind === 'delve') {
+        const entries = Object.entries(data.infusions || {}).filter(([, name]) => name && name !== 'None');
+        if (entries.length > 0) {
+            parts.push(
+                `✨ Infusions: ${entries
+                    .map(([slot, name]) => {
+                        const level = data.points && data.points[slot];
+                        return `${SET_SLOT_SHORT[slot] || slot} ${name}${level ? ` (Lv ${level})` : ''}`;
+                    })
+                    .join(', ')}`
+            );
+        }
+        if (data.revelation) parts.push('🌟 Revelation');
+        if (parts.length === 0) parts.push('An infusion set for the Monumenta builder.');
+    } else {
+        if (data.className) {
+            const human = data.className.charAt(0).toUpperCase() + data.className.slice(1);
+            parts.push(`🎓 ${human}${data.spec ? ` / ${data.spec}` : ''}`);
+        }
+        if (data.skills.length > 0) {
+            parts.push(`⚔️ Skills: ${data.skills.map((s) => `${s.name} ${s.points}`).join(', ')}`);
+        }
+        if (data.specSkills.length > 0) {
+            parts.push(`✨ Spec: ${data.specSkills.map((s) => `${s.name} ${s.points}`).join(', ')}`);
+        }
+        if (data.enhancements.length > 0) {
+            parts.push(`💚 Enhanced: ${data.enhancements.map((e) => e.name).join(', ')}`);
+        }
+        if (data.czAbilities.length > 0) {
+            parts.push(`🔮 CZ: ${data.czAbilities.join(', ')}`);
+        }
+        if (parts.length === 0) parts.push('A skill set for the Monumenta builder.');
+    }
+    return parts.join('\n');
+}

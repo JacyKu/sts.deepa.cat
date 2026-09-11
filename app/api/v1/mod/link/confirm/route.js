@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { confirmPendingLink, getPendingLink } from '../../../../../../lib/sts-builds';
+import { confirmPendingLink, getPendingLink, ensureStsUser } from '../../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../../lib/session';
 
 // Confirms a pending Minecraft link. Requires a signed-in Discord session: the
@@ -11,6 +11,8 @@ export async function POST(request) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    // Snapshot the Discord profile so mod uploads can use the Discord name.
+    ensureStsUser(user.id, user);
     const body = await request.json().catch(() => null);
     const code = typeof body?.code === 'string' ? body.code : '';
     if (!code || !getPendingLink(code)) {

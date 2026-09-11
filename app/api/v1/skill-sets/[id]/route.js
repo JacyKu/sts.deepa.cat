@@ -17,7 +17,7 @@ export async function DELETE(_request, { params }) {
     return NextResponse.json({ ok: true });
 }
 
-// Starts/stops sharing the caller's set at /sets/<id>. Sharing is a Discord
+// Starts/stops sharing the caller's set at /builder?set=<id>. Sharing is a Discord
 // login feature like saving itself; the public page needs no account.
 export async function POST(request, { params }) {
     const user = await getDiscordUser();

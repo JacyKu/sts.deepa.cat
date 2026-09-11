@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { exchangeDiscordCode, getSession, discordRedirectUri, appUrl } from '../../../../../lib/session';
+import { ensureStsUser } from '../../../../../lib/sts-builds';
 
 export async function GET(request) {
     const url = new URL(request.url);
@@ -32,6 +33,7 @@ export async function GET(request) {
         const session = await getSession();
         session.user = user;
         await session.save();
+        ensureStsUser(user.id, user);
         cookieStore.delete('sts-oauth-state');
         return NextResponse.redirect(appUrl(request.url, nextPath));
     } catch (e) {

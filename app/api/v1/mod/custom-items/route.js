@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getLinkByUuid, countRecentCustomItems } from '../../../../../lib/sts-builds';
+import { getLinkByUuid, countRecentCustomItems, getStsUserProfile } from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems } from '../../../../../lib/item-uploads';
 import { getItemData } from '../../../../_src/utils/itemsData';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
@@ -45,14 +45,16 @@ export async function POST(request) {
         return rateLimitResponse({ hint: 'Daily custom item limit reached. Try again tomorrow.' });
     }
 
-    // Author display: the linked Minecraft profile name (the uploader has no
-    // Discord session here, so there is no Discord profile to read).
-    const profile = await getMinecraftProfile(uuid).catch(() => null);
+    // Author display: the Discord identity snapshot (the uploader has no
+    // Discord session here); accounts predating it fall back to the Minecraft
+    // profile name.
+    const discord = getStsUserProfile(link.discord_id);
+    const profile = discord ? null : await getMinecraftProfile(uuid).catch(() => null);
     const itemData = await getItemData();
     const result = createUploadedCustomItems({
         userId: link.discord_id,
-        authorName: profile ? profile.name : null,
-        authorAvatar: null,
+        authorName: discord ? discord.name : profile ? profile.name : null,
+        authorAvatar: discord ? discord.avatar : null,
         items,
         itemData,
     });

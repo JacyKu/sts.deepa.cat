@@ -3,9 +3,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
-import { getLinkPreviewData, getEffectiveBuildName } from '../../../_src/utils/buildPreview';
+import { getLinkPreviewData, getEffectiveBuildName, getSetPreviewData } from '../../../_src/utils/buildPreview';
 import { getMinecraftTextureKey } from '../../../_src/utils/items/minecraftFallback';
-import { getBuild } from '../../../../lib/sts-builds';
+import { getBuild, getPublicSkillSet } from '../../../../lib/sts-builds';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -316,7 +316,8 @@ function SkillPanel({ data }) {
 // Delve infusion chips (slot label + infusion name), rendered from DB state
 // in slot order MH > OH > Helm > Chest > Legs > Boots (the saved state stores
 // them alphabetically, so the panel reorders instead of trusting key order).
-function InfusionPanel({ infusions }) {
+// `points` (optional, shared sets only) appends each infusion's level.
+function InfusionPanel({ infusions, points }) {
     const SLOT_SHORT = {
         mainhand: 'MH',
         offhand: 'OH',
@@ -352,6 +353,9 @@ function InfusionPanel({ infusions }) {
                             {SLOT_SHORT[slot] || slot.toUpperCase()}
                         </span>
                         <span style={{ fontWeight: 600 }}>{name}</span>
+                        {points && points[slot] ? (
+                            <span style={{ fontSize: 11, color: DIM, fontWeight: 700 }}>Lv {points[slot]}</span>
+                        ) : null}
                     </div>
                 ))}
             </div>
@@ -359,10 +363,181 @@ function InfusionPanel({ infusions }) {
     );
 }
 
+function InfoItem({ label, value }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+            <div style={{ fontSize: 12, letterSpacing: 1.5, color: DIM, fontWeight: 700 }}>{label}</div>
+            <div style={{ fontSize: 17, color: TEXT, fontWeight: 700 }}>{value}</div>
+        </div>
+    );
+}
+
+// Base-site card, used when a link has no (or an invalid/expired) build/set.
+async function baseCardResponse() {
+    const favicon = await getFaviconDataUrl();
+    return new ImageResponse(
+        <div
+            style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#0e0e14',
+                color: TEXT,
+                fontFamily: 'sans-serif',
+            }}
+        >
+            {favicon && <img src={favicon} width={96} height={96} style={{ imageRendering: 'pixelated' }} />}
+            <div style={{ fontSize: 28, letterSpacing: 8, color: ACCENT, fontWeight: 700, marginTop: 28 }}>
+                Spare the Sympathy
+            </div>
+            <div style={{ fontSize: 44, fontWeight: 800, color: TEXT, marginTop: 10 }}>Monumenta Builder</div>
+        </div>,
+        { width: 1200, height: 630 }
+    );
+}
+
+// Shared skill/infusion set card: the same skill panel the build embeds use,
+// with the set's class/spec/points and (for delve sets) its infusions.
+async function setCardResponse(setId) {
+    const row = getPublicSkillSet(setId);
+    if (!row) return baseCardResponse();
+
+    const skillsData = await getSkillsData();
+    const setData = getSetPreviewData(row, skillsData);
+    const isDelve = row.kind === 'delve';
+    const totalSkillPoints = setData.skills.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
+    const totalSpecPoints = setData.specSkills.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
+    const humanClass = row.className ? row.className.charAt(0).toUpperCase() + row.className.slice(1) : null;
+    const avatarUrl =
+        row.userId && row.authorAvatar
+            ? `https://cdn.discordapp.com/avatars/${row.userId}/${row.authorAvatar}.png?size=128&format=png`
+            : null;
+    const avatarDataUrl = avatarUrl ? await getAvatarDataUrl(avatarUrl) : null;
+
+    return new ImageResponse(
+        <div
+            style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                background: '#0e0e14',
+                color: TEXT,
+                padding: '28px 40px',
+                boxSizing: 'border-box',
+                fontFamily: 'sans-serif',
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{row.name}</div>
+                <div style={{ fontSize: 12, letterSpacing: 2, color: DIM, fontWeight: 700 }}>
+                    {isDelve ? 'INFUSION SET' : 'SKILL SET'}
+                </div>
+            </div>
+
+            {!isDelve && (humanClass || row.spec || totalSkillPoints > 0 || totalSpecPoints > 0) && (
+                <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {humanClass && <InfoItem label="CLASS" value={humanClass} />}
+                    {row.spec && <InfoItem label="SPEC" value={row.spec} />}
+                    {totalSkillPoints > 0 && <InfoItem label="SKILL POINTS" value={String(totalSkillPoints)} />}
+                    {totalSpecPoints > 0 && <InfoItem label="SPEC POINTS" value={String(totalSpecPoints)} />}
+                </div>
+            )}
+
+            {isDelve ? (
+                <InfusionPanel infusions={setData.infusions} points={setData.points} />
+            ) : (
+                <SkillPanel data={setData} />
+            )}
+
+            {isDelve && setData.revelation && (
+                <div style={{ display: 'flex', marginTop: 10 }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            border: `1px solid ${BORDER}`,
+                            background: PANEL,
+                            padding: '2px 7px',
+                            fontSize: 13,
+                            color: SKILL_ENH,
+                            fontWeight: 600,
+                        }}
+                    >
+                        Revelation
+                    </div>
+                </div>
+            )}
+
+            {!isDelve && setData.czAbilities.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
+                    <div style={{ fontSize: 12, letterSpacing: 2, color: DIM, fontWeight: 700 }}>ABILITIES</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {setData.czAbilities.map((name) => (
+                            <div
+                                key={name}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    border: `2px solid ${CZ_COLOR}`,
+                                    background: PANEL,
+                                    padding: '3px 8px',
+                                    fontSize: 13,
+                                    color: TEXT,
+                                    fontWeight: 700,
+                                }}
+                            >
+                                {name}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {row.authorName && (
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginTop: 'auto',
+                        paddingTop: 10,
+                        borderTop: `1px solid ${BORDER}`,
+                    }}
+                >
+                    {avatarDataUrl && (
+                        <img
+                            src={avatarDataUrl}
+                            width={26}
+                            height={26}
+                            style={{ borderRadius: 999, objectFit: 'cover' }}
+                        />
+                    )}
+                    <div style={{ fontSize: 14, color: MUTED, fontWeight: 600 }}>{row.authorName}</div>
+                    <div style={{ fontSize: 10, letterSpacing: 2, color: DIM, fontWeight: 700, marginLeft: 4 }}>
+                        SET AUTHOR
+                    </div>
+                </div>
+            )}
+        </div>,
+        { width: 1200, height: 630 }
+    );
+}
+
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const build = searchParams.get('build');
     const buildId = searchParams.get('id');
+    const setId = searchParams.get('set');
+
+    // Shared skill/infusion sets (the /builder?set=<id> links) render with
+    // the same skill panel the build cards use.
+    if (setId) {
+        return setCardResponse(setId);
+    }
 
     // Saved builds can be rendered by DB id: the token alone can't carry the
     // delve infusions, which live in the DB state.
@@ -393,29 +568,7 @@ export async function GET(request) {
 
     // No (or invalid) build: render a simple base-site card with the favicon.
     if (!data) {
-        const favicon = await getFaviconDataUrl();
-        return new ImageResponse(
-            <div
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#0e0e14',
-                    color: TEXT,
-                    ...fontStyle,
-                }}
-            >
-                {favicon && <img src={favicon} width={96} height={96} style={{ imageRendering: 'pixelated' }} />}
-                <div style={{ fontSize: 28, letterSpacing: 8, color: ACCENT, fontWeight: 700, marginTop: 28 }}>
-                    Spare the Sympathy
-                </div>
-                <div style={{ fontSize: 44, fontWeight: 800, color: TEXT, marginTop: 10 }}>Monumenta Builder</div>
-            </div>,
-            { width: 1200, height: 630 }
-        );
+        return baseCardResponse();
     }
 
     const title = getEffectiveBuildName(data, null) || 'Monumenta Builder';
@@ -429,13 +582,6 @@ export async function GET(request) {
     // Class skills don't exist inside Celestial Zenith / Darkest Depths.
     const hasBuildInfo = (className || spec || totalSkillPoints > 0 || totalSpecPoints > 0) && !hasCz;
     const hasInfusions = Object.values((savedState && savedState.infusions) || {}).some((v) => v && v !== 'None');
-
-    const InfoItem = ({ label, value }) => (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-            <div style={{ fontSize: 12, letterSpacing: 1.5, color: DIM, fontWeight: 700 }}>{label}</div>
-            <div style={{ fontSize: 17, color: TEXT, fontWeight: 700 }}>{value}</div>
-        </div>
-    );
 
     const spriteInfo = await getSpriteInfo();
     const avatarDataUrl = author?.avatarUrl ? await getAvatarDataUrl(author.avatarUrl) : null;
