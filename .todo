@@ -146,8 +146,6 @@ generalise all buttons to use same size/height
 
 [x] fix that curses should also show tooltips
 [x] sorting options and search for personal builds page
-- shouldnt show overworld charms in cz/dd (theres no reason to hide them)
-- charm dont have +- colors (the charm data should show in blue/red so it does exist)
 [x] comparison page doesnt have stat toggles
 [x] move some of the comparison cards side by side instead of stacked
 [x] some borders are not the correct accent
@@ -173,7 +171,6 @@ generalise all buttons to use same size/height
 [x] apply skills from saved skill sets
 
 [x] create a builds database viewer for bot
-[x] fix heart icon cutting off when using rounded corners
 [x] add correct types into custom item creation (mainhand sword, offhand sword, mainhand etc etc like the search filter on items)
 
 [x] check if the % conversions from earlier were done incorrectly as 1 should be base and not %
@@ -192,31 +189,64 @@ generalise all buttons to use same size/height
 
 [x] add stat toggle for frenzy (warrior, berserker skill)
 
-- allow ability to upload custom items from the game to sts (or at least items that dont exist in the sts items database)
+[x] allow ability to upload custom items from the game to sts (or at least items that dont exist in the sts items database)
+[x] change deepa.cat to Spare the Sympathy
 
+[] 10-09-2026
+[x] update skeleton for all pages, make sure they are correct and consistent with the width of the window
+[x] browser lag on renaming?
+[x] add setting for american date format (off by default)
+[x] history for items that were nerfed/buffed
+[x] implement better backup system for database
+- unload item cards textures when not in view
+- hovering an infusion and selecting it will not remove tooltip
 
-- update skeleton for all pages, make sure they are correct and consistent with the width of the window
-
-- enchantment index
-- mob index
-
-- mod button button sticks as active and doesnt update
-- add back position settings in autoconfig
-- fix lang not showing correctly
-
-- history for items that were nerfed/buffed
-- add setting for american date format (off by default)
+[x] mod button button sticks as active and doesnt update
+[x] add back position settings in autoconfig
+[x] fix lang not showing correctly
+[x] it should have like a anchor to side of inventory with config option for what side ig, individually draggable with individual x/y cfg?
+[x] anchor for each button
+[x] cache users viewed by /ps /pa and /vc and use /sts export name to export any that were cached from them
+    [x] uploading a build should create it as the discord user and not the mc user
+    [x] dont allow duplicate builds and force the command to have a build_name property
+    [x] rename export and upload to export_build and upload_build
+    [x] add a /sts help (cmd) or when running a command without parameters, explain what it does and usage in a message
+    - remove debugging
+    [x] give notif that a build was cached
+    [x] add buttons that show what has/hasnt been done for ps pa and vc container (make a next button open next gui but refrain from using anything to close it)
+    [x] add an actual export that only generates a link
+    [x] add icon to sts mod
+    [] update description
+    [x] add 2 more buttons after caching that either make you upload or export the build
 
 - get dev bot working
 
+[x] implement rate limit for api / daily upload limit for builds and items
+[x] add icon on build card for using custom items and having a note
+[x] fix borders for buildcards when extended
+- automate item updates
+[x] per card view switch and a global toggle on settings page
+[x] item tooltips show below the swap button on build cards
+[x] sharable skill/infusion sets
+- add moderation page
+- add custom tags (3 per logged in user)
+- add tooltip sort toggles (eg only enchantments for item cards or tooltips for functionality info)
+- option to change header title
+[x] fix heart icon cutting off when using rounded corners
+- make all the headerspacings the same across all pages
+- update the looks of EX tags
+
+
 - update TOS to include new mod and cloudflare stuff
 - add entire enemy lyrics to status
-[x] change deepa.cat to Spare the Sympathy
 - 64x64 textures dont always scale correctly in embed
+
 - make a test list before each update to see if anything is broken
 
 - model for build design?
     - could use the monu code for enemies
+- enchantment index
+- mob index
 
 - add actual 3d model of the blobcat on deepa.cat
 - let people select skins for items (need to be signed in with discord) (later update)
