@@ -244,6 +244,14 @@
     background: var(--glass-3, var(--glass-2));
 }
 
+/* Disconnecting is destructive: hover fills red like the other danger
+   buttons. */
+.unlinkButton:hover {
+    border-color: var(--negative, #ce2d27);
+    background: var(--negative, #ce2d27);
+    color: var(--text-on-accent, #fff);
+}
+
 .unlinkButton:disabled,
 .confirmButton:disabled {
     opacity: 0.5;

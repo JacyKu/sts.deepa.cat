@@ -18,10 +18,10 @@ export default function CardItemsFirstToggle({ className } = {}) {
                 type="checkbox"
                 checked={itemsFirst}
                 onChange={(e) => setItemsFirst(e.target.checked)}
-                aria-label="Items on cards"
+                aria-label="Items on build cards"
             />
             <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                Items on cards
+                Items on build cards
                 <span className={itemsStyles.enchantTooltipText}>
                     Show equipped items on build cards and put the skills in the hover panel. The swap button on a
                     card changes just that card.
