@@ -13,6 +13,7 @@ import { useCardItemsFirst } from './items/cardItemsFirstContext';
 import { useLowResource } from './lowResourceContext';
 import Enchants from './items/enchants';
 import CharmFormatter from '../utils/items/charmFormatter';
+import { useInView } from './inView';
 
 let spriteClassNames = null;
 function collectSpriteClassNames() {
@@ -156,6 +157,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     const [tip, setTip] = React.useState(null); // { left, top, s }
     const hoverTimer = React.useRef(null);
     const cardRef = React.useRef(null);
+    const { inView, minHeight } = useInView(cardRef);
 
     React.useEffect(() => {
         // Touch devices have no hover: the card expands on the first tap and
@@ -625,6 +627,17 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     // Whether the hover side extension has anything to show; the notes panel
     // only stretches over it when it is actually open.
     const sideHasContent = itemsFirst ? skills.length > 0 : items.length > 0;
+
+    if (!inView) {
+        return (
+            <Link
+                ref={cardRef}
+                href={base + build.url}
+                className={`${styles.card}${expanded ? ` ${styles.cardExpanded}` : ''}`}
+                style={{ minHeight }}
+            />
+        );
+    }
 
     return (
         <Link

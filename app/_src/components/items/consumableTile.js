@@ -9,6 +9,7 @@ import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
+import { useInView } from '../inView';
 
 const MAX_FISH_QUALITY = 5;
 
@@ -61,6 +62,7 @@ function ConsumableTile(data) {
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
+    const { ref, inView, minHeight } = useInView(null);
 
     React.useEffect(() => {
         let active = true;
@@ -93,8 +95,18 @@ function ConsumableTile(data) {
         setCssClass(`minecraft-${item['base_item'].replaceAll(' ', '-').replaceAll('_', '-').toLowerCase()}`);
     }, [item, spriteMap]);
 
+    if (!inView) {
+        return (
+            <div
+                ref={ref}
+                className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}
+                style={{ minHeight }}
+            />
+        );
+    }
+
     return (
-        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"

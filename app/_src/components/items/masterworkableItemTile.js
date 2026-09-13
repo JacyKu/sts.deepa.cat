@@ -12,6 +12,7 @@ import { useLowResource } from '../lowResourceContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useItemFavourites } from './itemFavouritesContext';
+import { useInView } from '../inView';
 
 function camelCase(str, upper) {
     if (!str) return '';
@@ -166,6 +167,7 @@ function MasterworkableItemTile(data) {
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(activeItem.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
+    const { ref, inView, minHeight } = useInView(null);
 
     // When the menu toggle flips, reset every tile to the newly applicable
     // default variant.
@@ -239,8 +241,18 @@ function MasterworkableItemTile(data) {
         }
     }, [activeItem, spriteMap, starsAnimated]);
 
+    if (!inView) {
+        return (
+            <div
+                ref={ref}
+                className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}
+                style={{ minHeight }}
+            />
+        );
+    }
+
     return (
-        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"
