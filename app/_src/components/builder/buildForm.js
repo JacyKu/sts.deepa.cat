@@ -1163,6 +1163,7 @@ export default function BuildForm({
     }
 
     function delveChanged(slot, option) {
+        setTip(null);
         setDelveInfusions((prev) => {
             const next = { ...prev };
             if (option) {
@@ -1267,6 +1268,7 @@ export default function BuildForm({
                     options={infusionOpts}
                     value={cur ? { value: cur, label: cur } : null}
                     onChange={(opt) => delveChanged(slot, opt)}
+                    onMenuClose={() => setTip(null)}
                     placeholder="Infusion"
                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                     menuPosition="fixed"
@@ -1298,6 +1300,7 @@ export default function BuildForm({
     // one) with a level I-IV select. Newly picked infusions default to IV,
     // mirroring the delve infusion behaviour.
     function basicChanged(slot, option) {
+        setTip(null);
         setBasicInfusions((prev) => {
             const next = { ...prev };
             if (option) {
@@ -1411,6 +1414,7 @@ export default function BuildForm({
                     options={infusionOpts}
                     value={cur ? { value: cur.name, label: cur.name } : null}
                     onChange={(opt) => basicChanged(slot, opt)}
+                    onMenuClose={() => setTip(null)}
                     placeholder="Infusion"
                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                     menuPosition="fixed"
