@@ -150,6 +150,13 @@
     text-align: start;
 }
 
+/* My Builds / My Favourites / My Items switcher under the favourites title.
+   No top margin: the h1 already leaves 16px below it, like the other
+   account pages. */
+.myTabs[class] {
+    margin: 0 0 8px;
+}
+
 .muted {
     color: var(--text-2);
     text-align: center;

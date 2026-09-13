@@ -7,6 +7,7 @@ import BuildCard from './buildCard';
 import styles from '../styles/Builds.module.css';
 import dbStyles from '../styles/Database.module.css';
 import DatabaseSkeleton from './databaseSkeleton';
+import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
 import { useLanguageContext } from './languageContext';
@@ -276,9 +277,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                     <TranslatableText identifier="builds.title" />
                 </h1>
                 <div className={styles.subNav}>
-                    <Link className={styles.subNavBtn} href={base + '/builds/favourites'}>
-                        <TranslatableText identifier="database.favTitle" />
-                    </Link>
+                    <MyPagesTabs active="builds" className={styles.subNavTabs} />
                 </div>
 
                 {!authChecked ? (

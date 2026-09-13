@@ -22,6 +22,13 @@
     text-align: center;
 }
 
+/* The My Builds / My Items switcher under the title. No top margin: the h1
+   already leaves 16px below it, the same gap the My Builds page uses before
+   its Favourites row. */
+.myTabs[class] {
+    margin: 0 0 8px;
+}
+
 .muted {
     color: var(--text-2);
 }

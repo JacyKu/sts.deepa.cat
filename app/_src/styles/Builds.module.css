@@ -183,7 +183,18 @@
 }
 
 .subNav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 16px;
+}
+
+/* The My Builds / My Items switcher sits in the row next to Favourites;
+   drop the standalone tab row's vertical margins there. */
+.subNavTabs[class] {
+    margin: 0;
 }
 
 .subNavBtn {

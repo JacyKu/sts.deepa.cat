@@ -10,6 +10,7 @@ import { loadItemSpriteMap, isKnownSpriteToken } from '../../utils/items/sprites
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
+import { MyPagesTabs } from '../databaseTabs';
 import StatFormatter from '../../utils/items/statFormatter';
 import { isCustomItemsCacheEnabled, CUSTOM_ITEMS_CACHE_KEY, CUSTOM_ITEMS_DRAFT_KEY } from '../../utils/cachePrefs';
 import { formatDateString } from '../../utils/dateFormat';
@@ -718,6 +719,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         <div className={styles.page}>
             <main className={styles.main}>
                 <h1 className={styles.title}>Custom Items</h1>
+                <MyPagesTabs active="custom-items" className={styles.myTabs} />
 
                 <form className={styles.form} onSubmit={saveItem}>
                     <h2 className={styles.formTitle}>{editingId ? 'Edit item' : 'New item'}</h2>

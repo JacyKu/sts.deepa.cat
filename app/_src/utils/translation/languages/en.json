@@ -397,7 +397,7 @@
     "database.end": "No more builds.",
     "database.loadError": "Could not load builds.",
     "database.anonymous": "Anonymous",
-    "database.favTitle": "Favourites",
+    "database.favTitle": "My Favourites",
     "database.favLogin": "Log in with Discord to see your favourited builds.",
     "database.favEmpty": "No favourites yet. Tap the heart on a build in the database.",
     "database.publicise": "Publicise",
