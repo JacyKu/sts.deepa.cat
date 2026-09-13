@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../lib/session';
-import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems, BUILD_NAME_MAX } from '../../../../lib/sts-builds';
+import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems, customItemFavouriteStates, BUILD_NAME_MAX } from '../../../../lib/sts-builds';
 import { rateLimitResponse, readRateLimits } from '../../../../lib/rate-limit';
 
 export async function POST(request) {
@@ -75,5 +75,19 @@ export async function GET() {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
-    return NextResponse.json({ items: listCustomItems(user.id) });
+    const items = listCustomItems(user.id);
+    const states = customItemFavouriteStates(
+        items.map((item) => item.id),
+        user.id
+    );
+    return NextResponse.json({
+        items: items.map((item) => {
+            const state = states[item.id];
+            return {
+                ...item,
+                favouriteCount: state ? state.count : 0,
+                myFavourite: state ? state.favourite : false,
+            };
+        }),
+    });
 }

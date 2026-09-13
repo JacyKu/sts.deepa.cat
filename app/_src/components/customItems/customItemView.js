@@ -3,44 +3,8 @@
 import React from 'react';
 import styles from '../../styles/CustomItems.module.css';
 import { getStsBase } from '../../utils/base';
-import StatFormatter from '../../utils/items/statFormatter';
-import { formatDateString } from '../../utils/dateFormat';
-import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
-import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
-
-// Custom items store a spritesheet token; if a later spritesheet import
-// dropped it, fall back to the item's name mapping / base texture so the
-// card never renders a wrong sheet cell.
-function useIconClass(item) {
-    const [spriteMap, setSpriteMap] = React.useState(null);
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) setSpriteMap(map);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
-    if (!item.textureToken) {
-        // In-game uploads may have no site sprite: use the vanilla base item.
-        if (item.baseItem) return { base: 'minecraft', icon: `minecraft-${getMinecraftTextureKey(item.baseItem)}` };
-        return { base: 'monumenta-items', icon: null };
-    }
-    if (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken)) {
-        return { base: 'monumenta-items', icon: `monumenta-${item.textureToken}` };
-    }
-    const mapped = getMappedSpriteClass(spriteMap, item.name);
-    if (mapped) return { base: 'monumenta-items', icon: mapped };
-    if (item.baseItem) return { base: 'minecraft', icon: `minecraft-${getMinecraftTextureKey(item.baseItem)}` };
-    return { base: 'monumenta-items', icon: null };
-}
-
-function avatarSrc(item) {
-    if (!item.authorAvatar) return null;
-    if (item.authorAvatar.startsWith('http')) return item.authorAvatar;
-    return `https://cdn.discordapp.com/avatars/${item.userId}/${item.authorAvatar}.png?size=32`;
-}
+import CustomItemCard from './customItemCard';
+import CustomItemHeart from './customItemHeart';
 
 function duplicateName(base, attempt) {
     if (attempt === 0) return base;
@@ -56,7 +20,6 @@ function duplicateName(base, attempt) {
 // copy with the viewer's account.
 export default function CustomItemView({ item, isOwner, loggedIn }) {
     const [base, setBase] = React.useState('/sts');
-    const icon = useIconClass(item);
     React.useEffect(() => {
         setBase(getStsBase());
     }, []);
@@ -78,14 +41,6 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
             </div>
         );
     }
-
-    // Same short date format as the build cards. Rendered after mount so
-    // the user's date-format preference (stored in the browser) can apply
-    // without a hydration mismatch against the server's first paint.
-    const [created, setCreated] = React.useState('');
-    React.useEffect(() => {
-        setCreated(formatDateString(item.createdAt));
-    }, [item]);
 
     // Retry the name with a " (copy)" / " (copy 2)" suffix while the viewer
     // already owns an item with that name; anything else is a real failure.
@@ -139,67 +94,58 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                         Copy it into your own list to edit it or use it in the builder.
                     </p>
                 )}
-                <div className={styles.customItem}>
-                    <div className={styles.cardTop}>
-                        <div className={styles.cardTitle} title={item.name}>
-                            {item.name}
-                        </div>
-                    </div>
-                    <div className={styles.cardTags}>
-                        <span className={styles.tag}>{item.type}</span>
-                    </div>
-                    <div className={styles.cardBody}>
-                        <div className={styles.imageIcon}>
-                            <div className={[icon.base, icon.icon].join(' ')}></div>
-                        </div>
-                        <div className={styles.stats}>{StatFormatter.formatStats(item.stats, item.statColors)}</div>
-                    </div>
-                    <div className={styles.cardBottom}>
-                        <span className={styles.author} title={item.authorName || 'a player'}>
-                            {avatarSrc(item) && (
-                                <img className={styles.avatar} src={avatarSrc(item)} alt="" width={18} height={18} />
+                <CustomItemCard
+                    item={item}
+                    authorFallback="a player"
+                    heart={
+                        <CustomItemHeart
+                            itemId={item.id}
+                            favourite={item.myFavourite}
+                            count={item.favouriteCount}
+                            user={loggedIn ? true : null}
+                        />
+                    }
+                    actions={
+                        <div className={styles.cardActions}>
+                            {!loggedIn ? (
+                                <a
+                                    className={styles.rowBtn}
+                                    href={`/api/auth/discord/login?next=${encodeURIComponent(
+                                        `/custom-items/${item.id}`
+                                    )}`}
+                                >
+                                    Log in to copy
+                                </a>
+                            ) : copyState === 'copied' ? (
+                                <>
+                                    <span className={styles.copyDone}>Copied into your items.</span>
+                                    <a className={styles.rowBtn} href={`${base}/custom-items`}>
+                                        Manage your items
+                                    </a>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className={styles.rowBtn}
+                                    onClick={duplicateItem}
+                                    disabled={copyState === 'saving'}
+                                >
+                                    {copyState === 'saving'
+                                        ? 'Copying…'
+                                        : isOwner
+                                          ? 'Duplicate this item'
+                                          : 'Copy to my items'}
+                                </button>
                             )}
-                            {item.authorName || 'a player'}
-                        </span>
-                        <span className={styles.date}>{created}</span>
-                    </div>
-                    <div className={styles.cardActions}>
-                        {!loggedIn ? (
-                            <a
-                                className={styles.rowBtn}
-                                href={`/api/auth/discord/login?next=${encodeURIComponent(`/custom-items/${item.id}`)}`}
-                            >
-                                Log in to copy
-                            </a>
-                        ) : copyState === 'copied' ? (
-                            <>
-                                <span className={styles.copyDone}>Copied into your items.</span>
+                            {isOwner && copyState !== 'copied' && (
                                 <a className={styles.rowBtn} href={`${base}/custom-items`}>
                                     Manage your items
                                 </a>
-                            </>
-                        ) : (
-                            <button
-                                type="button"
-                                className={styles.rowBtn}
-                                onClick={duplicateItem}
-                                disabled={copyState === 'saving'}
-                            >
-                                {copyState === 'saving'
-                                    ? 'Copying…'
-                                    : isOwner
-                                      ? 'Duplicate this item'
-                                      : 'Copy to my items'}
-                            </button>
-                        )}
-                        {isOwner && copyState !== 'copied' && (
-                            <a className={styles.rowBtn} href={`${base}/custom-items`}>
-                                Manage your items
-                            </a>
-                        )}
-                    </div>
-                    {copyState === 'error' && <p className={styles.errorText}>Could not copy the item. Try again.</p>}
-                </div>
+                            )}
+                        </div>
+                    }
+                />
+                {copyState === 'error' && <p className={styles.errorText}>Could not copy the item. Try again.</p>}
             </main>
         </div>
     );

@@ -1,17 +1,16 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import Select from 'react-select';
 import styles from '../../styles/CustomItems.module.css';
 import CustomItemsSkeleton, { CustomItemCardSkeleton } from './customItemsSkeleton';
+import CustomItemCard from './customItemCard';
+import CustomItemHeart from './customItemHeart';
 import itemsStyles from '../../styles/Items.module.css';
-import { loadItemSpriteMap, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
-import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
+import { loadItemSpriteMap } from '../../utils/items/spritesheetMap';
 import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
 import { MyPagesTabs } from '../databaseTabs';
-import StatFormatter from '../../utils/items/statFormatter';
 import { isCustomItemsCacheEnabled, CUSTOM_ITEMS_CACHE_KEY, CUSTOM_ITEMS_DRAFT_KEY } from '../../utils/cachePrefs';
 import { formatDateString } from '../../utils/dateFormat';
 import { ITEM_TYPE_OPTIONS } from '../../utils/customItemTypes';
@@ -140,12 +139,7 @@ function ensureStatRowIds(rows) {
     return rows.map((row) => (row && row.id ? row : { ...row, id: makeRowId() }));
 }
 
-function avatarSrc(item) {
-    if (!item.authorAvatar) return null;
-    if (item.authorAvatar.startsWith('http')) return item.authorAvatar;
-    return `https://cdn.discordapp.com/avatars/${item.userId}/${item.authorAvatar}.png?size=32`;
-}
-
+// Same pencil as the builder header's build-name edit button.
 function EditIcon({ className, onClick }) {
     return (
         <svg
@@ -1125,15 +1119,19 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                 ) : (
                     <div className={styles.itemGrid}>
                         {items.map((item) => (
-                            <Link
+                            <CustomItemCard
                                 key={item.id}
+                                item={item}
                                 href={`${base}/custom-items/${item.id}`}
-                                className={styles.customItem}
-                            >
-                                <div className={styles.cardTop}>
-                                    <div className={styles.cardTitle} title={item.name}>
-                                        {item.name}
-                                    </div>
+                                heart={
+                                    <CustomItemHeart
+                                        itemId={item.id}
+                                        favourite={item.myFavourite}
+                                        count={item.favouriteCount}
+                                        user={user}
+                                    />
+                                }
+                                topRight={
                                     <button
                                         type="button"
                                         className={styles.editIconBtn}
@@ -1143,64 +1141,33 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     >
                                         <EditIcon />
                                     </button>
-                                </div>
-                                <div className={styles.cardTags}>
-                                    <span className={styles.tag}>{item.type}</span>
-                                </div>
-                                <div className={styles.cardBody}>
-                                    <div className={styles.imageIcon}>
-                                        <div
-                                            className={
-                                                item.textureToken &&
-                                                (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken))
-                                                    ? `monumenta-items monumenta-${item.textureToken}`
-                                                    : item.baseItem
-                                                      ? `minecraft minecraft-${getMinecraftTextureKey(item.baseItem)}`
-                                                      : 'monumenta-items'
-                                            }
-                                        ></div>
+                                }
+                                actions={
+                                    <div className={styles.cardActions}>
+                                        <button
+                                            type="button"
+                                            className={styles.rowBtn}
+                                            onClick={stop(() => addToBuild(item))}
+                                        >
+                                            {addedId === item.id ? 'Added!' : 'Add to build'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={styles.rowBtn}
+                                            onClick={stop(() => copyShareLink(item))}
+                                        >
+                                            {copiedId === item.id ? 'Copied!' : 'Copy link'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
+                                            onClick={stop(() => requestDeleteItem(item))}
+                                        >
+                                            {confirmDeleteId === item.id ? 'Sure?' : 'Delete'}
+                                        </button>
                                     </div>
-                                    <div className={styles.stats}>{StatFormatter.formatStats(item.stats, item.statColors)}</div>
-                                </div>
-                                <div className={styles.cardBottom}>
-                                    <span className={styles.author} title={item.authorName || 'You'}>
-                                        {avatarSrc(item) && (
-                                            <img
-                                                className={styles.avatar}
-                                                src={avatarSrc(item)}
-                                                alt=""
-                                                width={18}
-                                                height={18}
-                                            />
-                                        )}
-                                        {item.authorName || 'You'}
-                                    </span>
-                                    <span className={styles.date}>{formatDateString(item.createdAt)}</span>
-                                </div>
-                                <div className={styles.cardActions}>
-                                    <button
-                                        type="button"
-                                        className={styles.rowBtn}
-                                        onClick={stop(() => addToBuild(item))}
-                                    >
-                                        {addedId === item.id ? 'Added!' : 'Add to build'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.rowBtn}
-                                        onClick={stop(() => copyShareLink(item))}
-                                    >
-                                        {copiedId === item.id ? 'Copied!' : 'Copy link'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
-                                        onClick={stop(() => requestDeleteItem(item))}
-                                    >
-                                        {confirmDeleteId === item.id ? 'Sure?' : 'Delete'}
-                                    </button>
-                                </div>
-                            </Link>
+                                }
+                            />
                         ))}
                     </div>
                 )}

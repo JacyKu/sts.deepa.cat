@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { getCustomItem } from '../../../lib/sts-builds';
+import { getCustomItem, getCustomItemFavouriteState } from '../../../lib/sts-builds';
 import { getDiscordUser } from '../../../lib/session';
 import CustomItemPage from '../../_src/components/customItems/customItemView';
 import CustomItemSkeleton from '../../_src/components/customItems/customItemSkeleton';
@@ -34,5 +34,7 @@ async function CustomItemView({ params }) {
     // Share links are public: anyone with the link sees the item. Only the
     // owner can manage it, and only logged-in visitors can copy it.
     const isOwner = Boolean(user && item && item.userId === user.id);
-    return <CustomItemPage item={item} isOwner={isOwner} loggedIn={Boolean(user)} />;
+    const favourite = item ? getCustomItemFavouriteState(id, user ? user.id : null) : { favourite: false, count: 0 };
+    const itemWithLikes = item ? { ...item, favouriteCount: favourite.count, myFavourite: favourite.favourite } : null;
+    return <CustomItemPage item={itemWithLikes} isOwner={isOwner} loggedIn={Boolean(user)} />;
 }

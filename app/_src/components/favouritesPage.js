@@ -6,6 +6,7 @@ import BuildCard from './buildCard';
 import InfiniteScroll from './infiniteScroll';
 import styles from '../styles/Database.module.css';
 import DatabaseSkeleton from './databaseSkeleton';
+import DatabaseTabs from './databaseTabs';
 import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
 
@@ -77,6 +78,16 @@ export default function FavouritesPage() {
                 <TranslatableText identifier="database.favTitle" />
             </h1>
             <MyPagesTabs active="favourites" className={styles.myTabs} />
+            {user && (
+                <DatabaseTabs
+                    active="builds"
+                    className={styles.favTabs}
+                    tabs={[
+                        { key: 'builds', label: 'Builds', href: `${base}/builds/favourites` },
+                        { key: 'custom-items', label: 'Custom items', href: `${base}/custom-items/favourites` },
+                    ]}
+                />
+            )}
 
             {!authChecked || (user && !loaded) ? (
                 <DatabaseSkeleton />

@@ -125,6 +125,21 @@
     margin: 0;
 }
 
+/* Title + favourite button row, matching the real build card's top row. */
+.skeletonCardTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.skeletonCardHeart {
+    width: 56px;
+    height: 28px;
+    flex-shrink: 0;
+    margin: 0;
+}
+
 .skeletonCardRow {
     height: 18px;
     width: 45%;
@@ -154,6 +169,12 @@
    No top margin: the h1 already leaves 16px below it, like the other
    account pages. */
 .myTabs[class] {
+    margin: 0 0 8px;
+}
+
+/* Builds / Custom items section tabs on the favourites pages; sits right
+   under the account pages switcher. */
+.favTabs[class] {
     margin: 0 0 8px;
 }
 

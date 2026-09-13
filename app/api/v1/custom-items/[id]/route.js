@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../../lib/session';
-import { getCustomItem, deleteCustomItem, updateCustomItem, hasCustomItemName, BUILD_NAME_MAX } from '../../../../../lib/sts-builds';
+import {
+    getCustomItem,
+    deleteCustomItem,
+    updateCustomItem,
+    hasCustomItemName,
+    getCustomItemFavouriteState,
+    BUILD_NAME_MAX,
+} from '../../../../../lib/sts-builds';
 
 // Custom items are shareable: anyone with the item's link can view it (read
 // only - editing/deleting stays with the owner, and copying is done through
@@ -12,7 +19,9 @@ export async function GET(_request, { params }) {
     if (!item) {
         return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
-    return NextResponse.json({ item });
+    const user = await getDiscordUser();
+    const state = getCustomItemFavouriteState(id, user ? user.id : null);
+    return NextResponse.json({ item: { ...item, favouriteCount: state.count, myFavourite: state.favourite } });
 }
 
 export async function PATCH(request, { params }) {

@@ -29,6 +29,20 @@
     margin: 0 0 8px;
 }
 
+/* Builds / Custom items section tabs on the favourites pages; sits right
+   under the account pages switcher. */
+.favTabs[class] {
+    margin: 0 0 8px;
+}
+
+/* Empty / login / error notes under the favourites tabs. Same spacing as the
+   builds favourites page's muted paragraph (Database.module.css .muted). */
+.favNote[class] {
+    margin: 0;
+    padding: 20px 0;
+    text-align: center;
+}
+
 .muted {
     color: var(--text-2);
 }
@@ -538,6 +552,15 @@
     font-size: 17px;
 }
 
+/* Heart + pencil group on the card's top-right. */
+.cardTopBtns {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
 /* Pencil edit button in the card's top-right, mirroring the builder header's
    build-name edit button. */
 .editIconBtn {
@@ -698,6 +721,26 @@
     margin: 4px 0 10px;
 }
 
+/* My Pages switcher placeholder (three tabs, the middle one wider), matching
+   the real tab row's margins so the form and grid stay put. */
+.skeletonTabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    width: 100%;
+}
+
+.skeletonTab {
+    height: 43px;
+    width: 110px;
+}
+
+.skeletonTabWide {
+    height: 43px;
+    width: 140px;
+}
+
 .skeletonCardLine {
     height: 16px;
     width: 60%;
@@ -706,6 +749,13 @@
 .skeletonCardIconBtn {
     width: 32px;
     height: 32px;
+    flex-shrink: 0;
+}
+
+/* Heart + count button placeholder: same box as Database.module.css .favBtn. */
+.skeletonCardHeart {
+    width: 60px;
+    height: 28px;
     flex-shrink: 0;
 }
 
@@ -736,9 +786,9 @@
 .skeletonCardBtn,
 .skeletonCardBtnShort {
     height: 32px;
-    width: 88px;
+    width: 108px;
 }
 
 .skeletonCardBtnShort {
-    width: 68px;
+    width: 70px;
 }
