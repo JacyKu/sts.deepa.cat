@@ -29,14 +29,18 @@ function makePowerString(power) {
 }
 
 function makeClassString(className) {
+    // Custom charm items have no class; leave the class label out then.
+    if (!className) return null;
     return <span className={styles[className.toLowerCase()]}>{className}</span>;
 }
 
 function getImageName(charmTier, charmClass, charmPower) {
+    // Custom charm items have no class: fall back to the plain charm sprite.
+    const cls = charmClass || 'Generalist';
     if (charmTier == 'Epic') {
         return `Epic-Charm-${charmPower}`;
     }
-    return `${charmClass == 'Alchemist' ? 'Alch' : charmClass == 'Generalist' ? 'Gen' : charmClass}-Charm${charmTier == 'Base' ? '' : `-${charmTier}`}-${charmPower}`;
+    return `${cls == 'Alchemist' ? 'Alch' : cls == 'Generalist' ? 'Gen' : cls}-Charm${charmTier == 'Base' ? '' : `-${charmTier}`}-${charmPower}`;
 }
 
 function getCharmSheetClass(charmName) {
@@ -208,14 +212,18 @@ function CharmTile(data) {
                 ''
             )}
             <span className={styles.infoText}>
-                {makePowerString(item.power)} - {makeClassString(item.class_name)}
+                {makePowerString(item.power)}
+                {/* Custom charm items carry no class; drop the label then. */}
+                {item.class_name && <> - {makeClassString(item.class_name)}</>}
             </span>
             {formattedCharm}
             <span>
-                <span className={styles.infoText}>{`${item.region} `}</span>
-                <span className={styles[camelCase(item.tier)]}>{item.tier != 'Base' ? `${item.tier} ` : ''}Charm</span>
+                {item.region && <span className={styles.infoText}>{`${item.region} `}</span>}
+                <span className={styles[camelCase(item.tier)]}>
+                    {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}Charm
+                </span>
             </span>
-            <span className={styles[camelCase(item.location)]}>{item.location}</span>
+            {item.location && <span className={styles[camelCase(item.location)]}>{item.location}</span>}
             {!hideObtainment && (
                 <>
                     {item.extras?.poi ? (
