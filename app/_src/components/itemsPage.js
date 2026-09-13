@@ -103,6 +103,13 @@ const TYPE_GROUPS = {
     ],
 };
 
+// Charm skill -> charm stat prefixes. The Elemental Spirits spec skill is
+// named "Fire Elemental Spirit" by the API but affects the fire, ice and
+// generic spirit stats, so one filter entry matches both elements.
+const CHARM_SKILL_STAT_TOKENS = {
+    fire_elemental_spirit: ['elemental_spirits', 'fire_elemental_spirit', 'ice_elemental_spirit'],
+};
+
 // Human-readable ability text for a charm (stat names + values), used to let
 // free-text searches match charm abilities.
 function buildCharmAbilityText(item) {
@@ -359,14 +366,18 @@ function getRelevantItems(data, itemData, hideSkins) {
     let wantedCharmSkills = extractFilterValues(data, 'charmSkillSelect').reverse();
     if (wantedCharmSkills.length > 0) {
         wantedCharmSkills.forEach((skill) => {
-            // Charm stats are keyed by the skill they affect, e.g.
-            // "arcane_strike_cooldown_percent" for Arcane Strike.
+            // The Elemental Spirits spec skill is named "Fire Elemental Spirit"
+            // in the API but covers the fire, ice and generic spirit charm
+            // stats, so match all three prefixes.
             const token = skill.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            const tokens = CHARM_SKILL_STAT_TOKENS[token] || [token];
             items = items.filter(
                 (name) =>
                     itemData[name].type == 'Charm' &&
                     itemData[name].stats &&
-                    Object.keys(itemData[name].stats).some((stat) => stat === token || stat.startsWith(token + '_'))
+                    Object.keys(itemData[name].stats).some((stat) =>
+                        tokens.some((t) => stat === t || stat.startsWith(t + '_'))
+                    )
             );
         });
     }

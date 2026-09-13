@@ -156,14 +156,14 @@ export default function SearchForm({ update, itemData }) {
                     for (const s of c.skills || []) {
                         if (s.name && !seen.has(s.name)) {
                             seen.add(s.name);
-                            list.push({ value: s.name, label: s.name });
+                            list.push({ value: s.name, label: s.displayName || s.name });
                         }
                     }
                     for (const sp of c.specs || []) {
                         for (const s of sp.specSkills || []) {
                             if (s.name && !seen.has(s.name)) {
                                 seen.add(s.name);
-                                list.push({ value: s.name, label: s.name });
+                                list.push({ value: s.name, label: s.displayName || s.name });
                             }
                         }
                     }
