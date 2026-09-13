@@ -38,7 +38,9 @@ function useIconClass(item) {
 
 function avatarSrc(item) {
     if (!item.authorAvatar) return null;
-    if (item.authorAvatar.startsWith('http')) return item.authorAvatar;
+    // Accounts that picked their Minecraft head as profile picture store a
+    // (relative) image URL; otherwise it is a Discord avatar hash.
+    if (item.authorAvatar.startsWith('http') || item.authorAvatar.startsWith('/')) return item.authorAvatar;
     return `https://cdn.discordapp.com/avatars/${item.userId}/${item.authorAvatar}.png?size=32`;
 }
 

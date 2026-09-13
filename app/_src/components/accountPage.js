@@ -18,6 +18,9 @@ export default function AccountPage() {
     const [confirmDelete, setConfirmDelete] = React.useState(false);
     const [deleting, setDeleting] = React.useState(false);
     const [deleteError, setDeleteError] = React.useState(null);
+    const [savingAvatar, setSavingAvatar] = React.useState(false);
+    const [avatarError, setAvatarError] = React.useState(null);
+    const [copiedUuid, setCopiedUuid] = React.useState(null);
 
     React.useEffect(() => {
         if (!session.checked) return;
@@ -44,6 +47,41 @@ export default function AccountPage() {
             .then(() => setLinks((prev) => prev.filter((l) => l.uuid !== uuid)))
             .catch(() => setError('Could not disconnect the Minecraft profile.'))
             .finally(() => setBusy(null));
+    }
+
+    // Short display form: enough of both ends to recognise the UUID; the copy
+    // button hands out the full value.
+    function shortUuid(uuid) {
+        if (typeof uuid !== 'string' || uuid.length <= 14) return uuid;
+        return `${uuid.slice(0, 8)}…${uuid.slice(-4)}`;
+    }
+
+    function copyUuid(uuid) {
+        navigator.clipboard
+            .writeText(uuid)
+            .then(() => {
+                setCopiedUuid(uuid);
+                setTimeout(() => setCopiedUuid((current) => (current === uuid ? null : current)), 1500);
+            })
+            .catch(() => {});
+    }
+
+    function chooseAvatar(source) {
+        if (!session.user || savingAvatar || source === session.user.avatarSource) return;
+        setSavingAvatar(true);
+        setAvatarError(null);
+        fetch('/api/v1/account/avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source }),
+        })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => {
+                session.setUser({ ...session.user, avatarUrl: d.avatarUrl, avatarSource: d.avatarSource });
+                window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
+            })
+            .catch(() => setAvatarError('Could not update your profile picture. Try again.'))
+            .finally(() => setSavingAvatar(false));
     }
 
     function deleteProfile() {
@@ -88,10 +126,10 @@ export default function AccountPage() {
                     <h2 className={styles.cardTitle}>Linked accounts</h2>
                     <ul className={styles.linkList}>
                         <li className={styles.linkRow}>
-                            {session.user.avatarUrl ? (
+                            {session.user.discordAvatarUrl || session.user.avatarUrl ? (
                                 <img
                                     className={styles.mcAvatar}
-                                    src={session.user.avatarUrl}
+                                    src={session.user.discordAvatarUrl || session.user.avatarUrl}
                                     alt=""
                                     width="32"
                                     height="32"
@@ -133,7 +171,22 @@ export default function AccountPage() {
                                         />
                                     )}
                                     <span className={styles.rowValue}>{link.mcName || link.uuid}</span>
-                                    {link.mcName && <code className={styles.uuid}>{link.uuid}</code>}
+                                    {link.mcName && (
+                                        <span className={styles.uuidWrap}>
+                                            <code className={styles.uuidMuted} title={link.uuid}>
+                                                {shortUuid(link.uuid)}
+                                            </code>
+                                            <button
+                                                type="button"
+                                                className={styles.copyUuidButton}
+                                                onClick={() => copyUuid(link.uuid)}
+                                                aria-label={`Copy UUID ${link.uuid}`}
+                                                title="Copy UUID"
+                                            >
+                                                {copiedUuid === link.uuid ? 'Copied!' : 'Copy'}
+                                            </button>
+                                        </span>
+                                    )}
                                     <span className={styles.linkDate}>
                                         linked {link.updated_at || link.created_at || ''}
                                     </span>
@@ -162,6 +215,61 @@ export default function AccountPage() {
                         </a>{' '}
                         to manage your linked Minecraft profiles.
                     </p>
+                </section>
+            )}
+
+            {session.user && (
+                <section className={styles.card}>
+                    <h2 className={styles.cardTitle}>Profile picture</h2>
+                    <p className={styles.muted}>
+                        Choose what other players see next to your builds and custom items.
+                    </p>
+                    <div className={styles.avatarChoices}>
+                        <button
+                            type="button"
+                            className={`${styles.avatarChoice}${
+                                session.user.avatarSource !== 'minecraft' ? ` ${styles.avatarChoiceActive}` : ''
+                            }`}
+                            onClick={() => chooseAvatar('discord')}
+                            disabled={savingAvatar}
+                            aria-pressed={session.user.avatarSource !== 'minecraft'}
+                        >
+                            {session.user.discordAvatarUrl ? (
+                                <img src={session.user.discordAvatarUrl} alt="" width="48" height="48" />
+                            ) : (
+                                <span className={styles.avatarPlaceholder} aria-hidden="true" />
+                            )}
+                            <span className={styles.avatarChoiceLabel}>Discord</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.avatarChoice}${
+                                session.user.avatarSource === 'minecraft' ? ` ${styles.avatarChoiceActive}` : ''
+                            }`}
+                            onClick={() => chooseAvatar('minecraft')}
+                            disabled={savingAvatar || !session.user.minecraftAvatarUrl}
+                            aria-pressed={session.user.avatarSource === 'minecraft'}
+                        >
+                            {session.user.minecraftAvatarUrl ? (
+                                <img
+                                    className={styles.avatarPixel}
+                                    src={session.user.minecraftAvatarUrl}
+                                    alt=""
+                                    width="48"
+                                    height="48"
+                                />
+                            ) : (
+                                <span className={styles.avatarPlaceholder} aria-hidden="true" />
+                            )}
+                            <span className={styles.avatarChoiceLabel}>Minecraft</span>
+                        </button>
+                    </div>
+                    {!session.user.minecraftAvatarUrl && (
+                        <p className={styles.muted}>
+                            Link a Minecraft profile below to use its avatar as your profile picture.
+                        </p>
+                    )}
+                    {avatarError && <p className={styles.error}>{avatarError}</p>}
                 </section>
             )}
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../lib/session';
-import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems, customItemFavouriteStates, BUILD_NAME_MAX } from '../../../../lib/sts-builds';
+import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems, customItemFavouriteStates, preferredAuthorAvatar, BUILD_NAME_MAX } from '../../../../lib/sts-builds';
 import { rateLimitResponse, readRateLimits } from '../../../../lib/rate-limit';
 
 export async function POST(request) {
@@ -62,7 +62,7 @@ export async function POST(request) {
         stats,
         baseItem,
         authorName: user.globalName || user.username || null,
-        authorAvatar: user.avatar || null,
+        authorAvatar: preferredAuthorAvatar(user.id, user.avatar),
     });
     if (!item) {
         return NextResponse.json({ error: 'save failed' }, { status: 400 });

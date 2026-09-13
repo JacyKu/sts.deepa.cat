@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listBuildsByUser, getFavouriteState, customItemsForBuilds } from '../../../../../lib/sts-builds';
+import { listBuildsByUser, getFavouriteState, customItemsForBuilds, preferredAuthorAvatar } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
 import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 
@@ -36,7 +36,7 @@ export async function GET() {
         skillsJson: b.skills_json,
         itemsJson: b.items_json,
         authorName: b.anonymous === 1 ? null : user.globalName || user.username,
-        authorAvatar: b.anonymous === 1 ? null : user.avatar,
+        authorAvatar: b.anonymous === 1 ? null : preferredAuthorAvatar(user.id, user.avatar),
         authorId: b.anonymous === 1 ? null : user.id,
         myFavourite: false,
         favouriteCount: getFavouriteState(b.id, user.id).count,

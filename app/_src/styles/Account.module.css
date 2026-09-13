@@ -101,11 +101,98 @@
     font-size: 0.85rem;
 }
 
+/* Shortened UUID + its copy button. */
+.uuidWrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.copyUuidButton {
+    padding: 0.15rem 0.5rem;
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.copyUuidButton:hover {
+    border-color: var(--control-border-hover);
+    background: var(--surface-2);
+    color: var(--text-1);
+}
+
 .mcAvatar {
     border-radius: 4px;
     border: 1px solid var(--glass-border);
     image-rendering: pixelated;
     flex-shrink: 0;
+}
+
+/* Profile picture picker: the two avatar options side by side. */
+.avatarChoices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.avatarChoice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--glass-2);
+    border: 2px solid var(--glass-border);
+    color: var(--text-1);
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.avatarChoice:hover:not(:disabled) {
+    border-color: var(--control-border-hover);
+    background: var(--surface-2);
+}
+
+.avatarChoice:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.avatarChoiceActive,
+.avatarChoiceActive:hover:not(:disabled) {
+    border-color: var(--accent, #9c59d1);
+    background: var(--surface-2);
+}
+
+.avatarChoice img {
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+}
+
+.avatarPixel {
+    image-rendering: pixelated;
+}
+
+.avatarPlaceholder {
+    width: 48px;
+    height: 48px;
+    border: 1px dashed var(--glass-border);
+    border-radius: 4px;
+}
+
+.avatarChoiceLabel {
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .loginLink {

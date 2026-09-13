@@ -271,8 +271,12 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             .catch(() => {});
     }
 
+    // Author avatars are usually a Discord CDN hash, but accounts that picked
+    // their Minecraft head as profile picture store a (relative) image URL.
     function avatarUrl(id, avatar) {
-        if (!id || !avatar) return null;
+        if (!avatar) return null;
+        if (avatar.startsWith('http') || avatar.startsWith('/')) return avatar;
+        if (!id) return null;
         return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=32`;
     }
 

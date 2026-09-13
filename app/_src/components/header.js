@@ -88,6 +88,17 @@ export function useSessionState() {
             .finally(() => setChecked(true));
     }, []);
 
+    // The account page announces profile-picture changes so the header chip
+    // updates without a reload.
+    React.useEffect(() => {
+        function onAvatarUpdated(event) {
+            const avatarUrl = event.detail && event.detail.avatarUrl;
+            if (avatarUrl !== undefined) setUser((u) => (u ? { ...u, avatarUrl } : u));
+        }
+        window.addEventListener('sts-avatar-updated', onAvatarUpdated);
+        return () => window.removeEventListener('sts-avatar-updated', onAvatarUpdated);
+    }, []);
+
     return { user, setUser, anonymous, setAnonymous, checked };
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDiscordUser, getAnonymousPreference, discordAvatarUrl } from '../../../../lib/session';
+import { getDiscordUser, getAnonymousPreference, resolveProfileAvatar } from '../../../../lib/session';
 import { ensureStsUser, getStsUserCreatedAt } from '../../../../lib/sts-builds';
 
 export async function GET() {
@@ -11,13 +11,17 @@ export async function GET() {
         // The profile snapshot lets mod uploads use the Discord name/avatar.
         ensureStsUser(user.id, user);
     }
+    const avatar = user ? resolveProfileAvatar(user) : null;
     return NextResponse.json({
         user: user
             ? {
                   id: user.id,
                   username: user.username,
                   globalName: user.globalName,
-                  avatarUrl: discordAvatarUrl(user),
+                  avatarUrl: avatar.avatarUrl,
+                  avatarSource: avatar.avatarSource,
+                  discordAvatarUrl: avatar.discordAvatarUrl,
+                  minecraftAvatarUrl: avatar.minecraftAvatarUrl,
                   anonymous,
                   stsCreatedAt: getStsUserCreatedAt(user.id),
               }

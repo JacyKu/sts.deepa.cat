@@ -7,6 +7,7 @@ import {
     countRecentBuilds,
     mergeReferencedCustomItems,
     isDuplicateNameError,
+    preferredAuthorAvatar,
 } from '../../../../lib/sts-builds';
 import { decodeBuildParam, getBuildTokenVersion, getBuildItemHashes } from '../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
@@ -97,7 +98,7 @@ export async function POST(request) {
             isPublic: true,
             anonymous,
             authorName: user.globalName || user.username,
-            authorAvatar: user.avatar || null,
+            authorAvatar: preferredAuthorAvatar(user.id, user.avatar),
             summary,
         });
     }
