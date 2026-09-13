@@ -21,6 +21,11 @@
     gap: 0.75rem;
 }
 
+/* Danger zone: a slightly red outline to set it apart from the other cards. */
+.dangerCard {
+    border-color: color-mix(in srgb, var(--negative, #ce2d27) 45%, var(--glass-border));
+}
+
 /* Page tabs (e.g. between My Account and Site settings). */
 .tabs {
     display: flex;

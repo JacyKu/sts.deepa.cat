@@ -274,7 +274,7 @@ export default function AccountPage() {
             )}
 
             {session.user && (
-                <section className={styles.card}>
+                <section className={`${styles.card} ${styles.dangerCard}`}>
                     <h2 className={styles.cardTitle}>Danger zone</h2>
                     <p className={styles.muted}>
                         Deleting your profile removes your favourites, custom items and Minecraft profile links. Your
