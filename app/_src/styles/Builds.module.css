@@ -162,6 +162,17 @@
     color: var(--accent, #9c59d1);
 }
 
+.rowBtnDanger {
+    border-color: var(--negative, #ce2d27);
+    color: var(--negative, #ce2d27);
+}
+
+.rowBtnDanger:hover {
+    border-color: var(--negative, #ce2d27);
+    background: var(--negative, #ce2d27);
+    color: var(--text-on-accent, #fff);
+}
+
 .anonBadge {
     margin-left: 6px;
     padding: 1px 6px;

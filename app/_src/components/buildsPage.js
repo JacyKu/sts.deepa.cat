@@ -402,7 +402,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className={styles.rowBtn}
+                                                            className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
                                                             onClick={stop(() => requestDelete(build))}
                                                             title="Delete"
                                                         >

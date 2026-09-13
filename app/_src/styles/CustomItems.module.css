@@ -10,7 +10,7 @@
 
 .main {
     width: 100%;
-    max-width: 1080px;
+    max-width: 1160px;
     padding: 0 12px 12px;
     display: flex;
     flex-direction: column;
@@ -431,11 +431,12 @@
 }
 
 .itemGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
     gap: 10px;
     width: 100%;
-    max-width: 760px;
+    max-width: 1160px;
 }
 
 /* Custom item tiles on the database page. The tile grid gets the same
@@ -475,7 +476,9 @@
 
 /* Card format mirrors the public build database cards (Database.module.css):
    square corners, dark card background, title row, tag row, content, then the
-   author/date meta row. */
+   author/date meta row. The card is a link to the item's share view, and the
+   management buttons sit in a separated actions row at the bottom - exactly
+   like the "My Builds" cards. */
 .customItem {
     position: relative;
     display: flex;
@@ -487,12 +490,28 @@
     background: #111111;
     border: 2px solid var(--glass-border);
     color: var(--text-1);
+    text-decoration: none;
     box-shadow: var(--shadow-elevated);
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        transform 150ms ease;
+}
+
+.customItem:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: #1a1a1a;
+    text-decoration: none;
 }
 
 :global(html[data-theme='light']) .customItem,
 :global(html[data-theme='glass-light']) .customItem {
     background: #ffffff;
+}
+
+:global(html[data-theme='light']) .customItem:hover,
+:global(html[data-theme='glass-light']) .customItem:hover {
+    background: #f5f5f5;
 }
 
 .cardTop {
@@ -510,6 +529,32 @@
     white-space: nowrap;
     font-weight: 600;
     font-size: 17px;
+}
+
+/* Pencil edit button in the card's top-right, mirroring the builder header's
+   build-name edit button. */
+.editIconBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 5px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-1);
+    color: var(--text-1);
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.editIconBtn:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--glass-2);
+}
+
+.editIconBtn:active {
+    background: var(--glass-1);
 }
 
 .cardTags {
@@ -579,10 +624,53 @@
     font-size: 0.9em;
 }
 
-.itemActions {
+.cardActions {
     display: flex;
-    gap: 6px;
     flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.rowBtn {
+    display: inline-block;
+    padding: 6px 12px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--text-1);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.rowBtn:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--surface-2);
+}
+
+.rowBtn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Destructive action: red outline that fills in on hover. */
+.rowBtnDanger {
+    border-color: var(--negative, #ce2d27);
+    color: var(--negative, #ce2d27);
+}
+
+.rowBtnDanger:hover {
+    border-color: var(--negative, #ce2d27);
+    background: var(--negative, #ce2d27);
+    color: var(--text-on-accent, #fff);
 }
 
 /* Loading placeholder geometry (mirrors the form and .customItem cards). */

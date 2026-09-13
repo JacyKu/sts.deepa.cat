@@ -163,25 +163,25 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                         </span>
                         <span className={styles.date}>{created}</span>
                     </div>
-                    <div className={styles.itemActions}>
+                    <div className={styles.cardActions}>
                         {!loggedIn ? (
                             <a
-                                className={styles.addBtn}
+                                className={styles.rowBtn}
                                 href={`/api/auth/discord/login?next=${encodeURIComponent(`/custom-items/${item.id}`)}`}
                             >
                                 Log in to copy
                             </a>
                         ) : copyState === 'copied' ? (
-                            <span className={styles.copyDone}>
-                                Copied into your items.
-                                <a className={styles.addBtn} href={`${base}/custom-items`}>
+                            <>
+                                <span className={styles.copyDone}>Copied into your items.</span>
+                                <a className={styles.rowBtn} href={`${base}/custom-items`}>
                                     Manage your items
                                 </a>
-                            </span>
+                            </>
                         ) : (
                             <button
                                 type="button"
-                                className={styles.addBtn}
+                                className={styles.rowBtn}
                                 onClick={duplicateItem}
                                 disabled={copyState === 'saving'}
                             >
@@ -193,7 +193,7 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                             </button>
                         )}
                         {isOwner && copyState !== 'copied' && (
-                            <a className={styles.addBtn} href={`${base}/custom-items`}>
+                            <a className={styles.rowBtn} href={`${base}/custom-items`}>
                                 Manage your items
                             </a>
                         )}

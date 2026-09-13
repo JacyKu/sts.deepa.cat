@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import Select from 'react-select';
 import styles from '../../styles/CustomItems.module.css';
 import { CustomItemCardSkeleton } from './customItemsSkeleton';
@@ -144,6 +145,22 @@ function avatarSrc(item) {
     return `https://cdn.discordapp.com/avatars/${item.userId}/${item.authorAvatar}.png?size=32`;
 }
 
+function EditIcon({ className, onClick }) {
+    return (
+        <svg
+            className={className}
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="currentColor"
+            aria-hidden="true"
+            onClick={onClick}
+        >
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+        </svg>
+    );
+}
+
 export default function CustomItemsPage({ statCategories, baseItemOptions = [] }) {
     const session = useSessionState();
     const user = session.user;
@@ -158,6 +175,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     const [error, setError] = React.useState(null);
     const [copiedId, setCopiedId] = React.useState(null);
     const [addedId, setAddedId] = React.useState(null);
+    const [confirmDeleteId, setConfirmDeleteId] = React.useState(null); // item id awaiting 2nd click
     // "Stat sets" dialog - same system as the builder's skill sets modal:
     // copy the stat rows of any of your custom items into the form, or save
     // the form's current stats as a named set to apply later.
@@ -498,10 +516,29 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
             .finally(() => setSaving(false));
     }
 
+    // The management buttons live inside the card, which is a link - stop the
+    // click from navigating to the item's page (same pattern as the builds
+    // page's card actions).
+    const stop = (fn) => (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        fn();
+    };
+
     function deleteItem(id) {
         fetch(`${base}/api/v1/custom-items/${id}`, { method: 'DELETE' })
             .then((response) => (response.ok ? refreshItems() : Promise.reject(new Error('HTTP ' + response.status))))
             .catch(() => setError('delete'));
+    }
+
+    function requestDeleteItem(item) {
+        if (confirmDeleteId === item.id) {
+            setConfirmDeleteId(null);
+            deleteItem(item.id);
+            return;
+        }
+        setConfirmDeleteId(item.id);
+        setTimeout(() => setConfirmDeleteId((cur) => (cur === item.id ? null : cur)), 2500);
     }
 
     function copyShareLink(item) {
@@ -1099,18 +1136,23 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                 ) : (
                     <div className={styles.itemGrid}>
                         {items.map((item) => (
-                            <div key={item.id} className={styles.customItem}>
+                            <Link
+                                key={item.id}
+                                href={`${base}/custom-items/${item.id}`}
+                                className={styles.customItem}
+                            >
                                 <div className={styles.cardTop}>
                                     <div className={styles.cardTitle} title={item.name}>
                                         {item.name}
                                     </div>
                                     <button
                                         type="button"
-                                        className={styles.iconBtn}
-                                        onClick={() => deleteItem(item.id)}
-                                        aria-label={`Delete ${item.name}`}
+                                        className={styles.editIconBtn}
+                                        onClick={stop(() => startEdit(item))}
+                                        aria-label={`Edit ${item.name}`}
+                                        title="Edit"
                                     >
-                                        X
+                                        <EditIcon />
                                     </button>
                                 </div>
                                 <div className={styles.cardTags}>
@@ -1146,21 +1188,30 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     </span>
                                     <span className={styles.date}>{formatDateString(item.createdAt)}</span>
                                 </div>
-                                <div className={styles.itemActions}>
-                                    <button type="button" className={styles.addBtn} onClick={() => startEdit(item)}>
-                                        Edit
-                                    </button>
-                                    <button type="button" className={styles.addBtn} onClick={() => addToBuild(item)}>
+                                <div className={styles.cardActions}>
+                                    <button
+                                        type="button"
+                                        className={styles.rowBtn}
+                                        onClick={stop(() => addToBuild(item))}
+                                    >
                                         {addedId === item.id ? 'Added!' : 'Add to build'}
                                     </button>
-                                    <a className={styles.addBtn} href={`${base}/custom-items/${item.id}`}>
-                                        View
-                                    </a>
-                                    <button type="button" className={styles.addBtn} onClick={() => copyShareLink(item)}>
+                                    <button
+                                        type="button"
+                                        className={styles.rowBtn}
+                                        onClick={stop(() => copyShareLink(item))}
+                                    >
                                         {copiedId === item.id ? 'Copied!' : 'Copy link'}
                                     </button>
+                                    <button
+                                        type="button"
+                                        className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
+                                        onClick={stop(() => requestDeleteItem(item))}
+                                    >
+                                        {confirmDeleteId === item.id ? 'Sure?' : 'Delete'}
+                                    </button>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 )}
