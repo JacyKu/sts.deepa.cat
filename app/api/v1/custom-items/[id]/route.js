@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../../lib/session';
-import { getCustomItem, deleteCustomItem, updateCustomItem, hasCustomItemName } from '../../../../../lib/sts-builds';
+import { getCustomItem, deleteCustomItem, updateCustomItem, hasCustomItemName, BUILD_NAME_MAX } from '../../../../../lib/sts-builds';
 
 // Custom items are shareable: anyone with the item's link can view it (read
 // only - editing/deleting stays with the owner, and copying is done through
@@ -36,7 +36,7 @@ export async function PATCH(request, { params }) {
         if (!name) {
             return NextResponse.json({ error: 'invalid name' }, { status: 400 });
         }
-        if (name.length > 64) {
+        if (name.length > BUILD_NAME_MAX) {
             return NextResponse.json({ error: 'name too long' }, { status: 400 });
         }
         // Another of the user's items already uses this name (this one's own

@@ -698,106 +698,111 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                 <form className={styles.form} onSubmit={saveItem}>
                     <h2 className={styles.formTitle}>{editingId ? 'Edit item' : 'New item'}</h2>
 
-                    <label className={styles.field}>
-                        <span className={styles.fieldLabel}>Name</span>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="My custom sword"
-                            required
-                        />
-                    </label>
+                    <div className={styles.fieldRow}>
+                        <label className={styles.field}>
+                            <span className={styles.fieldLabel}>Name</span>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(event) => setName(event.target.value)}
+                                placeholder="My custom sword"
+                                maxLength={50}
+                                required
+                            />
+                        </label>
 
-                    <label className={styles.field}>
-                        <span className={styles.fieldLabel}>Type</span>
-                        <Select
-                            instanceId="custom-item-type"
-                            name="custom-item-type"
-                            options={typeOptions}
-                            value={
-                                type
-                                    ? typeOptions
-                                          .flatMap((group) => group.options)
-                                          .find((option) => option.value === type) || { value: type, label: type }
-                                    : null
-                            }
-                            onChange={(option) => setType(option ? option.value : 'Offhand')}
-                            isOptionDisabled={(option) => Boolean(option && option.isDisabled)}
-                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                            menuPosition="fixed"
-                            theme={selectTheme}
-                            styles={selectStyles}
-                        />
-                    </label>
-
-                    <label className={styles.field}>
-                        <span className={styles.fieldLabel}>Base item (vanilla)</span>
-                        <Select
-                            instanceId="custom-item-base-item"
-                            name="custom-item-base-item"
-                            options={baseItemOptions}
-                            value={
-                                baseItem ? baseItemOptions.find((option) => option.value === baseItem) || null : null
-                            }
-                            onChange={(option) => setBaseItem(option ? option.value : '')}
-                            isClearable
-                            placeholder="e.g. Wooden Axe, Netherite Sword"
-                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                            menuPosition="fixed"
-                            theme={selectTheme}
-                            styles={selectStyles}
-                        />
-                    </label>
-
-                    <div className={styles.field}>
-                        <span className={styles.fieldLabel}>Texture</span>
-                        <div className={styles.texturePicker}>
-                            <div className={styles.textureRow}>
-                                <input
-                                    type="text"
-                                    value={textureQuery}
-                                    onChange={(event) => {
-                                        setTextureQuery(event.target.value);
-                                        setTextureOpen(true);
-                                        if (spriteMap[event.target.value] !== textureToken) {
-                                            setTextureToken(null);
-                                            setTextureName('');
-                                        }
-                                    }}
-                                    onFocus={() => setTextureOpen(true)}
-                                    onBlur={() => setTimeout(() => setTextureOpen(false), 150)}
-                                    placeholder="Search an item name for its texture"
-                                />
-                                <div
-                                    className={`monumenta-items monumenta-${textureToken || ''} ${styles.texturePreview}`}
-                                ></div>
-                            </div>
-                            {textureOpen && (
-                                <div className={styles.textureList}>
-                                    {textureChoices.length === 0 ? (
-                                        <div className={styles.textureEmpty}>No matching textures</div>
-                                    ) : (
-                                        textureChoices.map((key) => (
-                                            <button
-                                                type="button"
-                                                key={key}
-                                                className={`${styles.textureOption}${key === textureName ? ' ' + styles.textureOptionActive : ''}`}
-                                                onMouseDown={(event) => {
-                                                    event.preventDefault();
-                                                    pickTexture(key);
-                                                }}
-                                            >
-                                                <span
-                                                    className={`monumenta-items monumenta-${spriteMap[key]} ${styles.textureMini}`}
-                                                ></span>
-                                                <span className={styles.textureName}>{key}</span>
-                                            </button>
-                                        ))
-                                    )}
+                        <div className={styles.field}>
+                            <span className={styles.fieldLabel}>Texture</span>
+                            <div className={styles.texturePicker}>
+                                <div className={styles.textureRow}>
+                                    <input
+                                        type="text"
+                                        value={textureQuery}
+                                        onChange={(event) => {
+                                            setTextureQuery(event.target.value);
+                                            setTextureOpen(true);
+                                            if (spriteMap[event.target.value] !== textureToken) {
+                                                setTextureToken(null);
+                                                setTextureName('');
+                                            }
+                                        }}
+                                        onFocus={() => setTextureOpen(true)}
+                                        onBlur={() => setTimeout(() => setTextureOpen(false), 150)}
+                                        placeholder="Search an item name for its texture"
+                                    />
+                                    <div
+                                        className={`monumenta-items monumenta-${textureToken || ''} ${styles.texturePreview}`}
+                                    ></div>
                                 </div>
-                            )}
+                                {textureOpen && (
+                                    <div className={styles.textureList}>
+                                        {textureChoices.length === 0 ? (
+                                            <div className={styles.textureEmpty}>No matching textures</div>
+                                        ) : (
+                                            textureChoices.map((key) => (
+                                                <button
+                                                    type="button"
+                                                    key={key}
+                                                    className={`${styles.textureOption}${key === textureName ? ' ' + styles.textureOptionActive : ''}`}
+                                                    onMouseDown={(event) => {
+                                                        event.preventDefault();
+                                                        pickTexture(key);
+                                                    }}
+                                                >
+                                                    <span
+                                                        className={`monumenta-items monumenta-${spriteMap[key]} ${styles.textureMini}`}
+                                                    ></span>
+                                                    <span className={styles.textureName}>{key}</span>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
+                    </div>
+
+                    <div className={styles.fieldRow}>
+                        <label className={styles.field}>
+                            <span className={styles.fieldLabel}>Type</span>
+                            <Select
+                                instanceId="custom-item-type"
+                                name="custom-item-type"
+                                options={typeOptions}
+                                value={
+                                    type
+                                        ? typeOptions
+                                              .flatMap((group) => group.options)
+                                              .find((option) => option.value === type) || { value: type, label: type }
+                                        : null
+                                }
+                                onChange={(option) => setType(option ? option.value : 'Offhand')}
+                                isOptionDisabled={(option) => Boolean(option && option.isDisabled)}
+                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                menuPosition="fixed"
+                                theme={selectTheme}
+                                styles={selectStyles}
+                            />
+                        </label>
+
+                        <label className={styles.field}>
+                            <span className={styles.fieldLabel}>Base item (vanilla)</span>
+                            <Select
+                                instanceId="custom-item-base-item"
+                                name="custom-item-base-item"
+                                options={baseItemOptions}
+                                value={
+                                    baseItem ? baseItemOptions.find((option) => option.value === baseItem) || null : null
+                                }
+                                onChange={(option) => setBaseItem(option ? option.value : '')}
+                                isClearable
+                                placeholder="e.g. Wooden Axe, Netherite Sword"
+                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                menuPosition="fixed"
+                                theme={selectTheme}
+                                styles={selectStyles}
+                            />
+                        </label>
                     </div>
 
                     <div className={styles.field}>

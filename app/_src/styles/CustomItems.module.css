@@ -98,6 +98,18 @@
     gap: 4px;
 }
 
+/* Type + Base item sit side by side on wide forms and stack when narrow. */
+.fieldRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.fieldRow > .field {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
 .fieldLabel {
     font-weight: 600;
 }
@@ -199,7 +211,9 @@
 .textureRow {
     display: flex;
     gap: 10px;
-    align-items: center;
+    /* Top-align the input with the Name input next to it; the taller sprite
+       preview only extends below. */
+    align-items: flex-start;
 }
 
 .textureRow input {

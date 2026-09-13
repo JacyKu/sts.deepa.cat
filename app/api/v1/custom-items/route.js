@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../lib/session';
-import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems } from '../../../../lib/sts-builds';
+import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems, BUILD_NAME_MAX } from '../../../../lib/sts-builds';
 import { rateLimitResponse, readRateLimits } from '../../../../lib/rate-limit';
 
 export async function POST(request) {
@@ -14,7 +14,7 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid name' }, { status: 400 });
     }
     const name = body.name.trim();
-    if (name.length > 64) {
+    if (name.length > BUILD_NAME_MAX) {
         return NextResponse.json({ error: 'name too long' }, { status: 400 });
     }
     // Duplicate names would silently overwrite each other in the builder's
