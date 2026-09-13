@@ -37,6 +37,8 @@ export async function POST(request) {
         token,
         infusions: body.infusions && typeof body.infusions === 'object' ? body.infusions : {},
         revelation: Boolean(body.revelation),
+        basicInfusions:
+            body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
     };
     // One saved build per name per author: re-saving the identical build is
     // fine (it maps back onto the same row), but a different build whose name

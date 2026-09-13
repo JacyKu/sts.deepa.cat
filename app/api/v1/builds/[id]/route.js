@@ -43,6 +43,10 @@ export async function PATCH(request, { params }) {
                 token,
                 infusions: body.state.infusions && typeof body.state.infusions === 'object' ? body.state.infusions : {},
                 revelation: Boolean(body.state.revelation),
+                basicInfusions:
+                    body.state.basicInfusions && typeof body.state.basicInfusions === 'object'
+                        ? body.state.basicInfusions
+                        : {},
             },
         };
         if (body.name !== undefined && body.name !== null) {

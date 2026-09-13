@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
     getLinkByUuid,
     saveBuild,
+    BUILD_NAME_MAX,
     countRecentModSaves,
     countRecentBuilds,
     countRecentCustomItems,
@@ -51,7 +52,7 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
 
-    const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim().slice(0, 30) : null;
+    const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim().slice(0, BUILD_NAME_MAX) : null;
     const tokenVersion = getBuildTokenVersion(token) ?? '';
 
     // Delve infusion preferences picked in the armoury ("Preferred Delve
@@ -141,7 +142,13 @@ export async function POST(request) {
         }
     }
     const result = saveBuild({
-        state: { token, infusions, revelation: false },
+        state: {
+            token,
+            infusions,
+            revelation: false,
+            basicInfusions:
+                body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
+        },
         userId: link ? link.discord_id : null,
         name,
         notes: null,

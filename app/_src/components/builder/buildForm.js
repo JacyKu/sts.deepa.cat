@@ -1749,6 +1749,7 @@ export default function BuildForm({
         const payload = {
             token,
             infusions: delveInfusions,
+            basicInfusions,
             revelation,
             name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
             notes: notesDraft.trim() ? notesDraft : null,
@@ -1769,7 +1770,7 @@ export default function BuildForm({
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    state: { token, infusions: delveInfusions, revelation },
+                    state: { token, infusions: delveInfusions, basicInfusions, revelation },
                     name: payload.name,
                     notes: payload.notes,
                     ...(loggedIn ? { publicise: publicState.isPublic, anonymous: publicState.anonymous } : {}),
@@ -2182,6 +2183,24 @@ export default function BuildForm({
         const loadedRevelation = Boolean(effSavedState && effSavedState.revelation);
         if (loadedRevelation) setRevelation(true);
 
+        // Basic (normal) infusions: restored per slot so their dropdowns show
+        // them (the token's stat inputs already carry the summed levels).
+        if (effSavedState && effSavedState.basicInfusions && typeof effSavedState.basicInfusions === 'object') {
+            const loadedBasic = {};
+            for (const [slot, value] of Object.entries(effSavedState.basicInfusions)) {
+                if (!value || typeof value.name !== 'string') continue;
+                if (!BASIC_INFUSIONS.some((i) => i.name === value.name)) continue;
+                loadedBasic[slot] = {
+                    name: value.name,
+                    level: Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(value.level) || 1)),
+                };
+            }
+            if (Object.keys(loadedBasic).length > 0) {
+                setBasicInfusions(loadedBasic);
+                setBasicOpen(true);
+            }
+        }
+
         // A build renamed on the "My Builds" page stores its display name in
         // the DB; surface it in the header so re-saving keeps the new name.
         if (effDraft && effDraft.name) {
@@ -2385,6 +2404,7 @@ export default function BuildForm({
                     JSON.stringify({
                         token: makeBuildString(),
                         infusions: delveInfusions,
+                        basicInfusions,
                         revelation,
                         name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
                         notes: notesDraft.trim() ? notesDraft : null,
@@ -2407,6 +2427,7 @@ export default function BuildForm({
         statInputs,
         regionValue,
         delveInfusions,
+        basicInfusions,
         revelation,
         notesDraft,
         activeBuildId,

@@ -51,7 +51,7 @@ function RenameInput({ initialName, onCommit, onCancel }) {
             }}
             onBlur={commit}
             autoFocus
-            maxLength={30}
+            maxLength={50}
         />
     );
 }
