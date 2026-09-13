@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Select from 'react-select';
 import styles from '../../styles/CustomItems.module.css';
-import { CustomItemCardSkeleton } from './customItemsSkeleton';
+import CustomItemsSkeleton, { CustomItemCardSkeleton } from './customItemsSkeleton';
 import itemsStyles from '../../styles/Items.module.css';
 import { loadItemSpriteMap, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
@@ -697,20 +697,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     }
 
     if (!authChecked) {
-        return (
-            <div className={styles.page}>
-                <h1 className={styles.title}>Custom Items</h1>
-                <div className={styles.itemGrid}>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className={itemsStyles.skeleton}
-                            style={{ width: '100%', minHeight: 200, margin: 0 }}
-                        />
-                    ))}
-                </div>
-            </div>
-        );
+        return <CustomItemsSkeleton />;
     }
 
     if (!user) {
