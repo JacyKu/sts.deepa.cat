@@ -9,4 +9,10 @@ export async function register() {
     } catch (error) {
         console.error('[db-backup] failed to start scheduler:', error);
     }
+    try {
+        const { startItemUpdateScheduler } = await import('./lib/item-update-scheduler.js');
+        startItemUpdateScheduler();
+    } catch (error) {
+        console.error('[items-update] failed to start scheduler:', error);
+    }
 }
