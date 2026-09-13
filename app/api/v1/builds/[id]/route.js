@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic, buildNameTakenByUser } from '../../../../../lib/sts-builds';
+import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic, buildNameTaken, isDuplicateNameError } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
@@ -65,15 +65,15 @@ export async function PATCH(request, { params }) {
         if (wantsPublic && hasProfanity({ name: update.name, notes: update.notes, token, itemData })) {
             return NextResponse.json({ error: 'profanity' }, { status: 400 });
         }
-        // One saved build per name per author: renaming to a name another of
-        // the user's builds already carries is rejected; the same applies
-        // when this row gets claimed onto the account (anonymous re-save
-        // while signed in) and its current name already conflicts.
+        // Build names are unique across the whole site: renaming to a name
+        // any other build already carries is rejected; the same applies when
+        // this row gets claimed onto the account (anonymous re-save while
+        // signed in) and its current name already conflicts.
         if (row && user) {
-            if (update.name !== undefined && update.name !== row.name && buildNameTakenByUser(user.id, update.name, p.id)) {
+            if (update.name !== undefined && update.name !== row.name && buildNameTaken(update.name, p.id)) {
                 return NextResponse.json({ error: 'duplicate' }, { status: 409 });
             }
-            if (update.name === undefined && row.user_id !== user.id && row.name && buildNameTakenByUser(user.id, row.name, p.id)) {
+            if (update.name === undefined && row.user_id !== user.id && row.name && buildNameTaken(row.name, p.id)) {
                 return NextResponse.json({ error: 'duplicate' }, { status: 409 });
             }
         }
@@ -81,7 +81,16 @@ export async function PATCH(request, { params }) {
             update.summary = summary;
         }
         const creatorToken = request.cookies.get(`sts-build-owner-${p.id}`)?.value || null;
-        if (!updateBuildState(p.id, user ? user.id : null, creatorToken, update)) {
+        let saved;
+        try {
+            saved = updateBuildState(p.id, user ? user.id : null, creatorToken, update);
+        } catch (error) {
+            if (isDuplicateNameError(error)) {
+                return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+            }
+            throw error;
+        }
+        if (!saved) {
             return NextResponse.json({ error: 'build not found or not yours' }, { status: 403 });
         }
         // Publicise / adjust anonymity as part of the same save when asked.
@@ -159,16 +168,25 @@ export async function PATCH(request, { params }) {
         return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
     }
 
-    // Renaming to a name another of the user's saved builds already carries
-    // is rejected (unchanged names pass through).
+    // Renaming to a name any other build already carries is rejected
+    // (unchanged names pass through).
     if (update.name !== undefined) {
         const current = getBuild(p.id);
-        if (current && update.name !== current.name && buildNameTakenByUser(user.id, update.name, p.id)) {
+        if (current && update.name !== current.name && buildNameTaken(update.name, p.id)) {
             return NextResponse.json({ error: 'duplicate' }, { status: 409 });
         }
     }
 
-    if (!updateBuild(p.id, user.id, update)) {
+    let saved;
+    try {
+        saved = updateBuild(p.id, user.id, update);
+    } catch (error) {
+        if (isDuplicateNameError(error)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
+        throw error;
+    }
+    if (!saved) {
         return NextResponse.json({ error: 'build not found or not yours' }, { status: 404 });
     }
     return NextResponse.json({ ok: true });

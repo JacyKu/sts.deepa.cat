@@ -4152,7 +4152,7 @@ export default function BuildForm({
                     {saveState === 'error' ? (
                         'Could not save the build.'
                     ) : saveState === 'duplicate' ? (
-                        <b>You already have a saved build with this name - rename it and save again.</b>
+                        <b>A saved build already uses this name - pick another one.</b>
                     ) : savedAnonymous ? (
                         <>
                             <b>Saved, but not to your account!</b>

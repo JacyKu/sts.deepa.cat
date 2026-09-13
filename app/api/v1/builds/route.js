@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import {
     saveBuild,
     setBuildPublic,
-    buildNameTakenByUser,
+    buildNameTaken,
     findBuildByState,
     countRecentBuilds,
     mergeReferencedCustomItems,
+    isDuplicateNameError,
 } from '../../../../lib/sts-builds';
 import { decodeBuildParam, getBuildTokenVersion, getBuildItemHashes } from '../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
@@ -40,12 +41,12 @@ export async function POST(request) {
         basicInfusions:
             body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
     };
-    // One saved build per name per author: re-saving the identical build is
-    // fine (it maps back onto the same row), but a different build whose name
-    // one of the user's saved builds already carries is rejected.
-    if (user && body.name) {
-        const sameStateId = findBuildByState(user.id, state);
-        if (buildNameTakenByUser(user.id, body.name, sameStateId || null)) {
+    // Build names are unique across the whole site: re-saving the identical
+    // build is fine (it maps back onto the same row), but a different build
+    // whose name is already taken anywhere is rejected.
+    if (body.name) {
+        const sameStateId = findBuildByState(user ? user.id : null, state);
+        if (buildNameTaken(body.name, sameStateId || null)) {
             return NextResponse.json({ error: 'duplicate' }, { status: 409 });
         }
     }
@@ -69,14 +70,22 @@ export async function POST(request) {
     // dropped from items_json and never show on build cards).
     const summaryData = user ? mergeReferencedCustomItems(itemData, user.id, getBuildItemHashes(token)) : itemData;
     const summary = computeBuildSummary(token, summaryData, skillsData);
-    const result = saveBuild({
-        state,
-        userId: user ? user.id : null,
-        name: body.name || null,
-        // Notes are a signed-in feature: anonymous saves never carry them.
-        notes: user ? body.notes || null : null,
-        summary,
-    });
+    let result;
+    try {
+        result = saveBuild({
+            state,
+            userId: user ? user.id : null,
+            name: body.name || null,
+            // Notes are a signed-in feature: anonymous saves never carry them.
+            notes: user ? body.notes || null : null,
+            summary,
+        });
+    } catch (error) {
+        if (isDuplicateNameError(error)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
+        throw error;
+    }
     if (!result) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }

@@ -6,10 +6,11 @@ import {
     countRecentModSaves,
     countRecentBuilds,
     countRecentCustomItems,
-    buildNameTakenByUser,
+    buildNameTaken,
     findBuildByState,
     mergeReferencedCustomItems,
     getStsUserProfile,
+    isDuplicateNameError,
 } from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems, findUnknownItemNames } from '../../../../../lib/item-uploads';
 import {
@@ -70,6 +71,8 @@ export async function POST(request) {
         return out;
     };
     const infusions = sanitizeInfusions(body?.infusions);
+    const basicInfusions =
+        body?.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {};
 
     if (link) {
         // Linked: save to the Discord account, private.
@@ -132,29 +135,40 @@ export async function POST(request) {
         : itemData;
     const summary = computeBuildSummary(token, summaryData, skillsData);
 
-    // Linked saves land on the Discord account: one saved build per name per
-    // author, so a loadout whose name another of the player's saved builds
-    // already carries is rejected (re-saving the identical build is fine).
-    if (link && name) {
-        const sameStateId = findBuildByState(link.discord_id, { token, infusions, revelation: false });
-        if (buildNameTakenByUser(link.discord_id, name, sameStateId || null)) {
-            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
-        }
-    }
-    const result = saveBuild({
-        state: {
+    // Build names are unique across the whole site (linked or not); re-saving
+    // the identical build keeps its own name.
+    if (name) {
+        const sameStateId = findBuildByState(link ? link.discord_id : null, {
             token,
             infusions,
             revelation: false,
-            basicInfusions:
-                body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
-        },
-        userId: link ? link.discord_id : null,
-        name,
-        notes: null,
-        summary,
-        source: 'mod',
-    });
+            basicInfusions,
+        });
+        if (buildNameTaken(name, sameStateId || null)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
+    }
+    let result;
+    try {
+        result = saveBuild({
+            state: {
+                token,
+                infusions,
+                revelation: false,
+                basicInfusions,
+            },
+            userId: link ? link.discord_id : null,
+            name,
+            notes: null,
+            summary,
+            source: 'mod',
+        });
+    } catch (error) {
+        if (isDuplicateNameError(error)) {
+            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        }
+        throw error;
+    }
     if (!result) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
