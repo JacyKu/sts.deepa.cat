@@ -3,7 +3,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 18px 10px 40px;
+    padding: 0 10px 40px;
 }
 
 .togglesPanel {
@@ -35,7 +35,6 @@
 }
 
 .pageTitle {
-    margin: 10px 0;
     font-size: 40px;
     font-weight: 500;
     line-height: 48px;

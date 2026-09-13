@@ -8,6 +8,7 @@ import BuilderLayoutToggle from './builderLayoutToggle';
 import CardItemsFirstToggle from './cardItemsFirstToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
 import DateFormatToggle from './dateFormatToggle';
+import { HEADER_TITLE_MAX, HEADER_TITLE_KEY, saveHeaderTitle } from './headerTitle';
 import {
     applyThemeState,
     readThemeState,
@@ -142,10 +143,19 @@ async function optimizeImage(file) {
 export default function SettingsPage() {
     const [themeState, setThemeState] = React.useState(null);
     const [font, setFont] = React.useState('ubuntu');
+    const [headerTitle, setHeaderTitle] = React.useState('');
 
     React.useEffect(() => {
         setThemeState(readThemeState());
         // Persist nothing here; that happens on first explicit choice.
+    }, []);
+
+    React.useEffect(() => {
+        try {
+            setHeaderTitle(window.localStorage.getItem(HEADER_TITLE_KEY) || '');
+        } catch (e) {
+            // ignore
+        }
     }, []);
 
     React.useEffect(() => {
@@ -272,6 +282,12 @@ export default function SettingsPage() {
         } catch (e) {
             // ignore
         }
+    }
+
+    function updateHeaderTitle(value) {
+        const clean = value.slice(0, HEADER_TITLE_MAX);
+        setHeaderTitle(clean);
+        saveHeaderTitle(clean);
     }
 
     // Accessibility state.
@@ -592,6 +608,30 @@ export default function SettingsPage() {
                     </div>
                 )}
                 <div className={styles.siteOptions}>
+                    <label className={styles.fontRow}>
+                        <span className={styles.fontLabel}>Header title</span>
+                        <span className={styles.headerTitleControls}>
+                            <input
+                                type="text"
+                                className={styles.headerTitleInput}
+                                value={headerTitle}
+                                maxLength={HEADER_TITLE_MAX}
+                                placeholder="Spare the Sympathy"
+                                onChange={(e) => updateHeaderTitle(e.target.value)}
+                                aria-label="Header title"
+                            />
+                            {headerTitle.trim() && (
+                                <button
+                                    type="button"
+                                    className={styles.colourRemove}
+                                    onClick={() => updateHeaderTitle('')}
+                                    aria-label="Reset header title"
+                                >
+                                    Reset
+                                </button>
+                            )}
+                        </span>
+                    </label>
                     <label className={styles.fontRow}>
                         <span className={styles.fontLabel}>Font</span>
                         <div className={styles.fontSelect}>

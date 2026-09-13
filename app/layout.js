@@ -17,7 +17,7 @@ import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
 import NotificationsBar from './_src/components/notificationsBar';
 import DevSiteBanner from './_src/components/devSiteBanner';
-import SiteNav from '@deepa/shared/site-nav';
+import SiteNav from './_src/components/headerTitle';
 
 export const metadata = {
     title: {

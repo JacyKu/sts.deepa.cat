@@ -1,7 +1,7 @@
 .page {
     max-width: 720px;
     margin: 0 auto;
-    padding: 2rem 1rem;
+    padding: 0 1rem 2rem;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -10,7 +10,6 @@
 .title {
     font-size: 1.75rem;
     font-weight: 600;
-    margin: 0;
 }
 
 .card {
@@ -559,6 +558,30 @@
 
 .fontSelect {
     width: 120px;
+}
+
+.headerTitleControls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.headerTitleInput {
+    width: 170px;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.headerTitleInput::placeholder {
+    color: var(--text-2);
+}
+
+.headerTitleInput:focus {
+    outline: none;
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .siteToggleRow {

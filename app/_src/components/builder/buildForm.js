@@ -3427,7 +3427,7 @@ export default function BuildForm({
         <form ref={formRef} onSubmit={sendUpdate} onReset={resetForm} id="buildForm">
             {showRedX && <img src="/images/redx.png" className={styles.redXOverlay} alt="" />}
             {/* Top row: region/class/spec on the left, title centered, import on the right */}
-            <div className={`${styles.builderTopRow} mt-3 mb-1`}>
+            <div className={`${styles.builderTopRow} mb-1`}>
                 <div className="d-flex flex-wrap align-items-center">
                     <div className="me-3">
                         <FloatingLabel label="Region">

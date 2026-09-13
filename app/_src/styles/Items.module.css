@@ -2198,6 +2198,9 @@ div.builderStatCard {
        column on the right. */
     align-items: start;
     gap: 10px;
+    /* Same first-content offset as the page titles (see html h1 in
+       globals.css). */
+    margin-top: 20px;
 }
 
 /* Experimental "New Layout": the equipment slot inputs go in a column on
