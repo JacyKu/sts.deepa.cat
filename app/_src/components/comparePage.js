@@ -647,7 +647,9 @@ export default function ComparePage({ itemData }) {
 
     return (
         <div className={styles.container}>
-            <h1 className={styles.pageTitle}>Build Comparison</h1>
+            <h1 className={styles.pageTitle}>
+                Build Comparison <span className={styles.experimentalBadge}>Experimental</span>
+            </h1>
 
             <div className={styles.pickers}>
                 {['left', 'right'].map((side) => {

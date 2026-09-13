@@ -6,7 +6,9 @@ import styles from '../styles/Compare.module.css';
 export default function CompareSkeleton() {
     return (
         <div className={styles.container}>
-            <h1 className={styles.pageTitle}>Build Comparison</h1>
+            <h1 className={styles.pageTitle}>
+                Build Comparison <span className={styles.experimentalBadge}>Experimental</span>
+            </h1>
             <div className={styles.pickers}>
                 {['Build A', 'Build B'].map((label) => (
                     <div key={label} className={styles.picker}>

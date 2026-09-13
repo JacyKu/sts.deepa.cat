@@ -4,12 +4,12 @@ import ComparePage from '../_src/components/comparePage';
 import CompareSkeleton from '../_src/components/compareSkeleton';
 
 export const metadata = {
-    title: 'Build Comparison',
-    description: 'Compare two Monumenta builds side by side: stats, items and charms.',
+    title: 'Build Comparison (Experimental)',
+    description: 'Compare two Monumenta builds side by side: stats, items and charms. Experimental feature.',
     openGraph: {
         siteName: 'SPARE THE SYMPATHY',
         type: 'website',
-        title: 'Build Comparison',
+        title: 'Build Comparison (Experimental)',
         images: [{ url: '/favicon/favicon.png' }],
     },
 };
