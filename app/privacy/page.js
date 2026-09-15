@@ -69,7 +69,7 @@ export default function PrivacyPolicyPage() {
                     paragraphs: [<>We may share your information in the following circumstances:</>],
                     items: [
                         <>
-                            <strong>Service providers:</strong> the site is delivered through Cloudflare&apos;s network
+                            <strong>Service providers: </strong>The site is delivered through Cloudflare&apos;s network
                             (traffic proxying, caching, DDoS protection and security), and database backups are stored
                             in Cloudflare R2 object storage. Discord processes login (OAuth) and bot interactions. When
                             you pick your Minecraft profile picture, your browser loads the head image from mc-heads.net
