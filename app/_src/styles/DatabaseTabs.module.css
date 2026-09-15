@@ -1,6 +1,7 @@
 .dbTabs {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 8px;
     /* The h1 already leaves 16px below it (the same title → buttons gap as
        the account pages), so the tab row adds no top margin of its own. */
@@ -8,6 +9,9 @@
 }
 
 .dbTab {
+    display: inline-block;
+    min-width: 144px;
+    text-align: center;
     padding: 8px 22px;
     border: 2px solid var(--control-border);
     background: var(--glass-1);
@@ -45,6 +49,7 @@
     }
 
     .dbTab {
+        min-width: 0;
         padding: 9px 6px;
         font-size: 0.85em;
         text-align: center;
