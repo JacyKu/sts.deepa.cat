@@ -289,14 +289,15 @@ site stuff:
         [x] skill filter should provide a dropdown with all skills listed
         [x] class filter should dynamically adjust dropdown of the skills filter to only the ones that are under that class
         [x] verify if all verification checks are done serverside and not on the client to prevent bypassing anything (eg sessions and wether a user has permission to do this or that, build name length etc)
-        - redo the mobile ui to make it fit better, eg the menu for selecting pages is off center and we should fold options into dropdowns on the builder page (only the ring/class and import/skill set options)
+        [x] redo the mobile ui to make it fit better, eg the menu for selecting pages is off center and we should fold options into dropdowns on the builder page (only the ring/class and import/skill set options)
+        - buttons for my builds are different than the other pages
         - update /stsmod link text to /sts link
 
         (future update if popular)
         - add tags
         - add custom tags (3 per logged in user)
 
-        - bump api version to 2
+        [x] bump api version to 2
         - improve general performance and responsiveness
         [x] update TOS to include new mod and cloudflare stuff
         - remove unrelevant comments that dont apply anymore (stuff like changed this to ... etc)
