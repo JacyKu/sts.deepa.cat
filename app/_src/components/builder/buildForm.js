@@ -4162,7 +4162,10 @@ export default function BuildForm({
                             </span>
                         </>
                     ) : (
-                        <b>Copied short link to clipboard!</b>
+                        <>
+                            <b>Saved build!</b>
+                            <span>Copied link to clipboard.</span>
+                        </>
                     )}
                 </div>
             )}

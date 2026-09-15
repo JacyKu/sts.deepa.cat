@@ -6,9 +6,11 @@
 // same Search / Reset actions). Cards link to the share view, where logged
 // in visitors can copy an item into their own list.
 import React from 'react';
+import Select from 'react-select';
 import DatabaseTabs from '../databaseTabs';
 import InfiniteScroll from '../infiniteScroll';
-import { FilterRow } from '../builds/filterRow';
+import { FilterRow, selectTheme, selectStyles } from '../builds/filterRow';
+import FloatingLabel from '../items/floatingLabel';
 import ItemTile from '../items/itemTile';
 import CharmTile from '../items/charmTile';
 import ConsumableTile from '../items/consumableTile';
@@ -19,10 +21,18 @@ import sf from '../../styles/SearchForm.module.css';
 import dbStyles from '../../styles/Database.module.css';
 import itemsStyles from '../../styles/Items.module.css';
 
+// Fixed "Sort by" options. Same control as the builds database; custom items
+// have no charm power, so the applicable build sorts are favourites/newest.
+const SORT_OPTIONS = [
+    { value: 'top', label: 'Most favourited' },
+    { value: 'new', label: 'Newest' },
+];
+
 export default function CustomItemsDatabase() {
     const [base, setBase] = React.useState('/sts');
     const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]);
     const [searchName, setSearchName] = React.useState('');
+    const [sort, setSort] = React.useState('top');
 
     const [items, setItems] = React.useState([]);
     const [page, setPage] = React.useState(1);
@@ -34,6 +44,8 @@ export default function CustomItemsDatabase() {
     rowsRef.current = rows;
     const nameRef = React.useRef(searchName);
     nameRef.current = searchName;
+    const sortRef = React.useRef(sort);
+    sortRef.current = sort;
     const pageRef = React.useRef(page);
     pageRef.current = page;
     const loadingRef = React.useRef(false);
@@ -61,14 +73,14 @@ export default function CustomItemsDatabase() {
         }, 400);
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rows, searchName]);
+    }, [rows, searchName, sort]);
 
     function loadPage(nextPage, replace) {
         if (loadingRef.current && !replace) return;
         loadingRef.current = true;
         setLoading(true);
         const seq = ++loadSeq.current;
-        const params = new URLSearchParams({ page: String(nextPage), limit: '24' });
+        const params = new URLSearchParams({ page: String(nextPage), limit: '24', sort: sortRef.current });
         if (nameRef.current.trim()) params.set('q', nameRef.current.trim());
         // Last row wins per category; "Any" means no filter.
         const seen = new Set();
@@ -133,6 +145,7 @@ export default function CustomItemsDatabase() {
         // The debounced effect picks up the cleared rows/name and reloads.
         setRows([{ key: Date.now(), category: null, value: null }]);
         setSearchName('');
+        setSort('top');
         setPage(1);
     }
 
@@ -142,6 +155,22 @@ export default function CustomItemsDatabase() {
                 pages' header rhythm (title → tabs → content) matches. */}
             <h1 className={dbStyles.title}>Custom Items Database</h1>
             <DatabaseTabs active="custom-items" />
+
+            <div className={dbStyles.sortControl}>
+                <FloatingLabel label="Sort by">
+                    <Select
+                        instanceId="custom-db-sort"
+                        options={SORT_OPTIONS}
+                        value={SORT_OPTIONS.find((o) => o.value === sort) || null}
+                        onChange={(opt) => setSort(opt ? opt.value : 'top')}
+                        isSearchable={false}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                        theme={selectTheme}
+                        styles={selectStyles}
+                    />
+                </FloatingLabel>
+            </div>
 
             {rows.length > 0 && (
                 <div className={dbStyles.rows}>

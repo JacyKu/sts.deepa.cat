@@ -2,17 +2,26 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import Select from 'react-select';
 import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
 import DatabaseSkeleton from './databaseSkeleton';
 import InfiniteScroll from './infiniteScroll';
 import DatabaseTabs from './databaseTabs';
+import FloatingLabel from './items/floatingLabel';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
 import sf from '../styles/SearchForm.module.css';
 import styles from '../styles/Database.module.css';
 import { getStsBase } from '../utils/base';
-import { FilterRow, buildFilterCategories, buildSlotOptions } from './builds/filterRow';
+import {
+    FilterRow,
+    buildFilterCategories,
+    buildSlotOptions,
+    buildSortOptions,
+    selectTheme,
+    selectStyles,
+} from './builds/filterRow';
 
 // Pending comparison picks, shared with the /compare page: entries carry the
 // build's own /b/v<version>/<id> URL + a display name. Two picks jump
@@ -29,6 +38,8 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
 
     const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]); // applied filters
     const [searchName, setSearchName] = React.useState('');
+    // Sort is a fixed control above the filter rows, not an addable filter.
+    const [sort, setSort] = React.useState('top');
 
     const [builds, setBuilds] = React.useState([]);
     const [page, setPage] = React.useState(1);
@@ -37,12 +48,18 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
     const [error, setError] = React.useState(null);
 
     const slotOptions = React.useMemo(() => buildSlotOptions(t), [t]);
-    const categories = React.useMemo(() => buildFilterCategories(classOptions, specMap, t), [classOptions, specMap, t]);
+    const categories = React.useMemo(
+        () => buildFilterCategories(classOptions, specMap, t, { includeSort: false }),
+        [classOptions, specMap, t]
+    );
+    const sortOptions = React.useMemo(() => buildSortOptions(t), [t]);
 
     const rowsRef = React.useRef(rows);
     rowsRef.current = rows;
     const nameRef = React.useRef(searchName);
     nameRef.current = searchName;
+    const sortRef = React.useRef(sort);
+    sortRef.current = sort;
     const pageRef = React.useRef(page);
     pageRef.current = page;
     const loadingRef = React.useRef(false);
@@ -67,19 +84,17 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         }, 400);
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rows, searchName]);
+    }, [rows, searchName, sort]);
 
     function loadPage(nextPage, replace) {
         if (loadingRef.current && !replace) return;
         loadingRef.current = true;
         setLoading(true);
         const seq = ++loadSeq.current;
-        // The sort order comes from a "Sort by" filter row; default: top.
-        const sortRow = rowsRef.current.find((r) => r.category === 'sort' && r.value);
         const params = new URLSearchParams({
             page: String(nextPage),
             limit: '24',
-            sort: sortRow ? sortRow.value : 'top',
+            sort: sortRef.current,
         });
         if (nameRef.current) params.set('q', nameRef.current);
         // Last row wins per category. "Any" (the Item cascade's placeholder
@@ -155,6 +170,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         // The debounced effect picks up the cleared rows/name and reloads.
         setRows([{ key: Date.now(), category: null, value: null }]);
         setSearchName('');
+        setSort('top');
         setPage(1);
     }
 
@@ -222,18 +238,28 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         persistCompare([]);
     }
 
-    const sortOptions = [
-        { value: 'top', label: t('database.sort.top') },
-        { value: 'new', label: t('database.sort.new') },
-        { value: 'power', label: t('database.sort.power') },
-    ];
-
     return (
         <div className={styles.page}>
             <h1 className={styles.title}>
                 <TranslatableText identifier="database.title" />
             </h1>
             <DatabaseTabs active="builds" />
+
+            <div className={styles.sortControl}>
+                <FloatingLabel label={t('database.filters.sort')}>
+                    <Select
+                        instanceId="db-sort"
+                        options={sortOptions}
+                        value={sortOptions.find((o) => o.value === sort) || null}
+                        onChange={(opt) => setSort(opt ? opt.value : 'top')}
+                        isSearchable={false}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                        theme={selectTheme}
+                        styles={selectStyles}
+                    />
+                </FloatingLabel>
+            </div>
 
             {rows.length > 0 && (
                 <div className={styles.rows}>

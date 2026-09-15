@@ -47,9 +47,18 @@ export function buildSlotOptions(t) {
     ];
 }
 
-export function buildFilterCategories(classOptions, specMap, t) {
-    const allSpecs = [...new Set(Object.values(specMap).flat())];
+// Options for the build sort control. The database page renders these in a
+// fixed "Sort by" dropdown; My Builds keeps them as a filter category row.
+export function buildSortOptions(t) {
     return [
+        { value: 'top', label: t('database.sort.top') },
+        { value: 'new', label: t('database.sort.new') },
+    ];
+}
+
+export function buildFilterCategories(classOptions, specMap, t, { includeSort = true } = {}) {
+    const allSpecs = [...new Set(Object.values(specMap).flat())];
+    const categories = [
         { name: 'class', labelKey: 'database.filters.class', type: 'select', options: classOptions },
         { name: 'region', labelKey: 'database.filters.region', type: 'select', options: REGIONS },
         { name: 'spec', labelKey: 'database.filters.spec', type: 'select', options: allSpecs },
@@ -65,17 +74,16 @@ export function buildFilterCategories(classOptions, specMap, t) {
         { name: 'item', labelKey: 'database.filters.item', type: 'cascade' },
         { name: 'skill', labelKey: 'database.filters.skill', type: 'text' },
         { name: 'author', labelKey: 'database.filters.author', type: 'text' },
-        {
+    ];
+    if (includeSort) {
+        categories.push({
             name: 'sort',
             labelKey: 'database.filters.sort',
             type: 'select',
-            options: [
-                { value: 'top', label: t('database.sort.top') },
-                { value: 'new', label: t('database.sort.new') },
-                { value: 'power', label: t('database.sort.power') },
-            ],
-        },
-    ];
+            options: buildSortOptions(t),
+        });
+    }
+    return categories;
 }
 
 // One applied filter: a category dropdown + a value control + a delete button,

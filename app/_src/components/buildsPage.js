@@ -2,18 +2,27 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Select from 'react-select';
 import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
 import styles from '../styles/Builds.module.css';
 import dbStyles from '../styles/Database.module.css';
 import DatabaseSkeleton from './databaseSkeleton';
+import FloatingLabel from './items/floatingLabel';
 import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
 import sf from '../styles/SearchForm.module.css';
-import { FilterRow, buildFilterCategories, buildSlotOptions } from './builds/filterRow';
+import {
+    FilterRow,
+    buildFilterCategories,
+    buildSlotOptions,
+    buildSortOptions,
+    selectTheme,
+    selectStyles,
+} from './builds/filterRow';
 
 // Inline rename field with its own local state so typing does not re-render
 // the whole builds list (every BuildCard re-render is expensive). Commits
@@ -70,13 +79,19 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     const [error, setError] = React.useState(null);
     const [base, setBase] = React.useState('/sts');
 
-    // The same filter rows + search as the public database page. Rows are the
-    // applied filters (category + value); sorting is a "sort" category row.
+    // The same filter rows + search as the public database page, plus the
+    // fixed Sort by control above the "+ Add" button. Rows are the applied
+    // filters (category + value).
     const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]);
     const [searchName, setSearchName] = React.useState('');
+    const [sort, setSort] = React.useState('top');
 
     const slotOptions = React.useMemo(() => buildSlotOptions(t), [t]);
-    const categories = React.useMemo(() => buildFilterCategories(classOptions, specMap, t), [classOptions, specMap, t]);
+    const categories = React.useMemo(
+        () => buildFilterCategories(classOptions, specMap, t, { includeSort: false }),
+        [classOptions, specMap, t]
+    );
+    const sortOptions = React.useMemo(() => buildSortOptions(t), [t]);
 
     React.useEffect(() => {
         setBase(getStsBase());
@@ -120,7 +135,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
 
         const applied = {};
         for (const r of rows) {
-            if (!r.category || !r.value || r.value === 'Any' || r.category === 'sort' || applied[r.category]) continue;
+            if (!r.category || !r.value || r.value === 'Any' || applied[r.category]) continue;
             applied[r.category] = r.value;
         }
         if (applied.class) result = result.filter((b) => (b.class || '') === applied.class);
@@ -143,25 +158,14 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
             result = result.filter((b) => ((b.authorName || '') + ' ').toLowerCase().includes(author));
         }
 
-        let sort = 'top';
-        for (const r of rows) {
-            if (r.category === 'sort' && r.value) {
-                sort = r.value;
-                break;
-            }
-        }
         return [...result].sort((a, b) => {
             const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
             const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
             if (sort === 'new') return bTime - aTime;
-            if (sort === 'power') {
-                const diff = (Number(b.power) || 0) - (Number(a.power) || 0);
-                return diff !== 0 ? diff : bTime - aTime;
-            }
             const favDiff = (b.favouriteCount || 0) - (a.favouriteCount || 0);
             return favDiff !== 0 ? favDiff : bTime - aTime;
         });
-    }, [builds, rows, searchName]);
+    }, [builds, rows, searchName, sort]);
 
     function addFilterRow() {
         setRows((prev) => [...prev, { key: Date.now(), category: null, value: null }]);
@@ -197,6 +201,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     function resetFilters() {
         setRows([{ key: Date.now(), category: null, value: null }]);
         setSearchName('');
+        setSort('top');
     }
 
     function startRename(build) {
@@ -313,6 +318,21 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                     </p>
                 ) : (
                     <>
+                        <div className={dbStyles.sortControl}>
+                            <FloatingLabel label={t('database.filters.sort')}>
+                                <Select
+                                    instanceId="my-builds-sort"
+                                    options={sortOptions}
+                                    value={sortOptions.find((o) => o.value === sort) || null}
+                                    onChange={(opt) => setSort(opt ? opt.value : 'top')}
+                                    isSearchable={false}
+                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                    menuPosition="fixed"
+                                    theme={selectTheme}
+                                    styles={selectStyles}
+                                />
+                            </FloatingLabel>
+                        </div>
                         {rows.length > 0 && (
                             <div className={dbStyles.rows}>
                                 {rows.map((row) => (
@@ -361,7 +381,12 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                             <div className={dbStyles.grid}>
                                 {visibleBuilds.map((build) => (
                                     <div key={build.id} className={styles.cell}>
-                                        <BuildCard build={build} user={user} base={base} onToggleFavourite={toggleFavourite}>
+                                        <BuildCard
+                                            build={build}
+                                            user={user}
+                                            base={base}
+                                            onToggleFavourite={toggleFavourite}
+                                        >
                                             <div className={styles.cardActions}>
                                                 {editingId === build.id ? (
                                                     <RenameInput

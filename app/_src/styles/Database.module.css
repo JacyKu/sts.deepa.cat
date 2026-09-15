@@ -45,6 +45,15 @@
         transform 75ms ease;
 }
 
+/* Fixed "Sort by" control, always shown above the filter rows. The extra
+   top margin offsets the floating label so the gap to the tabs matches the
+   old first filter row; the bottom gap matches the 6px between filter rows. */
+.sortControl {
+    width: 100%;
+    max-width: 560px;
+    margin: 8px auto 6px;
+}
+
 .addBtn:hover {
     background: var(--glass-2);
     border-color: var(--accent-line, var(--control-border-hover));

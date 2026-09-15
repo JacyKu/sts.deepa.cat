@@ -370,7 +370,7 @@
     "builds.title": "My Builds",
     "builds.loading": "Loading...",
     "builds.loginRequired": "Log in with Discord to see and manage your saved builds.",
-    "builds.empty": "No saved builds yet. Build something, then hit \"Copy short link\".",
+    "builds.empty": "No saved builds yet. Build something, then hit \"Copy/Save\".",
     "builds.rename": "Rename",
     "builds.renameError": "Could not rename the build.",
     "builds.delete": "Delete",

@@ -3,6 +3,8 @@
 import React from 'react';
 import Select from 'react-select';
 import styles from '../../styles/CustomItems.module.css';
+import dbStyles from '../../styles/Database.module.css';
+import sf from '../../styles/SearchForm.module.css';
 import CustomItemsSkeleton, { CustomItemCardSkeleton } from './customItemsSkeleton';
 import CustomItemCard from './customItemCard';
 import CustomItemHeart from './customItemHeart';
@@ -166,6 +168,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     }, []);
 
     const [items, setItems] = React.useState(null);
+    const [searchName, setSearchName] = React.useState('');
     const [saving, setSaving] = React.useState(false);
     const [error, setError] = React.useState(null);
     const [copiedId, setCopiedId] = React.useState(null);
@@ -691,6 +694,14 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         } catch (e) {}
     }
 
+    // Name search over the user's own items. The list is fully loaded, so the
+    // filter is client-side; the field matches the database pages' search.
+    const visibleItems = React.useMemo(() => {
+        if (!items) return null;
+        const query = searchName.trim().toLowerCase();
+        return query ? items.filter((item) => item.name.toLowerCase().includes(query)) : items;
+    }, [items, searchName]);
+
     if (!authChecked) {
         return <CustomItemsSkeleton />;
     }
@@ -812,7 +823,9 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 name="custom-item-base-item"
                                 options={baseItemOptions}
                                 value={
-                                    baseItem ? baseItemOptions.find((option) => option.value === baseItem) || null : null
+                                    baseItem
+                                        ? baseItemOptions.find((option) => option.value === baseItem) || null
+                                        : null
                                 }
                                 onChange={(option) => setBaseItem(option ? option.value : '')}
                                 isClearable
@@ -1102,7 +1115,10 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                 )}
 
                 <div className={styles.listHeader}>
-                    <h2 className={styles.formTitle}>My items ({items ? items.length : 0})</h2>
+                    <h2 className={styles.formTitle}>
+                        My items ({visibleItems ? visibleItems.length : 0}
+                        {searchName.trim() && items ? ` of ${items.length}` : ''})
+                    </h2>
                 </div>
 
                 {items === null ? (
@@ -1117,59 +1133,83 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                         account.
                     </p>
                 ) : (
-                    <div className={styles.itemGrid}>
-                        {items.map((item) => (
-                            <CustomItemCard
-                                key={item.id}
-                                item={item}
-                                href={`${base}/custom-items/${item.id}`}
-                                heart={
-                                    <CustomItemHeart
-                                        itemId={item.id}
-                                        favourite={item.myFavourite}
-                                        count={item.favouriteCount}
-                                        user={user}
-                                    />
-                                }
-                                topRight={
-                                    <button
-                                        type="button"
-                                        className={styles.editIconBtn}
-                                        onClick={stop(() => startEdit(item))}
-                                        aria-label={`Edit ${item.name}`}
-                                        title="Edit"
-                                    >
-                                        <EditIcon />
-                                    </button>
-                                }
-                                actions={
-                                    <div className={styles.cardActions}>
-                                        <button
-                                            type="button"
-                                            className={styles.rowBtn}
-                                            onClick={stop(() => addToBuild(item))}
-                                        >
-                                            {addedId === item.id ? 'Added!' : 'Add to build'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={styles.rowBtn}
-                                            onClick={stop(() => copyShareLink(item))}
-                                        >
-                                            {copiedId === item.id ? 'Copied!' : 'Copy link'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
-                                            onClick={stop(() => requestDeleteItem(item))}
-                                        >
-                                            {confirmDeleteId === item.id ? 'Sure?' : 'Delete'}
-                                        </button>
-                                    </div>
-                                }
+                    <>
+                        <input
+                            type="text"
+                            className={dbStyles.searchName}
+                            value={searchName}
+                            onChange={(e) => setSearchName(e.target.value)}
+                            placeholder="Search by item name"
+                            aria-label="Search my custom items by name"
+                        />
+                        <div className={sf.filterActions}>
+                            <input type="button" className={sf.submitButton} value="Search" onClick={() => {}} />
+                            <input
+                                type="button"
+                                className={sf.warningButton}
+                                value="Reset"
+                                onClick={() => setSearchName('')}
+                                aria-label="Reset search"
                             />
-                        ))}
-                    </div>
+                        </div>
+                        {visibleItems.length === 0 ? (
+                            <p className={styles.muted}>No items match your search.</p>
+                        ) : (
+                            <div className={styles.itemGrid}>
+                                {visibleItems.map((item) => (
+                                    <CustomItemCard
+                                        key={item.id}
+                                        item={item}
+                                        href={`${base}/custom-items/${item.id}`}
+                                        heart={
+                                            <CustomItemHeart
+                                                itemId={item.id}
+                                                favourite={item.myFavourite}
+                                                count={item.favouriteCount}
+                                                user={user}
+                                            />
+                                        }
+                                        topRight={
+                                            <button
+                                                type="button"
+                                                className={styles.editIconBtn}
+                                                onClick={stop(() => startEdit(item))}
+                                                aria-label={`Edit ${item.name}`}
+                                                title="Edit"
+                                            >
+                                                <EditIcon />
+                                            </button>
+                                        }
+                                        actions={
+                                            <div className={styles.cardActions}>
+                                                <button
+                                                    type="button"
+                                                    className={styles.rowBtn}
+                                                    onClick={stop(() => addToBuild(item))}
+                                                >
+                                                    {addedId === item.id ? 'Added!' : 'Add to build'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={styles.rowBtn}
+                                                    onClick={stop(() => copyShareLink(item))}
+                                                >
+                                                    {copiedId === item.id ? 'Copied!' : 'Copy link'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
+                                                    onClick={stop(() => requestDeleteItem(item))}
+                                                >
+                                                    {confirmDeleteId === item.id ? 'Sure?' : 'Delete'}
+                                                </button>
+                                            </div>
+                                        }
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </>
                 )}
             </main>
         </div>
