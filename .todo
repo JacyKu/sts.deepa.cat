@@ -291,7 +291,8 @@ site stuff:
         [x] verify if all verification checks are done serverside and not on the client to prevent bypassing anything (eg sessions and wether a user has permission to do this or that, build name length etc)
         [x] redo the mobile ui to make it fit better, eg the menu for selecting pages is off center and we should fold options into dropdowns on the builder page (only the ring/class and import/skill set options)
         - buttons for my builds are different than the other pages
-        - update /stsmod link text to /sts link
+        [x] update /stsmod link text to /sts link
+        - posting builds anonymously should still link to a discord account to prevent losing access to it but then be sent from the server as anonymous.
 
         (future update if popular)
         - add tags
@@ -300,7 +301,7 @@ site stuff:
         [x] bump api version to 2
         - improve general performance and responsiveness
         [x] update TOS to include new mod and cloudflare stuff
-        - remove unrelevant comments that dont apply anymore (stuff like changed this to ... etc)
+        [x] remove unrelevant comments that dont apply anymore (stuff like changed this to ... etc)
         - question if the token system is still the way to go about creating builds internally or if it should be deprecated (import will work and existing builds with tokens can still be used but once saved again will use a different system, if any).
             It should be faster and easier, if it isn't then we stay with token generated builds
 
