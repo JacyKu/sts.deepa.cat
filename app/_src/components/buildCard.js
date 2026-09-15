@@ -279,7 +279,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         if (!avatar) return null;
         if (avatar.startsWith('http') || avatar.startsWith('/')) return avatar;
         if (!id) return null;
-        return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=32`;
+        return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=64`;
     }
 
     function toggleFavourite(event) {
@@ -853,7 +853,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
 
             <div className={styles.cardBottom}>
                 <span className={styles.author} title={build.authorName || t('database.anonymous')}>
-                    {avatar && <img className={styles.avatar} src={avatar} alt="" width={18} height={18} />}
+                    {avatar && <img className={styles.avatar} src={avatar} alt="" width={24} height={24} />}
                     {build.authorName || <TranslatableText identifier="database.anonymous" />}
                 </span>
                 <span className={styles.date}>{formatDateString(build.updatedAt || build.createdAt)}</span>

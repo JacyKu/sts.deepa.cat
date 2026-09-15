@@ -42,7 +42,7 @@ function avatarSrc(item) {
     // Accounts that picked their Minecraft head as profile picture store a
     // (relative) image URL; otherwise it is a Discord avatar hash.
     if (item.authorAvatar.startsWith('http') || item.authorAvatar.startsWith('/')) return item.authorAvatar;
-    return `https://cdn.discordapp.com/avatars/${item.userId}/${item.authorAvatar}.png?size=32`;
+    return `https://cdn.discordapp.com/avatars/${item.userId}/${item.authorAvatar}.png?size=64`;
 }
 
 // The standard custom item card, shared by the My Items list, the share view
@@ -93,7 +93,7 @@ export default function CustomItemCard({
             <div className={styles.cardBottom}>
                 <span className={styles.author} title={author}>
                     {avatarSrc(item) && (
-                        <img className={styles.avatar} src={avatarSrc(item)} alt="" width={18} height={18} />
+                        <img className={styles.avatar} src={avatarSrc(item)} alt="" width={24} height={24} />
                     )}
                     {author}
                 </span>
