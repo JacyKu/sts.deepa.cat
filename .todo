@@ -136,8 +136,6 @@ generalise all buttons to use same size/height
 
 
 [] 08-09-2026
-- improve general performance and responsiveness
-
 [x] add autoconfig
 [x] add link gen in chat after running command
 [x] config option for buttons position mod
@@ -198,8 +196,6 @@ generalise all buttons to use same size/height
 [x] add setting for american date format (off by default)
 [x] history for items that were nerfed/buffed
 [x] implement better backup system for database
-- unload item cards textures when not in view
-- hovering an infusion and selecting it will not remove tooltip
 
 [x] mod button button sticks as active and doesnt update
 [x] add back position settings in autoconfig
@@ -211,42 +207,105 @@ generalise all buttons to use same size/height
     [x] dont allow duplicate builds and force the command to have a build_name property
     [x] rename export and upload to export_build and upload_build
     [x] add a /sts help (cmd) or when running a command without parameters, explain what it does and usage in a message
-    - remove debugging
     [x] give notif that a build was cached
     [x] add buttons that show what has/hasnt been done for ps pa and vc container (make a next button open next gui but refrain from using anything to close it)
     [x] add an actual export that only generates a link
     [x] add icon to sts mod
-    [] update description
+    [x] update description
     [x] add 2 more buttons after caching that either make you upload or export the build
+    [x] make sure specs work when clicking within the class menu, doesnt mark as done until cached
 
-- get dev bot working
+
 
 [x] implement rate limit for api / daily upload limit for builds and items
 [x] add icon on build card for using custom items and having a note
 [x] fix borders for buildcards when extended
-- automate item updates
 [x] per card view switch and a global toggle on settings page
 [x] item tooltips show below the swap button on build cards
 [x] sharable skill/infusion sets
-- add moderation page
-- add custom tags (3 per logged in user)
-- add tooltip sort toggles (eg only enchantments for item cards or tooltips for functionality info)
-- option to change header title
 [x] fix heart icon cutting off when using rounded corners
-- make all the headerspacings the same across all pages
-- update the looks of EX tags
 
-
-- update TOS to include new mod and cloudflare stuff
-- add entire enemy lyrics to status
 - 64x64 textures dont always scale correctly in embed
 
-- make a test list before each update to see if anything is broken
 
 - model for build design?
     - could use the monu code for enemies
-- enchantment index
-- mob index
+
+
+[ ] 13-09-2026
+
+mod stuff:
+        - remove debugging
+        - add infusions as part of the export (can probably read from armor tooltips from /ps)
+        - allow opening sts links from a formatted sign (output link to chat when clicked?)
+        - add command alias (/buildstealer2000 <player>). Starts with /ps and handles rest like normal commands
+
+site stuff:
+        [x] make sure the cap for names is actually 50 and not 30
+        [x] unload item cards textures when not in view
+        [x] hovering an infusion and selecting it will not remove tooltip
+        [x] automate item updates
+        - add moderation page
+        [x] charm skills should show Elemental Spirit for both Fire and Ice, and not just Fire Elemental Spirit
+        [x] check if buildnames are not duplicateable
+        [x] option to change header title
+        [x] make all the headerspacings the same across all pages
+        [x] update the looks of EX tags
+        [x] move Type and Base Item onto same row
+        [x] move Texture and Name onto same row
+        [x] add char limit to Custom Item name (same as build names)
+        [x] match custom items cards with my builds cards (including delete button, and mark delete button red)
+        [x] fix custom items skeletons
+        [x] add link to My Items on My Builds and vice versa (next to favourites button). Same style as the page switcher on the public db
+        [x] rename Favourites header to My Favourites and add the same page switcher to My Items and My Builds
+        [x] add ability to like custom items like you can with builds, add page switcher on favourites for items/builds like on the public db
+        [x] make sure spacing for buttons below header on public db and my own builds/items/favourites matches
+        [x] update skeletons to support new buttons
+        [x] "No favourites yet. Tap the heart on a build in the database." should include Favourite Builds
+        [x] make sure those descriptions match in spacing below the buttons on the respective pages
+        [x] mark Build Comparison as Experimental
+        [x] cache minecraft avatar on server
+        [x] option to use minecraft avatar as profile picture instead of discord
+        [x] dim UUID and shorten it, add copy button next to it
+        [x] make border of dangerzone slightly red
+        [x] rename Items on cards to Items on build cards
+        [x] add hover red hover effect over disconnect button
+        - set a fixed sort by filter on both build and item databases
+        - use full profile picture on square borders in accout menu (not build/item cards)
+        - regular infusions are treated as delve infusions in that you cannot have dupes of it, while regular infusions should allow such
+        - allow duplicates separate from users but for duplicates per person the name should be appended with a number
+        - check if responses get cached in game instead of being retried
+        - enlarge profile picture on build/item cards
+        - decrease the spacing on build cards
+        - decrease spacing on the topbar
+        - Decrease the space use by roman numerals
+        - list the quick menu settings on settings page too (sync)
+        - add option to (un)publicise all builds (max of 20 per) and/or a custom selection of builds
+        - people with discord connected can upload their own profile picture, up to 3 can get stored (5 including the minecraft and discord avatar) Set a decent upload size, support gifs, and make sure only images can get uploaded
+        - Fix timestamp generation to be shorter so it doesn't leave a long link
+        - seems like builds with timestamps dont generate embeds anymore
+        - builds with long names might cause issues with rendering embeds
+
+        (future update if popular)
+        - add tags
+        - add custom tags (3 per logged in user)
+
+        - improve general performance and responsiveness
+        - update TOS to include new mod and cloudflare stuff
+        - remove unrelevant comments that dont apply anymore (stuff like changed this to ... etc)
+        - question if the token system is still the way to go about creating builds internally or if it should be deprecated (import will work and existing builds with tokens can still be used but once saved again will use a different system, if any).
+            It should be faster and easier, if it isn't then we stay with token generated builds
+
+        - status page
+
+
+
+bot stuff:
+        - get dev bot working
+        - add entire enemy lyrics to status
+
+
+- make a test list before each update to see if anything is broken
 
 - add actual 3d model of the blobcat on deepa.cat
 - let people select skins for items (need to be signed in with discord) (later update)
