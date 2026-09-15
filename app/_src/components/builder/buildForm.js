@@ -1157,7 +1157,7 @@ export default function BuildForm({
 
     async function deleteSavedSet(id) {
         try {
-            const res = await fetch(`/api/v1/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            const res = await fetch(`/api/v2/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' });
             return res.ok;
         } catch (e) {
             return false;
@@ -1675,7 +1675,7 @@ export default function BuildForm({
     // Favourite state for the build page heart (public builds only).
     React.useEffect(() => {
         if (!activeBuildId || !publicState.isPublic) return;
-        fetch(`/api/v1/builds/${activeBuildId}/favourite`)
+        fetch(`/api/v2/builds/${activeBuildId}/favourite`)
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (d) setFavState({ favourite: Boolean(d.favourite), count: d.count });
@@ -1687,7 +1687,7 @@ export default function BuildForm({
         if (!activeBuildId || publiciseState === 'saving') return;
         setPubliciseState('saving');
         let profanityHit = false;
-        fetch(`/api/v1/builds/${activeBuildId}`, {
+        fetch(`/api/v2/builds/${activeBuildId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ publicise: nextPublic, anonymous: nextAnonymous }),
@@ -1744,7 +1744,7 @@ export default function BuildForm({
         if (!loggedIn) return;
         setFavBusy(true);
         const isFav = favState ? favState.favourite : false;
-        fetch(`/api/v1/builds/${activeBuildId}/favourite`, { method: isFav ? 'DELETE' : 'POST' })
+        fetch(`/api/v2/builds/${activeBuildId}/favourite`, { method: isFav ? 'DELETE' : 'POST' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => setFavState({ favourite: d.favourite, count: d.count }))
             .catch(() => {})
@@ -1774,7 +1774,7 @@ export default function BuildForm({
         if (activeBuildId && !forking) {
             setSaveState('saving');
             setSavedAnonymous(false);
-            return fetch(`/api/v1/builds/${activeBuildId}`, {
+            return fetch(`/api/v2/builds/${activeBuildId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1840,7 +1840,7 @@ export default function BuildForm({
 
         setSaveState('saving');
         setSavedAnonymous(false);
-        return fetch('/api/v1/builds', {
+        return fetch('/api/v2/builds', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -1940,7 +1940,7 @@ export default function BuildForm({
     function saveNotes() {
         if (!activeBuildId) return;
         setNotesSaveState('saving');
-        fetch(`/api/v1/builds/${activeBuildId}`, {
+        fetch(`/api/v2/builds/${activeBuildId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ notes: notesDraft }),
@@ -1954,7 +1954,7 @@ export default function BuildForm({
     }
 
     React.useEffect(() => {
-        fetch('/api/v1/skills')
+        fetch('/api/v2/skills')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (d && Array.isArray(d.classes)) setSkillsData(d);
@@ -1963,7 +1963,7 @@ export default function BuildForm({
     }, []);
 
     React.useEffect(() => {
-        fetch('/api/v1/cz')
+        fetch('/api/v2/cz')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (d && Array.isArray(d.trees)) setCzData(d);
@@ -2138,7 +2138,7 @@ export default function BuildForm({
         // form so the counters stay honest (the original URL is untouched
         // until the user edits and the link is rewritten).
         // Only filter when the skills data is already loaded: parentLoaded
-        // fires before the /api/v1/skills fetch resolves, and filtering
+        // fires before the /api/v2/skills fetch resolves, and filtering
         // against an empty skill set would wipe every loaded point. The
         // cleanup effect below re-filters once the data arrives.
         const loadedClass = classPart?.split('cl=')[1] || null;

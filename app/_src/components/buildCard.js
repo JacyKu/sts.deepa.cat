@@ -78,10 +78,10 @@ function formatCzDescription(desc, t) {
 function loadBuildDetails() {
     if (!buildDetailPromise) {
         buildDetailPromise = Promise.all([
-            fetch('/api/v1/skills')
+            fetch('/api/v2/skills')
                 .then((r) => (r.ok ? r.json() : null))
                 .catch(() => null),
-            fetch('/api/v1/cz')
+            fetch('/api/v2/cz')
                 .then((r) => (r.ok ? r.json() : null))
                 .catch(() => null),
         ]).then(([skills, cz]) => {
@@ -262,7 +262,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             query.set('type', 'charm');
             query.set('power', String(item.pw || ''));
         }
-        fetch(`/api/v1/items?${query}`)
+        fetch(`/api/v2/items?${query}`)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((data) => {
                 if (data.item) {
@@ -290,7 +290,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         // this too (401). Without a session the button does nothing.
         if (!user) return;
         setFavBusy(true);
-        fetch(`/api/v1/builds/${build.id}/favourite`, {
+        fetch(`/api/v2/builds/${build.id}/favourite`, {
             method: build.myFavourite ? 'DELETE' : 'POST',
         })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))

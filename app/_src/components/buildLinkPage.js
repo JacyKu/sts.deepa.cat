@@ -31,7 +31,7 @@ export async function buildLinkMetadata(id) {
     // The &v cache-buster is the row's revision: it bumps on every real change
     // (edit, publicise, anonymity), so Discord fetches a fresh image instead of
     // serving its cached embed (e.g. the author bar).
-    const imageUrl = '/api/v1/og?id=' + id + '&v=' + (row.revision || 1);
+    const imageUrl = '/api/v2/og?id=' + id + '&v=' + (row.revision || 1);
 
     return {
         metadataBase: new URL('https://' + requestHost),

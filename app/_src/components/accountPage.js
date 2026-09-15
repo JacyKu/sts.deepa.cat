@@ -35,7 +35,7 @@ export default function AccountPage() {
             setLoaded(true);
             return;
         }
-        fetch('/api/v1/mod/link')
+        fetch('/api/v2/mod/link')
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 setLinks(d.links || []);
@@ -49,7 +49,7 @@ export default function AccountPage() {
     function unlink(uuid) {
         setBusy(uuid);
         setError(null);
-        fetch('/api/v1/mod/link?uuid=' + encodeURIComponent(uuid), { method: 'DELETE' })
+        fetch('/api/v2/mod/link?uuid=' + encodeURIComponent(uuid), { method: 'DELETE' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then(() => setLinks((prev) => prev.filter((l) => l.uuid !== uuid)))
             .catch(() => setError(t('account.errors.disconnect')))
@@ -77,7 +77,7 @@ export default function AccountPage() {
         if (!session.user || savingAvatar || source === session.user.avatarSource) return;
         setSavingAvatar(true);
         setAvatarError(null);
-        fetch('/api/v1/account/avatar', {
+        fetch('/api/v2/account/avatar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ source }),
@@ -114,7 +114,7 @@ export default function AccountPage() {
     function uploadAvatar(dataUrl) {
         setSavingAvatar(true);
         setAvatarError(null);
-        fetch('/api/v1/account/avatars', {
+        fetch('/api/v2/account/avatars', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dataUrl }),
@@ -140,7 +140,7 @@ export default function AccountPage() {
         if (savingAvatar) return;
         setSavingAvatar(true);
         setAvatarError(null);
-        fetch(`/api/v1/account/avatars/${id}`, { method: 'DELETE' })
+        fetch(`/api/v2/account/avatars/${id}`, { method: 'DELETE' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 session.setUser({
@@ -158,7 +158,7 @@ export default function AccountPage() {
     function deleteProfile() {
         setDeleting(true);
         setDeleteError(null);
-        fetch('/api/v1/account/delete', { method: 'POST' })
+        fetch('/api/v2/account/delete', { method: 'POST' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then(() => {
                 window.location.href = '/';

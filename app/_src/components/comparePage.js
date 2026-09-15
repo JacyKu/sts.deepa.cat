@@ -426,7 +426,7 @@ function gameClassFrom(parts) {
 
 // Strip a full URL / ?build= wrapper down to the raw token when possible
 // (mirrors the builder import bar), or keep the raw string for the
-// /api/v1/builds/convert endpoint (which also understands saved /b/ links).
+// /api/v2/builds/convert endpoint (which also understands saved /b/ links).
 async function resolveInput(raw, itemData, t) {
     let link = String(raw || '').trim();
     if (!link) return { error: t('compare.errors.enterLink') };
@@ -483,7 +483,7 @@ async function resolveInput(raw, itemData, t) {
             /^[A-Za-z0-9_-]{4,40}$/.test(link)
                 ? '/b/' + link
                 : link;
-        const res = await fetch('/api/v1/builds/convert?link=' + encodeURIComponent(asShort));
+        const res = await fetch('/api/v2/builds/convert?link=' + encodeURIComponent(asShort));
         const data = await res.json();
         if (!res.ok || !data.token) return { error: data.error || t('compare.errors.readLink') };
         const parsed = parseBuild(data.token, itemData);
@@ -545,7 +545,7 @@ export default function ComparePage({ itemData }) {
         suggestTimer.current = setTimeout(async () => {
             try {
                 const params = new URLSearchParams({ q: query, page: '1', limit: '6', sort: 'top' });
-                const res = await fetch(`/api/v1/builds/public?${params.toString()}`);
+                const res = await fetch(`/api/v2/builds/public?${params.toString()}`);
                 const data = await res.json();
                 if (!res.ok) throw new Error();
                 setSuggestions((p) => ({ ...p, [side]: data.builds || [] }));

@@ -32,7 +32,7 @@ export function ItemFavouritesProvider({ children }) {
             return;
         }
         let active = true;
-        fetch('/api/v1/items/favourites')
+        fetch('/api/v2/items/favourites')
             .then((res) => (res.ok ? res.json() : { favourites: [], authenticated: false }))
             .then((data) => {
                 if (!active) return;
@@ -56,8 +56,8 @@ export function ItemFavouritesProvider({ children }) {
                 const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
                 const adding = next.includes(name);
                 const url = adding
-                    ? `/api/v1/items/favourite`
-                    : `/api/v1/items/favourite?name=${encodeURIComponent(name)}`;
+                    ? `/api/v2/items/favourite`
+                    : `/api/v2/items/favourite?name=${encodeURIComponent(name)}`;
                 fetch(url, {
                     method: adding ? 'POST' : 'DELETE',
                     headers: { 'Content-Type': 'application/json' },

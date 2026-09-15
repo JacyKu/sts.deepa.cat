@@ -239,6 +239,9 @@ mod stuff:
         - add infusions as part of the export (can probably read from armor tooltips from /ps)
         - allow opening sts links from a formatted sign (output link to chat when clicked?)
         - add command alias (/buildstealer2000 <player>). Starts with /ps and handles rest like normal commands
+        - check if responses get cached in game instead of being retried
+        - make sure the mod generates the new token version (/b/v7)
+
 
 site stuff:
         [x] make sure the cap for names is actually 50 and not 30
@@ -270,33 +273,40 @@ site stuff:
         [x] make border of dangerzone slightly red
         [x] rename Items on cards to Items on build cards
         [x] add hover red hover effect over disconnect button
-        - set a fixed sort by filter on both build and item databases
-        - use full profile picture on square borders in accout menu (not build/item cards)
-        - regular infusions are treated as delve infusions in that you cannot have dupes of it, while regular infusions should allow such
-        - allow duplicates separate from users but for duplicates per person the name should be appended with a number
-        - check if responses get cached in game instead of being retried
-        - enlarge profile picture on build/item cards
-        - decrease the spacing on build cards
+        [x] set a fixed sort by filter on both build and item databases
+        [x] "No saved builds yet. Build something, then hit "Copy short link." is not correct, it should say save build
+        [x] use full profile picture on square borders in account menu (not build/item cards)
+        [x] regular infusions are treated as delve infusions in that you cannot have dupes of it, while regular infusions should allow such
+        [x] allow duplicates separate from users but for duplicates per person the name should be appended with a number
+        [x] enlarge profile picture on build/item cards
         - decrease spacing on the topbar
-        - Decrease the space use by roman numerals
-        - list the quick menu settings on settings page too (sync)
-        - add option to (un)publicise all builds (max of 20 per) and/or a custom selection of builds
-        - people with discord connected can upload their own profile picture, up to 3 can get stored (5 including the minecraft and discord avatar) Set a decent upload size, support gifs, and make sure only images can get uploaded
-        - Fix timestamp generation to be shorter so it doesn't leave a long link
-        - seems like builds with timestamps dont generate embeds anymore
-        - builds with long names might cause issues with rendering embeds
+        [x] Decrease the space use by roman numerals
+        [x] add option to (un)publicise all builds (max of 20 per) and/or a custom selection of builds
+        [x] people with discord connected can upload their own profile picture, up to 3 can get stored (5 including the minecraft and discord avatar) Set a decent upload size, support gifs, and make sure only images can get uploaded
+        [x] fix timestamp generation to be shorter so it doesn't leave a long link
+        [x] ^ seems like builds with timestamps dont generate embeds anymore
+        [x] add option to adjust border radius when round corners are selected
+        [x] skill filter should provide a dropdown with all skills listed
+        [x] class filter should dynamically adjust dropdown of the skills filter to only the ones that are under that class
+        [x] verify if all verification checks are done serverside and not on the client to prevent bypassing anything (eg sessions and wether a user has permission to do this or that, build name length etc)
+        - redo the mobile ui to make it fit better, eg the menu for selecting pages is off center and we should fold options into dropdowns on the builder page (only the ring/class and import/skill set options)
+        - update /stsmod link text to /sts link
 
         (future update if popular)
         - add tags
         - add custom tags (3 per logged in user)
 
+        - bump api version to 2
         - improve general performance and responsiveness
-        - update TOS to include new mod and cloudflare stuff
+        [x] update TOS to include new mod and cloudflare stuff
         - remove unrelevant comments that dont apply anymore (stuff like changed this to ... etc)
         - question if the token system is still the way to go about creating builds internally or if it should be deprecated (import will work and existing builds with tokens can still be used but once saved again will use a different system, if any).
             It should be faster and easier, if it isn't then we stay with token generated builds
 
-        - status page
+        - create statistics and status page (status.deepa.cat)
+
+        - (maybe) remove Help translate button and functionality and maybe replace with kofi things for deepa and me
+
 
 
 

@@ -147,7 +147,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
 
     React.useEffect(() => {
         if (!authChecked || !user) return;
-        fetch('/api/v1/builds/mine')
+        fetch('/api/v2/builds/mine')
             .then((r) => (r.ok ? r.json() : { builds: [] }))
             .then((d) => {
                 setBuilds(d.builds || []);
@@ -253,7 +253,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
         const name = rawName.trim();
         setEditingId(null);
         if (!name || name === displayName(build)) return;
-        fetch(`/api/v1/builds/${build.id}`, {
+        fetch(`/api/v2/builds/${build.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name }),
@@ -273,7 +273,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
 
     function requestDelete(build) {
         if (confirmDeleteId === build.id) {
-            fetch(`/api/v1/builds/${build.id}`, { method: 'DELETE' })
+            fetch(`/api/v2/builds/${build.id}`, { method: 'DELETE' })
                 .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
                 .then(() => {
                     setBuilds((prev) => prev.filter((b) => b.id !== build.id));
@@ -289,7 +289,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
     function togglePublic(build) {
         const nextPublic = !build.isPublic;
         setBuilds((prev) => prev.map((b) => (b.id === build.id ? { ...b, publicBusy: true } : b)));
-        fetch(`/api/v1/builds/${build.id}`, {
+        fetch(`/api/v2/builds/${build.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ publicise: nextPublic, anonymous: build.anonymous }),
@@ -349,7 +349,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
         let failed = 0;
         await Promise.all(
             targets.map((build) =>
-                fetch(`/api/v1/builds/${build.id}`, {
+                fetch(`/api/v2/builds/${build.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ publicise: nextPublic, anonymous: build.anonymous }),

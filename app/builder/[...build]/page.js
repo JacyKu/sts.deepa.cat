@@ -36,7 +36,7 @@ export async function generateMetadata({ params }) {
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     const title = getLinkPreviewTitle(build, itemData, null, skillsData);
     const description = getLinkPreviewDescription(build, itemData, skillsData);
-    const imageUrl = '/api/v1/og?build=' + encodeURIComponent(build);
+    const imageUrl = '/api/v2/og?build=' + encodeURIComponent(build);
     const requestHost = (await headers()).get('host') || 'deepa.cat';
 
     return {

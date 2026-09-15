@@ -21,7 +21,7 @@ export default function CustomItemHeart({ itemId, favourite, count, user, onChan
         event.stopPropagation();
         if (!user || busy) return;
         setBusy(true);
-        fetch(`/api/v1/custom-items/${itemId}/favourite`, { method: state.favourite ? 'DELETE' : 'POST' })
+        fetch(`/api/v2/custom-items/${itemId}/favourite`, { method: state.favourite ? 'DELETE' : 'POST' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 setState({ favourite: d.favourite, count: d.count });

@@ -54,7 +54,7 @@ export default function CustomItemsFavouritesPage() {
         const seq = ++loadSeq.current;
         const params = new URLSearchParams({ page: String(nextPage), limit: '24' });
         if (nameRef.current.trim()) params.set('q', nameRef.current.trim());
-        fetch(`/api/v1/custom-items/favourites?${params.toString()}`)
+        fetch(`/api/v2/custom-items/favourites?${params.toString()}`)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 if (seq !== loadSeq.current) return;

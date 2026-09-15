@@ -18,7 +18,7 @@ export default function LinkConfirmPage({ code, pending, user, profile }) {
     function confirm() {
         setState('working');
         setError(null);
-        fetch('/api/v1/mod/link/confirm', {
+        fetch('/api/v2/mod/link/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code }),

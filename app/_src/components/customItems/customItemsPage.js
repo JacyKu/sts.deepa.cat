@@ -282,7 +282,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
             const cached = readCustomItemsCache(userId);
             if (cached && active) setItems(cached);
         }
-        fetch(`${base}/api/v1/custom-items`)
+        fetch(`${base}/api/v2/custom-items`)
             .then((response) => (response.ok ? response.json() : Promise.reject(new Error('HTTP ' + response.status))))
             .then((data) => {
                 if (!active) return;
@@ -405,7 +405,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
 
     function refreshItems() {
         const userId = user ? user.id : null;
-        return fetch(`${base}/api/v1/custom-items`)
+        return fetch(`${base}/api/v2/custom-items`)
             .then((response) => (response.ok ? response.json() : Promise.reject(new Error('HTTP ' + response.status))))
             .then((data) => {
                 const list = Array.isArray(data.items) ? data.items : [];
@@ -489,7 +489,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         }
         setSaving(true);
         setError(null);
-        fetch(`${base}/api/v1/custom-items${editingId ? '/' + editingId : ''}`, {
+        fetch(`${base}/api/v2/custom-items${editingId ? '/' + editingId : ''}`, {
             method: editingId ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -526,7 +526,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     };
 
     function deleteItem(id) {
-        fetch(`${base}/api/v1/custom-items/${id}`, { method: 'DELETE' })
+        fetch(`${base}/api/v2/custom-items/${id}`, { method: 'DELETE' })
             .then((response) => (response.ok ? refreshItems() : Promise.reject(new Error('HTTP ' + response.status))))
             .catch(() => setError('delete'));
     }
@@ -589,7 +589,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     // --- Saved stat sets (same system as the builder's skill sets) ---
 
     function refreshStatSets() {
-        fetch(`${base}/api/v1/skill-sets`)
+        fetch(`${base}/api/v2/skill-sets`)
             .then((response) => (response.ok ? response.json() : { sets: [] }))
             .then((data) => setStatSets((data.sets || []).filter((set) => set.kind === 'stats')))
             .catch(() => setStatSets([]));
@@ -626,7 +626,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         }
         setBusy(true);
         try {
-            const response = await fetch(`${base}/api/v1/skill-sets`, {
+            const response = await fetch(`${base}/api/v2/skill-sets`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ kind: 'stats', name: setName, payload: { rows } }),
@@ -665,7 +665,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         if (confirmDelSet === id) {
             clearDelConfirm();
             setBusy(true);
-            fetch(`${base}/api/v1/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' })
+            fetch(`${base}/api/v2/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' })
                 .then((response) => {
                     say(
                         response.ok,

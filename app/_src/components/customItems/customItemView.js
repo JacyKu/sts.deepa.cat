@@ -53,7 +53,7 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
         let attempt = 0;
         try {
             while (attempt < 50) {
-                const response = await fetch(`${base}/api/v1/custom-items`, {
+                const response = await fetch(`${base}/api/v2/custom-items`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

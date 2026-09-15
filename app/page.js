@@ -14,7 +14,7 @@ export default function Home() {
 
     React.useEffect(() => {
         setBase(getStsBase());
-        fetch('/api/v1/spritesheetCoverage')
+        fetch('/api/v2/spritesheetCoverage')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (d && d.totals) setItemCount(d.totals.items);

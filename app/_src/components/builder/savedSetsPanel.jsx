@@ -66,11 +66,11 @@ export default function SavedSetsPanel({
     }, []);
 
     function refresh() {
-        fetch('/api/v1/skill-sets')
+        fetch('/api/v2/skill-sets')
             .then((r) => (r.ok ? r.json() : { sets: [] }))
             .then((d) => setSets(d.sets || []))
             .catch(() => {});
-        fetch('/api/v1/builds/mine')
+        fetch('/api/v2/builds/mine')
             .then((r) => (r.ok ? r.json() : { builds: [] }))
             .then((d) => setMyBuilds((d.builds || []).filter((b) => b.class)))
             .catch(() => {});
@@ -119,7 +119,7 @@ export default function SavedSetsPanel({
         }
         setBusy(true);
         try {
-            const res = await fetch('/api/v1/skill-sets', {
+            const res = await fetch('/api/v2/skill-sets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ kind, name, payload }),
@@ -181,7 +181,7 @@ export default function SavedSetsPanel({
     async function toggleShare(entry, next) {
         setBusy(true);
         try {
-            const res = await fetch(`/api/v1/skill-sets/${encodeURIComponent(entry.id)}`, {
+            const res = await fetch(`/api/v2/skill-sets/${encodeURIComponent(entry.id)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ public: next }),

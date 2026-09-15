@@ -21,7 +21,7 @@ export async function generateMetadata({ searchParams }) {
         if (set) {
             const title = `${set.name} - Monumenta Builder`;
             const description = getSetPreviewDescription(set, await getSkillsData());
-            const imageUrl = '/api/v1/og?set=' + encodeURIComponent(set.id);
+            const imageUrl = '/api/v2/og?set=' + encodeURIComponent(set.id);
             return {
                 title,
                 description,
@@ -65,7 +65,7 @@ export async function generateMetadata({ searchParams }) {
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     const title = getLinkPreviewTitle(build, itemData, null, skillsData);
     const description = getLinkPreviewDescription(build, itemData, skillsData);
-    const imageUrl = '/api/v1/og?build=' + encodeURIComponent(build);
+    const imageUrl = '/api/v2/og?build=' + encodeURIComponent(build);
     const requestHost = (await headers()).get('host') || 'deepa.cat';
 
     return {

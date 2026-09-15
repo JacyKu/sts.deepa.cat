@@ -7,7 +7,7 @@ import { useTranslation } from './useTranslation';
 // Site-wide announcements, posted by the site owner through the Discord bot
 // (/notify - see apps/discord-bot). Rendered as a full-width bar under the
 // top nav; the type (info/warning/error) picks the color. Updates arrive
-// live over SSE (/api/v1/notifications/stream) - no page reload needed.
+// live over SSE (/api/v2/notifications/stream) - no page reload needed.
 // Dismissal is remembered per browser (localStorage); creating/removing
 // notifications only happens through the bot, never from the client.
 const STORAGE_KEY = 'sts-dismissed-notifications';
@@ -30,7 +30,7 @@ export default function NotificationsBar() {
     React.useEffect(() => {
         // EventSource auto-reconnects on dropped connections, so the bar
         // stays live even after server restarts.
-        const source = new EventSource('/api/v1/notifications/stream');
+        const source = new EventSource('/api/v2/notifications/stream');
         source.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);

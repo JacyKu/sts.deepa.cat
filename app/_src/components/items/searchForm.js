@@ -147,7 +147,7 @@ export default function SearchForm({ update, itemData }) {
     // pick the options up).
     React.useEffect(() => {
         let active = true;
-        fetch('/api/v1/skills')
+        fetch('/api/v2/skills')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (!active) return;
@@ -720,7 +720,7 @@ export default function SearchForm({ update, itemData }) {
     // re-render through setCharmSkills, so the filter selects pick it up).
     React.useEffect(() => {
         let active = true;
-        fetch('/api/v1/skills')
+        fetch('/api/v2/skills')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (!active) return;

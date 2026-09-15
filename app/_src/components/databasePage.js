@@ -140,7 +140,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
             else params.set(r.category, r.value);
         }
 
-        fetch(`/api/v1/builds/public?${params.toString()}`)
+        fetch(`/api/v2/builds/public?${params.toString()}`)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 if (seq !== loadSeq.current) return;
