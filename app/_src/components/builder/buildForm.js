@@ -75,12 +75,20 @@ const infusionSelectStyles = {
     menu: (base) => ({ ...base, zIndex: 9999 }),
 };
 
-// The basic infusion level picker (I-IV) is small; keep it narrow.
 const levelSelectStyles = {
-    container: (base) => ({ ...base, width: '100%', minWidth: 70, maxWidth: 90 }),
+    container: (base) => ({ ...base, width: 56, minWidth: 56, maxWidth: 56 }),
     control: (base) => ({ ...base, minHeight: 42, height: 42 }),
-    valueContainer: (base) => ({ ...base, height: 42, paddingTop: 0, paddingBottom: 0 }),
+    valueContainer: (base) => ({
+        ...base,
+        height: 42,
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 6,
+        paddingRight: 0,
+    }),
     indicatorsContainer: (base) => ({ ...base, height: 42 }),
+    dropdownIndicator: (base) => ({ ...base, padding: 4 }),
+    indicatorSeparator: () => ({ display: 'none' }),
     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     menu: (base) => ({ ...base, zIndex: 9999 }),
 };
