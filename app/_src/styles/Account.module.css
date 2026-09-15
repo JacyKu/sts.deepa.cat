@@ -713,9 +713,9 @@
     font-size: 0.8rem;
 }
 
-/* Site options (builder/cache toggles + font) that moved from the header
-   settings into the bottom of the Settings card. Kept compact: the toggle
-   chips sit in one wrapping row and the font picker is a slim inline row. */
+/* Site options (builder/cache toggles + font) at the bottom of the Settings
+   card. Kept compact: the toggle chips sit in one wrapping row and the font
+   picker is a slim inline row. */
 .siteOptions {
     display: flex;
     flex-direction: column;
@@ -771,9 +771,9 @@
     gap: 0.35rem;
 }
 
-/* The moved toggles draw themselves as bordered chips (SearchForm's
-   toggleLabel); strip that so they match the borderless checkbox rows used
-   by the other settings (Round corners etc). */
+/* These toggles draw themselves as bordered chips (SearchForm's toggleLabel);
+   strip that so they match the borderless checkbox rows used by the other
+   settings (Round corners etc). */
 .bareToggle,
 .bareToggle:hover {
     background: none !important;

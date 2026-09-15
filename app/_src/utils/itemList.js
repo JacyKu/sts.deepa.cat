@@ -19,7 +19,6 @@ export function groupMasterworkItems(items, itemData) {
             }
             masterworkItems[itemName].items.push(itemData[name]);
             if (i < masterworkItems[itemName].lowestPosition) {
-                // Remove the old lowest position item.
                 if (masterworkItems[itemName].lowestPosition < 9999999) {
                     otherPositionsToRemove.push(masterworkItems[itemName].lowestPosition);
                 }

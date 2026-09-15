@@ -389,7 +389,6 @@ function groupMasterwork(items, itemData) {
         }
     }
 
-    // Re-insert the groups as arrays into the items array.
     Object.keys(masterworkItems).forEach((item) => {
         items.push({ value: `${item}-${masterworkItems[item][0].masterwork}`, label: item });
     });
@@ -640,30 +639,22 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         );
     }
 
-    /* if(itemsToDisplay.meleeDamagePercent > 100 || itemsToDisplay.projectileDamagePercent > 100){
-        tempPercentDmg.push(<CheckboxWithLabel key={"situationalbox-versatile"} name="Versatile" checked={false} onChange={checkboxChanged} />)
-    } */
-
     let temp = [];
     temp.push(...tempDef);
     if (tempDef.length > 0 && tempFlatDmg.length > 0) {
         temp.push(<span key="spacer1" style={{ width: '10px', padding: '0px' }}></span>);
-        // spacer between def and flat damage if both exist
     }
     temp.push(...tempFlatDmg);
     if (temp.length > 0 && tempPercentDmg.length > 0) {
         temp.push(<span key="spacer2" style={{ width: '10px', padding: '0px' }}></span>);
-        // spacer between existing stuff and percent damage if both exist
     }
     temp.push(...tempPercentDmg);
     if (temp.length > 0 && tempInfusions.length > 0) {
         temp.push(<span key="spacer3" style={{ width: '10px', padding: '0px' }}></span>);
-        // spacer between enchantment situationals and infusion situationals if both exist
     }
     temp.push(...tempInfusions);
     if (temp.length > 0 && tempClass.length > 0) {
         temp.push(<span key="spacer-class" style={{ width: '10px', padding: '0px' }}></span>);
-        // spacer between infusion situationals and class-ability situationals if both exist
     }
     temp.push(...tempClass);
     if (temp.length == 0) {
@@ -2059,9 +2050,6 @@ export default function BuildForm({
                 }
             });
 
-            // dunno what happened here but i needed to change this to have the map()
-            // so it's passing a list of charm objects, not charm names
-            // idk why it worked before and stopped working now, but this fixes it
             setCharms(cappedList.map((name) => itemData[name]));
         }
 
@@ -2660,7 +2648,7 @@ export default function BuildForm({
         // Checkbox names come in lowercase, with words separated by spaces.
         // Replace every space so multi-word situationals (e.g. "curse of the
         // veil") map to their snake_case enabledBoxes key.
-        const name = event.target.name.replace(/ /g, '_').replace(/[()]/g, ''); // replace spaces so we can still have them visually without breaking existing stuff
+        const name = event.target.name.replace(/ /g, '_').replace(/[()]/g, '');
         enabledBoxes[name] = event.target.checked;
         let temp = event.target.checked;
         const retaliationtypes = ['retaliation_normal', 'retaliation_elite', 'retaliation_boss'];
@@ -2852,7 +2840,6 @@ export default function BuildForm({
         setSpecSkillPoints({});
         setEnhancements({});
         refreshClassBuffs({}, {}, {});
-        // and then recalculate... zzz
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }

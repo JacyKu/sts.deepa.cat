@@ -168,7 +168,8 @@ class Stats {
         this.calculateDefenseStats();
         this.calculateOffenseStats();
 
-        // This hopefully finally fixes the precision errors with HP calculations.
+        // Round HP to 2 decimals so floating-point precision errors don't leak
+        // into displayed values.
         this.healthFinal = Number(this.healthFinal.toFixed(2));
         this.currentHealth = Number(this.currentHealth.toFixed(2));
     }
@@ -196,7 +197,6 @@ class Stats {
                 ? 35
                 : 0;
 
-        // out of order weh weh idc anymore. cbless clause
         if (this.enabledClassAbilityBuffs.celestial_blessing) {
             let bonus = this.enabledClassAbilityBuffs.celestial_blessing_lv2 ? 30 : 20;
             this.classAttackDamagePercent.add(bonus);
@@ -567,8 +567,8 @@ class Stats {
 
         // So... situational changes, huh? Fun!
         //
-        // The new formula for situationals is that they provide enough armor/agi to give more additive ehp,
-        // instead of the old multiplicative mess. The formula for the amount of ehp added is:
+        // Situationals provide enough armor/agi to give additive ehp. The
+        // formula for the amount of ehp added is:
         // [region value] * Math.min(1, [player's armor/agi]/[region situational cap]) * total levels of situationals
         // where [region value] is 20%/25%/30% for r1/2/3, and the situational cap is 20/30/36 for r1/2/3.
         // (Essentially, the math.min just means if armor >= situational cap, you get the full region value,
@@ -654,8 +654,6 @@ class Stats {
         let hasEqual = false;
         agility > armor ? (moreAgility = true) : armor > agility ? (moreArmor = true) : (hasEqual = true);
         let hasNothing = hasEqual && armor == 0;
-
-        // situationals moved to calculateDamageTaken -LC
 
         let halfArmor = armor / 2;
         let halfAgility = agility / 2;
@@ -871,11 +869,9 @@ class Stats {
         // Unyielding: additive (8% * level) knockback resistance.
         if (this.hasDelveInfusion('Unyielding')) this.knockbackRes += DELVE_KB_PER_LEVEL * this.delveLevel;
         this.knockbackRes = this.knockbackRes > 10 ? 100 : this.knockbackRes * 10;
-        // Calculate effective healing rate
         let effHealingNonRounded = new Percentage((20 / this.healthFinal) * this.healingRate.val, false);
         if (this.enabledClassAbilityBuffs.taboo) effHealingNonRounded.mul(50);
         this.effHealingRate = effHealingNonRounded.toFixedPerc(2);
-        // Fix regen to the actual value per second
         let regenPerSecNonRounded = (1 / 3) * Math.sqrt(this.baseRegenLevel) * this.healingRate.val;
         // Curse of the Veil: drains level health every 3 seconds (level/3 per
         // second), but only while its situational checkbox is ticked (hostile
@@ -887,19 +883,14 @@ class Stats {
         // Soothing: regenerates (0.04 * level) health per second.
         if (this.hasDelveInfusion('Soothing')) regenPerSecNonRounded += DELVE_REGEN_PER_LEVEL * this.delveLevel;
         this.regenPerSec = regenPerSecNonRounded.toFixed(2);
-        // Calculate %hp regen per sec
         this.regenPerSecPercent = new Percentage(regenPerSecNonRounded / this.healthFinal, false).toFixedPerc(2);
-        // Fix life drain on crit
         let lifeDrainOnCritFixedNonRounded = Math.sqrt(this.lifeDrainOnCrit) * this.healingRate.val;
         this.lifeDrainOnCrit = lifeDrainOnCritFixedNonRounded.toFixed(2);
-        // Don't need healingRate as a percentage object anymore, turn it into the display string
         this.healingRate = this.healingRate.toFixedPerc(2);
-        // Calculate %hp regained from life drain on crit
         this.lifeDrainOnCritPercent = new Percentage(
             lifeDrainOnCritFixedNonRounded / this.healthFinal,
             false
         ).toFixedPerc(2);
-        // Add to thorns damage
         this.thorns = (this.thorns * this.thornsPercent.val).toFixed(2);
     }
 
@@ -955,19 +946,6 @@ class Stats {
                 this.ineptitude += this.sumEnchantmentStat(itemStats, 'ineptitude', 1);
 
                 this.worldlyProtection += this.sumNumberStat(itemStats, 'worldly_protection');
-
-                /* this.situationals.shielding.level += this.sumNumberStat(itemStats, "shielding");
-                this.situationals.poise.level += this.sumNumberStat(itemStats, "poise");
-                this.situationals.inure.level += this.sumNumberStat(itemStats, "inure");
-                this.situationals.steadfast.level += this.sumNumberStat(itemStats, "steadfast");
-                this.situationals.guard.level += this.sumNumberStat(itemStats, "guard");
-                this.situationals.ethereal.level += this.sumNumberStat(itemStats, "ethereal");
-                this.situationals.reflexes.level += this.sumNumberStat(itemStats, "reflexes");
-                this.situationals.evasion.level += this.sumNumberStat(itemStats, "evasion");
-                this.situationals.tempo.level += this.sumNumberStat(itemStats, "tempo");
-                this.situationals.cloaked.level += this.sumNumberStat(itemStats, "cloaked");
-                this.situationals.adaptability.level += this.sumNumberStat(itemStats, "adaptability");
-                this.situationals.second_wind.level += this.sumNumberStat(itemStats, "second_wind"); */
 
                 Object.keys(this.situationals).forEach((situ) => {
                     this.situationals[situ].level += this.sumNumberStat(itemStats, situ);

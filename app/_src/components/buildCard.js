@@ -134,8 +134,8 @@ function loadBuildDetails() {
 // One build card in the public database / favourites / my-builds grids.
 // The optional children render inside the card (after the bottom row), so
 // pages like "My Builds" can embed management buttons in the card itself.
-// `compareEnabled` (database page) shows the "add to comparison" picker
-// button below the layout-swap button.
+// `onAddCompare` (database page) shows the "add to comparison" picker
+// button below the layout-swap button; `compareActive` marks it selected.
 function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
     const t = useTranslation();
     const { itemsFirst: globalItemsFirst } = useCardItemsFirst();

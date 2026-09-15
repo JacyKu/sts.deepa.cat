@@ -31,7 +31,6 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid token' }, { status: 400 });
     }
 
-    // Reject strings that don't decode to a build.
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     if (!decodeBuildParam(token, itemData)) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });

@@ -5,7 +5,7 @@
 #   bash scripts/deploy-dev.sh
 #
 # Assumes:
-#   - a checkout of JacyKu/sts.deepa.cat at /root/sts-dev (default; override
+#   - a checkout of JacyKu/deepa.cat at /root/sts-dev (default; override
 #     with STS_DEV_DIR) with the `dev` branch checked out
 #   - /root/sts-dev/.env containing the dev environment variables
 #     (STS_PUBLIC_BASE_URL=https://dev.deepa.cat, STS_SESSION_SECRET,
@@ -21,8 +21,8 @@ set -euo pipefail
 REPO_DIR="${STS_DEV_DIR:-/root/sts-dev}"
 
 if [[ ! -d "$REPO_DIR/.git" ]]; then
-    echo "Cloning sts.deepa.cat into $REPO_DIR"
-    git clone https://github.com/JacyKu/sts.deepa.cat.git "$REPO_DIR"
+    echo "Cloning deepa.cat into $REPO_DIR"
+    git clone https://github.com/JacyKu/deepa.cat.git "$REPO_DIR"
 fi
 
 cd "$REPO_DIR"

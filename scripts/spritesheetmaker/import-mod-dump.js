@@ -619,8 +619,8 @@ async function main() {
 }
 
 // Renders each animated strip (2+ frames) into a standalone GIF at
-// textures/<token>.gif, using the same encoding the texture endpoint uses
-// (2x nearest upscale, per-frame palettes, disposal-to-transparent).
+// textures/<token>.gif using the site's animated-GIF encoding (2x nearest
+// upscale, per-frame palettes, disposal-to-transparent).
 async function writeAnimatedGifs(manifest, sheets) {
     const { encodeFrames } = require('./gifEncode');
     const textureDir = path.join(OUTPUT_DIR, 'textures');

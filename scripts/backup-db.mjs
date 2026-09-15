@@ -16,8 +16,8 @@
 // the app stopped (pm2 stop sts / pm2 stop sts-dev).
 //
 // Environment (.env in apps/sts, or shell):
-//   STS_DB_PATH, STS_BACKUP_DIR, STS_BACKUP_KEEP, STS_BACKUP_DAILY_DAYS,
-//   STS_BACKUP_WEEKLY_WEEKS, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+//   STS_DB_PATH, STS_BACKUP_DIR, STS_BACKUP_MAX_AGE_DAYS, STS_BACKUP_KEEP,
+//   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
 //   R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PREFIX, R2_ENDPOINT
 
 import fs from 'node:fs';

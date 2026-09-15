@@ -1,5 +1,5 @@
 // Shared animated-GIF encoding for the spritesheet texture pipeline (CJS,
-// used by both the import script and the /api/v2/items/texture route).
+// used by the import script).
 //
 // omggif wants palette entries as packed ints (r<<16|g<<8|b); disposal 2
 // makes each full-canvas frame clear to transparency instead of

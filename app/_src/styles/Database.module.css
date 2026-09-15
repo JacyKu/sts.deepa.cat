@@ -47,7 +47,7 @@
 
 /* Fixed "Sort by" control, always shown above the filter rows. The extra
    top margin offsets the floating label so the gap to the tabs matches the
-   old first filter row; the bottom gap matches the 6px between filter rows. */
+   filter-row spacing; the bottom gap matches the 6px between filter rows. */
 .sortControl {
     width: 100%;
     max-width: 560px;

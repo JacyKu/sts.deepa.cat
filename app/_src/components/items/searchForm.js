@@ -703,19 +703,6 @@ export default function SearchForm({ update, itemData }) {
         </form>
     );
 
-    /* function generateRegions() {
-        regions = [];
-        let uniqueRegions = {
-            Valley: 1,
-            Isles: 1,
-            Ring: 1
-        };
-        Object.keys(itemData).map(item => itemData[item].region).filter(regionName => regionName != undefined).forEach(regionName => {
-            uniqueRegions[regionName] = 1;
-        });
-        Object.keys(uniqueRegions).forEach(regionName => regions.push(regionName));
-    } */
-
     // Charm Skill options: fetch the skill list once (the fetch triggers a
     // re-render through setCharmSkills, so the filter selects pick it up).
     React.useEffect(() => {

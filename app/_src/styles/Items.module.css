@@ -191,7 +191,6 @@
     gap: 6px;
 }
 
-/* Real search fields: width 100%, max-width 560, height 4vh, stacked. */
 .skeletonField {
     height: 4vh;
     min-height: 34px;
@@ -200,7 +199,6 @@
     margin: 0 auto 6px;
 }
 
-/* "+ Add" toolbar button: max-width 560, left aligned. */
 .skeletonToolbarButton {
     height: 42px;
     width: 100%;
@@ -208,7 +206,6 @@
     margin: 4px auto;
 }
 
-/* Search + Reset row: two flex-1 buttons, max-width 560, centered. */
 .skeletonActions {
     display: flex;
     gap: 8px;
@@ -605,12 +602,10 @@
 }
 
 .indigo {
-    /* soon! */
     color: #6f00ff;
 }
 
 .green {
-    /* putting these three in advance */
     color: #4d6e23;
 }
 
@@ -2199,8 +2194,9 @@ div.builderStatCard {
     }
 }
 
-/* Builder top row: region/class/spec | title | import bar. On phones/tablets
-   the grid stacks into a single column so the import bar stays on screen. */
+/* Builder top row: region/class/spec + infusion toggles | title |
+   import/skill sets. On phones the grid stacks into a single column so the
+   import bar stays on screen. */
 .builderTopRow {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -2216,8 +2212,8 @@ div.builderStatCard {
 
 /* Region/class/spec and the infusion toggles sit inline on desktop; on
    phones each cluster folds into a dropdown (see the max-width: 700px
-   block). The toggles and the collapsible body keep the desktop spacing
-   rules that used to apply to their elements directly. */
+   block). The toggles and the collapsible body carry the desktop spacing
+   rules for their contents. */
 .builderGroup,
 .builderGroupBody,
 .builderToggles {
@@ -2327,8 +2323,8 @@ div.builderStatCard {
         font-size: 13px;
     }
 
-    /* The controls now sit inside wrappers (group body / toggles): keep the
-       same 10px rhythm between them. */
+    /* Keep the same 10px rhythm between the controls inside the group body
+       and toggles wrappers. */
     .builderGroupBody,
     .builderToggles {
         gap: 10px;
