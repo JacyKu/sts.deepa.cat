@@ -8,6 +8,14 @@ import {
     getCustomItemFavouriteState,
     BUILD_NAME_MAX,
 } from '../../../../../lib/sts-builds';
+import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
+import {
+    buildCustomItemVocab,
+    coerceItemType,
+    coerceBaseItem,
+    sanitizeItemStats,
+} from '../../../../../lib/custom-item-vocab';
+import { getItemData } from '../../../../_src/utils/itemsData';
 
 // Custom items are shareable: anyone with the item's link can view it (read
 // only - editing/deleting stays with the owner, and copying is done through
@@ -37,8 +45,10 @@ export async function PATCH(request, { params }) {
     if (item.userId !== user.id) {
         return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
+    if (bodyTooLarge(request)) return tooLargeJson();
 
     const body = await request.json().catch(() => null);
+    const vocab = buildCustomItemVocab(await getItemData());
     const update = {};
     if (body && typeof body.name === 'string') {
         const name = body.name.trim();
@@ -56,7 +66,7 @@ export async function PATCH(request, { params }) {
         update.name = name;
     }
     if (body && body.type !== undefined) {
-        update.type = typeof body.type === 'string' && body.type.length <= 32 ? body.type : 'Miscellaneous';
+        update.type = coerceItemType(body.type, vocab);
     }
     if (body && body.textureToken !== undefined) {
         const textureToken = typeof body.textureToken === 'string' ? body.textureToken : '';
@@ -70,24 +80,10 @@ export async function PATCH(request, { params }) {
             typeof body.textureName === 'string' && body.textureName.length <= 128 ? body.textureName : null;
     }
     if (body && body.baseItem !== undefined) {
-        update.baseItem =
-            typeof body.baseItem === 'string' && body.baseItem.trim().length <= 64 ? body.baseItem.trim() : null;
+        update.baseItem = coerceBaseItem(body.baseItem, vocab);
     }
     if (body && body.stats !== undefined) {
-        const stats = {};
-        if (body.stats && typeof body.stats === 'object') {
-            for (const [key, value] of Object.entries(body.stats)) {
-                if (!/^[a-z0-9_']+$/.test(key) || key.length > 128) continue;
-                const number = Number(value);
-                if (Number.isFinite(number) && number !== 0) {
-                    stats[key] = number;
-                }
-            }
-        }
-        if (Object.keys(stats).length > 50) {
-            return NextResponse.json({ error: 'too many stats' }, { status: 400 });
-        }
-        update.stats = stats;
+        update.stats = sanitizeItemStats(body.stats, vocab);
     }
 
     const updated = updateCustomItem(id, user.id, update);

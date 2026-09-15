@@ -12,6 +12,7 @@ import {
     mergeReferencedCustomItems,
     getStsUserProfile,
     isDuplicateNameError,
+    verifyModToken,
 } from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems, findUnknownItemNames } from '../../../../../lib/item-uploads';
 import {
@@ -22,7 +23,14 @@ import {
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { computeBuildSummary } from '../../../../../lib/public-builds';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
-import { consumeRateLimit, dayWindowMs, rateLimitResponse, readRateLimits } from '../../../../../lib/rate-limit';
+import {
+    consumeRateLimit,
+    dayWindowMs,
+    getClientIp,
+    rateLimitResponse,
+    readRateLimits,
+} from '../../../../../lib/rate-limit';
+import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
 
 // Save a build from the STS mod. The mod sends the v1_ build token it
 // generated, optionally with the player's Minecraft UUID:
@@ -38,6 +46,9 @@ import { consumeRateLimit, dayWindowMs, rateLimitResponse, readRateLimits } from
 const SAVE_BUDGET = { per: 20, minutes: 60 };
 
 export async function POST(request) {
+    // Mod uploads embed up to 50 items with their lore lines, so they get a
+    // larger (still bounded) body allowance than the site routes.
+    if (bodyTooLarge(request, 1024 * 1024)) return tooLargeJson();
     const body = await request.json().catch(() => null);
     const token = typeof body?.token === 'string' ? body.token : '';
     if (!token || token.length > 2048) {
@@ -46,6 +57,11 @@ export async function POST(request) {
 
     const uuid = typeof body?.uuid === 'string' ? body.uuid : '';
     const link = getLinkByUuid(uuid);
+    // A linked UUID may only be written to by the device that confirmed the
+    // link: the public UUID alone is not proof of ownership.
+    if (link && !verifyModToken(uuid, body?.deviceToken)) {
+        return NextResponse.json({ error: 'invalid device token' }, { status: 401 });
+    }
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     // Decode must produce a real build querystring: the codec passes unknown
     // strings through as "legacy" best effort, which would let junk through.
@@ -90,7 +106,13 @@ export async function POST(request) {
             return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
         }
     } else {
-        const quota = consumeRateLimit(`anon-mod-build:${uuid}`, limits.anonymousBuildsPerDay, dayWindowMs());
+        // Keyed on the caller's IP, not the body UUID: the UUID is
+        // client-supplied, so rotating it must not refresh the daily budget.
+        const quota = consumeRateLimit(
+            `anon-mod-build:${getClientIp(request)}`,
+            limits.anonymousBuildsPerDay,
+            dayWindowMs()
+        );
         if (!quota.allowed) {
             return rateLimitResponse({
                 resetAt: quota.resetAt,
@@ -107,11 +129,11 @@ export async function POST(request) {
     if (link && Array.isArray(body?.items) && body.items.length > 0) {
         const unknown = new Set(
             findUnknownItemNames(
-                body.items.map((item) => item?.name),
+                body.items.slice(0, 50).map((item) => item?.name),
                 itemData
             )
         );
-        const payloads = body.items.filter((item) => unknown.has(item?.name));
+        const payloads = body.items.slice(0, 50).filter((item) => unknown.has(item?.name));
         // Embedded uploads share the account's daily custom-item budget; when
         // it is exhausted the build still saves, only the items are skipped.
         const usedItems = countRecentCustomItems(link.discord_id, 24 * 60);

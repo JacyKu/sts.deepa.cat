@@ -14,6 +14,7 @@ import { decodeBuildParam, getBuildTokenVersion, getBuildItemHashes } from '../.
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
+import { bodyTooLarge, tooLargeJson } from '../../../../lib/request-guards';
 import {
     consumeRateLimit,
     dayWindowMs,
@@ -23,6 +24,7 @@ import {
 } from '../../../../lib/rate-limit';
 
 export async function POST(request) {
+    if (bodyTooLarge(request)) return tooLargeJson();
     const body = await request.json().catch(() => null);
     const token = body?.token;
     if (!token || typeof token !== 'string' || token.length > 2048) {
@@ -91,6 +93,9 @@ export async function POST(request) {
             // Notes are a signed-in feature: anonymous saves never carry them.
             notes: user ? body.notes || null : null,
             summary,
+            // Anonymous rows may only be renamed by the browser that created
+            // them (the creator-token cookie is the proof).
+            getCreatorToken: (id) => request.cookies.get(`sts-build-owner-${id}`)?.value || null,
         });
     } catch (error) {
         if (isDuplicateNameError(error)) {

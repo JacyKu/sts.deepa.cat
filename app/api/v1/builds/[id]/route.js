@@ -12,6 +12,7 @@ import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-bui
 import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
+import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
 
 export async function GET(request, { params }) {
     const p = await params;
@@ -30,6 +31,7 @@ export async function GET(request, { params }) {
 export async function PATCH(request, { params }) {
     const p = await params;
     const user = await getDiscordUser();
+    if (bodyTooLarge(request)) return tooLargeJson();
     const body = await request.json().catch(() => null);
 
     // Editing a saved build keeps the same link: the state (token + infusions
@@ -70,7 +72,18 @@ export async function PATCH(request, { params }) {
         // save so the database never shows stale data.
         const row = getBuild(p.id);
         const wantsPublic = body.publicise !== undefined ? Boolean(body.publicise) : row && row.is_public === 1;
-        if (wantsPublic && hasProfanity({ name: update.name, notes: update.notes, token, itemData })) {
+        // Check the name/notes the build will actually carry: request fields
+        // when supplied, otherwise the stored ones. A private build saved with
+        // a blocked name must not become public through a state-only save.
+        if (
+            wantsPublic &&
+            hasProfanity({
+                name: update.name !== undefined ? update.name : row?.name,
+                notes: update.notes !== undefined ? update.notes : row?.notes,
+                token,
+                itemData,
+            })
+        ) {
             return NextResponse.json({ error: 'profanity' }, { status: 400 });
         }
         // Build names are unique per account: a name the account already uses
@@ -178,6 +191,24 @@ export async function PATCH(request, { params }) {
     }
     if (Object.keys(update).length === 0) {
         return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
+    }
+
+    // Renaming/annotating a public build must pass the same profanity gate as
+    // publicising it: otherwise a blocked name could be applied after the
+    // build is already listed in the public database.
+    const current = getBuild(p.id);
+    if (current && current.is_public === 1) {
+        const itemData = await getItemData();
+        if (
+            hasProfanity({
+                name: update.name !== undefined ? update.name : current.name,
+                notes: update.notes !== undefined ? update.notes : current.notes,
+                token: current.token,
+                itemData,
+            })
+        ) {
+            return NextResponse.json({ error: 'profanity' }, { status: 400 });
+        }
     }
 
     // Renaming: names are unique per account, so a name the account already

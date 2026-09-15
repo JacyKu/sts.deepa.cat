@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getLinkByUuid, countRecentCustomItems, getStsUserProfile } from '../../../../../lib/sts-builds';
+import {
+    getLinkByUuid,
+    countRecentCustomItems,
+    getStsUserProfile,
+    verifyModToken,
+} from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems } from '../../../../../lib/item-uploads';
 import { getItemData } from '../../../../_src/utils/itemsData';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
 import { rateLimitResponse, readRateLimits } from '../../../../../lib/rate-limit';
+import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
 
 // Upload items from the game as custom items on the linked account.
 //
@@ -16,12 +22,22 @@ export const runtime = 'nodejs';
 const UPLOAD_BUDGET = { per: 30, minutes: 60 };
 
 export async function POST(request) {
+    // Mod uploads embed up to 50 items with their lore lines, so they get a
+    // larger (still bounded) body allowance than the site routes.
+    if (bodyTooLarge(request, 1024 * 1024)) return tooLargeJson();
     const body = await request.json().catch(() => null);
     const uuid = typeof body?.uuid === 'string' ? body.uuid : '';
     const link = getLinkByUuid(uuid);
     if (!link) {
         return NextResponse.json(
             { error: 'not linked', hint: 'Run /sts link in-game and confirm the link in your browser first.' },
+            { status: 401 }
+        );
+    }
+    // Only the device that confirmed the link may upload for it.
+    if (!verifyModToken(uuid, body?.deviceToken)) {
+        return NextResponse.json(
+            { error: 'invalid device token', hint: 'Re-link in-game: run /sts link and confirm again.' },
             { status: 401 }
         );
     }

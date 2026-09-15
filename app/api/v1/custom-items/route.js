@@ -1,13 +1,30 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../lib/session';
-import { saveCustomItem, listCustomItems, hasCustomItemName, countRecentCustomItems, customItemFavouriteStates, preferredAuthorAvatar, BUILD_NAME_MAX } from '../../../../lib/sts-builds';
+import {
+    saveCustomItem,
+    listCustomItems,
+    hasCustomItemName,
+    countRecentCustomItems,
+    customItemFavouriteStates,
+    preferredAuthorAvatar,
+    BUILD_NAME_MAX,
+} from '../../../../lib/sts-builds';
 import { rateLimitResponse, readRateLimits } from '../../../../lib/rate-limit';
+import { bodyTooLarge, tooLargeJson } from '../../../../lib/request-guards';
+import {
+    buildCustomItemVocab,
+    coerceItemType,
+    coerceBaseItem,
+    sanitizeItemStats,
+} from '../../../../lib/custom-item-vocab';
+import { getItemData } from '../../../_src/utils/itemsData';
 
 export async function POST(request) {
     const user = await getDiscordUser();
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    if (bodyTooLarge(request)) return tooLargeJson();
 
     const body = await request.json().catch(() => null);
     if (!body || typeof body.name !== 'string' || !body.name.trim()) {
@@ -27,25 +44,16 @@ export async function POST(request) {
     if (!textureToken || textureToken.length > 64 || !/^[a-z0-9_]+$/.test(textureToken)) {
         return NextResponse.json({ error: 'invalid texture' }, { status: 400 });
     }
-    const type = typeof body.type === 'string' && body.type.length <= 32 ? body.type : 'Miscellaneous';
+    // Type, base item and stats are validated against the site's own item
+    // vocabulary (the same data the client dropdowns use): unknown values are
+    // coerced instead of trusting whatever the request contains.
+    const vocab = buildCustomItemVocab(await getItemData());
+    const type = coerceItemType(body.type, vocab);
     const textureName =
         typeof body.textureName === 'string' && body.textureName.length <= 128 ? body.textureName : null;
-    const baseItem =
-        typeof body.baseItem === 'string' && body.baseItem.trim().length <= 64 ? body.baseItem.trim() : null;
+    const baseItem = coerceBaseItem(body.baseItem, vocab);
 
-    const stats = {};
-    if (body.stats && typeof body.stats === 'object') {
-        for (const [key, value] of Object.entries(body.stats)) {
-            if (!/^[a-z0-9_']+$/.test(key) || key.length > 128) continue;
-            const number = Number(value);
-            if (Number.isFinite(number) && number !== 0) {
-                stats[key] = number;
-            }
-        }
-    }
-    if (Object.keys(stats).length > 50) {
-        return NextResponse.json({ error: 'too many stats' }, { status: 400 });
-    }
+    const stats = sanitizeItemStats(body.stats, vocab);
 
     // Daily upload limit (site and mod item uploads share the account budget).
     const limits = readRateLimits();
