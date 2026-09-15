@@ -173,6 +173,54 @@
     color: var(--text-on-accent, #fff);
 }
 
+/* Bulk (un)publicise bar: shown under the search/reset actions on My Builds. */
+.bulkBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 8px 0 4px;
+}
+
+.bulkCount {
+    padding: 0 4px;
+    color: var(--text-2);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.bulkFeedback {
+    margin: 2px 0 0;
+    color: var(--text-1);
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Selection checkbox in the card's action row. */
+.selectBox {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    cursor: pointer;
+}
+
+.selectBox:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--surface-2);
+}
+
+.selectBox input {
+    margin: 0;
+    cursor: pointer;
+}
+
+.selectBox input:disabled {
+    cursor: default;
+}
+
 .anonBadge {
     margin-left: 6px;
     padding: 1px 6px;

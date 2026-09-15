@@ -71,6 +71,10 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     const { lang } = useLanguageContext();
     const t = (id) => translate(lang, id);
 
+    // Bulk (un)publicising: pick up to 20 builds and flip their visibility in
+    // one action ("Select all" fills the batch from the visible list).
+    const BULK_MAX = 20;
+
     const [authChecked, setAuthChecked] = React.useState(false);
     const [user, setUser] = React.useState(null);
     const [builds, setBuilds] = React.useState([]);
@@ -79,6 +83,10 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [base, setBase] = React.useState('/sts');
+    const [selectMode, setSelectMode] = React.useState(false);
+    const [selectedIds, setSelectedIds] = React.useState(() => new Set());
+    const [bulkBusy, setBulkBusy] = React.useState(false);
+    const [bulkFeedback, setBulkFeedback] = React.useState(null); // { action, done, failed }
 
     // The same filter rows + search as the public database page, plus the
     // fixed Sort by control above the "+ Add" button. Rows are the applied
@@ -263,6 +271,79 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
             .catch(() => setError('publicise'));
     }
 
+    function toggleSelectMode() {
+        setSelectMode((mode) => !mode);
+        setSelectedIds(new Set());
+        setBulkFeedback(null);
+    }
+
+    function toggleSelect(id) {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else if (next.size < BULK_MAX) next.add(id);
+            return next;
+        });
+        setBulkFeedback(null);
+    }
+
+    function selectAllVisible() {
+        // Fills one batch (max 20) from the filtered list; run it again for
+        // the next batch.
+        setSelectedIds(new Set(visibleBuilds.slice(0, BULK_MAX).map((b) => b.id)));
+        setBulkFeedback(null);
+    }
+
+    function clearSelection() {
+        setSelectedIds(new Set());
+        setBulkFeedback(null);
+    }
+
+    // (Un)publicise every selected build that isn't already in the target
+    // state. The per-build endpoint validates ownership/profanity, so a bulk
+    // action is just up to 20 of those in parallel; results are summarised.
+    async function setPublicBulk(nextPublic) {
+        if (bulkBusy) return;
+        const targets = builds.filter((b) => selectedIds.has(b.id) && b.isPublic !== nextPublic);
+        if (targets.length === 0) {
+            setBulkFeedback({ action: nextPublic ? 'public' : 'private', done: 0, failed: 0 });
+            return;
+        }
+        const ids = new Set(targets.map((b) => b.id));
+        setBulkBusy(true);
+        setBulkFeedback(null);
+        setBuilds((prev) => prev.map((b) => (ids.has(b.id) ? { ...b, publicBusy: true } : b)));
+        let done = 0;
+        let failed = 0;
+        await Promise.all(
+            targets.map((build) =>
+                fetch(`/api/v1/builds/${build.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ publicise: nextPublic, anonymous: build.anonymous }),
+                })
+                    .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+                    .then((d) => {
+                        done += 1;
+                        setBuilds((prev) =>
+                            prev.map((b) =>
+                                b.id === build.id
+                                    ? { ...b, isPublic: d.isPublic, anonymous: d.anonymous, publicBusy: false }
+                                    : b
+                            )
+                        );
+                    })
+                    .catch(() => {
+                        failed += 1;
+                        setBuilds((prev) => prev.map((b) => (b.id === build.id ? { ...b, publicBusy: false } : b)));
+                    })
+            )
+        );
+        setBulkBusy(false);
+        setSelectedIds(new Set());
+        setBulkFeedback({ action: nextPublic ? 'public' : 'private', done, failed });
+    }
+
     function toggleFavourite(buildId, favourite) {
         setBuilds((prev) => prev.map((b) => (b.id === buildId ? { ...b, myFavourite: favourite } : b)));
     }
@@ -387,6 +468,73 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                 onClick={resetFilters}
                             />
                         </div>
+                        <div className={styles.bulkBar}>
+                            <button
+                                type="button"
+                                className={styles.rowBtn}
+                                onClick={toggleSelectMode}
+                                aria-expanded={selectMode}
+                            >
+                                {selectMode ? t('common.cancel') : t('builds.select')}
+                            </button>
+                            {selectMode && (
+                                <>
+                                    <span className={styles.bulkCount} title={t('builds.maxPerAction')}>
+                                        {selectedIds.size} / {BULK_MAX}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className={styles.rowBtn}
+                                        onClick={() => setPublicBulk(true)}
+                                        disabled={bulkBusy || selectedIds.size === 0}
+                                        title={t('database.publicise')}
+                                    >
+                                        {t('database.publicise')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.rowBtn}
+                                        onClick={() => setPublicBulk(false)}
+                                        disabled={bulkBusy || selectedIds.size === 0}
+                                        title={t('database.unpublish')}
+                                    >
+                                        {t('database.unpublish')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.rowBtn}
+                                        onClick={selectAllVisible}
+                                        disabled={bulkBusy}
+                                    >
+                                        {t('builds.selectAll')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.rowBtn}
+                                        onClick={clearSelection}
+                                        disabled={bulkBusy || selectedIds.size === 0}
+                                    >
+                                        {t('builds.clearSelection')}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                        {bulkFeedback && (
+                            <p className={styles.bulkFeedback} role="status">
+                                <b>
+                                    {bulkFeedback.action === 'public'
+                                        ? t('builds.bulkPublicised')
+                                        : t('builds.bulkUnpublicised')}
+                                </b>{' '}
+                                {bulkFeedback.done}
+                                {bulkFeedback.failed > 0 ? (
+                                    <>
+                                        {' · '}
+                                        <b>{t('builds.bulkFailed')}</b> {bulkFeedback.failed}
+                                    </>
+                                ) : null}
+                            </p>
+                        )}
                         {visibleBuilds.length === 0 ? (
                             <p className={styles.muted}>
                                 <TranslatableText identifier="database.empty" />
@@ -410,6 +558,24 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                                     />
                                                 ) : (
                                                     <>
+                                                        {selectMode && (
+                                                            <label
+                                                                className={styles.selectBox}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                title={t('builds.selectBuild')}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedIds.has(build.id)}
+                                                                    disabled={
+                                                                        !selectedIds.has(build.id) &&
+                                                                        selectedIds.size >= BULK_MAX
+                                                                    }
+                                                                    onChange={() => toggleSelect(build.id)}
+                                                                    aria-label={t('builds.selectBuild')}
+                                                                />
+                                                            </label>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             className={`${styles.rowBtn}${
