@@ -21,6 +21,7 @@ import {
     CUSTOM_SCHEME,
     DEFAULT_GLASS_CUSTOM_COLORS,
     readThemeState,
+    parseRoundRadius,
     isGlassTheme,
     GLASS_COLORS,
     GLASS_COLORS_LIGHT,
@@ -436,6 +437,7 @@ export default function Header() {
             root.dataset.theme = state.theme;
             if (state.round) root.dataset.round = 'true';
             else delete root.dataset.round;
+            root.style.setProperty('--round-radius', parseRoundRadius(state.roundRadius) + 'px');
             setTheme(state.theme);
             setGlassScheme(state.glassScheme);
             root.dataset.glassScheme = state.glassScheme;

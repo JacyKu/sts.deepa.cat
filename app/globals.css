@@ -466,9 +466,11 @@ html input[role='combobox'] {
     border-color: var(--control-border-focus) !important;
 }
 
-/* No square corners: every element gets a small radius. */
+/* No square corners: every element gets a small radius. The exact radius is
+   user-adjustable (Settings -> Round corners -> Corner radius) via
+   --round-radius, defaulting to the 8px the rounded look shipped with. */
 html[data-round='true'] * {
-    border-radius: 8px !important;
+    border-radius: var(--round-radius, 8px) !important;
 }
 
 /* ...but not icon artwork: an <svg> has overflow: hidden by default, so a
@@ -505,7 +507,7 @@ html[data-round='true'] input[type='checkbox']:checked::after {
     transform: rotate(45deg);
 }
 
-/* Larger surfaces keep a slightly softer radius. */
+/* Larger surfaces keep a slightly softer radius (4px more than the base). */
 html[data-round='true'] [class*='itemTile'],
 html[data-round='true'] [class*='card'],
 html[data-round='true'] [class*='menuPanel'],
@@ -514,7 +516,7 @@ html[data-round='true'] [class*='statCard'],
 html[data-round='true'] [class*='charmCardWrap'],
 html[data-round='true'] [class*='builderSide'],
 html[data-round='true'] [class*='betaDialog'] {
-    border-radius: 12px !important;
+    border-radius: calc(var(--round-radius, 8px) + 4px) !important;
 }
 
 @font-face {

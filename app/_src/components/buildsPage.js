@@ -67,7 +67,7 @@ function RenameInput({ initialName, onCommit, onCancel }) {
     );
 }
 
-export default function BuildsPage({ classOptions, specMap, itemGroups }) {
+export default function BuildsPage({ classOptions, specMap, itemGroups, skillOptions = [], skillMap = null }) {
     const { lang } = useLanguageContext();
     const t = (id) => translate(lang, id);
 
@@ -96,10 +96,42 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     const [sort, setSort] = React.useState('top');
 
     const slotOptions = React.useMemo(() => buildSlotOptions(t), [t]);
+    // The Skill filter narrows to the selected Class filter's skills (base +
+    // its spec skills, plus the class-independent CZ/DD abilities).
+    const selectedClass = React.useMemo(() => {
+        for (const r of rows) {
+            if (r.category === 'class' && r.value) return r.value;
+        }
+        return null;
+    }, [rows]);
     const categories = React.useMemo(
-        () => buildFilterCategories(classOptions, specMap, t, { includeSort: false }),
-        [classOptions, specMap, t]
+        () =>
+            buildFilterCategories(classOptions, specMap, t, {
+                includeSort: false,
+                skillOptions,
+                skillMap,
+                selectedClass,
+            }),
+        [classOptions, specMap, t, skillOptions, skillMap, selectedClass]
     );
+
+    // Drop a Skill filter value that the newly selected class doesn't offer
+    // (it would otherwise keep filtering invisibly).
+    React.useEffect(() => {
+        if (!selectedClass || !skillMap) return;
+        const valid = new Set(skillMap[selectedClass] || []);
+        setRows((prev) => {
+            let changed = false;
+            const next = prev.map((r) => {
+                if (r.category === 'skill' && r.value && !valid.has(r.value)) {
+                    changed = true;
+                    return { ...r, value: null };
+                }
+                return r;
+            });
+            return changed ? next : prev;
+        });
+    }, [selectedClass, skillMap]);
     const sortOptions = React.useMemo(() => buildSortOptions(t), [t]);
 
     React.useEffect(() => {

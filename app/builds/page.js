@@ -9,6 +9,14 @@ export const metadata = {
 };
 
 export default async function MyBuildsPage() {
-    const { classOptions, specMap, itemGroups } = await getBuildFilterData();
-    return <BuildsPage classOptions={classOptions} specMap={specMap} itemGroups={itemGroups} />;
+    const { classOptions, specMap, itemGroups, skillOptions, skillMap } = await getBuildFilterData();
+    return (
+        <BuildsPage
+            classOptions={classOptions}
+            specMap={specMap}
+            itemGroups={itemGroups}
+            skillOptions={skillOptions}
+            skillMap={skillMap}
+        />
+    );
 }

@@ -910,5 +910,6 @@
     "builds.maxPerAction": "Max 20 per action",
     "builds.bulkPublicised": "Publicised:",
     "builds.bulkUnpublicised": "Made private:",
-    "builds.bulkFailed": "Failed:"
+    "builds.bulkFailed": "Failed:",
+    "settings.roundRadius": "Corner radius"
 }

@@ -67,8 +67,15 @@ export function buildSortOptions(t) {
     ];
 }
 
-export function buildFilterCategories(classOptions, specMap, t, { includeSort = true } = {}) {
+export function buildFilterCategories(
+    classOptions,
+    specMap,
+    t,
+    { includeSort = true, skillOptions = [], skillMap = null, selectedClass = null } = {}
+) {
     const allSpecs = [...new Set(Object.values(specMap).flat())];
+    const classSkills = selectedClass && skillMap ? skillMap[selectedClass] : null;
+    const skillChoices = classSkills && classSkills.length > 0 ? classSkills : skillOptions;
     const categories = [
         { name: 'class', labelKey: 'database.filters.class', type: 'select', options: classOptions },
         {
@@ -88,7 +95,16 @@ export function buildFilterCategories(classOptions, specMap, t, { includeSort = 
             ],
         },
         { name: 'item', labelKey: 'database.filters.item', type: 'cascade' },
-        { name: 'skill', labelKey: 'database.filters.skill', type: 'text' },
+        {
+            name: 'skill',
+            labelKey: 'database.filters.skill',
+            // With a Class filter chosen, only that class's skills (base +
+            // its spec skills); without one, every skill (including the
+            // class-independent CZ/DD abilities). Falls back to a free-text
+            // field when no list was supplied.
+            type: skillChoices.length > 0 ? 'select' : 'text',
+            options: skillChoices,
+        },
         { name: 'author', labelKey: 'database.filters.author', type: 'text' },
     ];
     if (includeSort) {

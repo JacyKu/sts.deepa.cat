@@ -919,5 +919,6 @@
     "builds.maxPerAction": "Не более 20 за раз",
     "builds.bulkPublicised": "Опубликовано:",
     "builds.bulkUnpublicised": "Скрыто:",
-    "builds.bulkFailed": "Ошибок:"
+    "builds.bulkFailed": "Ошибок:",
+    "settings.roundRadius": "Радиус углов"
 }

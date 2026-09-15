@@ -919,5 +919,6 @@
     "builds.maxPerAction": "每次最多 20 个",
     "builds.bulkPublicised": "已公开：",
     "builds.bulkUnpublicised": "已设为私密：",
-    "builds.bulkFailed": "失败："
+    "builds.bulkFailed": "失败：",
+    "settings.roundRadius": "圆角半径"
 }

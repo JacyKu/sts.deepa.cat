@@ -35,7 +35,7 @@ export default function PrivacyPolicyPage() {
                             plus the builds, notes and custom items you save on the site.
                         </>,
                         <>
-                            <strong>Minecraft data (mod and account linking):</strong> when you link a Minecraft
+                            <strong>Minecraft data (mod and account linking):</strong> When you link a Minecraft
                             profile, your Minecraft UUID and username, and the build or item data you choose to export
                             or upload with the mod.
                         </>,
@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
                             IP address to deliver the site and protect it from abuse.
                         </>,
                         <>
-                            <strong>Information from third-party services:</strong> your Discord identity when you log
+                            <strong>Information from third-party services: </strong>Your Discord identity when you log
                             in with Discord, and your Minecraft username and avatar from Mojang&apos;s public API and
                             mc-heads.net when you link a profile.
                         </>,

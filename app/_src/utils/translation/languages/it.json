@@ -919,5 +919,6 @@
     "builds.maxPerAction": "Massimo 20 per azione",
     "builds.bulkPublicised": "Pubblicati:",
     "builds.bulkUnpublicised": "Resi privati:",
-    "builds.bulkFailed": "Non riusciti:"
+    "builds.bulkFailed": "Non riusciti:",
+    "settings.roundRadius": "Raggio degli angoli"
 }

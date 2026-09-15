@@ -21,6 +21,8 @@ import {
     GLASS_CHIPS,
     WAWA_IMAGE_URL,
     MAX_GLASS_BLUR,
+    MAX_ROUND_RADIUS,
+    DEFAULT_ROUND_RADIUS,
     CUSTOM_SCHEME,
     MAX_GLASS_CUSTOM_COLORS,
     DEFAULT_GLASS_CUSTOM_COLORS,
@@ -208,6 +210,10 @@ export default function SettingsPage() {
         updateState({ round: next });
     }
 
+    function setRoundRadius(next) {
+        updateState({ roundRadius: next });
+    }
+
     function setGlassScheme(next) {
         if (next === themeState.glassScheme) return;
         updateState({ glassScheme: next });
@@ -391,6 +397,21 @@ export default function SettingsPage() {
                     />
                     {t('settings.roundCorners')}
                 </label>
+                {round && (
+                    <label className={styles.radiusRow}>
+                        <span className={styles.radiusLabel}>{t('settings.roundRadius')}</span>
+                        <input
+                            type="range"
+                            min="0"
+                            max={MAX_ROUND_RADIUS}
+                            step="1"
+                            value={themeState?.roundRadius ?? DEFAULT_ROUND_RADIUS}
+                            onChange={(e) => setRoundRadius(Number(e.target.value))}
+                            aria-label={t('settings.roundRadius')}
+                        />
+                        <span className={styles.radiusValue}>{themeState?.roundRadius ?? DEFAULT_ROUND_RADIUS}px</span>
+                    </label>
+                )}
                 <div className={styles.accentRow}>
                     <label className={styles.colourPicker}>
                         {t('settings.accentColour')}

@@ -425,6 +425,34 @@
     accent-color: var(--accent, #9c59d1);
 }
 
+/* Corner-radius slider, shown only while "Round corners" is on. */
+.radiusRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+    color: var(--text-1);
+    font-size: 0.95rem;
+    width: fit-content;
+}
+
+.radiusRow input[type='range'] {
+    width: 200px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent, #9c59d1);
+}
+
+.radiusLabel {
+    min-width: 90px;
+}
+
+.radiusValue {
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    min-width: 40px;
+}
+
 /* Backdrop colour list: one chip per scheme, each with a flag-stripe
    preview, sitting under the theme cards. */
 .glassColours {

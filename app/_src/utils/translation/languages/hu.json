@@ -919,5 +919,6 @@
     "builds.maxPerAction": "Maximum 20 műveletenként",
     "builds.bulkPublicised": "Nyilvánossá tett:",
     "builds.bulkUnpublicised": "Priváttá tett:",
-    "builds.bulkFailed": "Sikertelen:"
+    "builds.bulkFailed": "Sikertelen:",
+    "settings.roundRadius": "Sarok lekerekítés"
 }

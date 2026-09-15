@@ -131,6 +131,15 @@ export const parseGlassBlur = (value) => {
     return Number.isFinite(n) ? Math.min(MAX_GLASS_BLUR, Math.max(0, n)) : 0;
 };
 
+// Corner radius used by the "Round corners" styling. 0-24px, default 8px
+// (the value the rounded look shipped with).
+export const DEFAULT_ROUND_RADIUS = 8;
+export const MAX_ROUND_RADIUS = 24;
+export const parseRoundRadius = (value) => {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? Math.min(MAX_ROUND_RADIUS, Math.max(0, n)) : DEFAULT_ROUND_RADIUS;
+};
+
 // A custom accent colour (plain #rrggbb), or empty to follow the active
 // glass scheme's accent. Applies site-wide when set.
 export const parseGlassAccent = (value) => {
@@ -460,6 +469,7 @@ const readStored = (key) => {
 export function readThemeState() {
     let theme = null;
     let round = null;
+    let roundRadius = null;
     let glassScheme = null;
     let glassAnim = null;
     let glassFlag = null;
@@ -473,6 +483,7 @@ export function readThemeState() {
     if (typeof window !== 'undefined') {
         theme = readStored('theme');
         round = readStored('roundStyle');
+        roundRadius = readStored('roundRadius');
         glassScheme = readStored('glassScheme');
         glassAnim = readStored('glassAnim');
         glassFlag = readStored('glassFlag');
@@ -513,6 +524,8 @@ export function readThemeState() {
     return {
         theme,
         round: roundOn,
+        // Corner radius for the rounded look (px).
+        roundRadius: parseRoundRadius(roundRadius),
         glassScheme: scheme,
         glassAnim: glassAnim === 'true' || (root && root.dataset.glassAnim === 'true'),
         glassFlag: glassFlag === 'true' || (root && root.dataset.glassFlag === 'true'),
@@ -542,6 +555,8 @@ export function applyThemeState(changes) {
     root.dataset.theme = next.theme;
     if (next.round) root.dataset.round = 'true';
     else delete root.dataset.round;
+    const roundRadius = parseRoundRadius(next.roundRadius);
+    root.style.setProperty('--round-radius', roundRadius + 'px');
     if (next.glassScheme) root.dataset.glassScheme = next.glassScheme;
     if (next.glassAnim) root.dataset.glassAnim = 'true';
     else delete root.dataset.glassAnim;
@@ -562,6 +577,7 @@ export function applyThemeState(changes) {
     try {
         localStorage.setItem('theme', next.theme);
         localStorage.setItem('roundStyle', next.round ? '1' : '0');
+        localStorage.setItem('roundRadius', String(roundRadius));
         localStorage.setItem('glassScheme', next.glassScheme);
         localStorage.setItem('glassAnim', String(next.glassAnim));
         localStorage.setItem('glassFlag', String(next.glassFlag));
