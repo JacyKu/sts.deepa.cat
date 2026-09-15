@@ -2,6 +2,7 @@ import React from 'react';
 import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { useBuilderLayout } from './builderLayoutContext';
+import { useTranslation } from './useTranslation';
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
@@ -10,15 +11,18 @@ const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 // uses the standard layout.
 export default function BuilderLayoutToggle({ className } = {}) {
     const { newLayout, toggle } = useBuilderLayout();
+    const t = useTranslation();
     return (
         <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
-            <input type="checkbox" checked={newLayout} onChange={toggle} aria-label="New Layout" />
+            <input
+                type="checkbox"
+                checked={newLayout}
+                onChange={toggle}
+                aria-label={t('settings.builderLayout.newLayoutAria')}
+            />
             <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                New Layout (Experimental)
-                <span className={itemsStyles.enchantTooltipText}>
-                    Put the equipment slot inputs in a column on the left (rows of two) with the stats on the right.
-                    Mobile keeps the standard layout.
-                </span>
+                {t('settings.builderLayout.newLayout')}
+                <span className={itemsStyles.enchantTooltipText}>{t('settings.builderLayout.hint')}</span>
             </span>
         </label>
     );

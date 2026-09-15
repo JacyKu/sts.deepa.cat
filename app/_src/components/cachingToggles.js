@@ -3,6 +3,7 @@
 import React from 'react';
 import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
+import { useTranslation } from './useTranslation';
 import {
     isSearchCacheEnabled,
     isBuildsCacheEnabled,
@@ -39,11 +40,12 @@ function CacheToggle({ label, hint, readPref, writePref, className } = {}) {
 
 // "Cache searches": whether the last item search survives page switches.
 export function CacheSearchToggle({ className } = {}) {
+    const t = useTranslation();
     return (
         <CacheToggle
             className={className}
-            label="Cache searches"
-            hint="Remember your last item search in this browser and restore it when you return. Turn off to always start fresh."
+            label={t('settings.cache.search.label')}
+            hint={t('settings.cache.search.hint')}
             readPref={isSearchCacheEnabled}
             writePref={setSearchCacheEnabled}
         />
@@ -53,11 +55,12 @@ export function CacheSearchToggle({ className } = {}) {
 // "Cache builds": whether builder state (draft autosave + custom skill order)
 // is kept in this browser between visits.
 export function CacheBuildsToggle({ className } = {}) {
+    const t = useTranslation();
     return (
         <CacheToggle
             className={className}
-            label="Cache builds"
-            hint="Keep your current build draft and custom skill order in this browser. Turn off to never save or restore builder state."
+            label={t('settings.cache.builds.label')}
+            hint={t('settings.cache.builds.hint')}
             readPref={isBuildsCacheEnabled}
             writePref={setBuildsCacheEnabled}
         />
@@ -67,11 +70,12 @@ export function CacheBuildsToggle({ className } = {}) {
 // "Cache custom items": whether your custom items page restores its list
 // instantly from this browser while the fresh list loads.
 export function CacheCustomItemsToggle({ className } = {}) {
+    const t = useTranslation();
     return (
         <CacheToggle
             className={className}
-            label="Cache custom items"
-            hint="Show your custom items instantly from this browser while the latest list loads. Only ever stores your own items."
+            label={t('settings.cache.customItems.label')}
+            hint={t('settings.cache.customItems.hint')}
             readPref={isCustomItemsCacheEnabled}
             writePref={setCustomItemsCacheEnabled}
         />

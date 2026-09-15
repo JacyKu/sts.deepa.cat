@@ -7,6 +7,17 @@ import styles from '../../styles/Database.module.css';
 
 export const REGIONS = ['Valley', 'Isles', 'Ring', 'Darkest Depths', 'Celestial Zenith'];
 
+// Region names are game data, but their filter labels reuse the builder's
+// translations; option values stay English because they are sent to the
+// builds API as-is.
+const REGION_LABEL_KEYS = {
+    Valley: 'builder.regions.valley',
+    Isles: 'builder.regions.isles',
+    Ring: 'builder.regions.ring',
+    'Darkest Depths': 'builder.regions.darkestDepths',
+    'Celestial Zenith': 'builder.regions.celestialZenith',
+};
+
 // The same react-select look the rest of the app uses (builder, database).
 export const selectTheme = (theme) => ({
     ...theme,
@@ -60,7 +71,12 @@ export function buildFilterCategories(classOptions, specMap, t, { includeSort = 
     const allSpecs = [...new Set(Object.values(specMap).flat())];
     const categories = [
         { name: 'class', labelKey: 'database.filters.class', type: 'select', options: classOptions },
-        { name: 'region', labelKey: 'database.filters.region', type: 'select', options: REGIONS },
+        {
+            name: 'region',
+            labelKey: 'database.filters.region',
+            type: 'select',
+            options: REGIONS.map((region) => ({ value: region, label: t(REGION_LABEL_KEYS[region]) })),
+        },
         { name: 'spec', labelKey: 'database.filters.spec', type: 'select', options: allSpecs },
         {
             name: 'hasCharms',
@@ -169,7 +185,7 @@ export function FilterRow({
                     className={`${sf.deleteButton} ${sf.filterDelete}`}
                     value="X"
                     onClick={() => onDelete(row.key)}
-                    aria-label="Remove filter"
+                    aria-label={t('database.removeFilter')}
                 />
             </div>
             {cat && cat.type === 'cascade' && row.slot && (

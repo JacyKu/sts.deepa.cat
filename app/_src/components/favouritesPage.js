@@ -12,10 +12,11 @@ import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
+import { translate } from '../utils/translation/translate';
 
 export default function FavouritesPage() {
     const { lang } = useLanguageContext();
-    const t = (id) => (SupportedLanguages[lang] && SupportedLanguages[lang][id]) || id;
+    const t = (id) => translate(lang, id);
 
     const [base, setBase] = React.useState('/sts');
     const [authChecked, setAuthChecked] = React.useState(false);
@@ -115,8 +116,12 @@ export default function FavouritesPage() {
                     active="builds"
                     className={styles.favTabs}
                     tabs={[
-                        { key: 'builds', label: 'Builds', href: `${base}/builds/favourites` },
-                        { key: 'custom-items', label: 'Custom items', href: `${base}/custom-items/favourites` },
+                        { key: 'builds', label: t('database.tabs.builds'), href: `${base}/builds/favourites` },
+                        {
+                            key: 'custom-items',
+                            label: t('database.tabs.customItems'),
+                            href: `${base}/custom-items/favourites`,
+                        },
                     ]}
                 />
             )}
@@ -151,16 +156,21 @@ export default function FavouritesPage() {
                         value={searchName}
                         onChange={(e) => setSearchName(e.target.value)}
                         placeholder={t('database.filters.search')}
-                        aria-label="Search favourite builds"
+                        aria-label={t('database.favSearch')}
                     />
                     <div className={sf.filterActions}>
-                        <input type="button" className={sf.submitButton} value="Search" onClick={searchNow} />
+                        <input
+                            type="button"
+                            className={sf.submitButton}
+                            value={t('common.search')}
+                            onClick={searchNow}
+                        />
                         <input
                             type="button"
                             className={sf.warningButton}
-                            value="Reset"
+                            value={t('common.reset')}
                             onClick={resetSearch}
-                            aria-label="Reset search"
+                            aria-label={t('database.favResetSearch')}
                         />
                     </div>
                     {builds.length === 0 ? (

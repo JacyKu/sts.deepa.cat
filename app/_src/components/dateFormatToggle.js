@@ -6,10 +6,12 @@ import React from 'react';
 import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { isAmericanDateEnabled, setAmericanDateEnabled } from '../utils/dateFormat';
+import { useTranslation } from './useTranslation';
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
 export default function DateFormatToggle({ className } = {}) {
+    const t = useTranslation();
     const [enabled, setEnabled] = React.useState(false);
     React.useEffect(() => setEnabled(isAmericanDateEnabled()), []);
     return (
@@ -22,13 +24,11 @@ export default function DateFormatToggle({ className } = {}) {
                     setEnabled(next);
                     setAmericanDateEnabled(next);
                 }}
-                aria-label="American date format"
+                aria-label={t('settings.dateFormat.aria')}
             />
             <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                American date format (MM/DD/YYYY)
-                <span className={itemsStyles.enchantTooltipText}>
-                    Show item and build dates as MM/DD/YYYY. Turn off to use your browser's usual date format.
-                </span>
+                {t('settings.dateFormat.label')}
+                <span className={itemsStyles.enchantTooltipText}>{t('settings.dateFormat.hint')}</span>
             </span>
         </label>
     );

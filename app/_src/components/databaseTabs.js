@@ -7,6 +7,7 @@ import React from 'react';
 import Link from 'next/link';
 import styles from '../styles/DatabaseTabs.module.css';
 import { getStsBase } from '../utils/base';
+import { useTranslation } from './useTranslation';
 
 function Tabs({ active, tabs, className = '', label }) {
     return (
@@ -27,6 +28,7 @@ function Tabs({ active, tabs, className = '', label }) {
 }
 
 export default function DatabaseTabs({ active, tabs, className }) {
+    const t = useTranslation();
     const [base, setBase] = React.useState('/sts');
     React.useEffect(() => {
         setBase(getStsBase());
@@ -35,11 +37,15 @@ export default function DatabaseTabs({ active, tabs, className }) {
         <Tabs
             active={active}
             className={className}
-            label="Database sections"
+            label={t('database.tabs.sections')}
             tabs={
                 tabs || [
-                    { key: 'builds', label: 'Builds', href: `${base}/database` },
-                    { key: 'custom-items', label: 'Custom items', href: `${base}/database/custom-items` },
+                    { key: 'builds', label: t('database.tabs.builds'), href: `${base}/database` },
+                    {
+                        key: 'custom-items',
+                        label: t('database.tabs.customItems'),
+                        href: `${base}/database/custom-items`,
+                    },
                 ]
             }
         />
@@ -47,6 +53,7 @@ export default function DatabaseTabs({ active, tabs, className }) {
 }
 
 export function MyPagesTabs({ active, className }) {
+    const t = useTranslation();
     const [base, setBase] = React.useState('/sts');
     React.useEffect(() => {
         setBase(getStsBase());
@@ -55,11 +62,11 @@ export function MyPagesTabs({ active, className }) {
         <Tabs
             active={active}
             className={className}
-            label="My pages"
+            label={t('database.tabs.myPages')}
             tabs={[
-                { key: 'builds', label: 'My Builds', href: `${base}/builds` },
-                { key: 'favourites', label: 'My Favourites', href: `${base}/builds/favourites` },
-                { key: 'custom-items', label: 'My Items', href: `${base}/custom-items` },
+                { key: 'builds', label: t('builds.title'), href: `${base}/builds` },
+                { key: 'favourites', label: t('auth.myFavourites'), href: `${base}/builds/favourites` },
+                { key: 'custom-items', label: t('auth.myItems'), href: `${base}/custom-items` },
             ]}
         />
     );

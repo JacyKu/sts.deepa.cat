@@ -9,6 +9,7 @@ import { useHideObtainment } from './hideObtainmentContext';
 import { useItemFavourites } from './itemFavouritesContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 import { useInView } from '../inView';
+import { useTranslation } from '../useTranslation';
 
 function camelCase(str) {
     if (!str) return '';
@@ -20,10 +21,10 @@ function camelCase(str) {
         .replace(/\s+/g, '');
 }
 
-function makePowerString(power) {
+function makePowerString(power, t) {
     return (
         <span>
-            Charm Power: <span className={styles.masterworkStar}>{'★'.repeat(power)}</span>
+            {t('items.searchForm.charmPower')}: <span className={styles.masterworkStar}>{'★'.repeat(power)}</span>
         </span>
     );
 }
@@ -79,6 +80,7 @@ function doesStyleExist(className) {
 
 function CharmTile(data) {
     const item = data.item;
+    const t = useTranslation();
     const [cssClass, setCssClass] = React.useState(getCharmSheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
     const [spriteMap, setSpriteMap] = React.useState(null);
@@ -130,11 +132,7 @@ function CharmTile(data) {
 
     if (!inView) {
         return (
-            <div
-                ref={ref}
-                className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}
-                style={{ minHeight }}
-            />
+            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
         );
     }
 
@@ -147,8 +145,8 @@ function CharmTile(data) {
                     onClick={() => toggleItem(item.name, item.type)}
                     aria-label={
                         listItems.includes(item.name)
-                            ? `Remove ${item.name} from build list`
-                            : `Add ${item.name} to build list`
+                            ? `${t('common.remove')} ${item.name} ${t('items.buildList.fromBuildList')}`
+                            : `${t('common.add')} ${item.name} ${t('items.buildList.toBuildList')}`
                     }
                 >
                     {listItems.includes(item.name) ? '✓' : '+'}
@@ -167,12 +165,16 @@ function CharmTile(data) {
                     }
                     aria-label={
                         favouriteSet.has(item.name)
-                            ? `Remove ${item.name} from favourites`
+                            ? `${t('common.remove')} ${item.name} ${t('items.favourite.fromFavourites')}`
                             : authenticated
-                              ? `Add ${item.name} to favourites`
-                              : 'Log in to favourite'
+                              ? `${t('common.add')} ${item.name} ${t('items.favourite.toFavourites')}`
+                              : t('items.favourite.login')
                     }
-                    title={favouriteSet.has(item.name) ? 'Remove from favourites' : 'Add to favourites'}
+                    title={
+                        favouriteSet.has(item.name)
+                            ? `${t('common.remove')} ${t('items.favourite.fromFavourites')}`
+                            : `${t('common.add')} ${t('items.favourite.toFavourites')}`
+                    }
                 >
                     <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
                         <path
@@ -207,12 +209,12 @@ function CharmTile(data) {
                 <TranslatableText identifier="items.type.charm"></TranslatableText>
             </span>
             {item['original_item'] ? (
-                <span className={styles.infoText}>{`Skin for ${item['original_item']} `}</span>
+                <span className={styles.infoText}>{`${t('items.skinFor')} ${item['original_item']} `}</span>
             ) : (
                 ''
             )}
             <span className={styles.infoText}>
-                {makePowerString(item.power)}
+                {makePowerString(item.power, t)}
                 {/* Custom charm items carry no class; drop the label then. */}
                 {item.class_name && <> - {makeClassString(item.class_name)}</>}
             </span>
@@ -220,14 +222,15 @@ function CharmTile(data) {
             <span>
                 {item.region && <span className={styles.infoText}>{`${item.region} `}</span>}
                 <span className={styles[camelCase(item.tier)]}>
-                    {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}Charm
+                    {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}
+                    {t('items.type.charm')}
                 </span>
             </span>
             {item.location && <span className={styles[camelCase(item.location)]}>{item.location}</span>}
             {!hideObtainment && (
                 <>
                     {item.extras?.poi ? (
-                        <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p>
+                        <p className={`${styles.infoText} m-0`}>{`${t('items.foundIn')} ${item.extras.poi}`}</p>
                     ) : (
                         ''
                     )}

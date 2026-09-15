@@ -13,11 +13,7 @@
 import React from 'react';
 import styles from '../../styles/Items.module.css';
 import { formatDateString } from '../../utils/dateFormat';
-
-const KIND_LABELS = {
-    skills: 'Skill sets',
-    delve: 'Infusion sets',
-};
+import { useTranslation } from '../useTranslation';
 
 function humanClass(cl) {
     if (!cl) return null;
@@ -36,6 +32,11 @@ export default function SavedSetsPanel({
     copyBuildSkills,
 }) {
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
+    const t = useTranslation();
+    const KIND_LABELS = {
+        skills: t('builder.sets.skillSets'),
+        delve: t('builder.sets.infusionSets'),
+    };
     const [sets, setSets] = React.useState([]);
     const [myBuilds, setMyBuilds] = React.useState([]);
     const [buildQuery, setBuildQuery] = React.useState('');
@@ -93,10 +94,10 @@ export default function SavedSetsPanel({
             setBusy(true);
             deleteSet(id)
                 .then((ok) => {
-                    say(ok, ok ? 'Set deleted.' : 'Could not delete the set.');
+                    say(ok, ok ? t('builder.sets.deleted') : t('builder.sets.deleteError'));
                     refresh();
                 })
-                .catch(() => say(false, 'Could not delete the set.'))
+                .catch(() => say(false, t('builder.sets.deleteError')))
                 .finally(() => setBusy(false));
             return;
         }
@@ -108,12 +109,12 @@ export default function SavedSetsPanel({
     async function handleSave(kind) {
         const name = String(names[kind] || '').trim();
         if (!name) {
-            say(false, 'Pick a name for the set first.');
+            say(false, t('builder.sets.pickName'));
             return;
         }
         const payload = getSnapshot(kind);
         if (!payload) {
-            say(false, 'Nothing to save yet - choose a class first.');
+            say(false, t('builder.sets.nothingToSave'));
             return;
         }
         setBusy(true);
@@ -125,14 +126,14 @@ export default function SavedSetsPanel({
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                say(false, 'Could not save the set.');
+                say(false, t('builder.sets.saveError'));
             } else {
                 setNames((prev) => ({ ...prev, [kind]: '' }));
-                say(true, data.isNew ? `"${name}" saved.` : `"${name}" updated.`);
+                say(true, `"${name}" ${data.isNew ? t('builder.sets.saved') : t('builder.sets.updated')}.`);
                 refresh();
             }
         } catch (e) {
-            say(false, 'Could not save the set.');
+            say(false, t('builder.sets.saveError'));
         } finally {
             setBusy(false);
         }
@@ -144,17 +145,17 @@ export default function SavedSetsPanel({
                 ? applyDelvePayload(entry.payload)
                 : entry.payload && entry.payload.cl
                   ? applySkillPayload(entry.payload)
-                  : 'That set has no class.';
-        say(!err, err || `"${entry.name}" applied.`);
+                  : t('builder.sets.noClass');
+        say(!err, err || `"${entry.name}" ${t('builder.sets.applied')}.`);
     }
 
     async function handleCopyBuild(build) {
         setBusy(true);
         try {
             const err = await copyBuildSkills(build);
-            say(!err, err || `Skills copied from "${build.name || 'this build'}".`);
+            say(!err, err || `${t('builder.sets.skillsCopied')} "${build.name || t('builder.sets.thisBuild')}".`);
         } catch (e) {
-            say(false, 'Could not read that build.');
+            say(false, t('builder.sets.couldNotReadBuild'));
         } finally {
             setBusy(false);
         }
@@ -168,10 +169,10 @@ export default function SavedSetsPanel({
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard
                 .writeText(url)
-                .then(() => say(true, 'Share link copied to clipboard.'))
-                .catch(() => say(true, `Share link: ${url}`));
+                .then(() => say(true, t('builder.sets.shareLinkCopied')))
+                .catch(() => say(true, `${t('builder.sets.shareLink')} ${url}`));
         } else {
-            say(true, `Share link: ${url}`);
+            say(true, `${t('builder.sets.shareLink')} ${url}`);
         }
     }
 
@@ -186,18 +187,18 @@ export default function SavedSetsPanel({
                 body: JSON.stringify({ public: next }),
             });
             if (!res.ok) {
-                say(false, next ? 'Could not share the set.' : 'Could not stop sharing the set.');
+                say(false, next ? t('builder.sets.shareError') : t('builder.sets.unshareError'));
                 return;
             }
             setSets((prev) => prev.map((s) => (s.id === entry.id ? { ...s, isPublic: next } : s)));
             if (next) {
-                say(true, `"${entry.name}" shared.`);
+                say(true, `"${entry.name}" ${t('builder.sets.shared')}.`);
                 copyShareLink(entry.id);
             } else {
-                say(true, 'Sharing stopped - the link no longer works.');
+                say(true, t('builder.sets.sharingStopped'));
             }
         } catch (e) {
-            say(false, next ? 'Could not share the set.' : 'Could not stop sharing the set.');
+            say(false, next ? t('builder.sets.shareError') : t('builder.sets.unshareError'));
         } finally {
             setBusy(false);
         }
@@ -221,33 +222,31 @@ export default function SavedSetsPanel({
     return (
         <div className={styles.setsPanel}>
             {loggedIn === false ? (
-                <p className={styles.setsHint}>
-                    Log in with Discord to save skill and infusion sets and to copy skills from your saved builds.
-                </p>
+                <p className={styles.setsHint}>{t('builder.sets.loginRequired')}</p>
             ) : loggedIn === null ? (
-                <p className={styles.setsHint}>Loading…</p>
+                <p className={styles.setsHint}>{t('common.loading')}</p>
             ) : (
                 <>
                     <div className={styles.setsColumns}>
                         <section className={styles.setsGroup}>
-                            <h3 className={styles.setsGroupTitle}>Copy from your builds</h3>
+                            <h3 className={styles.setsGroupTitle}>{t('builder.sets.copyFromBuilds')}</h3>
                             {myBuilds.length === 0 ? (
-                                <p className={styles.setsEmpty}>No saved builds yet.</p>
+                                <p className={styles.setsEmpty}>{t('builder.sets.noSavedBuilds')}</p>
                             ) : (
                                 <>
                                     <div className={styles.setsSaveRow}>
                                         <input
                                             className={styles.setsInput}
                                             type="search"
-                                            placeholder="Search your builds"
+                                            placeholder={t('builder.sets.searchYourBuilds')}
                                             value={buildQuery}
                                             onChange={(e) => setBuildQuery(e.target.value)}
-                                            aria-label="Search your builds"
+                                            aria-label={t('builder.sets.searchYourBuilds')}
                                         />
                                     </div>
                                     {visibleBuilds.length === 0 ? (
                                         <div className={styles.setsBuildList}>
-                                            <p className={styles.setsEmpty}>No builds match your search.</p>
+                                            <p className={styles.setsEmpty}>{t('builder.sets.noBuildsMatch')}</p>
                                         </div>
                                     ) : (
                                         <div className={styles.setsBuildList}>
@@ -255,7 +254,7 @@ export default function SavedSetsPanel({
                                                 {visibleBuilds.map((b) => (
                                                     <li key={b.id} className={styles.setsRow}>
                                                         <span className={styles.setsRowName}>
-                                                            {b.name || 'Unnamed build'}
+                                                            {b.name || t('builder.sets.unnamedBuild')}
                                                             {b.class ? (
                                                                 <span className={styles.setsMeta}>
                                                                     {humanClass(b.class)}
@@ -271,7 +270,7 @@ export default function SavedSetsPanel({
                                                             disabled={busy}
                                                             onClick={() => handleCopyBuild(b)}
                                                         >
-                                                            Copy skills
+                                                            {t('builder.sets.copySkills')}
                                                         </button>
                                                     </li>
                                                 ))}
@@ -290,7 +289,7 @@ export default function SavedSetsPanel({
                                     <div className={styles.setsSaveRow}>
                                         <input
                                             className={styles.setsInput}
-                                            placeholder="Set name"
+                                            placeholder={t('builder.sets.setName')}
                                             maxLength={40}
                                             value={names[kind]}
                                             onChange={(e) => setNames((prev) => ({ ...prev, [kind]: e.target.value }))}
@@ -301,14 +300,14 @@ export default function SavedSetsPanel({
                                             disabled={busy}
                                             onClick={() => handleSave(kind)}
                                         >
-                                            Save current
+                                            {t('builder.sets.saveCurrent')}
                                         </button>
                                     </div>
                                     {list.length === 0 ? (
                                         <p className={styles.setsEmpty}>
                                             {kind === 'skills'
-                                                ? 'No skill sets saved yet.'
-                                                : 'No infusion sets saved yet.'}
+                                                ? t('builder.sets.noSkillSets')
+                                                : t('builder.sets.noInfusionSets')}
                                         </p>
                                     ) : (
                                         <ul className={styles.setsList}>
@@ -335,7 +334,7 @@ export default function SavedSetsPanel({
                                                             disabled={busy}
                                                             onClick={() => handleApply(entry)}
                                                         >
-                                                            Apply
+                                                            {t('common.apply')}
                                                         </button>
                                                         {entry.isPublic ? (
                                                             <>
@@ -345,7 +344,7 @@ export default function SavedSetsPanel({
                                                                     disabled={busy}
                                                                     onClick={() => copyShareLink(entry.id)}
                                                                 >
-                                                                    Copy link
+                                                                    {t('common.copyLink')}
                                                                 </button>
                                                                 <button
                                                                     type="button"
@@ -353,7 +352,7 @@ export default function SavedSetsPanel({
                                                                     disabled={busy}
                                                                     onClick={() => toggleShare(entry, false)}
                                                                 >
-                                                                    Unshare
+                                                                    {t('builder.sets.unshare')}
                                                                 </button>
                                                             </>
                                                         ) : (
@@ -363,7 +362,7 @@ export default function SavedSetsPanel({
                                                                 disabled={busy}
                                                                 onClick={() => toggleShare(entry, true)}
                                                             >
-                                                                Share
+                                                                {t('builder.buttons.share')}
                                                             </button>
                                                         )}
                                                         <button
@@ -372,7 +371,7 @@ export default function SavedSetsPanel({
                                                             disabled={busy}
                                                             onClick={() => requestDelete(entry.id)}
                                                         >
-                                                            {confirmDelete === entry.id ? 'Sure?' : '✕'}
+                                                            {confirmDelete === entry.id ? t('builder.sets.sure') : '✕'}
                                                         </button>
                                                     </span>
                                                 </li>

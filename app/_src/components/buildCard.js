@@ -14,6 +14,7 @@ import { useLowResource } from './lowResourceContext';
 import Enchants from './items/enchants';
 import CharmFormatter from '../utils/items/charmFormatter';
 import { useInView } from './inView';
+import { useTranslation } from './useTranslation';
 
 let spriteClassNames = null;
 function collectSpriteClassNames() {
@@ -58,12 +59,12 @@ function cleanDescription(desc) {
 
 // Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
 // with the value for the Twisted level - rarity is gone, everything is Twisted.
-function formatCzDescription(desc) {
+function formatCzDescription(desc, t) {
     const KEYBINDS = {
-        'key.attack': 'Left Button',
-        'key.use': 'Right Button',
-        'key.swapOffhand': 'Swap',
-        'key.drop': 'Drop',
+        'key.attack': t('builder.keybinds.leftButton'),
+        'key.use': t('builder.keybinds.rightButton'),
+        'key.swapOffhand': t('builder.keybinds.swap'),
+        'key.drop': t('builder.keybinds.drop'),
     };
     return String(desc || '')
         .replace(/#\{([^}]+)\}/g, (match, group) => {
@@ -136,6 +137,7 @@ function loadBuildDetails() {
 // `compareEnabled` (database page) shows the "add to comparison" picker
 // button below the layout-swap button.
 function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
+    const t = useTranslation();
     const { itemsFirst: globalItemsFirst } = useCardItemsFirst();
     // The card's swap button overrides the global setting for this card only;
     // null follows the global default set on the settings page.
@@ -297,7 +299,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             .finally(() => setFavBusy(false));
     }
 
-    const displayName = build.name || 'Unnamed build';
+    const displayName = build.name || t('builds.unnamed');
     const avatar = avatarUrl(build.authorId, build.authorAvatar);
 
     // Chip hover tooltips: full name + description for the class, spec and
@@ -311,7 +313,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         const info = czInfo(s);
         if (!info) return null;
         const raw = build.region === 'Darkest Depths' ? info.depths : info.zenith;
-        return formatCzDescription(raw);
+        return formatCzDescription(raw, t);
     };
 
     let skills = [];
@@ -386,12 +388,12 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     // class default texture on the charmsheet (tier/class/power based), like
     // charmTile does. Before the map has loaded, render a plain placeholder.
     const SLOT_LABELS = {
-        mainhand: 'Mainhand',
-        offhand: 'Offhand',
-        helmet: 'Helmet',
-        chestplate: 'Chestplate',
-        leggings: 'Leggings',
-        boots: 'Boots',
+        mainhand: 'items.type.mainhand',
+        offhand: 'items.type.offhand',
+        helmet: 'items.type.helmet',
+        chestplate: 'items.type.chestplate',
+        leggings: 'items.type.leggings',
+        boots: 'items.type.boots',
     };
     function doesStyleExist(className) {
         if (spriteClassNames === null) spriteClassNames = collectSpriteClassNames();
@@ -442,7 +444,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         if (item.sl && SLOT_LABELS[item.sl]) {
             return (
                 <span className={`${styles.previewSlot}${isCustom ? ` ${styles.customItem}` : ''}`}>
-                    {SLOT_LABELS[item.sl]}
+                    {t(SLOT_LABELS[item.sl])}
                 </span>
             );
         }
@@ -511,12 +513,12 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     // skills to show). Small sprites with a slot-type abbreviation under
     // each (charm power stars for charms), and the item name on hover.
     const SLOT_ABBR = {
-        mainhand: 'MH',
-        offhand: 'OH',
-        helmet: 'Helm',
-        chestplate: 'Chest',
-        leggings: 'Legs',
-        boots: 'Boots',
+        mainhand: 'builds.slotAbbr.mainhand',
+        offhand: 'builds.slotAbbr.offhand',
+        helmet: 'builds.slotAbbr.helmet',
+        chestplate: 'builds.slotAbbr.chestplate',
+        leggings: 'builds.slotAbbr.leggings',
+        boots: 'builds.slotAbbr.boots',
     };
     function renderItemStrip() {
         // Charms always start on their own line: the card is just wide
@@ -537,7 +539,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         ) : null}
                     </span>
                     <span className={`${styles.itemStripLabel}${isCustom ? ` ${styles.customItem}` : ''}`}>
-                        {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && SLOT_ABBR[item.sl]}
+                        {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && t(SLOT_ABBR[item.sl])}
                     </span>
                     <span className={itemsStyles.enchantTooltipText}>
                         <span className={isCustom ? styles.customItem : undefined} style={{ fontWeight: 600 }}>
@@ -661,7 +663,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         type="button"
                         className={`${styles.favBtn}${build.myFavourite ? ` ${styles.favBtnOn}` : ''}`}
                         onClick={toggleFavourite}
-                        aria-label="Toggle favourite"
+                        aria-label={t('builds.toggleFavourite')}
                     >
                         <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
                             <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
@@ -675,10 +677,10 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                             <span className={styles.favCount}>{build.favouriteCount || 0}</span>
                             <span className={itemsStyles.enchantTooltipText}>
                                 {build.myFavourite
-                                    ? 'Remove from favourites'
+                                    ? t('builds.removeFromFavourites')
                                     : user
-                                      ? 'Add to favourites'
-                                      : 'Log in to favourite'}
+                                      ? t('builds.addToFavourites')
+                                      : t('builds.loginToFavourite')}
                             </span>
                         </span>
                     </button>
@@ -690,14 +692,14 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                             e.stopPropagation();
                             setLayoutOverride(!itemsFirst);
                         }}
-                        aria-label="Swap card layout"
+                        aria-label={t('builds.swapCardLayout')}
                     >
                         <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
                                 <path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
                             </svg>
                             <span className={itemsStyles.enchantTooltipText}>
-                                {itemsFirst ? 'Show skills on card' : 'Show items on card'}
+                                {itemsFirst ? t('builds.showSkillsOnCard') : t('builds.showItemsOnCard')}
                             </span>
                         </span>
                     </button>
@@ -712,8 +714,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                                 e.stopPropagation();
                                 onAddCompare(build);
                             }}
-                            aria-label="Add to comparison"
-                            title={compareActive ? 'Remove from comparison' : 'Add to comparison'}
+                            aria-label={t('compare.addToComparison')}
+                            title={compareActive ? t('compare.removeFromComparison') : t('compare.addToComparison')}
                         >
                             <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
@@ -722,7 +724,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                                     <path d="M19 5l3 3-3 3V9h-2a1 1 0 0 1 0-2h2V5zM19 19v-2h-2a1 1 0 0 1 0-2h2v-2l3 3-3 3z" />
                                 </svg>
                                 <span className={itemsStyles.enchantTooltipText}>
-                                    {compareActive ? 'Remove from comparison' : 'Add to comparison'}
+                                    {compareActive ? t('compare.removeFromComparison') : t('compare.addToComparison')}
                                 </span>
                             </span>
                         </button>
@@ -819,7 +821,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
                             <path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2zm6.2 10l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9.9-2.4zM6 14l.9 2.4 2.4.9-2.4.9L6 20.6l-.9-2.4-2.4-.9 2.4-.9L6 14z" />
                         </svg>
-                        <span className={itemsStyles.enchantTooltipText}>Uses custom items</span>
+                        <span className={itemsStyles.enchantTooltipText}>{t('builds.usesCustomItems')}</span>
                     </span>
                 )}
                 {hasNotes && (
@@ -830,7 +832,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
                             <path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V9h4.5L13 4.5zM7 12h10v2H7v-2zm0 4h10v2H7v-2z" />
                         </svg>
-                        <span className={itemsStyles.enchantTooltipText}>Has notes - hover the card to read them</span>
+                        <span className={itemsStyles.enchantTooltipText}>{t('builds.hasNotes')}</span>
                     </span>
                 )}
             </div>
@@ -842,11 +844,15 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             {showItemStrip && items.length > 0 && renderItemStrip()}
 
             <div className={styles.cardMeta}>
-                {build.ascension > 0 && <span className={styles.metaItem}>Ascension {build.ascension}</span>}
+                {build.ascension > 0 && (
+                    <span className={styles.metaItem}>
+                        {t('builds.ascension')} {build.ascension}
+                    </span>
+                )}
             </div>
 
             <div className={styles.cardBottom}>
-                <span className={styles.author} title={build.authorName || 'Anonymous'}>
+                <span className={styles.author} title={build.authorName || t('database.anonymous')}>
                     {avatar && <img className={styles.avatar} src={avatar} alt="" width={18} height={18} />}
                     {build.authorName || <TranslatableText identifier="database.anonymous" />}
                 </span>
@@ -865,7 +871,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
 
             {isTouch && expanded && hasNotes && (
                 <div className={styles.mobileNotes}>
-                    <div className={styles.cardNotesLabel}>Notes</div>
+                    <div className={styles.cardNotesLabel}>{t('builds.notes')}</div>
                     <div className={styles.cardNotesBody}>{build.notes}</div>
                 </div>
             )}
@@ -886,7 +892,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         side === 'left' ? styles.cardNotesLeft : styles.cardNotesRight
                     }${sideOpen ? ` ${styles.cardNotesOpen}` : ''}${sideHasContent ? ` ${styles.cardNotesWide}` : ''}`}
                 >
-                    <div className={styles.cardNotesLabel}>Notes</div>
+                    <div className={styles.cardNotesLabel}>{t('builds.notes')}</div>
                     <div className={styles.cardNotesBody}>{build.notes}</div>
                 </div>
             )}

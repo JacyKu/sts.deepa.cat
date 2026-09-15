@@ -1,13 +1,17 @@
+'use client';
+
 import itemsStyles from '../styles/Items.module.css';
 import styles from '../styles/Compare.module.css';
+import { useTranslation } from './useTranslation';
 
 // Loading placeholder for /compare: same container, title and two picker
 // panels (flex 1 1 360px / max-width 520) the real page renders.
 export default function CompareSkeleton() {
+    const t = useTranslation();
     return (
         <div className={styles.container}>
             <h1 className={styles.pageTitle}>
-                Build Comparison <span className={styles.experimentalBadge}>Experimental</span>
+                {t('compare.title')} <span className={styles.experimentalBadge}>{t('compare.experimental')}</span>
             </h1>
             <div className={styles.pickers}>
                 {['Build A', 'Build B'].map((label) => (

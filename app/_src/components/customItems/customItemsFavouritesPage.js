@@ -14,8 +14,10 @@ import CustomItemCard from './customItemCard';
 import CustomItemHeart from './customItemHeart';
 import { CustomItemCardSkeleton } from './customItemsSkeleton';
 import { getStsBase } from '../../utils/base';
+import { useTranslation } from '../useTranslation';
 
 export default function CustomItemsFavouritesPage() {
+    const t = useTranslation();
     const [base, setBase] = React.useState('/sts');
     const [authChecked, setAuthChecked] = React.useState(false);
     const [user, setUser] = React.useState(null);
@@ -110,15 +112,19 @@ export default function CustomItemsFavouritesPage() {
     return (
         <div className={styles.page}>
             <main className={styles.main}>
-                <h1 className={styles.title}>My Favourites</h1>
+                <h1 className={styles.title}>{t('database.favTitle')}</h1>
                 <MyPagesTabs active="favourites" className={styles.myTabs} />
                 {user && (
                     <DatabaseTabs
                         active="custom-items"
                         className={styles.favTabs}
                         tabs={[
-                            { key: 'builds', label: 'Builds', href: `${base}/builds/favourites` },
-                            { key: 'custom-items', label: 'Custom items', href: `${base}/custom-items/favourites` },
+                            { key: 'builds', label: t('database.tabs.builds'), href: `${base}/builds/favourites` },
+                            {
+                                key: 'custom-items',
+                                label: t('database.tabs.customItems'),
+                                href: `${base}/custom-items/favourites`,
+                            },
                         ]}
                     />
                 )}
@@ -131,20 +137,18 @@ export default function CustomItemsFavouritesPage() {
                     </div>
                 ) : !user ? (
                     <div className={styles.favNote}>
-                        <p>Log in with Discord to see your favourite custom items.</p>
+                        <p>{t('customItems.favourites.loginRequired')}</p>
                         <a
                             className={styles.loginBtn}
                             href={`/api/auth/discord/login?next=${encodeURIComponent('/custom-items/favourites')}`}
                         >
-                            Log in with Discord
+                            {t('auth.loginWithDiscord')}
                         </a>
                     </div>
                 ) : error ? (
-                    <p className={`${styles.errorText} ${styles.favNote}`}>Failed to load your favourite items.</p>
+                    <p className={`${styles.errorText} ${styles.favNote}`}>{t('customItems.favourites.loadError')}</p>
                 ) : items.length === 0 && !searchName.trim() ? (
-                    <p className={`${styles.muted} ${styles.favNote}`}>
-                        No favourite custom items yet. Tap the heart on an item to save it here.
-                    </p>
+                    <p className={`${styles.muted} ${styles.favNote}`}>{t('customItems.favourites.empty')}</p>
                 ) : (
                     <>
                         <input
@@ -152,34 +156,41 @@ export default function CustomItemsFavouritesPage() {
                             className={dbStyles.searchName}
                             value={searchName}
                             onChange={(e) => setSearchName(e.target.value)}
-                            placeholder="Search by item name"
-                            aria-label="Search favourite custom items by name"
+                            placeholder={t('customItems.search.placeholder')}
+                            aria-label={t('customItems.favourites.searchAria')}
                         />
                         <div className={sf.filterActions}>
-                            <input type="button" className={sf.submitButton} value="Search" onClick={searchNow} />
+                            <input
+                                type="button"
+                                className={sf.submitButton}
+                                value={t('common.search')}
+                                onClick={searchNow}
+                            />
                             <input
                                 type="button"
                                 className={sf.warningButton}
-                                value="Reset"
+                                value={t('common.reset')}
                                 onClick={resetSearch}
-                                aria-label="Reset search"
+                                aria-label={t('customItems.search.resetAria')}
                             />
                         </div>
                         {items.length === 0 ? (
-                            <p className={`${styles.muted} ${styles.favNote}`}>No favourite items match your search.</p>
+                            <p className={`${styles.muted} ${styles.favNote}`}>
+                                {t('customItems.favourites.noResults')}
+                            </p>
                         ) : (
                             <InfiniteScroll
                                 className={styles.itemGrid}
                                 hasMore={hasMore}
                                 next={() => loadPage(pageRef.current + 1, false)}
-                                loader={<p className={styles.muted}>End of your favourite items.</p>}
+                                loader={<p className={styles.muted}>{t('customItems.favourites.end')}</p>}
                             >
                                 {items.map((item) => (
                                     <CustomItemCard
                                         key={item.id}
                                         item={item}
                                         href={`${base}/custom-items/${item.id}`}
-                                        authorFallback="a player"
+                                        authorFallback={t('customItems.card.aPlayer')}
                                         heart={
                                             <CustomItemHeart
                                                 itemId={item.id}

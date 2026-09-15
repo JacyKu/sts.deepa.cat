@@ -16,6 +16,7 @@ import { MyPagesTabs } from '../databaseTabs';
 import { isCustomItemsCacheEnabled, CUSTOM_ITEMS_CACHE_KEY, CUSTOM_ITEMS_DRAFT_KEY } from '../../utils/cachePrefs';
 import { formatDateString } from '../../utils/dateFormat';
 import { ITEM_TYPE_OPTIONS } from '../../utils/customItemTypes';
+import { useTranslation } from '../useTranslation';
 
 // The custom-items list is personal, so its cache is scoped to the logged-in
 // user (a later login as someone else never sees the previous account's
@@ -159,6 +160,7 @@ function EditIcon({ className, onClick }) {
 }
 
 export default function CustomItemsPage({ statCategories, baseItemOptions = [] }) {
+    const t = useTranslation();
     const session = useSessionState();
     const user = session.user;
     const authChecked = session.checked;
@@ -567,7 +569,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     function copyStatsFromItem(item) {
         const rows = Object.entries(item.stats || {}).map(([key, value]) => ({ key, value: String(value) }));
         applyStatRows(rows);
-        say(true, `Stats from "${item.name}" copied into the form.`);
+        say(true, `${t('customItems.feedback.statsFrom')} "${item.name}" ${t('customItems.feedback.statsIntoForm')}.`);
     }
 
     function say(ok, text) {
@@ -614,12 +616,12 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         event.preventDefault();
         const setName = String(statSetName || '').trim();
         if (!setName) {
-            say(false, 'Pick a name for the set first.');
+            say(false, t('customItems.statSets.pickName'));
             return;
         }
         const rows = currentStatPayload();
         if (rows.length === 0) {
-            say(false, 'Nothing to save yet - add some stats to the form first.');
+            say(false, t('customItems.statSets.nothingToSave'));
             return;
         }
         setBusy(true);
@@ -631,14 +633,19 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                say(false, 'Could not save the set.');
+                say(false, t('customItems.statSets.saveError'));
             } else {
                 setStatSetName('');
-                say(true, data.isNew ? `"${setName}" saved.` : `"${setName}" updated.`);
+                say(
+                    true,
+                    data.isNew
+                        ? `"${setName}" ${t('customItems.statSets.saved')}`
+                        : `"${setName}" ${t('customItems.statSets.updated')}`
+                );
                 refreshStatSets();
             }
         } catch (e) {
-            say(false, 'Could not save the set.');
+            say(false, t('customItems.statSets.saveError'));
         } finally {
             setBusy(false);
         }
@@ -647,11 +654,11 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     function applyStatSet(entry) {
         const rows = entry.payload && Array.isArray(entry.payload.rows) ? entry.payload.rows : null;
         if (!rows || rows.length === 0) {
-            say(false, 'That set is empty.');
+            say(false, t('customItems.statSets.setEmpty'));
             return;
         }
         applyStatRows(rows);
-        say(true, `"${entry.name}" applied.`);
+        say(true, `"${entry.name}" ${t('customItems.statSets.applied')}`);
     }
 
     function requestDeleteStatSet(id) {
@@ -660,10 +667,13 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
             setBusy(true);
             fetch(`${base}/api/v1/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' })
                 .then((response) => {
-                    say(response.ok, response.ok ? 'Set deleted.' : 'Could not delete the set.');
+                    say(
+                        response.ok,
+                        response.ok ? t('customItems.statSets.deleted') : t('customItems.statSets.deleteError')
+                    );
                     if (response.ok) refreshStatSets();
                 })
-                .catch(() => say(false, 'Could not delete the set.'))
+                .catch(() => say(false, t('customItems.statSets.deleteError')))
                 .finally(() => setBusy(false));
             return;
         }
@@ -709,11 +719,11 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     if (!user) {
         return (
             <div className={styles.page}>
-                <h1 className={styles.title}>Custom Items</h1>
+                <h1 className={styles.title}>{t('customItems.title')}</h1>
                 <div className={styles.loginPrompt}>
-                    <p>Log in with Discord to create custom items.</p>
+                    <p>{t('customItems.loginRequired')}</p>
                     <a className={styles.loginBtn} href="/api/auth/discord/login?next=/custom-items">
-                        Log in with Discord
+                        {t('auth.loginWithDiscord')}
                     </a>
                 </div>
             </div>
@@ -723,27 +733,29 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     return (
         <div className={styles.page}>
             <main className={styles.main}>
-                <h1 className={styles.title}>Custom Items</h1>
+                <h1 className={styles.title}>{t('customItems.title')}</h1>
                 <MyPagesTabs active="custom-items" className={styles.myTabs} />
 
                 <form className={styles.form} onSubmit={saveItem}>
-                    <h2 className={styles.formTitle}>{editingId ? 'Edit item' : 'New item'}</h2>
+                    <h2 className={styles.formTitle}>
+                        {editingId ? t('customItems.form.editTitle') : t('customItems.form.newTitle')}
+                    </h2>
 
                     <div className={styles.fieldRow}>
                         <label className={styles.field}>
-                            <span className={styles.fieldLabel}>Name</span>
+                            <span className={styles.fieldLabel}>{t('common.name')}</span>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={(event) => setName(event.target.value)}
-                                placeholder="My custom sword"
+                                placeholder={t('customItems.form.namePlaceholder')}
                                 maxLength={50}
                                 required
                             />
                         </label>
 
                         <div className={styles.field}>
-                            <span className={styles.fieldLabel}>Texture</span>
+                            <span className={styles.fieldLabel}>{t('customItems.form.texture')}</span>
                             <div className={styles.texturePicker}>
                                 <div className={styles.textureRow}>
                                     <input
@@ -759,7 +771,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                         }}
                                         onFocus={() => setTextureOpen(true)}
                                         onBlur={() => setTimeout(() => setTextureOpen(false), 150)}
-                                        placeholder="Search an item name for its texture"
+                                        placeholder={t('customItems.form.texturePlaceholder')}
                                     />
                                     <div
                                         className={`monumenta-items monumenta-${textureToken || ''} ${styles.texturePreview}`}
@@ -768,7 +780,9 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 {textureOpen && (
                                     <div className={styles.textureList}>
                                         {textureChoices.length === 0 ? (
-                                            <div className={styles.textureEmpty}>No matching textures</div>
+                                            <div className={styles.textureEmpty}>
+                                                {t('customItems.form.noTextures')}
+                                            </div>
                                         ) : (
                                             textureChoices.map((key) => (
                                                 <button
@@ -795,7 +809,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
 
                     <div className={styles.fieldRow}>
                         <label className={styles.field}>
-                            <span className={styles.fieldLabel}>Type</span>
+                            <span className={styles.fieldLabel}>{t('common.type')}</span>
                             <Select
                                 instanceId="custom-item-type"
                                 name="custom-item-type"
@@ -817,7 +831,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                         </label>
 
                         <label className={styles.field}>
-                            <span className={styles.fieldLabel}>Base item (vanilla)</span>
+                            <span className={styles.fieldLabel}>{t('customItems.form.baseItem')}</span>
                             <Select
                                 instanceId="custom-item-base-item"
                                 name="custom-item-base-item"
@@ -829,7 +843,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 }
                                 onChange={(option) => setBaseItem(option ? option.value : '')}
                                 isClearable
-                                placeholder="e.g. Wooden Axe, Netherite Sword"
+                                placeholder={t('customItems.form.baseItemPlaceholder')}
                                 menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                                 menuPosition="fixed"
                                 theme={selectTheme}
@@ -839,8 +853,8 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                     </div>
 
                     <div className={styles.field}>
-                        <span className={styles.fieldLabel}>Stats</span>
-                        {statRows.length === 0 && <p className={styles.muted}>No stats yet - add some below.</p>}
+                        <span className={styles.fieldLabel}>{t('customItems.form.stats')}</span>
+                        {statRows.length === 0 && <p className={styles.muted}>{t('customItems.form.noStats')}</p>}
                         {statRows.map((row, index) => (
                             <div
                                 key={row.id || index}
@@ -856,8 +870,8 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     draggable
                                     onDragStart={(e) => startStatDrag(row, e)}
                                     onDragEnd={endStatDrag}
-                                    aria-label="Drag to reorder stat"
-                                    title="Drag to reorder"
+                                    aria-label={t('customItems.form.dragStat')}
+                                    title={t('customItems.form.dragToReorder')}
                                 >
                                     <svg
                                         width="12"
@@ -886,7 +900,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                             : null
                                     }
                                     onChange={(option) => updateStatRow(index, 'key', option ? option.value : '')}
-                                    placeholder="Choose a stat"
+                                    placeholder={t('customItems.form.chooseStat')}
                                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                                     menuPosition="fixed"
                                     theme={selectTheme}
@@ -897,7 +911,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     step="any"
                                     value={row.value ?? ''}
                                     onChange={(event) => updateStatRow(index, 'value', event.target.value)}
-                                    placeholder="Value"
+                                    placeholder={t('customItems.form.value')}
                                 />
                                 <span className={styles.statMoveControls}>
                                     <button
@@ -905,8 +919,8 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                         className={styles.statMoveBtn}
                                         disabled={index === 0}
                                         onClick={() => moveStatRow(index, index - 1)}
-                                        aria-label="Move stat up"
-                                        title="Move stat up"
+                                        aria-label={t('customItems.form.moveStatUp')}
+                                        title={t('customItems.form.moveStatUp')}
                                     >
                                         ↑
                                     </button>
@@ -915,8 +929,8 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                         className={styles.statMoveBtn}
                                         disabled={index === statRows.length - 1}
                                         onClick={() => moveStatRow(index, index + 1)}
-                                        aria-label="Move stat down"
-                                        title="Move stat down"
+                                        aria-label={t('customItems.form.moveStatDown')}
+                                        title={t('customItems.form.moveStatDown')}
                                     >
                                         ↓
                                     </button>
@@ -925,7 +939,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     type="button"
                                     className={styles.iconBtn}
                                     onClick={() => setStatRows((rows) => rows.filter((_, i) => i !== index))}
-                                    aria-label="Remove stat"
+                                    aria-label={t('customItems.form.removeStat')}
                                 >
                                     X
                                 </button>
@@ -936,16 +950,16 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                             className={styles.addBtn}
                             onClick={() => setStatRows((rows) => [...rows, { id: makeRowId(), key: '', value: '' }])}
                         >
-                            + Add stat
+                            {'+ ' + t('customItems.form.addStat')}
                         </button>
                     </div>
 
                     {error === 'duplicate' && (
                         <p className={styles.errorText}>
-                            You already have a custom item named "{name.trim()}". Pick a different name.
+                            {t('customItems.form.duplicateName')} "{name.trim()}". {t('customItems.form.duplicateHint')}
                         </p>
                     )}
-                    {error === 'save' && <p className={styles.errorText}>Failed to save the item. Try again.</p>}
+                    {error === 'save' && <p className={styles.errorText}>{t('customItems.form.saveError')}</p>}
                     <div className={styles.formActions}>
                         <span className={styles.formActionWrap}>
                             <button
@@ -953,7 +967,11 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 className={itemsStyles.shareButton}
                                 disabled={!name.trim() || !textureToken || saving}
                             >
-                                {saving ? 'Saving…' : editingId ? 'Save changes' : 'Save item'}
+                                {saving
+                                    ? t('customItems.form.saving')
+                                    : editingId
+                                      ? t('customItems.form.saveChanges')
+                                      : t('customItems.form.saveItem')}
                             </button>
                         </span>
                         <span className={styles.formActionWrap}>
@@ -962,9 +980,9 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 className={itemsStyles.resetButton}
                                 onClick={handleResetClick}
                                 disabled={saving}
-                                aria-label="Reset item form"
+                                aria-label={t('customItems.form.resetAria')}
                             >
-                                {resetConfirm ? 'Confirm' : 'Reset'}
+                                {resetConfirm ? t('common.confirm') : t('common.reset')}
                             </button>
                         </span>
                         <span className={styles.formActionWrap}>
@@ -974,14 +992,14 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 onClick={() => setStatSetsOpen(true)}
                                 aria-haspopup="dialog"
                             >
-                                Stat sets
+                                {t('customItems.statSets.title')}
                             </button>
                         </span>
                     </div>
                 </form>
 
-                {error === 'load' && <p className={styles.errorText}>Failed to load your custom items.</p>}
-                {error === 'delete' && <p className={styles.errorText}>Failed to delete the item.</p>}
+                {error === 'load' && <p className={styles.errorText}>{t('customItems.loadError')}</p>}
+                {error === 'delete' && <p className={styles.errorText}>{t('customItems.deleteError')}</p>}
 
                 {statSetsOpen && (
                     <div className={itemsStyles.setsModalBackdrop} onClick={() => setStatSetsOpen(false)}>
@@ -989,31 +1007,30 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                             className={`${itemsStyles.setsModalDialog} ${styles.statSetsDialog}`}
                             role="dialog"
                             aria-modal="true"
-                            aria-label="Stat sets"
+                            aria-label={t('customItems.statSets.title')}
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className={itemsStyles.setsModalHead}>
-                                <span className={itemsStyles.setsModalTitle}>Stat sets</span>
+                                <span className={itemsStyles.setsModalTitle}>{t('customItems.statSets.title')}</span>
                                 <button
                                     type="button"
                                     className={itemsStyles.setsModalClose}
                                     onClick={() => setStatSetsOpen(false)}
-                                    aria-label="Close"
+                                    aria-label={t('common.close')}
                                 >
                                     ✕
                                 </button>
                             </div>
-                            <p className={itemsStyles.setsHint}>
-                                Copy the stats of one of your items into the form above, or save the current stats as a
-                                named set to reuse later.
-                            </p>
+                            <p className={itemsStyles.setsHint}>{t('customItems.statSets.hint')}</p>
                             <div className={`${itemsStyles.setsColumns} ${styles.statSetsColumns}`}>
                                 <section className={itemsStyles.setsGroup}>
-                                    <h3 className={itemsStyles.setsGroupTitle}>Copy stats from your items</h3>
+                                    <h3 className={itemsStyles.setsGroupTitle}>
+                                        {t('customItems.statSets.copyFromItems')}
+                                    </h3>
                                     {items === null ? (
-                                        <p className={itemsStyles.setsEmpty}>Loading…</p>
+                                        <p className={itemsStyles.setsEmpty}>{t('common.loading')}</p>
                                     ) : items.length === 0 ? (
-                                        <p className={itemsStyles.setsEmpty}>No custom items yet.</p>
+                                        <p className={itemsStyles.setsEmpty}>{t('customItems.statSets.noItems')}</p>
                                     ) : (
                                         <ul className={itemsStyles.setsList}>
                                             {items.map((item) => (
@@ -1023,8 +1040,10 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                         <span className={itemsStyles.setsMeta}>
                                                             {item.type}
                                                             {Object.keys(item.stats || {}).length > 0
-                                                                ? ` · ${Object.keys(item.stats || {}).length} stats`
-                                                                : ' · no stats'}
+                                                                ? ` · ${Object.keys(item.stats || {}).length} ${t(
+                                                                      'customItems.statSets.stats'
+                                                                  )}`
+                                                                : ` · ${t('customItems.statSets.noStats')}`}
                                                             {item.createdAt
                                                                 ? ` · ${formatDateString(item.createdAt)}`
                                                                 : ''}
@@ -1036,7 +1055,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                         disabled={busy}
                                                         onClick={() => copyStatsFromItem(item)}
                                                     >
-                                                        Copy stats
+                                                        {t('customItems.statSets.copyStats')}
                                                     </button>
                                                 </li>
                                             ))}
@@ -1045,11 +1064,11 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 </section>
 
                                 <section className={itemsStyles.setsGroup}>
-                                    <h3 className={itemsStyles.setsGroupTitle}>Stat sets</h3>
+                                    <h3 className={itemsStyles.setsGroupTitle}>{t('customItems.statSets.title')}</h3>
                                     <form className={itemsStyles.setsSaveRow} onSubmit={saveStatSet}>
                                         <input
                                             className={itemsStyles.setsInput}
-                                            placeholder="Set name"
+                                            placeholder={t('customItems.statSets.namePlaceholder')}
                                             maxLength={40}
                                             value={statSetName}
                                             onChange={(e) => setStatSetName(e.target.value)}
@@ -1058,15 +1077,15 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                             type="submit"
                                             className={itemsStyles.setsBtn}
                                             disabled={busy}
-                                            title="Save the current stats as a set"
+                                            title={t('customItems.statSets.saveTitle')}
                                         >
-                                            Save current
+                                            {t('customItems.statSets.saveCurrent')}
                                         </button>
                                     </form>
                                     {statSets === null ? (
-                                        <p className={itemsStyles.setsEmpty}>Loading…</p>
+                                        <p className={itemsStyles.setsEmpty}>{t('common.loading')}</p>
                                     ) : statSets.length === 0 ? (
-                                        <p className={itemsStyles.setsEmpty}>No stat sets saved yet.</p>
+                                        <p className={itemsStyles.setsEmpty}>{t('customItems.statSets.empty')}</p>
                                     ) : (
                                         <ul className={itemsStyles.setsList}>
                                             {statSets.map((entry) => (
@@ -1088,7 +1107,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                             disabled={busy}
                                                             onClick={() => applyStatSet(entry)}
                                                         >
-                                                            Apply
+                                                            {t('common.apply')}
                                                         </button>
                                                         <button
                                                             type="button"
@@ -1096,7 +1115,9 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                             disabled={busy}
                                                             onClick={() => requestDeleteStatSet(entry.id)}
                                                         >
-                                                            {confirmDelSet === entry.id ? 'Sure?' : '✕'}
+                                                            {confirmDelSet === entry.id
+                                                                ? t('customItems.confirm')
+                                                                : '✕'}
                                                         </button>
                                                     </span>
                                                 </li>
@@ -1116,8 +1137,8 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
 
                 <div className={styles.listHeader}>
                     <h2 className={styles.formTitle}>
-                        My items ({visibleItems ? visibleItems.length : 0}
-                        {searchName.trim() && items ? ` of ${items.length}` : ''})
+                        {t('customItems.myItems.title')} ({visibleItems ? visibleItems.length : 0}
+                        {searchName.trim() && items ? ` ${t('customItems.myItems.of')} ${items.length}` : ''})
                     </h2>
                 </div>
 
@@ -1128,10 +1149,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                         ))}
                     </div>
                 ) : items.length === 0 ? (
-                    <p className={styles.muted}>
-                        You have not created any custom items yet. Create one above - it will be linked to your Discord
-                        account.
-                    </p>
+                    <p className={styles.muted}>{t('customItems.myItems.empty')}</p>
                 ) : (
                     <>
                         <input
@@ -1139,21 +1157,26 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                             className={dbStyles.searchName}
                             value={searchName}
                             onChange={(e) => setSearchName(e.target.value)}
-                            placeholder="Search by item name"
-                            aria-label="Search my custom items by name"
+                            placeholder={t('customItems.search.placeholder')}
+                            aria-label={t('customItems.myItems.searchAria')}
                         />
                         <div className={sf.filterActions}>
-                            <input type="button" className={sf.submitButton} value="Search" onClick={() => {}} />
+                            <input
+                                type="button"
+                                className={sf.submitButton}
+                                value={t('common.search')}
+                                onClick={() => {}}
+                            />
                             <input
                                 type="button"
                                 className={sf.warningButton}
-                                value="Reset"
+                                value={t('common.reset')}
                                 onClick={() => setSearchName('')}
-                                aria-label="Reset search"
+                                aria-label={t('customItems.search.resetAria')}
                             />
                         </div>
                         {visibleItems.length === 0 ? (
-                            <p className={styles.muted}>No items match your search.</p>
+                            <p className={styles.muted}>{t('customItems.myItems.noResults')}</p>
                         ) : (
                             <div className={styles.itemGrid}>
                                 {visibleItems.map((item) => (
@@ -1174,8 +1197,8 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                 type="button"
                                                 className={styles.editIconBtn}
                                                 onClick={stop(() => startEdit(item))}
-                                                aria-label={`Edit ${item.name}`}
-                                                title="Edit"
+                                                aria-label={`${t('common.edit')} ${item.name}`}
+                                                title={t('common.edit')}
                                             >
                                                 <EditIcon />
                                             </button>
@@ -1187,21 +1210,25 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                     className={styles.rowBtn}
                                                     onClick={stop(() => addToBuild(item))}
                                                 >
-                                                    {addedId === item.id ? 'Added!' : 'Add to build'}
+                                                    {addedId === item.id
+                                                        ? t('customItems.myItems.added')
+                                                        : t('customItems.myItems.addToBuild')}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className={styles.rowBtn}
                                                     onClick={stop(() => copyShareLink(item))}
                                                 >
-                                                    {copiedId === item.id ? 'Copied!' : 'Copy link'}
+                                                    {copiedId === item.id ? t('common.copied') : t('common.copyLink')}
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
                                                     onClick={stop(() => requestDeleteItem(item))}
                                                 >
-                                                    {confirmDeleteId === item.id ? 'Sure?' : 'Delete'}
+                                                    {confirmDeleteId === item.id
+                                                        ? t('customItems.confirm')
+                                                        : t('common.delete')}
                                                 </button>
                                             </div>
                                         }

@@ -15,6 +15,7 @@ import { getStsBase } from '../../utils/base';
 
 import Stats from '../../utils/builder/stats';
 import TranslatableText from '../translatableText';
+import { useTranslation } from '../useTranslation';
 import ListSelector from './listSelector';
 import CharmSelector, { resolveCharmKey, computeCharmTotals, computeCharmStatColors } from './charmSelector';
 import CharmFormatter from '../../utils/items/charmFormatter';
@@ -311,14 +312,6 @@ const extraStats = {
 };
 
 const itemTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
-
-const regions = [
-    { value: 1, label: 'Valley' },
-    { value: 2, label: 'Isles' },
-    { value: 3, label: 'Ring' },
-    { value: 'dd', label: 'Darkest Depths' },
-    { value: 'cz', label: 'Celestial Zenith' },
-];
 
 // Extra stat inputs that are part of the build (shared in the link under their full names).
 const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspicacity', 'region'];
@@ -698,12 +691,12 @@ function cleanDescription(desc) {
 
 // Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
 // with the value for the Twisted level - rarity is gone, everything is Twisted.
-function formatCzDescription(desc) {
+function formatCzDescription(desc, t) {
     const KEYBINDS = {
-        'key.attack': 'Left Button',
-        'key.use': 'Right Button',
-        'key.swapOffhand': 'Swap',
-        'key.drop': 'Drop',
+        'key.attack': t('builder.keybinds.leftButton'),
+        'key.use': t('builder.keybinds.rightButton'),
+        'key.swapOffhand': t('builder.keybinds.swap'),
+        'key.drop': t('builder.keybinds.drop'),
     };
     return String(desc || '')
         .replace(/#\{([^}]+)\}/g, (match, group) => {
@@ -829,6 +822,14 @@ export default function BuildForm({
     itemsToDisplay,
     buildNameRef,
 }) {
+    const t = useTranslation();
+    const regions = [
+        { value: 1, label: t('builder.regions.valley') },
+        { value: 2, label: t('builder.regions.isles') },
+        { value: 3, label: t('builder.regions.ring') },
+        { value: 'dd', label: t('builder.regions.darkestDepths') },
+        { value: 'cz', label: t('builder.regions.celestialZenith') },
+    ];
     const [stats, setStats] = React.useState({});
     const [charms, setCharms] = React.useState([]);
     const { favouriteSet } = useItemFavourites();
@@ -1090,7 +1091,7 @@ export default function BuildForm({
     // Replaces the class/spec/skills portion of the form with a snapshot
     // (from a saved set or another build). Returns an error string or null.
     function applySkillPayload(payload) {
-        if (!payload || !payload.cl) return 'That set has no class.';
+        if (!payload || !payload.cl) return t('builder.sets.noClass');
         const sk = payload.sk && typeof payload.sk === 'object' ? { ...payload.sk } : {};
         const ssk = payload.ssk && typeof payload.ssk === 'object' ? { ...payload.ssk } : {};
         const en = payload.en && typeof payload.en === 'object' ? { ...payload.en } : {};
@@ -1112,7 +1113,7 @@ export default function BuildForm({
     // Replaces the delve infusions (and Revelation) with a delve snapshot.
     // Returns an error string or null.
     function applyDelvePayload(payload) {
-        if (!payload || typeof payload !== 'object') return 'That set is empty.';
+        if (!payload || typeof payload !== 'object') return t('builder.sets.empty');
         const infusions = payload.infusions && typeof payload.infusions === 'object' ? { ...payload.infusions } : {};
         const points = payload.points && typeof payload.points === 'object' ? { ...payload.points } : {};
         setDelveInfusions(infusions);
@@ -1142,7 +1143,7 @@ export default function BuildForm({
     // and reuse the same apply path.
     async function copyBuildSkills(build) {
         const parsed = build && build.token ? decodeSkillsFromToken(build.token, itemData) : null;
-        if (!parsed) return 'Could not read that build.';
+        if (!parsed) return t('builder.sets.couldNotReadBuild');
         return applySkillPayload(parsed);
     }
 
@@ -1269,7 +1270,7 @@ export default function BuildForm({
                     value={cur ? { value: cur, label: cur } : null}
                     onChange={(opt) => delveChanged(slot, opt)}
                     onMenuClose={() => setTip(null)}
-                    placeholder="Infusion"
+                    placeholder={t('builder.infusions.placeholder')}
                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                     menuPosition="fixed"
                     theme={infusionSelectTheme}
@@ -1289,7 +1290,7 @@ export default function BuildForm({
                         menuPosition="fixed"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
-                        aria-label={`${cur} level`}
+                        aria-label={`${cur} ${t('builder.infusions.level')}`}
                     />
                 )}
             </div>
@@ -1415,7 +1416,7 @@ export default function BuildForm({
                     value={cur ? { value: cur.name, label: cur.name } : null}
                     onChange={(opt) => basicChanged(slot, opt)}
                     onMenuClose={() => setTip(null)}
-                    placeholder="Infusion"
+                    placeholder={t('builder.infusions.placeholder')}
                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                     menuPosition="fixed"
                     theme={infusionSelectTheme}
@@ -1435,7 +1436,7 @@ export default function BuildForm({
                         menuPosition="fixed"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
-                        aria-label={`${cur.name} level`}
+                        aria-label={`${cur.name} ${t('builder.infusions.level')}`}
                     />
                 )}
             </div>
@@ -1887,28 +1888,28 @@ export default function BuildForm({
     function copyBuildDiscord(event) {
         saveBuildToServer()
             .then((link) => {
-                event.target.value = 'Copied!';
+                event.target.value = t('common.copied');
                 event.target.classList.add('fw-bold');
                 setTimeout(() => {
-                    event.target.value = 'Copy link for Discord';
+                    event.target.value = t('builder.buttons.copyLinkForDiscord');
                     event.target.classList.remove('fw-bold');
                 }, 3000);
                 if (!navigator.clipboard) {
-                    window.alert("Couldn't copy build to clipboard. Sadness. :(");
+                    window.alert(t('builder.errors.clipboardCopyFailed'));
                     return;
                 }
                 const classLabel = gameClass != 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : null;
                 const regionLabel =
                     czOpen && regionValue === 2
-                        ? 'Darkest Depths'
+                        ? t('builder.regions.darkestDepths')
                         : czOpen && regionValue === 3
-                          ? 'Celestial Zenith'
+                          ? t('builder.regions.celestialZenith')
                           : `R${regionValue}`;
                 const tempBuildName =
                     buildNameRef.current && buildNameRef.current != 'Monumenta Builder'
                         ? buildNameRef.current
                         : classLabel
-                          ? `${regionLabel} ${spec || classLabel} build`
+                          ? `${regionLabel} ${spec || classLabel} ${t('builder.misc.build')}`
                           : 'Monumenta Builder';
                 navigator.clipboard.writeText(`[${tempBuildName}](${link})`).then(
                     function () {
@@ -3156,8 +3157,8 @@ export default function BuildForm({
                                 type="button"
                                 className={styles.charmRemoveButton}
                                 onClick={() => removeCharm(charm)}
-                                aria-label={`Remove ${charm.name}`}
-                                title="Remove charm"
+                                aria-label={`${t('common.remove')} ${charm.name}`}
+                                title={t('builder.charms.removeCharm')}
                             >
                                 ×
                             </button>
@@ -3179,7 +3180,7 @@ export default function BuildForm({
                         aria-expanded={charmStatsOpen}
                         onClick={() => setCharmStatsOpen((o) => !o)}
                     >
-                        <span className={styles.charmTotalsTitle}>Charm Stats</span>
+                        <span className={styles.charmTotalsTitle}>{t('builder.charms.statsTitle')}</span>
                         <span className={styles.charmTotalsChevron}>❯</span>
                     </button>
                     {charmStatsOpen && (
@@ -3226,10 +3227,7 @@ export default function BuildForm({
                         <p className="mb-1">
                             <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
                         </p>
-                        <span className={styles.enchantTooltipText}>
-                            Current health as a % of your max health. Lower values preview low-HP effects (Steadfast,
-                            Second Wind, ...).
-                        </span>
+                        <span className={styles.enchantTooltipText}>{t('builder.misc.maxHealthPercentTooltip')}</span>
                     </div>
                     <div className={styles.healthSliderRow}>
                         <input
@@ -3256,7 +3254,7 @@ export default function BuildForm({
                             onChange={(e) => statInputChanged('health', e)}
                             onBlur={healthPercentBlur}
                             className={styles.healthPercentInput}
-                            aria-label="Max health percent"
+                            aria-label={t('builder.misc.maxHealthPercentAria')}
                         />
                         <span className={styles.healthPoints}>
                             {Number.isFinite(itemsToDisplay.currentHealth)
@@ -3302,9 +3300,9 @@ export default function BuildForm({
                             type="checkbox"
                             checked={multipliersOpen}
                             onChange={(e) => setMultipliersOpen(e.target.checked)}
-                            aria-label="Extra multipliers"
+                            aria-label={t('builder.misc.extraMultipliers')}
                         />
-                        Multipliers
+                        {t('builder.misc.multipliers')}
                     </label>
                 </div>
             </div>
@@ -3314,7 +3312,7 @@ export default function BuildForm({
                         key={`damage-${multiplierListKey}`}
                         update={damageMultipliersChanged}
                         translatableName="builder.multipliers.damage"
-                        description="Extra multiplier applied to your outgoing damage (1.10 = +10%)."
+                        description={t('builder.multipliers.damage.description')}
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3322,7 +3320,7 @@ export default function BuildForm({
                         key={`resistance-${multiplierListKey}`}
                         update={resistanceMultipliersChanged}
                         translatableName="builder.multipliers.resistance"
-                        description="Extra multiplier applied to damage you take (0.90 = 10% less damage taken)."
+                        description={t('builder.multipliers.resistance.description')}
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3330,7 +3328,7 @@ export default function BuildForm({
                         key={`health-${multiplierListKey}`}
                         update={healthMultipliersChanged}
                         translatableName="builder.multipliers.health"
-                        description="Extra multiplier applied to your max health (1.10 = +10% health)."
+                        description={t('builder.multipliers.health.description')}
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3338,7 +3336,7 @@ export default function BuildForm({
                         key={`speed-${multiplierListKey}`}
                         update={speedMultipliersChanged}
                         translatableName="builder.multipliers.speed"
-                        description="Extra multiplier applied to your movement speed."
+                        description={t('builder.multipliers.speed.description')}
                     ></ListSelector>
                 </div>
                 <div className="col-12 col-md-6 col-lg-2">
@@ -3346,7 +3344,7 @@ export default function BuildForm({
                         key={`attackSpeed-${multiplierListKey}`}
                         update={attackSpeedMultipliersChanged}
                         translatableName="builder.multipliers.attackSpeed"
-                        description="Extra multiplier applied to your attack speed."
+                        description={t('builder.multipliers.attackSpeed.description')}
                     ></ListSelector>
                 </div>
             </div>
@@ -3371,7 +3369,7 @@ export default function BuildForm({
                                         if (found) triggerRedX();
                                         setNotesDraft(cleaned);
                                     }}
-                                    placeholder="Add notes about this build..."
+                                    placeholder={t('builder.notes.placeholder')}
                                     rows={3}
                                     maxLength={500}
                                 />
@@ -3385,22 +3383,24 @@ export default function BuildForm({
                                                 disabled={notesSaveState === 'saving'}
                                             >
                                                 {notesSaveState === 'saving'
-                                                    ? 'Saving...'
+                                                    ? t('builder.notes.saving')
                                                     : notesSaveState === 'saved'
-                                                      ? 'Saved!'
-                                                      : 'Save notes'}
+                                                      ? t('builder.notes.saved')
+                                                      : t('builder.notes.saveNotes')}
                                             </button>
                                             {notesSaveState === 'saved' && (
-                                                <span className={styles.buildNotesSaved}>Notes saved!</span>
+                                                <span className={styles.buildNotesSaved}>
+                                                    {t('builder.notes.savedMessage')}
+                                                </span>
                                             )}
                                             {notesSaveState === 'error' && (
-                                                <span className={styles.importError}>Could not save the notes.</span>
+                                                <span className={styles.importError}>
+                                                    {t('builder.notes.saveError')}
+                                                </span>
                                             )}
                                         </>
                                     ) : (
-                                        <span className={styles.buildNotesHint}>
-                                            Notes are saved together with your build.
-                                        </span>
+                                        <span className={styles.buildNotesHint}>{t('builder.notes.hint')}</span>
                                     )}
                                 </div>
                             </>
@@ -3430,7 +3430,7 @@ export default function BuildForm({
             <div className={`${styles.builderTopRow} mb-1`}>
                 <div className="d-flex flex-wrap align-items-center">
                     <div className="me-3">
-                        <FloatingLabel label="Region">
+                        <FloatingLabel label={t('builder.misc.region')}>
                             <Select
                                 instanceId="this-is-just-here-so-react-doesnt-yell-at-me"
                                 id="region"
@@ -3439,9 +3439,9 @@ export default function BuildForm({
                                 options={regions}
                                 value={
                                     czOpen && regionValue === 2
-                                        ? { value: 2, label: 'Darkest Depths' }
+                                        ? { value: 2, label: t('builder.regions.darkestDepths') }
                                         : czOpen && regionValue === 3
-                                          ? { value: 3, label: 'Celestial Zenith' }
+                                          ? { value: 3, label: t('builder.regions.celestialZenith') }
                                           : regions.find((r) => r.value === regionValue)
                                 }
                                 menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
@@ -3481,7 +3481,7 @@ export default function BuildForm({
                     </div>
                     {czOpen ? (
                         <div className={styles.czTreeSelector}>
-                            <FloatingLabel label="Tree">
+                            <FloatingLabel label={t('builder.misc.tree')}>
                                 <Select
                                     instanceId="cz-tree"
                                     name="czTree"
@@ -3528,7 +3528,7 @@ export default function BuildForm({
                             <SelectInput
                                 key={`class-${classSelectKey}`}
                                 name="class"
-                                floatingLabel="Class"
+                                floatingLabel={t('builder.misc.class')}
                                 noneOption={true}
                                 sortableStats={classes}
                                 default={
@@ -3550,7 +3550,7 @@ export default function BuildForm({
                             <SelectInput
                                 key={`spec-${specSelectKey}`}
                                 name="spec"
-                                floatingLabel="Specialization"
+                                floatingLabel={t('database.filters.spec')}
                                 noneOption={true}
                                 sortableStats={currentSpecOptions}
                                 default={spec ? { value: spec, label: spec } : undefined}
@@ -3563,18 +3563,18 @@ export default function BuildForm({
                             type="checkbox"
                             checked={delveOpen}
                             onChange={(e) => setDelveOpen(e.target.checked)}
-                            aria-label="Delve Infusions"
+                            aria-label={t('builder.misc.delveInfusions')}
                         />
-                        Delve Infusions
+                        {t('builder.misc.delveInfusions')}
                     </label>
                     <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''} ms-3`}>
                         <input
                             type="checkbox"
                             checked={basicOpen}
                             onChange={(e) => setBasicOpen(e.target.checked)}
-                            aria-label="Infusions"
+                            aria-label={t('builder.misc.infusions')}
                         />
-                        Infusions
+                        {t('builder.misc.infusions')}
                     </label>
                     <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
                         <input
@@ -3583,9 +3583,9 @@ export default function BuildForm({
                             value="1"
                             checked={revelation}
                             onChange={revelationChanged}
-                            aria-label="Revelation"
+                            aria-label={t('builder.misc.revelation')}
                         />
-                        Revelation
+                        {t('builder.misc.revelation')}
                     </label>
                 </div>
                 <BuilderHeader
@@ -3605,7 +3605,7 @@ export default function BuildForm({
                         onClick={() => setSetsOpen(true)}
                         aria-haspopup="dialog"
                     >
-                        Skill sets
+                        {t('builder.sets.skillSets')}
                     </button>
                 </div>
             </div>
@@ -3616,16 +3616,16 @@ export default function BuildForm({
                         className={styles.setsModalDialog}
                         role="dialog"
                         aria-modal="true"
-                        aria-label="Skill sets"
+                        aria-label={t('builder.sets.skillSets')}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className={styles.setsModalHead}>
-                            <span className={styles.setsModalTitle}>Skill sets</span>
+                            <span className={styles.setsModalTitle}>{t('builder.sets.skillSets')}</span>
                             <button
                                 type="button"
                                 className={styles.setsModalClose}
                                 onClick={() => setSetsOpen(false)}
-                                aria-label="Close"
+                                aria-label={t('common.close')}
                             >
                                 ✕
                             </button>
@@ -3646,25 +3646,25 @@ export default function BuildForm({
                     <div className="col-12">
                         <div className={styles.skillsSection}>
                             <div className={styles.skillsHeader}>
-                                <span className={styles.skillsTitle}>Skills</span>{' '}
+                                <span className={styles.skillsTitle}>{t('builder.skills.title')}</span>{' '}
                                 <span className={styles.skillTotal}>
                                     {Object.values(skillPoints).reduce((sum, pts) => sum + pts, 0)} / {MAX_SKILL_POINTS}{' '}
-                                    skill points spent
+                                    {t('builder.skills.pointsSpent')}
                                 </span>
                                 {regionValue >= 3 && (
                                     <span className={styles.skillTotal}>
-                                        {Object.keys(enhancements).length} / {MAX_ENHANCEMENT_POINTS} enhancement points
-                                        used
+                                        {Object.keys(enhancements).length} / {MAX_ENHANCEMENT_POINTS}{' '}
+                                        {t('builder.skills.enhancementPointsUsed')}
                                     </span>
                                 )}
                                 {Object.values(skillPoints).reduce((sum, pts) => sum + pts, 0) > MAX_SKILL_POINTS && (
                                     <span className="text-danger fw-bold">
-                                        More than {MAX_SKILL_POINTS} skill points!
+                                        {t('builder.skills.tooManySkillPoints')}
                                     </span>
                                 )}
                                 {Object.keys(enhancements).length > MAX_ENHANCEMENT_POINTS && (
                                     <span className="text-danger fw-bold">
-                                        More than {MAX_ENHANCEMENT_POINTS} enhancement points!
+                                        {t('builder.skills.tooManyEnhancementPoints')}
                                     </span>
                                 )}
                                 <button
@@ -3672,11 +3672,11 @@ export default function BuildForm({
                                     className={styles.skillActionButton}
                                     onClick={() => setAllSkillPoints(false)}
                                 >
-                                    Clear all
+                                    {t('builder.skills.clearAll')}
                                 </button>
                             </div>
                             {!skillsData ? (
-                                <div className={styles.skillsLoading}>Loading skills...</div>
+                                <div className={styles.skillsLoading}>{t('builder.skills.loading')}</div>
                             ) : (
                                 <div className={styles.skillsGrid}>
                                     {classSkillList.map((skill) => {
@@ -3722,7 +3722,7 @@ export default function BuildForm({
                                                         startSkillDrag(classOrderContainer, skill.scoreboardId, e)
                                                     }
                                                     onDragEnd={endSkillDrag}
-                                                    title="Drag to reorder"
+                                                    title={t('builder.skills.dragToReorder')}
                                                 >
                                                     ⠿
                                                 </span>
@@ -3747,7 +3747,7 @@ export default function BuildForm({
                                                             type="checkbox"
                                                             checked={points > i}
                                                             onChange={() => skillPointClicked(skill.scoreboardId, i)}
-                                                            aria-label={`${skill.displayName} point ${i + 1}`}
+                                                            aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
                                                             title={[cleanDescription((skill.descriptions || [])[i])]
                                                                 .filter(Boolean)
                                                                 .join('\n\n')}
@@ -3763,10 +3763,10 @@ export default function BuildForm({
                                                         onChange={(e) =>
                                                             enhancementToggled(skill.scoreboardId, e.target.checked)
                                                         }
-                                                        aria-label={`${skill.displayName} enhancement`}
+                                                        aria-label={`${skill.displayName} ${t('builder.skills.enhancement')}`}
                                                         title={
                                                             points < 1
-                                                                ? `${skill.displayName} Enhancement\nEnhancement requires at least 1 point`
+                                                                ? `${skill.displayName} ${t('builder.skills.enhancementTitle')}\n${t('builder.skills.enhancementRequiresPoint')}`
                                                                 : [
                                                                       cleanDescription(
                                                                           (skill.descriptions || [])[maxPoints]
@@ -3793,16 +3793,16 @@ export default function BuildForm({
                     <div className="col-12">
                         <div className={styles.skillsSection}>
                             <div className={styles.skillsHeader}>
-                                <span className={styles.skillsTitle}>{spec} Specialization</span>
+                                <span className={styles.skillsTitle}>
+                                    {spec} {t('database.filters.spec')}
+                                </span>
                                 <span className={styles.skillTotal}>
                                     {Object.values(specSkillPoints).reduce((sum, pts) => sum + pts, 0)} /{' '}
-                                    {MAX_SPEC_POINTS} specialization points spent
+                                    {MAX_SPEC_POINTS} {t('builder.skills.specPointsSpent')}
                                 </span>
                                 {Object.values(specSkillPoints).reduce((sum, pts) => sum + pts, 0) >
                                     MAX_SPEC_POINTS && (
-                                    <span className="text-danger fw-bold">
-                                        More than {MAX_SPEC_POINTS} specialization points!
-                                    </span>
+                                    <span className="text-danger fw-bold">{t('builder.skills.tooManySpecPoints')}</span>
                                 )}
                             </div>
                             <div className={styles.skillsGrid}>
@@ -3847,7 +3847,7 @@ export default function BuildForm({
                                                     startSkillDrag(specOrderContainer, skill.scoreboardId, e)
                                                 }
                                                 onDragEnd={endSkillDrag}
-                                                title="Drag to reorder"
+                                                title={t('builder.skills.dragToReorder')}
                                             >
                                                 ⠿
                                             </span>
@@ -3872,7 +3872,7 @@ export default function BuildForm({
                                                         type="checkbox"
                                                         checked={points > i}
                                                         onChange={() => specSkillPointClicked(skill.scoreboardId, i)}
-                                                        aria-label={`${skill.displayName} point ${i + 1}`}
+                                                        aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
                                                         title={[cleanDescription((skill.descriptions || [])[i])]
                                                             .filter(Boolean)
                                                             .join('\n\n')}
@@ -3893,31 +3893,36 @@ export default function BuildForm({
                         <div className={styles.czSection}>
                             <div className={styles.skillsHeader}>
                                 <span className={styles.skillsTitle}>
-                                    {regionValue === 2 ? 'Darkest Depths' : 'Celestial Zenith'}
+                                    {regionValue === 2
+                                        ? t('builder.regions.darkestDepths')
+                                        : t('builder.regions.celestialZenith')}
                                 </span>
                                 <span className={styles.skillTotal}>
                                     {regionValue === 3 ? (
                                         <>
-                                            {czActiveCount} / 4 active abilities
+                                            {czActiveCount} / 4 {t('builder.cz.activeAbilities')}
                                             {czActiveCount > 4 && (
                                                 <span className="text-danger fw-bold">
                                                     {' '}
-                                                    You can't use more than 4 actives above ascension 12!
+                                                    {t('builder.cz.tooManyActives')}
                                                 </span>
                                             )}
                                         </>
                                     ) : (
                                         <>
-                                            {czActiveCount} active {czActiveCount === 1 ? 'ability' : 'abilities'}
+                                            {czActiveCount}{' '}
+                                            {czActiveCount === 1
+                                                ? t('builder.cz.activeAbility')
+                                                : t('builder.cz.activeAbilities')}
                                         </>
                                     )}
                                 </span>
                                 <button type="button" className={styles.skillActionButton} onClick={clearCz}>
-                                    Clear all
+                                    {t('builder.skills.clearAll')}
                                 </button>
                             </div>
                             {!czData ? (
-                                <div className={styles.skillsLoading}>Loading abilities...</div>
+                                <div className={styles.skillsLoading}>{t('builder.cz.loading')}</div>
                             ) : (
                                 czActiveTree && (
                                     <div className={styles.czTreeSkills}>
@@ -3943,10 +3948,8 @@ export default function BuildForm({
                                                 );
                                             const tooltip = [
                                                 `${ability.name} (${ability.trigger})`,
-                                                formatCzDescription(desc),
-                                                triggerTaken
-                                                    ? 'Already using another ability with this trigger!'
-                                                    : null,
+                                                formatCzDescription(desc, t),
+                                                triggerTaken ? t('builder.cz.triggerTaken') : null,
                                             ]
                                                 .filter(Boolean)
                                                 .join('\n\n');
@@ -3990,7 +3993,7 @@ export default function BuildForm({
                                                             startSkillDrag(czOrderContainer, ability.name, e)
                                                         }
                                                         onDragEnd={endSkillDrag}
-                                                        title="Drag to reorder"
+                                                        title={t('builder.skills.dragToReorder')}
                                                     >
                                                         ⠿
                                                     </span>
@@ -4031,7 +4034,7 @@ export default function BuildForm({
                         id="copyLinkForDiscord"
                         onClick={copyBuildDiscord}
                         disabled={!buildContentReady}
-                        title={buildContentReady ? '' : 'Equip some items first - an empty build has nothing to share.'}
+                        title={buildContentReady ? '' : t('builder.buttons.shareDisabled')}
                     >
                         <TranslatableText identifier="builder.buttons.copyLinkForDiscord"></TranslatableText>
                     </button>
@@ -4043,9 +4046,13 @@ export default function BuildForm({
                         id="saveBuild"
                         onClick={() => saveBuildToServer()}
                         disabled={!buildContentReady || saveState === 'saving'}
-                        title={buildContentReady ? '' : 'Equip some items first - an empty build has nothing to save.'}
+                        title={buildContentReady ? '' : t('builder.buttons.saveDisabled')}
                     >
-                        {saveState === 'saving' ? 'Saving...' : saveState === 'copied' ? 'Copied!' : 'Copy/Save'}
+                        {saveState === 'saving'
+                            ? t('builder.buttons.saving')
+                            : saveState === 'copied'
+                              ? t('common.copied')
+                              : t('builder.buttons.copySave')}
                     </button>
                 </div>
                 {activeBuildId && (
@@ -4058,11 +4065,11 @@ export default function BuildForm({
                             disabled={!buildContentReady || saveState === 'saving'}
                             title={
                                 buildContentReady
-                                    ? "Keep this build's link unchanged and save the current edits as a new build"
-                                    : 'Equip some items first - an empty build has nothing to copy.'
+                                    ? t('builder.buttons.saveAsNewCopyTitle')
+                                    : t('builder.buttons.copyDisabled')
                             }
                         >
-                            Save as new copy
+                            {t('builder.buttons.saveAsNewCopy')}
                         </button>
                     </div>
                 )}
@@ -4070,16 +4077,14 @@ export default function BuildForm({
                     <input
                         type="button"
                         className={styles.resetButton}
-                        value={resetConfirm ? 'Confirm' : 'Reset'}
+                        value={resetConfirm ? t('common.confirm') : t('common.reset')}
                         onClick={handleResetClick}
-                        aria-label="Reset build"
+                        aria-label={t('builder.buttons.resetBuild')}
                     />
                 </div>
             </div>
             <p className={styles.saveStatus} role="status">
-                {activeBuildId
-                    ? 'Editing a saved build - "Copy/Save" updates this build in place.'
-                    : 'Unsaved build - "Copy/Save" creates a new share link.'}
+                {activeBuildId ? t('builder.status.editingSaved') : t('builder.status.unsaved')}
             </p>
             {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
@@ -4112,7 +4117,7 @@ export default function BuildForm({
                             className={`${styles.favBtn}${favState.favourite ? ` ${styles.favBtnOn}` : ''}`}
                             onClick={toggleFavourite}
                             disabled={favBusy}
-                            aria-label="Toggle favourite"
+                            aria-label={t('builder.buttons.toggleFavourite')}
                         >
                             <svg viewBox="0 0 512 512" width="14" height="14" aria-hidden="true">
                                 <path
@@ -4150,21 +4155,18 @@ export default function BuildForm({
                     aria-live="polite"
                 >
                     {saveState === 'error' ? (
-                        'Could not save the build.'
+                        t('builder.errors.saveFailed')
                     ) : saveState === 'duplicate' ? (
-                        <b>A saved build already uses this name - pick another one.</b>
+                        <b>{t('builder.errors.duplicateName')}</b>
                     ) : savedAnonymous ? (
                         <>
-                            <b>Saved, but not to your account!</b>
-                            <span>
-                                You won't see this build on your "My Builds" page. Log in with Discord to keep it there
-                                - the link still works for anyone.
-                            </span>
+                            <b>{t('builder.status.notSavedToAccount')}</b>
+                            <span>{t('builder.status.notSavedToAccountHint')}</span>
                         </>
                     ) : (
                         <>
-                            <b>Saved build!</b>
-                            <span>Copied link to clipboard.</span>
+                            <b>{t('builder.status.savedBuild')}</b>
+                            <span>{t('builder.status.copiedLink')}</span>
                         </>
                     )}
                 </div>

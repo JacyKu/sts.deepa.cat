@@ -9,6 +9,7 @@ import { formatDateString } from '../../utils/dateFormat';
 import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { statSnapshot } from '../../utils/items/statFormatter';
+import { useTranslation } from '../useTranslation';
 
 const TOP_LEVEL_TEXT_KEYS = ['type', 'tier', 'region', 'location', 'base_item', 'original_item'];
 const COMPLEX_KEYS = ['lore', 'mmlore', 'effects'];
@@ -218,6 +219,7 @@ function DiffLine({ line }) {
 }
 
 function VersionRow({ record, afterItem }) {
+    const t = useTranslation();
     const statLines = diffStats(record.item, afterItem);
     const topLines = topLevelDiffs(record.item, afterItem);
     if (statLines.length === 0 && topLines.length === 0) return null;
@@ -232,7 +234,7 @@ function VersionRow({ record, afterItem }) {
             {topLines.map((line, i) =>
                 line.complex ? (
                     <div key={`top-${i}`} className={styles.complexLine}>
-                        {line.key} changed
+                        {line.key} {t('items.history.changed')}
                     </div>
                 ) : (
                     <div key={`top-${i}`} className={styles.complexLine}>
@@ -264,6 +266,7 @@ function collectGroups(itemData, history) {
 }
 
 function ChangeGroup({ group }) {
+    const t = useTranslation();
     const [open, setOpen] = React.useState(false);
     const displayItem = group.current || group.records[group.records.length - 1].item;
     const changeCount = group.records.length;
@@ -306,9 +309,11 @@ function ChangeGroup({ group }) {
                         </Link>
                     </span>
                     <span className={styles.groupMeta}>
-                        {changeCount} {changeCount === 1 ? 'change' : 'changes'} · last{' '}
-                        {formatDateString(group.lastAt)}
-                        {group.removed && <span className={styles.removedChip}>no longer in game</span>}
+                        {changeCount} {changeCount === 1 ? t('items.history.change') : t('items.history.changes')} ·{' '}
+                        {t('items.history.last')} {formatDateString(group.lastAt)}
+                        {group.removed && (
+                            <span className={styles.removedChip}>{t('items.history.noLongerInGame')}</span>
+                        )}
                     </span>
                 </span>
                 <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
@@ -323,9 +328,9 @@ function ChangeGroup({ group }) {
                     })}
                     <div className={styles.currentRow}>
                         {group.removed ? (
-                            <span className={styles.versionDate}>Removed from the game</span>
+                            <span className={styles.versionDate}>{t('items.history.removedFromGame')}</span>
                         ) : (
-                            <span className={styles.currentBadge}>current stats</span>
+                            <span className={styles.currentBadge}>{t('items.history.currentStats')}</span>
                         )}
                     </div>
                 </div>
@@ -335,6 +340,7 @@ function ChangeGroup({ group }) {
 }
 
 export default function HistoryPage({ itemData, history }) {
+    const t = useTranslation();
     const groups = React.useMemo(() => collectGroups(itemData || {}, history), [itemData, history]);
     const totalRecords = groups.reduce((sum, g) => sum + g.records.length, 0);
     const updatedAt = history && history.updatedAt ? history.updatedAt : null;
@@ -342,19 +348,23 @@ export default function HistoryPage({ itemData, history }) {
     return (
         <div className={itemsStyles.container}>
             <main className={itemsStyles.main}>
-                <h1>Item Stat History</h1>
+                <h1>{t('items.history.title')}</h1>
                 <div className={styles.summaryLine}>
                     <Link href="/items" className={styles.backLink}>
-                        ← Back to items
+                        ← {t('items.history.backToItems')}
                     </Link>
                     {totalRecords > 0 && (
                         <span className={styles.summaryText}>
-                            {groups.length} changed item{groups.length === 1 ? '' : 's'} · {totalRecords} archived
-                            change{totalRecords === 1 ? '' : 's'}
+                            {groups.length}{' '}
+                            {groups.length === 1 ? t('items.history.changedItem') : t('items.history.changedItems')} ·{' '}
+                            {totalRecords}{' '}
+                            {totalRecords === 1
+                                ? t('items.history.archivedChange')
+                                : t('items.history.archivedChanges')}
                             {updatedAt ? (
                                 <span>
                                     {' '}
-                                    · last updated {formatDateString(updatedAt)}
+                                    · {t('items.history.lastUpdated')} {formatDateString(updatedAt)}
                                 </span>
                             ) : null}
                         </span>
@@ -362,7 +372,7 @@ export default function HistoryPage({ itemData, history }) {
                 </div>
                 {groups.length === 0 ? (
                     <div className={itemsStyles.emptyState}>
-                        <b>No stat history yet.</b>
+                        <b>{t('items.history.empty')}</b>
                     </div>
                 ) : (
                     <div className={styles.groupList}>

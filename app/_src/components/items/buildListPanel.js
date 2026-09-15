@@ -6,6 +6,25 @@ import styles from '../../styles/Items.module.css';
 import { getStsBase } from '../../utils/base';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
+import { useTranslation } from '../useTranslation';
+
+// Item types come from the item data; map them to the same `items.type.*`
+// keys the item tiles use, falling back to the raw value for unknown types.
+function camelCase(str) {
+    if (!str) return '';
+    return str
+        .replaceAll("'", '')
+        .replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+            return index == 0 ? word.toLowerCase() : word.toUpperCase();
+        })
+        .replace(/\s+/g, '');
+}
+
+function typeLabel(t, type) {
+    const key = `items.type.${camelCase(type)}`;
+    const label = t(key);
+    return label === key ? type : label;
+}
 
 // Collapsible "build list" panel pinned to the top-left of the items page.
 // Shows the collected items and imports them into the builder. Only exists
@@ -13,6 +32,7 @@ import { useBuildListEnabled } from './buildListEnabledContext';
 export default function BuildListPanel() {
     const { items, addCount, removeItem, clear } = useBuildList();
     const { enabled } = useBuildListEnabled();
+    const t = useTranslation();
     const [open, setOpen] = React.useState(true);
     const router = useRouter();
 
@@ -30,12 +50,14 @@ export default function BuildListPanel() {
     return (
         <div className={styles.listPanelWrap}>
             <div className={styles.listPanelHeader}>
-                <span className={styles.listPanelTitle}>Build list ({items.length})</span>
+                <span className={styles.listPanelTitle}>
+                    {t('items.buildList.title')} ({items.length})
+                </span>
                 <button
                     type="button"
                     className={styles.listCollapseBtn}
                     onClick={() => setOpen((o) => !o)}
-                    aria-label={open ? 'Collapse build list' : 'Expand build list'}
+                    aria-label={open ? t('items.buildList.collapse') : t('items.buildList.expand')}
                     aria-expanded={open}
                 >
                     {open ? '−' : '+'}
@@ -47,13 +69,17 @@ export default function BuildListPanel() {
                         <div className={styles.listRow} key={entry.name}>
                             <div className={styles.listRowInfo}>
                                 <span className={styles.listRowName}>{entry.name}</span>
-                                {entry.type ? <span className={styles.listRowDesc}>{entry.type}</span> : ''}
+                                {entry.type ? (
+                                    <span className={styles.listRowDesc}>{typeLabel(t, entry.type)}</span>
+                                ) : (
+                                    ''
+                                )}
                             </div>
                             <button
                                 type="button"
                                 className={styles.listRowRemove}
                                 onClick={() => removeItem(entry.name)}
-                                aria-label={`Remove ${entry.name} from build list`}
+                                aria-label={`${t('common.remove')} ${entry.name} ${t('items.buildList.fromBuildList')}`}
                             >
                                 ×
                             </button>
@@ -61,10 +87,10 @@ export default function BuildListPanel() {
                     ))}
                     <div className={styles.listPanelActions}>
                         <button type="button" className={styles.importButton} onClick={importList}>
-                            Import into builder
+                            {t('items.buildList.importIntoBuilder')}
                         </button>
                         <button type="button" className={styles.listClearButton} onClick={clear}>
-                            Clear
+                            {t('common.clear')}
                         </button>
                     </div>
                 </>

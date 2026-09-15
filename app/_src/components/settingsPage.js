@@ -3,7 +3,8 @@
 import React from 'react';
 import Select from 'react-select';
 import styles from '../styles/Account.module.css';
-import { FONT_ORDER, FONT_LABELS, FONT_STACKS } from './header';
+import { FONT_ORDER, FONT_STACKS } from './header';
+import { useTranslation } from './useTranslation';
 import BuilderLayoutToggle from './builderLayoutToggle';
 import CardItemsFirstToggle from './cardItemsFirstToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
@@ -93,12 +94,21 @@ const THEME_SWATCHES = {
         'radial-gradient(circle at 25% 30%, rgba(252, 244, 49, 0.5) 0%, transparent 55%), radial-gradient(circle at 75% 70%, rgba(156, 89, 209, 0.5) 0%, transparent 55%), linear-gradient(160deg, #ffffff 0%, #e7ecf7 60%, #cdd6ec 100%)',
 };
 
+// Translation keys for the font picker options (values live in header.js).
+const FONT_LABEL_KEYS = {
+    ubuntu: 'settings.fonts.default',
+    dyslexia: 'settings.fonts.dyslexia',
+    minecraft: 'settings.fonts.minecraft',
+    default: 'settings.fonts.legacy',
+    mono: 'settings.fonts.mono',
+};
+
 // Reads a picked file into a data URL.
 const readFileAsDataURL = (file) =>
     new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Could not read that image.'));
+        reader.onerror = () => reject(new Error('settings.errors.imageRead'));
         reader.readAsDataURL(file);
     });
 
@@ -116,7 +126,7 @@ async function optimizeImage(file) {
     const animated = file.type === 'image/gif' || file.type === 'image/webp';
     if (animated) {
         if (dataUrl.length > MAX_STORED_IMAGE) {
-            throw new Error('That image is too large to store in your browser (about 3.5MB max).');
+            throw new Error('settings.errors.imageTooLarge');
         }
         return dataUrl;
     }
@@ -124,7 +134,7 @@ async function optimizeImage(file) {
     const img = new Image();
     await new Promise((resolve, reject) => {
         img.onload = resolve;
-        img.onerror = () => reject(new Error('Could not read that image.'));
+        img.onerror = () => reject(new Error('settings.errors.imageRead'));
         img.src = dataUrl;
     });
     const maxSide = 1400;
@@ -141,6 +151,7 @@ async function optimizeImage(file) {
 // Site-wide look and behaviour settings. Available to everyone, logged in or
 // not; everything is stored in the browser.
 export default function SettingsPage() {
+    const t = useTranslation();
     const [themeState, setThemeState] = React.useState(null);
     const [font, setFont] = React.useState('ubuntu');
     const [headerTitle, setHeaderTitle] = React.useState('');
@@ -177,7 +188,7 @@ export default function SettingsPage() {
 
     const fontOptions = FONT_ORDER.map((value) => ({
         value,
-        label: FONT_LABELS[value],
+        label: t(FONT_LABEL_KEYS[value]),
         fontFamily: FONT_STACKS[value],
     }));
 
@@ -263,7 +274,7 @@ export default function SettingsPage() {
         event.target.value = '';
         if (!file) return;
         if (!file.type.startsWith('image/')) {
-            setImgNote('That file is not an image.');
+            setImgNote(t('settings.errors.notAnImage'));
             return;
         }
         optimizeImage(file)
@@ -271,7 +282,7 @@ export default function SettingsPage() {
                 setCustomImage(dataUrl);
                 setImgNote(null);
             })
-            .catch((err) => setImgNote(err && err.message ? err.message : 'Could not read that image.'));
+            .catch((err) => setImgNote(err && err.message ? t(err.message) : t('settings.errors.imageRead')));
     }
 
     function setFontValue(nextFont) {
@@ -318,8 +329,8 @@ export default function SettingsPage() {
     }
 
     const cbOptions = [
-        { value: '', label: 'Off' },
-        ...COLORBLIND_MODES.map((mode) => ({ value: mode, label: COLORBLIND_LABELS[mode] })),
+        { value: '', label: t('settings.colorblind.off') },
+        ...COLORBLIND_MODES.map((mode) => ({ value: mode, label: t(COLORBLIND_LABELS[mode]) })),
     ];
     const currentCb = cbOptions.find((option) => option.value === colorblind) || cbOptions[0];
 
@@ -341,18 +352,18 @@ export default function SettingsPage() {
 
     return (
         <main className={styles.page}>
-            <h1 className={styles.title}>Settings</h1>
-            <nav className={styles.tabs} aria-label="Account navigation">
+            <h1 className={styles.title}>{t('settings.title')}</h1>
+            <nav className={styles.tabs} aria-label={t('account.navigation')}>
                 <a className={styles.tab} href="/account">
-                    My Account
+                    {t('auth.myAccount')}
                 </a>
                 <span className={`${styles.tab} ${styles.tabActive}`} aria-current="page">
-                    Site settings
+                    {t('settings.siteSettings')}
                 </span>
             </nav>
 
             <section className={styles.card}>
-                <h2 className={styles.cardTitle}>Appearance</h2>
+                <h2 className={styles.cardTitle}>{t('settings.appearance')}</h2>
                 <div className={styles.themeGrid}>
                     {THEME_VALUES.map((value) => (
                         <button
@@ -367,7 +378,7 @@ export default function SettingsPage() {
                                 style={{ '--swatch-bg': THEME_SWATCHES[value] }}
                                 aria-hidden="true"
                             />
-                            {THEME_LABELS[value]}
+                            {t(THEME_LABELS[value])}
                         </button>
                     ))}
                 </div>
@@ -376,18 +387,18 @@ export default function SettingsPage() {
                         type="checkbox"
                         checked={round}
                         onChange={(e) => setRound(e.target.checked)}
-                        aria-label="Round corners"
+                        aria-label={t('settings.roundCorners')}
                     />
-                    Round corners
+                    {t('settings.roundCorners')}
                 </label>
                 <div className={styles.accentRow}>
                     <label className={styles.colourPicker}>
-                        Accent colour
+                        {t('settings.accentColour')}
                         <input
                             type="color"
                             value={themeState?.glassAccent || '#9c59d1'}
                             onChange={(e) => setAccent(e.target.value)}
-                            aria-label="Accent colour"
+                            aria-label={t('settings.accentColour')}
                         />
                     </label>
                     {themeState?.glassAccent && (
@@ -395,15 +406,15 @@ export default function SettingsPage() {
                             type="button"
                             className={styles.colourRemove}
                             onClick={resetAccent}
-                            aria-label="Reset accent colour"
+                            aria-label={t('settings.resetAccentColour')}
                         >
-                            Follow scheme
+                            {t('settings.followScheme')}
                         </button>
                     )}
                 </div>
                 {glassActive && (
                     <div className={styles.glassColours}>
-                        <h4 className={styles.colourGroup}>Pride</h4>
+                        <h4 className={styles.colourGroup}>{t('settings.colours.pride')}</h4>
                         <div className={styles.colourList}>
                             {GLASS_PRIDE_SCHEMES.map((scheme) => (
                                 <button
@@ -411,8 +422,8 @@ export default function SettingsPage() {
                                     type="button"
                                     className={`${styles.colourChip}${glassScheme === scheme ? ` ${styles.colourChipActive}` : ''}`}
                                     aria-pressed={glassScheme === scheme}
-                                    aria-label={glassSchemeLabel(scheme)}
-                                    title={glassSchemeLabel(scheme)}
+                                    aria-label={t(glassSchemeLabel(scheme))}
+                                    title={t(glassSchemeLabel(scheme))}
                                     onClick={() => setGlassScheme(scheme)}
                                 >
                                     <span
@@ -422,11 +433,11 @@ export default function SettingsPage() {
                                         }}
                                         aria-hidden="true"
                                     />
-                                    {glassSchemeLabel(scheme)}
+                                    {t(glassSchemeLabel(scheme))}
                                 </button>
                             ))}
                         </div>
-                        <h4 className={styles.colourGroup}>Colours</h4>
+                        <h4 className={styles.colourGroup}>{t('settings.colours.colours')}</h4>
                         <div className={styles.colourList}>
                             {GLASS_BASIC_SCHEMES.map((scheme) => (
                                 <button
@@ -434,8 +445,8 @@ export default function SettingsPage() {
                                     type="button"
                                     className={`${styles.colourChip}${glassScheme === scheme ? ` ${styles.colourChipActive}` : ''}`}
                                     aria-pressed={glassScheme === scheme}
-                                    aria-label={glassSchemeLabel(scheme)}
-                                    title={glassSchemeLabel(scheme)}
+                                    aria-label={t(glassSchemeLabel(scheme))}
+                                    title={t(glassSchemeLabel(scheme))}
                                     onClick={() => setGlassScheme(scheme)}
                                 >
                                     <span
@@ -445,15 +456,15 @@ export default function SettingsPage() {
                                         }}
                                         aria-hidden="true"
                                     />
-                                    {glassSchemeLabel(scheme)}
+                                    {t(glassSchemeLabel(scheme))}
                                 </button>
                             ))}
                             <button
                                 type="button"
                                 className={`${styles.colourChip}${customActive ? ` ${styles.colourChipActive}` : ''}`}
                                 aria-pressed={customActive}
-                                aria-label="Custom"
-                                title="Pick your own colours"
+                                aria-label={t('settings.glassScheme.custom')}
+                                title={t('settings.pickColours')}
                                 onClick={() => setGlassScheme(CUSTOM_SCHEME)}
                             >
                                 <span
@@ -466,10 +477,10 @@ export default function SettingsPage() {
                                     }}
                                     aria-hidden="true"
                                 />
-                                Custom
+                                {t('settings.glassScheme.custom')}
                             </button>
                         </div>
-                        <h4 className={styles.colourGroup}>Backdrops</h4>
+                        <h4 className={styles.colourGroup}>{t('settings.colours.backdrops')}</h4>
                         <div className={styles.colourList}>
                             {GLASS_EXTRA_SCHEMES.map((scheme) => {
                                 const isMyImage = scheme === 'customimg';
@@ -481,8 +492,8 @@ export default function SettingsPage() {
                                             glassScheme === scheme ? ` ${styles.colourChipActive}` : ''
                                         }`}
                                         aria-pressed={glassScheme === scheme}
-                                        aria-label={isMyImage ? 'My image' : glassSchemeLabel(scheme)}
-                                        title={isMyImage ? 'Your own picture' : glassSchemeLabel(scheme)}
+                                        aria-label={isMyImage ? t('settings.myImage') : t(glassSchemeLabel(scheme))}
+                                        title={isMyImage ? t('settings.yourOwnPicture') : t(glassSchemeLabel(scheme))}
                                         onClick={() => setGlassScheme(scheme)}
                                     >
                                         <span
@@ -499,7 +510,7 @@ export default function SettingsPage() {
                                             }}
                                             aria-hidden="true"
                                         />
-                                        {isMyImage ? 'My image' : glassSchemeLabel(scheme)}
+                                        {isMyImage ? t('settings.myImage') : t(glassSchemeLabel(scheme))}
                                     </button>
                                 );
                             })}
@@ -507,12 +518,12 @@ export default function SettingsPage() {
                         {glassScheme === 'customimg' && (
                             <div className={styles.uploadRow}>
                                 <label className={styles.uploadButton}>
-                                    {glassCustomImage ? 'Replace image' : 'Choose an image'}
+                                    {glassCustomImage ? t('settings.replaceImage') : t('settings.chooseImage')}
                                     <input
                                         type="file"
                                         accept="image/*"
                                         onChange={handleImageFile}
-                                        aria-label="Choose backdrop image"
+                                        aria-label={t('settings.chooseBackdropImage')}
                                     />
                                 </label>
                                 {glassCustomImage && (
@@ -520,17 +531,15 @@ export default function SettingsPage() {
                                         type="button"
                                         className={styles.colourRemove}
                                         onClick={removeCustomImage}
-                                        aria-label="Remove backdrop image"
+                                        aria-label={t('settings.removeBackdropImage')}
                                     >
-                                        Remove
+                                        {t('common.remove')}
                                     </button>
                                 )}
                                 {imgNote ? (
                                     <span className={styles.uploadNote}>{imgNote}</span>
                                 ) : (
-                                    <span className={styles.uploadNote}>
-                                        Stored in this browser only - never uploaded.
-                                    </span>
+                                    <span className={styles.uploadNote}>{t('settings.imageStoredLocally')}</span>
                                 )}
                             </div>
                         )}
@@ -540,12 +549,12 @@ export default function SettingsPage() {
                                     {glassCustom.map((color, i) => (
                                         <div key={i} className={styles.colourPickerRow}>
                                             <label className={styles.colourPicker}>
-                                                Colour {i + 1}
+                                                {t('settings.colourNumber')} {i + 1}
                                                 <input
                                                     type="color"
                                                     value={color}
                                                     onChange={(e) => setCustomColor(i, e.target.value)}
-                                                    aria-label={`Backdrop colour ${i + 1}`}
+                                                    aria-label={`${t('settings.backdropColour')} ${i + 1}`}
                                                 />
                                             </label>
                                             {glassCustom.length > 1 && (
@@ -553,9 +562,9 @@ export default function SettingsPage() {
                                                     type="button"
                                                     className={styles.colourRemove}
                                                     onClick={() => removeCustomColor(i)}
-                                                    aria-label={`Remove colour ${i + 1}`}
+                                                    aria-label={`${t('settings.removeColour')} ${i + 1}`}
                                                 >
-                                                    Remove
+                                                    {t('common.remove')}
                                                 </button>
                                             )}
                                         </div>
@@ -563,7 +572,7 @@ export default function SettingsPage() {
                                 </div>
                                 {glassCustom.length < MAX_GLASS_CUSTOM_COLORS && (
                                     <button type="button" className={styles.colourAdd} onClick={addCustomColor}>
-                                        Add colour
+                                        {t('settings.addColour')}
                                     </button>
                                 )}
                             </div>
@@ -575,24 +584,24 @@ export default function SettingsPage() {
                                         type="checkbox"
                                         checked={glassAnim}
                                         onChange={(e) => setGlassAnim(e.target.checked)}
-                                        aria-label="Animate glass backdrop"
+                                        aria-label={t('settings.animateGlassBackdrop')}
                                     />
-                                    Animate backdrop
+                                    {t('settings.animateBackdrop')}
                                 </label>
                                 <label className={styles.themeToggleRow}>
                                     <input
                                         type="checkbox"
                                         checked={glassFlag}
                                         onChange={(e) => setGlassFlag(e.target.checked)}
-                                        aria-label="Flag gradient backdrop"
+                                        aria-label={t('settings.flagGradientBackdrop')}
                                     />
-                                    Flag gradient
+                                    {t('settings.flagGradient')}
                                 </label>
                             </div>
                         )}
                         <div className={styles.blurRow}>
                             <label className={styles.blurLabel} htmlFor="glass-blur">
-                                Backdrop blur
+                                {t('settings.backdropBlur')}
                             </label>
                             <input
                                 id="glass-blur"
@@ -609,7 +618,7 @@ export default function SettingsPage() {
                 )}
                 <div className={styles.siteOptions}>
                     <label className={styles.fontRow}>
-                        <span className={styles.fontLabel}>Header title</span>
+                        <span className={styles.fontLabel}>{t('settings.headerTitle')}</span>
                         <span className={styles.headerTitleControls}>
                             <input
                                 type="text"
@@ -618,22 +627,22 @@ export default function SettingsPage() {
                                 maxLength={HEADER_TITLE_MAX}
                                 placeholder="Spare the Sympathy"
                                 onChange={(e) => updateHeaderTitle(e.target.value)}
-                                aria-label="Header title"
+                                aria-label={t('settings.headerTitle')}
                             />
                             {headerTitle.trim() && (
                                 <button
                                     type="button"
                                     className={styles.colourRemove}
                                     onClick={() => updateHeaderTitle('')}
-                                    aria-label="Reset header title"
+                                    aria-label={t('settings.resetHeaderTitle')}
                                 >
-                                    Reset
+                                    {t('common.reset')}
                                 </button>
                             )}
                         </span>
                     </label>
                     <label className={styles.fontRow}>
-                        <span className={styles.fontLabel}>Font</span>
+                        <span className={styles.fontLabel}>{t('settings.font')}</span>
                         <div className={styles.fontSelect}>
                             <Select
                                 instanceId="font"
@@ -672,28 +681,28 @@ export default function SettingsPage() {
             </section>
 
             <section className={styles.card}>
-                <h2 className={styles.cardTitle}>Accessibility</h2>
+                <h2 className={styles.cardTitle}>{t('settings.accessibility')}</h2>
                 <div className={styles.siteOptions}>
                     <label className={styles.themeToggleRow}>
                         <input
                             type="checkbox"
                             checked={highContrast}
                             onChange={(e) => setHighContrast(e.target.checked)}
-                            aria-label="High contrast"
+                            aria-label={t('settings.highContrast')}
                         />
-                        High contrast
+                        {t('settings.highContrast')}
                     </label>
                     <label className={styles.themeToggleRow}>
                         <input
                             type="checkbox"
                             checked={font === 'dyslexia'}
                             onChange={(e) => setDyslexia(e.target.checked)}
-                            aria-label="Dyslexia-friendly font"
+                            aria-label={t('settings.dyslexiaFont')}
                         />
-                        Dyslexia-friendly font
+                        {t('settings.dyslexiaFont')}
                     </label>
                     <label className={styles.fontRow}>
-                        <span className={styles.fontLabel}>Colour-blind mode</span>
+                        <span className={styles.fontLabel}>{t('settings.colourBlindMode')}</span>
                         <div className={styles.fontSelect}>
                             <Select
                                 instanceId="colorblind"
@@ -714,15 +723,15 @@ export default function SettingsPage() {
                             type="checkbox"
                             checked={reduceMotion}
                             onChange={(e) => setReduceMotion(e.target.checked)}
-                            aria-label="Turn off animations"
+                            aria-label={t('settings.turnOffAnimations')}
                         />
-                        Turn off animations
+                        {t('settings.turnOffAnimations')}
                     </label>
                 </div>
             </section>
 
             <section className={styles.card}>
-                <h2 className={styles.cardTitle}>Site</h2>
+                <h2 className={styles.cardTitle}>{t('settings.site')}</h2>
                 <div className={styles.siteToggleRow}>
                     <CacheSearchToggle className={styles.bareToggle} />
                     <CacheBuildsToggle className={styles.bareToggle} />

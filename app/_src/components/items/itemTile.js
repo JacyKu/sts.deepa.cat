@@ -12,6 +12,7 @@ import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useItemFavourites } from './itemFavouritesContext';
 import { useInView } from '../inView';
+import { useTranslation } from '../useTranslation';
 
 function camelCase(str, upper) {
     if (!str) return '';
@@ -57,6 +58,7 @@ function doesNameContainNonASCII(name) {
 
 function ItemTile(data) {
     const item = data.item;
+    const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
     const { lowRes } = useLowResource();
@@ -121,11 +123,7 @@ function ItemTile(data) {
 
     if (!inView) {
         return (
-            <div
-                ref={ref}
-                className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}
-                style={{ minHeight }}
-            />
+            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
         );
     }
 
@@ -138,8 +136,8 @@ function ItemTile(data) {
                     onClick={() => toggleItem(item.name, item.type)}
                     aria-label={
                         listItems.includes(item.name)
-                            ? `Remove ${item.name} from build list`
-                            : `Add ${item.name} to build list`
+                            ? `${t('common.remove')} ${item.name} ${t('items.buildList.fromBuildList')}`
+                            : `${t('common.add')} ${item.name} ${t('items.buildList.toBuildList')}`
                     }
                 >
                     {listItems.includes(item.name) ? '✓' : '+'}
@@ -158,12 +156,16 @@ function ItemTile(data) {
                     }
                     aria-label={
                         favouriteSet.has(item.name)
-                            ? `Remove ${item.name} from favourites`
+                            ? `${t('common.remove')} ${item.name} ${t('items.favourite.fromFavourites')}`
                             : authenticated
-                              ? `Add ${item.name} to favourites`
-                              : 'Log in to favourite'
+                              ? `${t('common.add')} ${item.name} ${t('items.favourite.toFavourites')}`
+                              : t('items.favourite.login')
                     }
-                    title={favouriteSet.has(item.name) ? 'Remove from favourites' : 'Add to favourites'}
+                    title={
+                        favouriteSet.has(item.name)
+                            ? `${t('common.remove')} ${t('items.favourite.fromFavourites')}`
+                            : `${t('common.add')} ${t('items.favourite.toFavourites')}`
+                    }
                 >
                     <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
                         <path
@@ -201,7 +203,7 @@ function ItemTile(data) {
                 {item['base_item'] ? ` - ${item['base_item']} ` : ''}
             </span>
             {item['original_item'] ? (
-                <span className={styles.infoText}>{`Skin for ${item['original_item']} `}</span>
+                <span className={styles.infoText}>{`${t('items.skinFor')} ${item['original_item']} `}</span>
             ) : (
                 ''
             )}
@@ -215,7 +217,7 @@ function ItemTile(data) {
             {!hideObtainment && (
                 <>
                     {item.extras?.poi ? (
-                        <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p>
+                        <p className={`${styles.infoText} m-0`}>{`${t('items.foundIn')} ${item.extras.poi}`}</p>
                     ) : (
                         ''
                     )}

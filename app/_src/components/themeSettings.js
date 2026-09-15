@@ -10,10 +10,10 @@
 
 export const THEME_VALUES = ['dark', 'light', 'glass', 'glass-light'];
 export const THEME_LABELS = {
-    dark: 'Dark',
-    light: 'White',
-    glass: 'Glass',
-    'glass-light': 'White Glass',
+    dark: 'settings.theme.dark',
+    light: 'settings.theme.light',
+    glass: 'settings.theme.glass',
+    'glass-light': 'settings.theme.glassLight',
 };
 
 export const isGlassTheme = (theme) => theme === 'glass' || theme === 'glass-light';
@@ -142,12 +142,11 @@ export const parseGlassAccent = (value) => {
 
 export const COLORBLIND_MODES = ['deuteranopia', 'protanopia', 'tritanopia'];
 export const COLORBLIND_LABELS = {
-    deuteranopia: 'Deuteranopia (red-green)',
-    protanopia: 'Protanopia (red-green)',
-    tritanopia: 'Tritanopia (blue-yellow)',
+    deuteranopia: 'settings.colorblind.deuteranopia',
+    protanopia: 'settings.colorblind.protanopia',
+    tritanopia: 'settings.colorblind.tritanopia',
 };
-export const parseColorblind = (value) =>
-    COLORBLIND_MODES.includes(value) ? value : '';
+export const parseColorblind = (value) => (COLORBLIND_MODES.includes(value) ? value : '');
 
 // Colour-vision-simulation matrices (approximations of the three common
 // deficiencies), as 20 values for an SVG feColorMatrix. Null when no mode.
@@ -384,7 +383,7 @@ export const GLASS_CHIPS = {
     purple: ['#9c59d1', '#9c59d1', '#9c59d1'],
 };
 
-export const glassSchemeLabel = (scheme) => (scheme ? scheme.charAt(0).toUpperCase() + scheme.slice(1) : '');
+export const glassSchemeLabel = (scheme) => (scheme ? `settings.glassScheme.${scheme}` : '');
 
 // App accent colour per backdrop scheme, chosen from the scheme's palette to
 // stay readable as text/borders/backgrounds on the theme's surface. Bright
@@ -528,8 +527,7 @@ export function readThemeState() {
         glassAccent: glassAccent || (root ? parseGlassAccent(root.dataset.glassAccent) : ''),
         // Accessibility: attribute fallbacks for pages that render before the
         // storage read runs (the header mirrors these back in applyState).
-        highContrast:
-            highContrast || Boolean(root && root.dataset.contrast === 'high'),
+        highContrast: highContrast || Boolean(root && root.dataset.contrast === 'high'),
         colorblind: colorblind || (root ? parseColorblind(root.dataset.cb) : ''),
         reduceMotion: reduceMotion || Boolean(root && root.dataset.motion === 'off'),
     };

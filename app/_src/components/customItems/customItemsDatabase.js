@@ -11,6 +11,7 @@ import DatabaseTabs from '../databaseTabs';
 import InfiniteScroll from '../infiniteScroll';
 import { FilterRow, selectTheme, selectStyles } from '../builds/filterRow';
 import FloatingLabel from '../items/floatingLabel';
+import { useTranslation } from '../useTranslation';
 import ItemTile from '../items/itemTile';
 import CharmTile from '../items/charmTile';
 import ConsumableTile from '../items/consumableTile';
@@ -24,8 +25,8 @@ import itemsStyles from '../../styles/Items.module.css';
 // Fixed "Sort by" options. Same control as the builds database; custom items
 // have no charm power, so the applicable build sorts are favourites/newest.
 const SORT_OPTIONS = [
-    { value: 'top', label: 'Most favourited' },
-    { value: 'new', label: 'Newest' },
+    { value: 'top', labelKey: 'database.sort.top' },
+    { value: 'new', labelKey: 'database.sort.new' },
 ];
 
 export default function CustomItemsDatabase() {
@@ -51,14 +52,21 @@ export default function CustomItemsDatabase() {
     const loadingRef = React.useRef(false);
     const loadSeq = React.useRef(0);
 
-    // Categories shown in the filter rows: the full "Item Type" option list
-    // from the items search (aggregate "All ..." tokens included - the API
-    // expands them to their concrete types server-side). Labels pass through
-    // as-is (this page has no translations).
-    const t = (id) => id;
+    const t = useTranslation();
     const categories = React.useMemo(
-        () => [{ name: 'type', labelKey: 'Type', type: 'select', options: ['Any', ...ITEM_FILTER_OPTIONS] }],
-        []
+        () => [
+            {
+                name: 'type',
+                labelKey: 'common.type',
+                type: 'select',
+                options: [{ value: 'Any', label: t('database.any') }, ...ITEM_FILTER_OPTIONS],
+            },
+        ],
+        [t]
+    );
+    const sortOptions = React.useMemo(
+        () => SORT_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) })),
+        [t]
     );
 
     React.useEffect(() => {
@@ -153,15 +161,15 @@ export default function CustomItemsDatabase() {
         <div className={dbStyles.page}>
             {/* Same title styling as the builds database page so the two
                 pages' header rhythm (title → tabs → content) matches. */}
-            <h1 className={dbStyles.title}>Custom Items Database</h1>
+            <h1 className={dbStyles.title}>{t('customItems.database.title')}</h1>
             <DatabaseTabs active="custom-items" />
 
             <div className={dbStyles.sortControl}>
-                <FloatingLabel label="Sort by">
+                <FloatingLabel label={t('database.filters.sort')}>
                     <Select
                         instanceId="custom-db-sort"
-                        options={SORT_OPTIONS}
-                        value={SORT_OPTIONS.find((o) => o.value === sort) || null}
+                        options={sortOptions}
+                        value={sortOptions.find((o) => o.value === sort) || null}
                         onChange={(opt) => setSort(opt ? opt.value : 'top')}
                         isSearchable={false}
                         menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
@@ -196,8 +204,8 @@ export default function CustomItemsDatabase() {
                 <input
                     type="button"
                     className={dbStyles.addBtn}
-                    value="+ Add"
-                    aria-label="Add a filter"
+                    value={'+ ' + t('common.add')}
+                    aria-label={t('customItems.database.addFilter')}
                     onClick={addFilterRow}
                 />
             </div>
@@ -207,23 +215,23 @@ export default function CustomItemsDatabase() {
                 className={dbStyles.searchName}
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
-                placeholder="Search by item name"
-                aria-label="Search custom items by name"
+                placeholder={t('customItems.search.placeholder')}
+                aria-label={t('customItems.database.searchAria')}
             />
 
             <div className={sf.filterActions}>
-                <input type="button" className={sf.submitButton} value="Search" onClick={searchNow} />
+                <input type="button" className={sf.submitButton} value={t('common.search')} onClick={searchNow} />
                 <input
                     type="button"
                     className={sf.warningButton}
-                    value="Reset"
+                    value={t('common.reset')}
                     onClick={resetFilters}
-                    aria-label="Reset custom item filters"
+                    aria-label={t('customItems.database.resetAria')}
                 />
             </div>
 
             {error ? (
-                <p className={dbStyles.error}>Failed to load custom items.</p>
+                <p className={dbStyles.error}>{t('customItems.database.loadError')}</p>
             ) : items.length === 0 && loading ? (
                 <div className={ci.itemGrid}>
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -235,7 +243,7 @@ export default function CustomItemsDatabase() {
                     ))}
                 </div>
             ) : items.length === 0 ? (
-                <p className={dbStyles.muted}>No custom items match those filters yet.</p>
+                <p className={dbStyles.muted}>{t('customItems.database.empty')}</p>
             ) : (
                 <>
                     <InfiniteScroll
@@ -277,7 +285,7 @@ export default function CustomItemsDatabase() {
                                     className={ci.dbTileWrap}
                                     role="link"
                                     tabIndex={0}
-                                    aria-label={`View custom item ${item.name}`}
+                                    aria-label={`${t('customItems.database.viewItem')} ${item.name}`}
                                     onClick={() => {
                                         window.location.href = `${base}/custom-items/${item.id}`;
                                     }}

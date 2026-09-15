@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import styles from '../styles/Footer.module.css';
 import LanguageSelector from './languageSelector';
+import { useTranslation } from './useTranslation';
 import pkg from '../../../package.json';
 
 function GitHubIcon() {
@@ -24,6 +25,7 @@ function ArrowUpIcon() {
 }
 
 export default function Footer() {
+    const t = useTranslation();
     const [inviteOpen, setInviteOpen] = useState(false);
     const [inviteUrls, setInviteUrls] = useState(null);
     const [inviteFailed, setInviteFailed] = useState(false);
@@ -47,8 +49,8 @@ export default function Footer() {
             <footer className={styles.footer}>
                 <div className={styles.inner}>
                     <div className={styles.text}>
-                        Forked by <b>jkitter</b>, originally developed by <b>Albin</b>, <b>FlamingoBike</b> and{' '}
-                        <b>Alecaboo</b>
+                        {t('footer.forkedBy')} <b>jkitter</b>, {t('footer.originallyDevelopedBy')} <b>Albin</b>,{' '}
+                        <b>FlamingoBike</b> {t('footer.and')} <b>Alecaboo</b>
                         <span className={styles.version}> · v{pkg.sts_version}</span>
                     </div>
                     <div className={styles.links}>
@@ -59,16 +61,16 @@ export default function Footer() {
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            Help translate
+                            {t('footer.helpTranslate')}
                         </a>
                         <button className={styles.textLink} onClick={openInvite}>
-                            Discord bot
+                            {t('footer.discordBot')}
                         </button>
                         <Link className={styles.textLink} href="/privacy">
-                            Privacy Policy
+                            {t('footer.privacyPolicy')}
                         </Link>
                         <Link className={styles.textLink} href="/terms">
-                            Terms
+                            {t('footer.terms')}
                         </Link>
                         <a
                             className={styles.link}
@@ -80,7 +82,12 @@ export default function Footer() {
                         >
                             <GitHubIcon />
                         </a>
-                        <a className={styles.link} href="#top" aria-label="Back to top" title="Back to top">
+                        <a
+                            className={styles.link}
+                            href="#top"
+                            aria-label={t('footer.backToTop')}
+                            title={t('footer.backToTop')}
+                        >
                             <ArrowUpIcon />
                         </a>
                     </div>
@@ -91,20 +98,17 @@ export default function Footer() {
                 createPortal(
                     <div className={styles.overlay} onClick={() => setInviteOpen(false)}>
                         <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                            <div className={styles.modalTitle}>Invite the STS bot</div>
+                            <div className={styles.modalTitle}>{t('footer.inviteBotTitle')}</div>
                             {inviteUrls ? (
                                 <>
-                                    <p className={styles.modalText}>
-                                        Add the bot to a server, or install it as your personal app so it works in your
-                                        DMs.
-                                    </p>
+                                    <p className={styles.modalText}>{t('footer.inviteBotDescription')}</p>
                                     <a
                                         className={styles.textLink}
                                         href={inviteUrls.serverUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        Add to a server
+                                        {t('footer.addToServer')}
                                     </a>
                                     <a
                                         className={styles.textLink}
@@ -112,16 +116,14 @@ export default function Footer() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        Install as your app
+                                        {t('footer.installAsApp')}
                                     </a>
                                 </>
                             ) : (
-                                <p className={styles.modalText}>
-                                    The bot invite is not configured on this server. Try again later.
-                                </p>
+                                <p className={styles.modalText}>{t('footer.inviteNotConfigured')}</p>
                             )}
                             <button className={styles.modalClose} onClick={() => setInviteOpen(false)}>
-                                Close
+                                {t('common.close')}
                             </button>
                         </div>
                     </div>,

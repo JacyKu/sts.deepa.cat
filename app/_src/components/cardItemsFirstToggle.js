@@ -4,6 +4,7 @@ import React from 'react';
 import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { useCardItemsFirst } from './items/cardItemsFirstContext';
+import { useTranslation } from './useTranslation';
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
@@ -12,20 +13,18 @@ const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 // hover). The swap button on an individual card only changes that card.
 export default function CardItemsFirstToggle({ className } = {}) {
     const { itemsFirst, setItemsFirst } = useCardItemsFirst();
+    const t = useTranslation();
     return (
         <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
             <input
                 type="checkbox"
                 checked={itemsFirst}
                 onChange={(e) => setItemsFirst(e.target.checked)}
-                aria-label="Items on build cards"
+                aria-label={t('settings.cardItemsFirst.label')}
             />
             <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                Items on build cards
-                <span className={itemsStyles.enchantTooltipText}>
-                    Show equipped items on build cards and put the skills in the hover panel. The swap button on a
-                    card changes just that card.
-                </span>
+                {t('settings.cardItemsFirst.label')}
+                <span className={itemsStyles.enchantTooltipText}>{t('settings.cardItemsFirst.hint')}</span>
             </span>
         </label>
     );

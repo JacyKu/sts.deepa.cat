@@ -11,6 +11,7 @@ import DatabaseTabs from './databaseTabs';
 import FloatingLabel from './items/floatingLabel';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
+import { translate } from '../utils/translation/translate';
 import sf from '../styles/SearchForm.module.css';
 import styles from '../styles/Database.module.css';
 import { getStsBase } from '../utils/base';
@@ -30,7 +31,7 @@ const COMPARE_PICKS_KEY = 'sts-compare-picks';
 
 export default function DatabasePage({ classOptions, specMap, itemGroups }) {
     const { lang } = useLanguageContext();
-    const t = (id) => (SupportedLanguages[lang] && SupportedLanguages[lang][id]) || id;
+    const t = (id) => translate(lang, id);
 
     const [base, setBase] = React.useState('/sts');
     const [user, setUser] = React.useState(null);
@@ -209,7 +210,9 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
             let next = comparePicks.filter((p) => p.url !== url);
             if (!current) {
                 const display =
-                    build.name || [build.class, build.spec].filter(Boolean).join(' · ') || `Build ${build.id}`;
+                    build.name ||
+                    [build.class, build.spec].filter(Boolean).join(' · ') ||
+                    `${t('builds.fallbackName')} ${build.id}`;
                 next = [...next, { url, id: build.id, name: display }];
             }
             persistCompare(next);
@@ -224,7 +227,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
                 router.push('/compare?' + qs.toString());
             }
         },
-        [comparePicks, router]
+        [comparePicks, router, t]
     );
 
     function goCompareSingle() {
@@ -285,7 +288,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
                 <input
                     type="button"
                     className={styles.addBtn}
-                    value="+ Add"
+                    value={'+ ' + t('common.add')}
                     aria-label={t('database.addFilter')}
                     onClick={addFilterRow}
                 />
@@ -301,8 +304,8 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
             />
 
             <div className={sf.filterActions}>
-                <input type="button" className={sf.submitButton} value="Search" onClick={searchNow} />
-                <input type="button" className={sf.warningButton} value="Reset" onClick={resetFilters} />
+                <input type="button" className={sf.submitButton} value={t('common.search')} onClick={searchNow} />
+                <input type="button" className={sf.warningButton} value={t('common.reset')} onClick={resetFilters} />
             </div>
 
             {error ? (
@@ -338,25 +341,25 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
             {comparePicks.length > 0 && (
                 <div className={styles.compareDock}>
                     <div className={styles.compareDockInfo}>
-                        <span className={styles.compareDockTitle}>Compare</span>
+                        <span className={styles.compareDockTitle}>{t('compare.action')}</span>
                         {comparePicks.map((p) => (
                             <span key={p.url} className={styles.compareDockPick}>
                                 {p.name}
                             </span>
                         ))}
                         <span className={styles.compareDockHint}>
-                            {comparePicks.length === 1 ? 'Pick one more build to compare' : ''}
+                            {comparePicks.length === 1 ? t('compare.dockHint') : ''}
                         </span>
                     </div>
                     <div className={styles.compareDockActions}>
                         <button type="button" className={styles.compareDockBtn} onClick={goCompareSingle}>
-                            Compare
+                            {t('compare.action')}
                         </button>
                         <button
                             type="button"
                             className={styles.compareDockClear}
                             onClick={clearCompare}
-                            aria-label="Clear comparison picks"
+                            aria-label={t('compare.clearPicks')}
                         >
                             ×
                         </button>

@@ -1,5 +1,8 @@
+'use client';
+
 import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/CustomItems.module.css';
+import { useTranslation } from '../useTranslation';
 
 // One placeholder custom-item card, mirroring the real .customItem markup.
 // The real card's slots vary by page: My Items shows heart + pencil + the
@@ -55,10 +58,11 @@ export function CustomItemCardSkeleton({ heart = true, pencil = true, actions = 
 // form slab and the "My items" card grid, all at the real max-widths (main
 // and grid 1160, form 720).
 export default function CustomItemsSkeleton() {
+    const t = useTranslation();
     return (
         <div className={styles.page}>
             <main className={styles.main}>
-                <h1 className={styles.title}>Custom Items</h1>
+                <h1 className={styles.title}>{t('customItems.title')}</h1>
                 <div className={styles.skeletonTabs}>
                     <div className={`${itemsStyles.skeleton} ${styles.skeletonBlock} ${styles.skeletonTab}`} />
                     <div className={`${itemsStyles.skeleton} ${styles.skeletonBlock} ${styles.skeletonTabWide}`} />

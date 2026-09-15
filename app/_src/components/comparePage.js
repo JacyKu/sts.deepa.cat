@@ -8,6 +8,7 @@ import CharmShortener from '../utils/builder/charmShortener';
 import { computeCharmTotals } from './builder/charmSelector';
 import { decodeBuildParam } from '../utils/builder/buildUrlCodec';
 import CheckboxWithLabel from './items/checkboxWithLabel';
+import { useTranslation } from './useTranslation';
 
 // Stat categories, matching the builder's stat cards (buildForm.js) and the
 // categories of Monumenta's Player Stats calculator. Values are read from the
@@ -16,7 +17,7 @@ import CheckboxWithLabel from './items/checkboxWithLabel';
 const categoryDefs = [
     {
         key: 'misc',
-        title: 'Misc',
+        title: 'builder.statCategories.misc',
         rows: [
             { type: 'armor', name: 'builder.stats.misc.armor', percent: false },
             { type: 'agility', name: 'builder.stats.misc.agility', percent: false },
@@ -29,7 +30,7 @@ const categoryDefs = [
     },
     {
         key: 'health',
-        title: 'Health and Healing',
+        title: 'compare.categories.health',
         rows: [
             { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
             { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },
@@ -43,7 +44,7 @@ const categoryDefs = [
     },
     {
         key: 'dr',
-        title: 'Damage Reduction',
+        title: 'builder.statCategories.damageReduction',
         rows: [
             { type: 'meleeDR', name: 'builder.stats.dr-ehp.melee', percent: true },
             { type: 'projectileDR', name: 'builder.stats.dr-ehp.projectile', percent: true },
@@ -56,7 +57,7 @@ const categoryDefs = [
     },
     {
         key: 'drhn',
-        title: 'Health Normalized Damage Reduction',
+        title: 'compare.categories.drhn',
         rows: [
             { type: 'meleeHNDR', name: 'builder.stats.dr-ehp.melee', percent: true },
             { type: 'projectileHNDR', name: 'builder.stats.dr-ehp.projectile', percent: true },
@@ -69,7 +70,7 @@ const categoryDefs = [
     },
     {
         key: 'ehp',
-        title: 'Effective Health',
+        title: 'builder.statCategories.effectiveHealth',
         rows: [
             { type: 'meleeEHP', name: 'builder.stats.dr-ehp.melee', percent: false },
             { type: 'projectileEHP', name: 'builder.stats.dr-ehp.projectile', percent: false },
@@ -82,7 +83,7 @@ const categoryDefs = [
     },
     {
         key: 'melee',
-        title: 'Melee',
+        title: 'builder.statCategories.melee',
         rows: [
             { type: 'attackSpeedPercent', name: 'builder.stats.melee.attackSpeedPercent', percent: true },
             { type: 'attackSpeed', name: 'builder.stats.melee.attackSpeed', percent: false },
@@ -98,7 +99,7 @@ const categoryDefs = [
     },
     {
         key: 'projectile',
-        title: 'Projectile',
+        title: 'builder.statCategories.projectile',
         rows: [
             {
                 type: 'projectileDamagePercent',
@@ -120,7 +121,7 @@ const categoryDefs = [
     },
     {
         key: 'magic',
-        title: 'Magic',
+        title: 'builder.statCategories.magic',
         rows: [
             { type: 'magicDamagePercent', name: 'builder.stats.magic.magicDamagePercent', percent: true },
             { type: 'classMagicDamagePercent', name: 'builder.stats.magic.classMagicDamagePercent', percent: true },
@@ -131,12 +132,12 @@ const categoryDefs = [
 ];
 
 const SLOTS = [
-    { field: 'mainhand', letter: 'm', label: 'Mainhand' },
-    { field: 'offhand', letter: 'o', label: 'Offhand' },
-    { field: 'helmet', letter: 'h', label: 'Helmet' },
-    { field: 'chestplate', letter: 'c', label: 'Chestplate' },
-    { field: 'leggings', letter: 'l', label: 'Leggings' },
-    { field: 'boots', letter: 'b', label: 'Boots' },
+    { field: 'mainhand', letter: 'm', labelKey: 'items.type.mainhand' },
+    { field: 'offhand', letter: 'o', labelKey: 'items.type.offhand' },
+    { field: 'helmet', letter: 'h', labelKey: 'items.type.helmet' },
+    { field: 'chestplate', letter: 'c', labelKey: 'items.type.chestplate' },
+    { field: 'leggings', letter: 'l', labelKey: 'items.type.leggings' },
+    { field: 'boots', letter: 'b', labelKey: 'items.type.boots' },
 ];
 
 const skillBuffKeys = {
@@ -286,10 +287,10 @@ function parseBuild(build, itemData, enabledBoxes = {}) {
     if (!decoded) return null;
     const parts = parseLegacyParts(decoded);
     const items = [];
-    for (const { field, letter, label } of SLOTS) {
+    for (const { field, letter, labelKey } of SLOTS) {
         const value = partValue(parts, letter);
         if (!value || value === 'None' || !Object.prototype.hasOwnProperty.call(itemData, value)) continue;
-        items.push({ slot: label, name: plainName(itemData[value].name) });
+        items.push({ slot: labelKey, name: plainName(itemData[value].name) });
     }
     const charms = [];
     const charmRaw = partValue(parts, 'charm');
@@ -426,9 +427,9 @@ function gameClassFrom(parts) {
 // Strip a full URL / ?build= wrapper down to the raw token when possible
 // (mirrors the builder import bar), or keep the raw string for the
 // /api/v1/builds/convert endpoint (which also understands saved /b/ links).
-async function resolveInput(raw, itemData) {
+async function resolveInput(raw, itemData, t) {
     let link = String(raw || '').trim();
-    if (!link) return { error: 'Enter a build link first.' };
+    if (!link) return { error: t('compare.errors.enterLink') };
 
     // Bare token or legacy query -> decode directly with the page's data.
     let candidate = link;
@@ -484,16 +485,17 @@ async function resolveInput(raw, itemData) {
                 : link;
         const res = await fetch('/api/v1/builds/convert?link=' + encodeURIComponent(asShort));
         const data = await res.json();
-        if (!res.ok || !data.token) return { error: data.error || 'Could not read that build link.' };
+        if (!res.ok || !data.token) return { error: data.error || t('compare.errors.readLink') };
         const parsed = parseBuild(data.token, itemData);
-        if (!parsed) return { error: 'Could not read that build.' };
+        if (!parsed) return { error: t('compare.errors.readBuild') };
         return { token: data.token, parsed };
     } catch (e) {
-        return { error: 'Could not reach the build service.' };
+        return { error: t('compare.errors.service') };
     }
 }
 
 export default function ComparePage({ itemData }) {
+    const t = useTranslation();
     const [left, setLeft] = React.useState(null); // { token, error }
     const [right, setRight] = React.useState(null);
     const [leftInput, setLeftInput] = React.useState('');
@@ -514,7 +516,7 @@ export default function ComparePage({ itemData }) {
         setLoadingSide(side);
         setSuggestOpen((p) => ({ ...p, [side]: false }));
         const setter = side === 'left' ? setLeft : setRight;
-        const result = await resolveInput(raw, itemData);
+        const result = await resolveInput(raw, itemData, t);
         if (result.error) setter({ error: result.error });
         else setter({ token: result.token });
         setLoadingSide(null);
@@ -636,9 +638,9 @@ export default function ComparePage({ itemData }) {
             ['retaliation_normal', 'retaliation_elite', 'retaliation_boss'].forEach((s) => percent.add(s));
         }
         const rows = [];
-        if (defs.size > 0) rows.push({ key: 'defense', title: 'Situational Defense', items: [...defs] });
+        if (defs.size > 0) rows.push({ key: 'defense', titleKey: 'compare.situationalDefense', items: [...defs] });
         if (flat.size > 0 || percent.size > 0) {
-            rows.push({ key: 'damage', title: 'Situational Damage', items: [...flat, ...percent] });
+            rows.push({ key: 'damage', titleKey: 'compare.situationalDamage', items: [...flat, ...percent] });
         }
         return rows;
     }, [leftParsed, rightParsed]);
@@ -648,7 +650,7 @@ export default function ComparePage({ itemData }) {
     return (
         <div className={styles.container}>
             <h1 className={styles.pageTitle}>
-                Build Comparison <span className={styles.experimentalBadge}>Experimental</span>
+                {t('compare.title')} <span className={styles.experimentalBadge}>{t('compare.experimental')}</span>
             </h1>
 
             <div className={styles.pickers}>
@@ -659,16 +661,16 @@ export default function ComparePage({ itemData }) {
                     const open = suggestOpen[side];
                     return (
                         <div key={side} className={styles.picker}>
-                            <span className={styles.pickerTitle}>{side === 'left' ? 'Build A' : 'Build B'}</span>
+                            <span className={styles.pickerTitle}>
+                                {side === 'left' ? t('compare.buildA') : t('compare.buildB')}
+                            </span>
                             <div className={styles.pickerRow}>
                                 <div className={styles.pickerInputWrap}>
                                     <input
                                         type="text"
                                         className={styles.pickerInput}
                                         placeholder={
-                                            side === 'left'
-                                                ? 'Search builds, or paste a link / id'
-                                                : 'Second build: search, link or id'
+                                            side === 'left' ? t('compare.searchLeft') : t('compare.searchRight')
                                         }
                                         value={side === 'left' ? leftInput : rightInput}
                                         onChange={(e) => changeInput(side, e.target.value)}
@@ -693,7 +695,7 @@ export default function ComparePage({ itemData }) {
                                                 const display =
                                                     build.name ||
                                                     [build.class, build.spec].filter(Boolean).join(' · ') ||
-                                                    `Build ${build.id}`;
+                                                    `${t('builds.fallbackName')} ${build.id}`;
                                                 const meta = [build.class, build.spec].filter(Boolean).join(' · ');
                                                 return (
                                                     <button
@@ -708,7 +710,9 @@ export default function ComparePage({ itemData }) {
                                                         <span className={styles.suggestionName}>{display}</span>
                                                         <span className={styles.suggestionMeta}>
                                                             {meta}
-                                                            {build.power ? ` · Power ${build.power}` : ''}
+                                                            {build.power
+                                                                ? ` · ${t('compare.power')} ${build.power}`
+                                                                : ''}
                                                         </span>
                                                     </button>
                                                 );
@@ -722,14 +726,15 @@ export default function ComparePage({ itemData }) {
                                     onClick={() => loadSide(side)}
                                     disabled={loadingSide === side}
                                 >
-                                    {loadingSide === side ? 'Loading...' : 'Load'}
+                                    {loadingSide === side ? t('common.loading') : t('compare.load')}
                                 </button>
                             </div>
                             {state && state.error ? (
                                 <div className={styles.pickerError}>{state.error}</div>
                             ) : parsed ? (
                                 <div className={styles.pickerOk}>
-                                    {[parsed.className, parsed.specName].filter(Boolean).join(' · ') || 'Build loaded'}
+                                    {[parsed.className, parsed.specName].filter(Boolean).join(' · ') ||
+                                        t('compare.buildLoaded')}
                                 </div>
                             ) : null}
                         </div>
@@ -743,7 +748,7 @@ export default function ComparePage({ itemData }) {
                         <div className={styles.togglesPanel}>
                             {toggleRows.map((group) => (
                                 <div key={group.key} className={styles.toggleGroup}>
-                                    <span className={styles.toggleGroupTitle}>{group.title}</span>
+                                    <span className={styles.toggleGroupTitle}>{t(group.titleKey)}</span>
                                     <div className={styles.toggleList}>
                                         {group.items.map((name) => (
                                             <CheckboxWithLabel
@@ -762,14 +767,15 @@ export default function ComparePage({ itemData }) {
                     <CompareTable left={leftParsed} right={rightParsed} />
                 </>
             ) : (
-                <p className={styles.hint}>Load two builds to compare their stats, items and charms side by side.</p>
+                <p className={styles.hint}>{t('compare.hint')}</p>
             )}
         </div>
     );
 }
 
 function CompareTable({ left, right }) {
-    const meta = (b) => [b.className, b.specName].filter(Boolean).join(' · ') || 'Untitled build';
+    const t = useTranslation();
+    const meta = (b) => [b.className, b.specName].filter(Boolean).join(' · ') || t('builds.untitled');
 
     const allCategories = left.categories.map((cat, i) => ({
         ...cat,
@@ -790,53 +796,53 @@ function CompareTable({ left, right }) {
             </div>
 
             <div className={styles.categories}>
-            {allCategories.map((cat) => {
-                const rowsByKey = new Map();
-                for (const row of cat.rows) rowsByKey.set(row.labelKey, { left: row });
-                for (const row of cat.rightCat.rows) {
-                    const existing = rowsByKey.get(row.labelKey);
-                    if (existing) existing.right = row;
-                    else rowsByKey.set(row.labelKey, { right: row });
-                }
-                if (rowsByKey.size === 0) return null;
-                return (
-                    <section key={cat.key} className={styles.category}>
-                        <h2 className={styles.categoryTitle}>{cat.title}</h2>
-                        {Array.from(rowsByKey.entries()).map(([labelKey, { left: l, right: r }]) => (
-                            <CompareRow key={labelKey} labelKey={labelKey} left={l} right={r} />
-                        ))}
-                    </section>
-                );
-            })}
+                {allCategories.map((cat) => {
+                    const rowsByKey = new Map();
+                    for (const row of cat.rows) rowsByKey.set(row.labelKey, { left: row });
+                    for (const row of cat.rightCat.rows) {
+                        const existing = rowsByKey.get(row.labelKey);
+                        if (existing) existing.right = row;
+                        else rowsByKey.set(row.labelKey, { right: row });
+                    }
+                    if (rowsByKey.size === 0) return null;
+                    return (
+                        <section key={cat.key} className={styles.category}>
+                            <h2 className={styles.categoryTitle}>{t(cat.title)}</h2>
+                            {Array.from(rowsByKey.entries()).map(([labelKey, { left: l, right: r }]) => (
+                                <CompareRow key={labelKey} labelKey={labelKey} left={l} right={r} />
+                            ))}
+                        </section>
+                    );
+                })}
 
-            {/* Charm stat totals: the combined effect of each side's charms,
+                {/* Charm stat totals: the combined effect of each side's charms,
                 shown with the same compare rows as the gear stats. */}
-            {(() => {
-                const rowsByKey = new Map();
-                for (const row of left.charmStats || []) rowsByKey.set(row.key, { left: row });
-                for (const row of right.charmStats || []) {
-                    const existing = rowsByKey.get(row.key);
-                    if (existing) existing.right = row;
-                    else rowsByKey.set(row.key, { right: row });
-                }
-                if (rowsByKey.size === 0) return null;
-                return (
-                    <section className={styles.category}>
-                        <h2 className={styles.categoryTitle}>Charm Stats</h2>
-                        {Array.from(rowsByKey.entries()).map(([key, { left: l, right: r }]) => {
-                            const rowDef = l || r;
-                            return (
-                                <CompareRow
-                                    key={key}
-                                    labelText={rowDef.locked ? `🔒 ${rowDef.label}` : rowDef.label}
-                                    left={l}
-                                    right={r}
-                                />
-                            );
-                        })}
-                    </section>
-                );
-            })()}
+                {(() => {
+                    const rowsByKey = new Map();
+                    for (const row of left.charmStats || []) rowsByKey.set(row.key, { left: row });
+                    for (const row of right.charmStats || []) {
+                        const existing = rowsByKey.get(row.key);
+                        if (existing) existing.right = row;
+                        else rowsByKey.set(row.key, { right: row });
+                    }
+                    if (rowsByKey.size === 0) return null;
+                    return (
+                        <section className={styles.category}>
+                            <h2 className={styles.categoryTitle}>{t('compare.charmStats')}</h2>
+                            {Array.from(rowsByKey.entries()).map(([key, { left: l, right: r }]) => {
+                                const rowDef = l || r;
+                                return (
+                                    <CompareRow
+                                        key={key}
+                                        labelText={rowDef.locked ? `🔒 ${rowDef.label}` : rowDef.label}
+                                        left={l}
+                                        right={r}
+                                    />
+                                );
+                            })}
+                        </section>
+                    );
+                })()}
             </div>
         </>
     );
@@ -902,7 +908,9 @@ function renderEquipment(build) {
         <div className={styles.equipList}>
             {build.items.map((it) => (
                 <div key={it.slot} className={styles.equipRow}>
-                    <span className={styles.equipSlot}>{it.slot}</span>
+                    <span className={styles.equipSlot}>
+                        <TranslatableText identifier={it.slot} />
+                    </span>
                     <span className={styles.equipName}>{it.name}</span>
                 </div>
             ))}
@@ -914,7 +922,9 @@ function renderEquipment(build) {
                 </div>
             ))}
             {build.items.length === 0 && build.charms.length === 0 && (
-                <span className={styles.rowNone}>Empty build</span>
+                <span className={styles.rowNone}>
+                    <TranslatableText identifier="compare.emptyBuild" />
+                </span>
             )}
         </div>
     );

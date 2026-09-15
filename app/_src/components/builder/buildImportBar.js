@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import styles from '../../styles/Items.module.css';
 import { getStsBase } from '../../utils/base';
 import { encodeBuildParam } from '../../utils/builder/buildUrlCodec';
+import { useTranslation } from '../useTranslation';
 
 function parseImportedBuild(raw) {
     let str = String(raw || '').trim();
@@ -40,6 +41,7 @@ function parseImportedBuild(raw) {
 
 export default function BuildImportBar({ embedded }) {
     const router = useRouter();
+    const t = useTranslation();
     const [value, setValue] = React.useState('');
     const [error, setError] = React.useState(false);
 
@@ -62,7 +64,7 @@ export default function BuildImportBar({ embedded }) {
                     type="button"
                     className={styles.importMenuBtn}
                     onClick={() => setOpen((o) => !o)}
-                    aria-label="Import build link"
+                    aria-label={t('builder.importBar.importLink')}
                     aria-expanded={open}
                 >
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -76,7 +78,7 @@ export default function BuildImportBar({ embedded }) {
                             type="text"
                             className={styles.importInput}
                             placeholder="https://odetomisery.vercel.app/builder/..."
-                            aria-label="Import build link"
+                            aria-label={t('builder.importBar.importLink')}
                             value={value}
                             onChange={(e) => {
                                 setValue(e.target.value);
@@ -88,10 +90,10 @@ export default function BuildImportBar({ embedded }) {
                             spellCheck="false"
                         />
                         <button type="button" className={styles.importButton} onClick={handleImport}>
-                            Import
+                            {t('builder.buttons.import')}
                         </button>
                     </div>
-                    {error && <div className={styles.importError}>Could not read that build link.</div>}
+                    {error && <div className={styles.importError}>{t('builder.errors.couldNotReadBuildLink')}</div>}
                 </div>
             </div>
         );
@@ -106,7 +108,7 @@ export default function BuildImportBar({ embedded }) {
                             type="text"
                             className={styles.importInput}
                             placeholder="https://odetomisery.vercel.app/builder/..."
-                            aria-label="Import build link"
+                            aria-label={t('builder.importBar.importLink')}
                             value={value}
                             onChange={(e) => {
                                 setValue(e.target.value);
@@ -118,10 +120,10 @@ export default function BuildImportBar({ embedded }) {
                             spellCheck="false"
                         />
                         <button type="button" className={styles.importButton} onClick={handleImport}>
-                            Import
+                            {t('builder.buttons.import')}
                         </button>
                     </div>
-                    {error && <div className={styles.importError}>Could not read that build link.</div>}
+                    {error && <div className={styles.importError}>{t('builder.errors.couldNotReadBuildLink')}</div>}
                 </div>
             </div>
         </div>

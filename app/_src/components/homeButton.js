@@ -1,6 +1,9 @@
+'use client';
+
 import styles from '../styles/HomeButton.module.css';
 import Link from 'next/link';
 import { getStsBase } from '../utils/base';
+import { useTranslation } from './useTranslation';
 
 function HomeIcon() {
     return (
@@ -11,8 +14,9 @@ function HomeIcon() {
 }
 
 export default function HomeButton() {
+    const t = useTranslation();
     return (
-        <div className={styles.homebutton} title="Go to homepage">
+        <div className={styles.homebutton} title={t('header.goToHomepage')}>
             <Link href={getStsBase() + '/'} className={styles.button}>
                 <HomeIcon />
             </Link>

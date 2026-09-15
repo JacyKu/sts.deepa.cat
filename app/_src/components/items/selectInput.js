@@ -4,6 +4,7 @@ import { useLanguageContext } from '../../components/languageContext';
 import SupportedLanguages from '../../utils/translation/languages';
 import FloatingLabel from './floatingLabel';
 import { useItemFavourites } from './itemFavouritesContext';
+import { useTranslation } from '../useTranslation';
 import itemsStyles from '../../styles/Items.module.css';
 
 function convertItemNameForTranslationString(item) {
@@ -18,6 +19,7 @@ function convertItemNameForTranslationString(item) {
 
 const SelectInput = (data) => {
     const { lang } = useLanguageContext();
+    const t = useTranslation();
     const { favouriteSet } = useItemFavourites();
 
     // Show a red heart next to options the user has favourited. Defaults to
@@ -62,7 +64,7 @@ const SelectInput = (data) => {
     });
 
     if (data.noneOption) {
-        options.unshift({ value: 'None', label: 'None' });
+        options.unshift({ value: 'None', label: t('common.none') });
     }
 
     // Cached restores pass the selected value (a plain string); resolve it to

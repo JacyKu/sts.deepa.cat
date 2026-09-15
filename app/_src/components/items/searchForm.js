@@ -4,6 +4,7 @@ import SelectWithTriggers from './selectWithTriggers';
 import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
+import { useTranslation } from '../useTranslation';
 
 let searchOptionsCache = null;
 function getSearchOptions(itemData) {
@@ -113,11 +114,15 @@ function getSearchOptions(itemData) {
             uniquePois[poiName] = 1;
         });
     Object.keys(uniquePois).forEach((poiName) => pois.push(poiName));
-    searchOptionsCache = { data: itemData, options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } };
+    searchOptionsCache = {
+        data: itemData,
+        options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers },
+    };
     return searchOptionsCache.options;
 }
 
 export default function SearchForm({ update, itemData }) {
+    const t = useTranslation();
     const [itemStatKey, setItemStatKey] = React.useState(getResetKey('search'));
     const [itemTypeKey, setItemTypeKey] = React.useState(getResetKey('itemType'));
     const [regionKey, setRegionKey] = React.useState(getResetKey('region'));
@@ -200,9 +205,9 @@ export default function SearchForm({ update, itemData }) {
         'Chestplate',
         'Leggings',
         'Boots',
-        { value: 'ALL_MAINHANDS', label: 'All mainhands' },
-        { value: 'ALL_MELEE_MAINHANDS', label: 'All melee mainhands' },
-        { value: 'Mainhand', label: 'Misc mainhands' },
+        { value: 'ALL_MAINHANDS', label: t('items.searchForm.allMainhands') },
+        { value: 'ALL_MELEE_MAINHANDS', label: t('items.searchForm.allMeleeMainhands') },
+        { value: 'Mainhand', label: t('items.searchForm.miscMainhands') },
         'Mainhand Sword',
         'Mainhand Shield',
         'Axe',
@@ -215,8 +220,8 @@ export default function SearchForm({ update, itemData }) {
         'Wand',
         'Snowball',
         'Projectile',
-        { value: 'ALL_OFFHANDS', label: 'All offhands' },
-        { value: 'Offhand', label: 'Misc offhands' },
+        { value: 'ALL_OFFHANDS', label: t('items.searchForm.allOffhands') },
+        { value: 'Offhand', label: t('items.searchForm.miscOffhands') },
         'Offhand Sword',
         'Offhand Shield',
         'Alchemist Bag',
@@ -237,7 +242,11 @@ export default function SearchForm({ update, itemData }) {
         'Shaman',
         'Generalist',
     ];
-    const regions = ['Valley', 'Isles', 'Ring'];
+    const regions = [
+        { value: 'Valley', label: t('builder.regions.valley') },
+        { value: 'Isles', label: t('builder.regions.isles') },
+        { value: 'Ring', label: t('builder.regions.ring') },
+    ];
     // The active Charm Class filter. Kept in state (updated by the class
     // select's onChange) because the form's hidden input updates after the
     // re-render, which would lag one selection behind. The DOM is only read
@@ -375,8 +384,8 @@ export default function SearchForm({ update, itemData }) {
                     name={`questIdSelect-${uniqueKey}`}
                     className={styles.questIdInput}
                     defaultValue={(defaultValue && defaultValue['questIdSelect']) || ''}
-                    placeholder="e.g. 154, Q154, q154i01"
-                    aria-label="Search by quest item ID"
+                    placeholder={t('items.searchForm.questIdPlaceholder')}
+                    aria-label={t('items.searchForm.questIdAria')}
                 />
             );
         }),
@@ -387,12 +396,12 @@ export default function SearchForm({ update, itemData }) {
                         key={`powerOp-${itemStatKey}`}
                         name={`charmPowerOperatorSelect-${uniqueKey}`}
                         sortableStats={[
-                            { value: '=', label: 'Equals' },
-                            { value: '>', label: 'More than' },
-                            { value: '>=', label: 'At least' },
-                            { value: '<', label: 'Less than' },
-                            { value: '<=', label: 'At most' },
-                            { value: '!=', label: 'Not equal' },
+                            { value: '=', label: t('items.searchForm.operatorEquals') },
+                            { value: '>', label: t('items.searchForm.operatorMoreThan') },
+                            { value: '>=', label: t('items.searchForm.operatorAtLeast') },
+                            { value: '<', label: t('items.searchForm.operatorLessThan') },
+                            { value: '<=', label: t('items.searchForm.operatorAtMost') },
+                            { value: '!=', label: t('items.searchForm.operatorNotEqual') },
                         ]}
                         default={defaultValue && defaultValue['charmPowerOperatorSelect']}
                     />
@@ -598,13 +607,19 @@ export default function SearchForm({ update, itemData }) {
         event.preventDefault();
     }
 
-    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } = getSearchOptions(itemData);
+    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } =
+        getSearchOptions(itemData);
 
     function addFilter() {
         setFilters((oldFilters) => [
             ...oldFilters,
             { activeCategory: null, selected: null, uniqueKey: new Date().getTime() },
         ]);
+    }
+
+    function getCategoryLabel(name) {
+        const category = categories.find((c) => c.name === name);
+        return category && category.translatableName ? t(category.translatableName) : name;
     }
 
     return (
@@ -627,7 +642,9 @@ export default function SearchForm({ update, itemData }) {
                             deleteCallback={deleteFilter}
                             regenKey={activeCharmClass}
                             defaultValue={
-                                f.activeCategory ? { value: f.activeCategory, label: f.activeCategory } : null
+                                f.activeCategory
+                                    ? { value: f.activeCategory, label: getCategoryLabel(f.activeCategory) }
+                                    : null
                             }
                             childDefault={f.selected || null}
                         />
@@ -639,8 +656,8 @@ export default function SearchForm({ update, itemData }) {
                 <input
                     className={styles.addFilterButton}
                     type="button"
-                    value="+ Add"
-                    aria-label="Add filter"
+                    value={`+ ${t('common.add')}`}
+                    aria-label={t('database.addFilter')}
                     onClick={addFilter}
                 />
             </div>
@@ -649,30 +666,38 @@ export default function SearchForm({ update, itemData }) {
                 type="text"
                 name="searchName"
                 className={styles.searchField}
-                placeholder="Search Name"
-                aria-label="Search by item name"
+                placeholder={t('items.searchForm.searchName')}
+                aria-label={t('items.searchForm.searchNameAria')}
                 autoFocus
             />
             <input
                 type="text"
                 name="searchLore"
                 className={styles.searchField}
-                placeholder="Search Lore"
-                aria-label="Search by lore text"
+                placeholder={t('items.searchForm.searchLore')}
+                aria-label={t('items.searchForm.searchLoreAria')}
             />
             <div className={styles.filterActions}>
-                <input className={styles.submitButton} type="submit" value="Search" />
-                <input className={styles.warningButton} type="reset" value="Reset" aria-label="Reset all filters" />
+                <input className={styles.submitButton} type="submit" value={t('common.search')} />
+                <input
+                    className={styles.warningButton}
+                    type="reset"
+                    value={t('common.reset')}
+                    aria-label={t('items.searchForm.resetAria')}
+                />
             </div>
             <div className={styles.toggleRow}>
                 <label className={styles.toggleLabel}>
-                    <input type="checkbox" name="hideUnobtainable" onChange={sendUpdate} /> Hide unobtainable
+                    <input type="checkbox" name="hideUnobtainable" onChange={sendUpdate} />{' '}
+                    {t('items.searchForm.hideUnobtainable')}
                 </label>
                 <label className={styles.toggleLabel}>
-                    <input type="checkbox" name="hideNonGear" onChange={sendUpdate} /> Hide non-gear items
+                    <input type="checkbox" name="hideNonGear" onChange={sendUpdate} />{' '}
+                    {t('items.searchForm.hideNonGear')}
                 </label>
                 <label className={styles.toggleLabel}>
-                    <input type="checkbox" name="hideQuestItems" onChange={sendUpdate} /> Hide quest items
+                    <input type="checkbox" name="hideQuestItems" onChange={sendUpdate} />{' '}
+                    {t('items.searchForm.hideQuestItems')}
                 </label>
             </div>
         </form>
@@ -738,6 +763,16 @@ class SearchCategory {
     }
 }
 
+const NOT_CATEGORY_KEYS = {
+    'Item Type': 'items.searchForm.itemType',
+    Tier: 'items.searchForm.tier',
+    Location: 'items.searchForm.location',
+    Region: 'items.searchForm.region',
+    'Base Item': 'items.searchForm.baseItem',
+    'Charm Class': 'items.searchForm.charmClass',
+    POI: 'items.searchForm.poi',
+};
+
 function NotFilterRow({
     uniqueKey,
     resetKey,
@@ -751,6 +786,7 @@ function NotFilterRow({
     defaultCategory,
     defaultValue,
 }) {
+    const t = useTranslation();
     const [category, setCategory] = React.useState(defaultCategory || 'Item Type');
     const notValues = {
         'Item Type': itemTypes,
@@ -761,12 +797,16 @@ function NotFilterRow({
         'Charm Class': charmClasses,
         POI: pois,
     };
+    const categoryOptions = Object.keys(notValues).map((name) => ({
+        value: name,
+        label: t(NOT_CATEGORY_KEYS[name]),
+    }));
     return (
         <div className={styles.powerFilterRow}>
             <SelectInput
                 key={`notCat-${resetKey}`}
                 name={`notCategorySelect-${uniqueKey}`}
-                sortableStats={Object.keys(notValues)}
+                sortableStats={categoryOptions}
                 default={defaultCategory}
                 onChange={(option) => setCategory(option.value)}
             />
@@ -774,6 +814,7 @@ function NotFilterRow({
                 key={`notVal-${category}-${resetKey}`}
                 name={`notValue-${uniqueKey}`}
                 sortableStats={notValues[category]}
+                baseTranslationString={category === 'Item Type' ? 'items.type' : undefined}
                 default={defaultValue}
             />
         </div>

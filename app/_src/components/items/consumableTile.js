@@ -10,6 +10,7 @@ import { useHideObtainment } from './hideObtainmentContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useInView } from '../inView';
+import { useTranslation } from '../useTranslation';
 
 const MAX_FISH_QUALITY = 5;
 
@@ -40,10 +41,10 @@ function getItemsheetClass(itemName) {
         .trim()}`;
 }
 
-function getFishQualityElement(fishQuality) {
+function getFishQualityElement(fishQuality, t) {
     return (
         <span>
-            <span>Fish Quality : </span>
+            <span>{`${t('items.fishQuality')} `}</span>
             <span className={styles[`fish${fishQuality}`]}>
                 {'★'.repeat(fishQuality) + '☆'.repeat(MAX_FISH_QUALITY - fishQuality)}
             </span>
@@ -53,6 +54,7 @@ function getFishQualityElement(fishQuality) {
 
 function ConsumableTile(data) {
     const item = data.item;
+    const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
     const { items: listItems, toggleItem } = useBuildList();
@@ -97,11 +99,7 @@ function ConsumableTile(data) {
 
     if (!inView) {
         return (
-            <div
-                ref={ref}
-                className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}
-                style={{ minHeight }}
-            />
+            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
         );
     }
 
@@ -114,8 +112,8 @@ function ConsumableTile(data) {
                     onClick={() => toggleItem(item.name, item.type)}
                     aria-label={
                         listItems.includes(item.name)
-                            ? `Remove ${item.name} from build list`
-                            : `Add ${item.name} to build list`
+                            ? `${t('common.remove')} ${item.name} ${t('items.buildList.fromBuildList')}`
+                            : `${t('common.add')} ${item.name} ${t('items.buildList.toBuildList')}`
                     }
                 >
                     {listItems.includes(item.name) ? '✓' : '+'}
@@ -137,19 +135,21 @@ function ConsumableTile(data) {
                     {item.name}
                 </a>
             </span>
-            {item.fish_quality ? getFishQualityElement(item.fish_quality) : ''}
+            {item.fish_quality ? getFishQualityElement(item.fish_quality, t) : ''}
             <span className={styles.infoText}>
                 <TranslatableText identifier={`items.type.${getItemType(item)}`}></TranslatableText>
                 {` - ${item['base_item']} `}
             </span>
             {item['original_item'] ? (
-                <span className={styles.infoText}>{`Skin for ${item['original_item']} `}</span>
+                <span className={styles.infoText}>{`${t('items.skinFor')} ${item['original_item']} `}</span>
             ) : (
                 ''
             )}
             <span>
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
-                <span className={styles[camelCase(item.tier)]}>{item.tier ? item.tier : 'Consumable'}</span>
+                <span className={styles[camelCase(item.tier)]}>
+                    {item.tier ? item.tier : t('items.type.consumable')}
+                </span>
             </span>
             <span className={styles[camelCase(item.location)]}>{item.location}</span>
             {formattedEffects}
@@ -157,7 +157,11 @@ function ConsumableTile(data) {
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (
                 <>
-                    {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
+                    {item.extras?.poi ? (
+                        <p className={`${styles.infoText} m-0`}>{`${t('items.foundIn')} ${item.extras.poi}`}</p>
+                    ) : (
+                        ''
+                    )}
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
                 </>
             )}

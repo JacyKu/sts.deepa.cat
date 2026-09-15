@@ -2,6 +2,7 @@
 
 import React from 'react';
 import styles from '../styles/NotificationsBar.module.css';
+import { useTranslation } from './useTranslation';
 
 // Site-wide announcements, posted by the site owner through the Discord bot
 // (/notify - see apps/discord-bot). Rendered as a full-width bar under the
@@ -22,6 +23,7 @@ function readDismissed() {
 }
 
 export default function NotificationsBar() {
+    const t = useTranslation();
     const [notifications, setNotifications] = React.useState(null);
     const [dismissed, setDismissed] = React.useState(null);
 
@@ -65,7 +67,12 @@ export default function NotificationsBar() {
             {visible.map((n) => (
                 <div key={n.id} className={`${styles.banner} ${TYPE_CLASS[n.type] || styles.info}`} role="status">
                     <span className={styles.message}>{n.message}</span>
-                    <button type="button" className={styles.dismiss} onClick={() => dismiss(n.id)} title="Dismiss">
+                    <button
+                        type="button"
+                        className={styles.dismiss}
+                        onClick={() => dismiss(n.id)}
+                        title={t('common.dismiss')}
+                    >
                         &times;
                     </button>
                 </div>

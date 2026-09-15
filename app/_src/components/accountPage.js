@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from '../styles/Account.module.css';
 import { useSessionState } from './header';
+import { useTranslation } from './useTranslation';
 
 // The signed-in user's account page: Discord identity plus the Minecraft
 // UUIDs linked to it. Linking itself happens in game (/stsmod link); this
@@ -10,6 +11,7 @@ import { useSessionState } from './header';
 // different Discord account. Account deletion lives here too. The site
 // look settings live on their own page (/settings) for everyone.
 export default function AccountPage() {
+    const t = useTranslation();
     const session = useSessionState();
     const [links, setLinks] = React.useState([]);
     const [loaded, setLoaded] = React.useState(false);
@@ -45,7 +47,7 @@ export default function AccountPage() {
         fetch('/api/v1/mod/link?uuid=' + encodeURIComponent(uuid), { method: 'DELETE' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then(() => setLinks((prev) => prev.filter((l) => l.uuid !== uuid)))
-            .catch(() => setError('Could not disconnect the Minecraft profile.'))
+            .catch(() => setError(t('account.errors.disconnect')))
             .finally(() => setBusy(null));
     }
 
@@ -80,7 +82,7 @@ export default function AccountPage() {
                 session.setUser({ ...session.user, avatarUrl: d.avatarUrl, avatarSource: d.avatarSource });
                 window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
             })
-            .catch(() => setAvatarError('Could not update your profile picture. Try again.'))
+            .catch(() => setAvatarError(t('account.errors.avatar')))
             .finally(() => setSavingAvatar(false));
     }
 
@@ -92,7 +94,7 @@ export default function AccountPage() {
             .then(() => {
                 window.location.href = '/';
             })
-            .catch(() => setDeleteError('Could not delete your profile. Try again.'))
+            .catch(() => setDeleteError(t('account.errors.delete')))
             .finally(() => setDeleting(false));
     }
 
@@ -112,18 +114,18 @@ export default function AccountPage() {
 
     return (
         <main className={styles.page}>
-            <h1 className={styles.title}>My Account</h1>
-            <nav className={styles.tabs} aria-label="Account navigation">
+            <h1 className={styles.title}>{t('auth.myAccount')}</h1>
+            <nav className={styles.tabs} aria-label={t('account.navigation')}>
                 <span className={`${styles.tab} ${styles.tabActive}`} aria-current="page">
-                    My Account
+                    {t('auth.myAccount')}
                 </span>
                 <a className={styles.tab} href="/settings">
-                    Site settings
+                    {t('settings.siteSettings')}
                 </a>
             </nav>
             {session.user ? (
                 <section className={styles.card}>
-                    <h2 className={styles.cardTitle}>Linked accounts</h2>
+                    <h2 className={styles.cardTitle}>{t('account.linkedAccounts')}</h2>
                     <ul className={styles.linkList}>
                         <li className={styles.linkRow}>
                             {session.user.discordAvatarUrl || session.user.avatarUrl ? (
@@ -137,7 +139,9 @@ export default function AccountPage() {
                             ) : null}
                             <span className={styles.rowValue}>{session.user.globalName || session.user.username}</span>
                             <span className={styles.linkDate}>
-                                {session.user.stsCreatedAt ? `created ${session.user.stsCreatedAt.slice(0, 10)}` : ''}
+                                {session.user.stsCreatedAt
+                                    ? `${t('account.created')} ${session.user.stsCreatedAt.slice(0, 10)}`
+                                    : ''}
                             </span>
                         </li>
                     </ul>
@@ -154,8 +158,8 @@ export default function AccountPage() {
                         </ul>
                     ) : links.length === 0 ? (
                         <p className={styles.muted}>
-                            No linked profiles. Run <code>/stsmod link</code> in game with the Spare the Sympathy mod
-                            installed to link your Minecraft profile.
+                            {t('account.noLinkedProfiles.before')} <code>/stsmod link</code>{' '}
+                            {t('account.noLinkedProfiles.after')}
                         </p>
                     ) : (
                         <ul className={styles.linkList}>
@@ -180,15 +184,15 @@ export default function AccountPage() {
                                                 type="button"
                                                 className={styles.copyUuidButton}
                                                 onClick={() => copyUuid(link.uuid)}
-                                                aria-label={`Copy UUID ${link.uuid}`}
-                                                title="Copy UUID"
+                                                aria-label={`${t('account.copyUuid')} ${link.uuid}`}
+                                                title={t('account.copyUuid')}
                                             >
-                                                {copiedUuid === link.uuid ? 'Copied!' : 'Copy'}
+                                                {copiedUuid === link.uuid ? t('common.copied') : t('common.copy')}
                                             </button>
                                         </span>
                                     )}
                                     <span className={styles.linkDate}>
-                                        linked {link.updated_at || link.created_at || ''}
+                                        {t('account.linked')} {link.updated_at || link.created_at || ''}
                                     </span>
                                     <button
                                         type="button"
@@ -196,7 +200,7 @@ export default function AccountPage() {
                                         onClick={() => unlink(link.uuid)}
                                         disabled={busy === link.uuid}
                                     >
-                                        {busy === link.uuid ? 'Disconnecting…' : 'Disconnect'}
+                                        {busy === link.uuid ? t('account.disconnecting') : t('account.disconnect')}
                                     </button>
                                 </li>
                             ))}
@@ -205,25 +209,23 @@ export default function AccountPage() {
                 </section>
             ) : (
                 <section className={styles.card}>
-                    <h2 className={styles.cardTitle}>Linked accounts</h2>
+                    <h2 className={styles.cardTitle}>{t('account.linkedAccounts')}</h2>
                     <p className={styles.muted}>
                         <a
                             href={`/api/auth/discord/login?next=${encodeURIComponent('/account')}`}
                             className={styles.loginLink}
                         >
-                            Log in with Discord
+                            {t('auth.loginWithDiscord')}
                         </a>{' '}
-                        to manage your linked Minecraft profiles.
+                        {t('account.loginToManage')}
                     </p>
                 </section>
             )}
 
             {session.user && (
                 <section className={styles.card}>
-                    <h2 className={styles.cardTitle}>Profile picture</h2>
-                    <p className={styles.muted}>
-                        Choose what other players see next to your builds and custom items.
-                    </p>
+                    <h2 className={styles.cardTitle}>{t('account.profilePicture')}</h2>
+                    <p className={styles.muted}>{t('account.profilePictureHint')}</p>
                     <div className={styles.avatarChoices}>
                         <button
                             type="button"
@@ -264,23 +266,15 @@ export default function AccountPage() {
                             <span className={styles.avatarChoiceLabel}>Minecraft</span>
                         </button>
                     </div>
-                    {!session.user.minecraftAvatarUrl && (
-                        <p className={styles.muted}>
-                            Link a Minecraft profile below to use its avatar as your profile picture.
-                        </p>
-                    )}
+                    {!session.user.minecraftAvatarUrl && <p className={styles.muted}>{t('account.linkAvatarHint')}</p>}
                     {avatarError && <p className={styles.error}>{avatarError}</p>}
                 </section>
             )}
 
             {session.user && (
                 <section className={`${styles.card} ${styles.dangerCard}`}>
-                    <h2 className={styles.cardTitle}>Danger zone</h2>
-                    <p className={styles.muted}>
-                        Deleting your profile removes your favourites, custom items and Minecraft profile links. Your
-                        saved builds keep their links but leave the public database and are no longer associated with
-                        your account.
-                    </p>
+                    <h2 className={styles.cardTitle}>{t('account.dangerZone')}</h2>
+                    <p className={styles.muted}>{t('account.deleteDescription')}</p>
                     {deleteError && <p className={styles.error}>{deleteError}</p>}
                     {!confirmDelete ? (
                         <button
@@ -289,7 +283,7 @@ export default function AccountPage() {
                             onClick={() => setConfirmDelete(true)}
                             disabled={deleting}
                         >
-                            Delete my profile
+                            {t('account.deleteProfile')}
                         </button>
                     ) : (
                         <div className={styles.confirmRow}>
@@ -299,7 +293,7 @@ export default function AccountPage() {
                                 onClick={deleteProfile}
                                 disabled={deleting}
                             >
-                                {deleting ? 'Deleting…' : 'Yes, delete my profile'}
+                                {deleting ? t('account.deleting') : t('account.confirmDeleteProfile')}
                             </button>
                             <button
                                 type="button"
@@ -307,7 +301,7 @@ export default function AccountPage() {
                                 onClick={() => setConfirmDelete(false)}
                                 disabled={deleting}
                             >
-                                Cancel
+                                {t('common.cancel')}
                             </button>
                         </div>
                     )}

@@ -1,13 +1,17 @@
+'use client';
+
 import styles from '../styles/Items.module.css';
+import { useTranslation } from './useTranslation';
 
 // Loading placeholder for the items page (/items): container + main wrapper,
 // search form, result count/link lines and the tile grid, all matching the
 // real element widths (tiles are 260px like ItemTile).
 export default function ItemsSkeleton() {
+    const t = useTranslation();
     return (
         <div className={styles.container}>
             <main className={styles.main}>
-                <h1>Monumenta Items</h1>
+                <h1>{t('items.title')}</h1>
                 <div className={styles.skeletonSearchForm}>
                     <div className={`${styles.skeleton} ${styles.skeletonToolbarButton}`} />
                     <div className={`${styles.skeleton} ${styles.skeletonField}`} />

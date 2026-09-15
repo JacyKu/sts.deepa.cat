@@ -3,10 +3,12 @@
 import React from 'react';
 import dbStyles from '../../styles/Database.module.css';
 import itemsStyles from '../../styles/Items.module.css';
+import { useTranslation } from '../useTranslation';
 
 // Heart button + count for custom items, styled like the build cards'
 // favourite button. Guests can see the count but cannot toggle it.
 export default function CustomItemHeart({ itemId, favourite, count, user, onChange, className = '' }) {
+    const t = useTranslation();
     const [state, setState] = React.useState({ favourite: Boolean(favourite), count: count || 0 });
     const [busy, setBusy] = React.useState(false);
 
@@ -30,10 +32,10 @@ export default function CustomItemHeart({ itemId, favourite, count, user, onChan
     }
 
     const tip = !user
-        ? 'Log in to favourite'
+        ? t('customItems.heart.loginToFavourite')
         : state.favourite
-          ? 'Remove from favourites'
-          : 'Add to favourites';
+          ? t('customItems.heart.removeFromFavourites')
+          : t('customItems.heart.addToFavourites');
 
     return (
         <button

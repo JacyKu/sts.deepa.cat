@@ -3,6 +3,7 @@ import TranslatableText from '../translatableText';
 import CharmTile from '../items/charmTile';
 import SelectInput from '../items/selectInput';
 import { useItemFavourites } from '../items/itemFavouritesContext';
+import { useTranslation } from '../useTranslation';
 import React from 'react';
 
 // Human-readable ability text for a charm (stat names + values), so the
@@ -107,6 +108,7 @@ export default function CharmSelector({
     selectedClass,
 }) {
     const inputRef = React.useRef();
+    const t = useTranslation();
     const [warn, setWarn] = React.useState(null);
     const warnTimeoutRef = React.useRef();
 
@@ -208,7 +210,7 @@ export default function CharmSelector({
             if (!other) continue;
             if (other.locked || obj.locked) {
                 showWarn(
-                    `"${itemData[actualName].name}" could not be added: it conflicts with the locked charm stat from "${other.name}" (${stat.replace(/_/g, ' ')}).`
+                    `"${itemData[actualName].name}" ${t('builder.charms.couldNotAdd')} ${t('builder.charms.lockedConflict')} "${other.name}" (${stat.replace(/_/g, ' ')}).`
                 );
                 return;
             }

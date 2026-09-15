@@ -439,7 +439,9 @@ export default function ItemsPage({ itemData }) {
     return (
         <div className={styles.container}>
             <main className={styles.main}>
-                <h1>Monumenta Items</h1>
+                <h1>
+                    <TranslatableText identifier="items.title"></TranslatableText>
+                </h1>
                 <SearchForm update={handleChange} itemData={itemData}></SearchForm>
                 <BuildListPanel></BuildListPanel>
                 <h4 className={styles.resultCount}>
@@ -448,14 +450,16 @@ export default function ItemsPage({ itemData }) {
                 </h4>
                 <div className={styles.historyLinkRow}>
                     <Link href="/items/history" className={styles.historyLink}>
-                        View item stat change history
+                        <TranslatableText identifier="items.history.link"></TranslatableText>
                     </Link>
                 </div>
                 {relevantItems.length === 0 ? (
                     <div className={styles.emptyState}>
-                        <b>No items found.</b>
+                        <b>
+                            <TranslatableText identifier="items.noItemsFound"></TranslatableText>
+                        </b>
                         <br />
-                        Try clearing some filters or searching for something else.
+                        <TranslatableText identifier="items.noItemsFoundHint"></TranslatableText>
                     </div>
                 ) : (
                     <InfiniteScroll

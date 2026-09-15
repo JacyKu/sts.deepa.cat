@@ -1,4 +1,9 @@
+'use client';
+
+import { useTranslation } from './_src/components/useTranslation';
+
 export default function NotFound() {
+    const t = useTranslation();
     return (
         <main
             className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-20 text-center"
@@ -15,7 +20,7 @@ export default function NotFound() {
                 404
             </h1>
             <p className="mt-3 text-lg" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Page not found
+                {t('notFound.title')}
             </p>
         </main>
     );

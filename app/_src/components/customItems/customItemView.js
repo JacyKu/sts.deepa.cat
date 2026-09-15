@@ -5,6 +5,7 @@ import styles from '../../styles/CustomItems.module.css';
 import { getStsBase } from '../../utils/base';
 import CustomItemCard from './customItemCard';
 import CustomItemHeart from './customItemHeart';
+import { useTranslation } from '../useTranslation';
 
 function duplicateName(base, attempt) {
     if (attempt === 0) return base;
@@ -19,6 +20,7 @@ function duplicateName(base, attempt) {
 // duplicate is created through the normal create route, which stamps the
 // copy with the viewer's account.
 export default function CustomItemView({ item, isOwner, loggedIn }) {
+    const t = useTranslation();
     const [base, setBase] = React.useState('/sts');
     React.useEffect(() => {
         setBase(getStsBase());
@@ -32,10 +34,10 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
         return (
             <div className={styles.page}>
                 <main className={styles.main}>
-                    <h1 className={styles.title}>Custom Item</h1>
-                    <p className={styles.muted}>This custom item does not exist or has been deleted.</p>
+                    <h1 className={styles.title}>{t('customItems.view.title')}</h1>
+                    <p className={styles.muted}>{t('customItems.view.notFound')}</p>
                     <a className={styles.addBtn} href={`${base}/custom-items`}>
-                        Back to Custom Items
+                        {t('customItems.view.backToItems')}
                     </a>
                 </main>
             </div>
@@ -85,18 +87,18 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
     return (
         <div className={styles.page}>
             <main className={styles.main}>
-                <h1 className={styles.title}>Custom Item</h1>
+                <h1 className={styles.title}>{t('customItems.view.title')}</h1>
                 {!isOwner && (
                     <p className={styles.muted}>
                         {item.authorName
-                            ? `A custom item shared by ${item.authorName}.`
-                            : 'A custom item shared by another player.'}{' '}
-                        Copy it into your own list to edit it or use it in the builder.
+                            ? `${t('customItems.view.sharedBy')} ${item.authorName}.`
+                            : t('customItems.view.sharedByAnother')}{' '}
+                        {t('customItems.view.copyHint')}
                     </p>
                 )}
                 <CustomItemCard
                     item={item}
-                    authorFallback="a player"
+                    authorFallback={t('customItems.card.aPlayer')}
                     heart={
                         <CustomItemHeart
                             itemId={item.id}
@@ -114,13 +116,13 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                                         `/custom-items/${item.id}`
                                     )}`}
                                 >
-                                    Log in to copy
+                                    {t('customItems.view.loginToCopy')}
                                 </a>
                             ) : copyState === 'copied' ? (
                                 <>
-                                    <span className={styles.copyDone}>Copied into your items.</span>
+                                    <span className={styles.copyDone}>{t('customItems.view.copied')}</span>
                                     <a className={styles.rowBtn} href={`${base}/custom-items`}>
-                                        Manage your items
+                                        {t('customItems.view.manageItems')}
                                     </a>
                                 </>
                             ) : (
@@ -131,21 +133,21 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                                     disabled={copyState === 'saving'}
                                 >
                                     {copyState === 'saving'
-                                        ? 'Copying…'
+                                        ? t('customItems.view.copying')
                                         : isOwner
-                                          ? 'Duplicate this item'
-                                          : 'Copy to my items'}
+                                          ? t('customItems.view.duplicate')
+                                          : t('customItems.view.copyToItems')}
                                 </button>
                             )}
                             {isOwner && copyState !== 'copied' && (
                                 <a className={styles.rowBtn} href={`${base}/custom-items`}>
-                                    Manage your items
+                                    {t('customItems.view.manageItems')}
                                 </a>
                             )}
                         </div>
                     }
                 />
-                {copyState === 'error' && <p className={styles.errorText}>Could not copy the item. Try again.</p>}
+                {copyState === 'error' && <p className={styles.errorText}>{t('customItems.view.copyError')}</p>}
             </main>
         </div>
     );

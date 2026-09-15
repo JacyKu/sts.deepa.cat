@@ -14,6 +14,7 @@ import { getStsBase } from '../utils/base';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
+import { translate } from '../utils/translation/translate';
 import sf from '../styles/SearchForm.module.css';
 import {
     FilterRow,
@@ -68,7 +69,7 @@ function RenameInput({ initialName, onCommit, onCancel }) {
 
 export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     const { lang } = useLanguageContext();
-    const t = (id) => (SupportedLanguages[lang] && SupportedLanguages[lang][id]) || id;
+    const t = (id) => translate(lang, id);
 
     const [authChecked, setAuthChecked] = React.useState(false);
     const [user, setUser] = React.useState(null);
@@ -120,9 +121,9 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
     function displayName(build) {
         if (build.name) return build.name;
         try {
-            return decodeBuildName(build.token) || 'Unnamed build';
+            return decodeBuildName(build.token) || t('builds.unnamed');
         } catch (e) {
-            return 'Unnamed build';
+            return t('builds.unnamed');
         }
     }
 
@@ -297,7 +298,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                         </a>
                     </div>
                 ) : error ? (
-                    <p className={styles.error} onClick={clearError} title="Dismiss">
+                    <p className={styles.error} onClick={clearError} title={t('common.dismiss')}>
                         <TranslatableText
                             identifier={
                                 error === 'rename'
@@ -356,7 +357,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                             <input
                                 type="button"
                                 className={dbStyles.addBtn}
-                                value="+ Add"
+                                value={'+ ' + t('common.add')}
                                 aria-label={t('database.addFilter')}
                                 onClick={addFilterRow}
                             />
@@ -370,8 +371,18 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                             aria-label={t('database.filters.search')}
                         />
                         <div className={sf.filterActions}>
-                            <input type="button" className={sf.submitButton} value="Search" onClick={() => {}} />
-                            <input type="button" className={sf.warningButton} value="Reset" onClick={resetFilters} />
+                            <input
+                                type="button"
+                                className={sf.submitButton}
+                                value={t('common.search')}
+                                onClick={() => {}}
+                            />
+                            <input
+                                type="button"
+                                className={sf.warningButton}
+                                value={t('common.reset')}
+                                onClick={resetFilters}
+                            />
                         </div>
                         {visibleBuilds.length === 0 ? (
                             <p className={styles.muted}>
@@ -403,7 +414,11 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                                             }`}
                                                             onClick={stop(() => togglePublic(build))}
                                                             disabled={build.publicBusy}
-                                                            title={build.isPublic ? 'Make private' : 'Publicise'}
+                                                            title={
+                                                                build.isPublic
+                                                                    ? t('database.unpublish')
+                                                                    : t('database.publicise')
+                                                            }
                                                         >
                                                             {build.isPublic ? (
                                                                 <TranslatableText identifier="database.publicBadge" />
@@ -420,7 +435,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                                             type="button"
                                                             className={styles.rowBtn}
                                                             onClick={stop(() => startRename(build))}
-                                                            title="Rename"
+                                                            title={t('builds.rename')}
                                                         >
                                                             <TranslatableText identifier="builds.rename" />
                                                         </button>
@@ -428,7 +443,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
                                                             type="button"
                                                             className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
                                                             onClick={stop(() => requestDelete(build))}
-                                                            title="Delete"
+                                                            title={t('builds.delete')}
                                                         >
                                                             {confirmDeleteId === build.id ? (
                                                                 <TranslatableText identifier="builds.confirmDelete" />

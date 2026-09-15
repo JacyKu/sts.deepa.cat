@@ -7,6 +7,7 @@ import StatFormatter from '../../utils/items/statFormatter';
 import { formatDateString } from '../../utils/dateFormat';
 import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
+import { useTranslation } from '../useTranslation';
 
 // Custom items store a spritesheet token; if a later spritesheet import
 // dropped it, fall back to the item's name mapping / base texture so the
@@ -54,9 +55,11 @@ export default function CustomItemCard({
     heart = null,
     topRight = null,
     actions = null,
-    authorFallback = 'You',
+    authorFallback = null,
     className = '',
 }) {
+    const t = useTranslation();
+    const author = item.authorName || authorFallback || t('customItems.card.you');
     const icon = useIconClass(item);
     // Rendered after mount so the user's date-format preference (stored in
     // the browser) can apply without a hydration mismatch.
@@ -88,11 +91,11 @@ export default function CustomItemCard({
                 <div className={styles.stats}>{StatFormatter.formatStats(item.stats, item.statColors)}</div>
             </div>
             <div className={styles.cardBottom}>
-                <span className={styles.author} title={item.authorName || authorFallback}>
+                <span className={styles.author} title={author}>
                     {avatarSrc(item) && (
                         <img className={styles.avatar} src={avatarSrc(item)} alt="" width={18} height={18} />
                     )}
-                    {item.authorName || authorFallback}
+                    {author}
                 </span>
                 <span className={styles.date}>{created}</span>
             </div>
