@@ -7,6 +7,7 @@ import {
     setBuildPublic,
     uniqueBuildName,
     isDuplicateNameError,
+    preferredAuthorAvatar,
 } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
@@ -119,7 +120,7 @@ export async function PATCH(request, { params }) {
                 isPublic: Boolean(body.publicise),
                 anonymous,
                 authorName: user.globalName || user.username,
-                authorAvatar: user.avatar || null,
+                authorAvatar: preferredAuthorAvatar(user.id, user.avatar),
                 summary,
             });
         }
@@ -165,7 +166,7 @@ export async function PATCH(request, { params }) {
             isPublic,
             anonymous,
             authorName: sessionUser.globalName || sessionUser.username,
-            authorAvatar: sessionUser.avatar || null,
+            authorAvatar: preferredAuthorAvatar(sessionUser.id, sessionUser.avatar),
             summary,
         });
         if (!ok) {

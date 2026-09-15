@@ -36,6 +36,10 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
 
+    // Signed-out saves are just link snapshots (unowned rows): no account is
+    // needed and no ownership token is handed out. Anything that *posts*
+    // (publicise, anonymous or not) requires the account, so anonymously
+    // posted builds stay on the user's account instead of a local token.
     const user = await getDiscordUser();
     // Publicising at save time must pass the same profanity gate as the
     // publicise endpoint: never surface a build with blocked words.
@@ -58,7 +62,7 @@ export async function POST(request) {
     const buildName = body.name ? uniqueBuildName(ownerId, body.name, sameStateId) : null;
 
     // Daily upload limit: accounts are counted from the database (site and mod
-    // saves share the budget); anonymous saves are counted per IP in memory.
+    // saves share the budget); signed-out saves are counted per IP in memory.
     const limits = readRateLimits();
     if (user) {
         if (limits.buildsPerDay > 0 && countRecentBuilds(user.id) >= limits.buildsPerDay) {
@@ -89,12 +93,9 @@ export async function POST(request) {
             state,
             userId: ownerId,
             name: buildName,
-            // Notes are a signed-in feature: anonymous saves never carry them.
+            // Notes are a signed-in feature: signed-out saves never carry them.
             notes: user ? body.notes || null : null,
             summary,
-            // Anonymous rows may only be renamed by the browser that created
-            // them (the creator-token cookie is the proof).
-            getCreatorToken: (id) => request.cookies.get(`sts-build-owner-${id}`)?.value || null,
         });
     } catch (error) {
         if (isDuplicateNameError(error)) {
@@ -107,7 +108,8 @@ export async function POST(request) {
     }
     if (user && body.publicise) {
         // Unless the request says otherwise, posts default to the user's
-        // account-wide anonymity preference (top-right menu toggle).
+        // account-wide anonymity preference (top-right menu toggle). The row
+        // stays on the account either way - anonymous is display only.
         const anonymous = body.anonymous !== undefined ? Boolean(body.anonymous) : await getAnonymousPreference();
         setBuildPublic(result.id, user.id, null, {
             isPublic: true,
@@ -119,7 +121,7 @@ export async function POST(request) {
     }
     const tokenVersion = getBuildTokenVersion(token) ?? '';
     const savedRow = getBuild(result.id);
-    const res = NextResponse.json({
+    return NextResponse.json({
         id: result.id,
         isNew: result.isNew,
         savedToAccount: Boolean(user),
@@ -131,19 +133,4 @@ export async function POST(request) {
         version: savedRow ? savedRow.revision || 1 : null,
         url: `/b/v${tokenVersion}/${result.id}`,
     });
-    // Anonymous rows are editable in place only by the browser that created
-    // them: hand out the creator token as an httpOnly cookie. (Set manually:
-    // NextResponse.cookies.set is dropped by the dev server in Next 16.)
-    if (!user && result.creatorToken) {
-        const parts = [
-            `sts-build-owner-${result.id}=${result.creatorToken}`,
-            'Path=/',
-            'HttpOnly',
-            'SameSite=Lax',
-            'Max-Age=31536000',
-        ];
-        if (process.env.NODE_ENV === 'production') parts.push('Secure');
-        res.headers.set('Set-Cookie', parts.join('; '));
-    }
-    return res;
 }

@@ -837,7 +837,7 @@ export default function BuildForm({
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
     const [classSelectKey, setClassSelectKey] = React.useState(0);
-    const [saveState, setSaveState] = React.useState(null); // 'saving' | 'copied' | 'error'
+    const [saveState, setSaveState] = React.useState(null); // 'saving' | 'copied' | 'error' | 'duplicate'
     const [savedAnonymous, setSavedAnonymous] = React.useState(false);
     // The DB row this build was opened from / saved to; edits update it in
     // place instead of spawning a new link.
@@ -1766,7 +1766,10 @@ export default function BuildForm({
         let profanityHit = false;
         let duplicateHit = false;
 
-        if (activeBuildId && !forking) {
+        // Only account-owned builds are updated in place. A signed-out save
+        // (or one that belongs to someone else) always takes the POST path and
+        // produces a fresh snapshot link instead.
+        if (activeBuildId && !forking && loggedIn) {
             setSaveState('saving');
             setSavedAnonymous(false);
             return fetch(`/api/v2/builds/${activeBuildId}`, {
@@ -4206,7 +4209,7 @@ export default function BuildForm({
                     )}
                 </div>
             )}
-            {(saveState === 'copied' || saveState === 'error' || savedAnonymous) && (
+            {(saveState === 'copied' || saveState === 'error' || saveState === 'duplicate' || savedAnonymous) && (
                 <div
                     className={`${styles.copyToast}${
                         saveState === 'error' || saveState === 'duplicate'
