@@ -911,5 +911,13 @@
     "header.signOut": "Se déconnecter",
     "header.siteSettings": "Paramètres du site",
     "index.itemsCatalogued": "objets répertoriés",
-    "notFound.title": "Page introuvable"
+    "notFound.title": "Page introuvable",
+    "builds.select": "Sélectionner des builds",
+    "builds.selectAll": "Tout sélectionner",
+    "builds.clearSelection": "Effacer la sélection",
+    "builds.selectBuild": "Sélectionner le build",
+    "builds.maxPerAction": "20 maximum par action",
+    "builds.bulkPublicised": "Publiés :",
+    "builds.bulkUnpublicised": "Rendus privés :",
+    "builds.bulkFailed": "Échecs :"
 }

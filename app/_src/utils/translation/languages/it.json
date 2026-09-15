@@ -911,5 +911,13 @@
     "header.signOut": "Esci",
     "header.siteSettings": "Impostazioni del sito",
     "index.itemsCatalogued": "oggetti catalogati",
-    "notFound.title": "Pagina non trovata"
+    "notFound.title": "Pagina non trovata",
+    "builds.select": "Seleziona build",
+    "builds.selectAll": "Seleziona tutto",
+    "builds.clearSelection": "Cancella selezione",
+    "builds.selectBuild": "Seleziona build",
+    "builds.maxPerAction": "Massimo 20 per azione",
+    "builds.bulkPublicised": "Pubblicati:",
+    "builds.bulkUnpublicised": "Resi privati:",
+    "builds.bulkFailed": "Non riusciti:"
 }

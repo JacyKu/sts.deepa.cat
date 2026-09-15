@@ -902,5 +902,13 @@
     "header.siteSettings": "Site settings",
     "index.itemsCatalogued": "items catalogued",
     "notFound.title": "Page not found",
-    "items.type.writtenBook": "Written Book"
+    "items.type.writtenBook": "Written Book",
+    "builds.select": "Select builds",
+    "builds.selectAll": "Select all",
+    "builds.clearSelection": "Clear selection",
+    "builds.selectBuild": "Select build",
+    "builds.maxPerAction": "Max 20 per action",
+    "builds.bulkPublicised": "Publicised:",
+    "builds.bulkUnpublicised": "Made private:",
+    "builds.bulkFailed": "Failed:"
 }

@@ -911,5 +911,13 @@
     "header.signOut": "登出",
     "header.siteSettings": "網站設定",
     "index.itemsCatalogued": "項道具已收錄",
-    "notFound.title": "找不到頁面"
+    "notFound.title": "找不到頁面",
+    "builds.select": "選擇配裝",
+    "builds.selectAll": "全選",
+    "builds.clearSelection": "清除選取",
+    "builds.selectBuild": "選擇配裝",
+    "builds.maxPerAction": "每次最多 20 個",
+    "builds.bulkPublicised": "已公開：",
+    "builds.bulkUnpublicised": "已設為私人：",
+    "builds.bulkFailed": "失敗："
 }

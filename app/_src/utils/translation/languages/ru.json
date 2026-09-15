@@ -911,5 +911,13 @@
     "header.signOut": "Выйти",
     "header.siteSettings": "Настройки сайта",
     "index.itemsCatalogued": "предметов в каталоге",
-    "notFound.title": "Страница не найдена"
+    "notFound.title": "Страница не найдена",
+    "builds.select": "Выбрать сборки",
+    "builds.selectAll": "Выбрать все",
+    "builds.clearSelection": "Сбросить выбор",
+    "builds.selectBuild": "Выбрать сборку",
+    "builds.maxPerAction": "Не более 20 за раз",
+    "builds.bulkPublicised": "Опубликовано:",
+    "builds.bulkUnpublicised": "Скрыто:",
+    "builds.bulkFailed": "Ошибок:"
 }

@@ -911,5 +911,13 @@
     "header.signOut": "Kijelentkezés",
     "header.siteSettings": "Oldalbeállítások",
     "index.itemsCatalogued": "tárgy katalogizálva",
-    "notFound.title": "Az oldal nem található"
+    "notFound.title": "Az oldal nem található",
+    "builds.select": "Buildek kijelölése",
+    "builds.selectAll": "Összes kijelölése",
+    "builds.clearSelection": "Kijelölés törlése",
+    "builds.selectBuild": "Build kijelölése",
+    "builds.maxPerAction": "Maximum 20 műveletenként",
+    "builds.bulkPublicised": "Nyilvánossá tett:",
+    "builds.bulkUnpublicised": "Priváttá tett:",
+    "builds.bulkFailed": "Sikertelen:"
 }

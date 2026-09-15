@@ -911,5 +911,13 @@
     "header.signOut": "退出登录",
     "header.siteSettings": "站点设置",
     "index.itemsCatalogued": "已收录物品",
-    "notFound.title": "页面未找到"
+    "notFound.title": "页面未找到",
+    "builds.select": "选择配装",
+    "builds.selectAll": "全选",
+    "builds.clearSelection": "清除选择",
+    "builds.selectBuild": "选择配装",
+    "builds.maxPerAction": "每次最多 20 个",
+    "builds.bulkPublicised": "已公开：",
+    "builds.bulkUnpublicised": "已设为私密：",
+    "builds.bulkFailed": "失败："
 }
