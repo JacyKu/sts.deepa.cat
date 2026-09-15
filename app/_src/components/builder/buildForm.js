@@ -276,6 +276,9 @@ const enabledBoxes = {
     fueled: false,
     orbital: false,
     pennate: false,
+    // Understanding amplifies the basic (non-Delve) infusions every item
+    // carries; the chip decides whether that bonus is counted.
+    understanding: false,
 };
 
 const situationalDefenses = [
@@ -449,6 +452,9 @@ function recalcBuild(data, itemData) {
             data.perspicacity ?? null,
             data.health ?? null,
         ],
+        // Understanding's amplifier is applied per item, so the counts are
+        // part of the calculation's inputs.
+        counts: data.basicInfusionCounts ?? null,
         eb: enabledBoxes,
         es: extraStats,
         eca: enabledClassAbilityBuffs,
@@ -597,14 +603,13 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         });
     }
     // One situational chip per equipped delve infusion; the stat effect only
-    // counts while its checkbox is ticked. Understanding is an always-on
-    // amplifier (it boosts other infusions), not a conditional stat, so it
-    // gets no toggle.
+    // counts while its checkbox is ticked. Understanding gets a chip too: its
+    // bonus (0.2 * level per item) applies to every non-Delve infusion, so the
+    // toggle decides whether that amplifier is counted.
     if (delveInfusions) {
         const seen = new Set();
         Object.values(delveInfusions).forEach((infusion) => {
             if (!infusion || infusion === 'None' || seen.has(infusion)) return;
-            if (infusion.toLowerCase() === 'understanding') return;
             seen.add(infusion);
             tempInfusions.push(
                 <div className="col-auto" key={'situationalbox-infusion-' + infusion}>
@@ -1305,27 +1310,22 @@ export default function BuildForm({
     // mirroring the delve infusion behaviour.
     function basicChanged(slot, option) {
         setTip(null);
-        setBasicInfusions((prev) => {
-            const next = { ...prev };
-            if (option) {
-                next[slot] = { name: option.value, level: BASIC_INFUSION_MAX_LEVEL };
-            } else {
-                delete next[slot];
-            }
-            return next;
-        });
-        applyBasicInfusionTotals(
-            option
-                ? { ...basicInfusions, [slot]: { name: option.value, level: BASIC_INFUSION_MAX_LEVEL } }
-                : withoutSlot(basicInfusions, slot)
-        );
+        const nextInfusions = option
+            ? { ...basicInfusions, [slot]: { name: option.value, level: BASIC_INFUSION_MAX_LEVEL } }
+            : withoutSlot(basicInfusions, slot);
+        setBasicInfusions(nextInfusions);
+        applyBasicInfusionTotals(nextInfusions);
         // FormData is stale right after a Select change, so inject the new
-        // value manually (same pattern as delveChanged) and recalculate.
+        // value manually (same pattern as delveChanged) and recalculate. The
+        // mirrored stat totals + item counts change here too (Understanding's
+        // amplifier depends on them), so they ride along.
         let entries = Array.from(new FormData(formRef.current).entries());
         for (let i = 0; i < entries.length; i++) {
             if (entries[i][0] == `basicInfusion-${slot}`) entries[i][1] = option ? option.value : 'None';
         }
         const itemNames = Object.fromEntries(entries);
+        Object.assign(itemNames, basicInfusionTotals(nextInfusions));
+        itemNames.basicInfusionCounts = JSON.stringify(basicInfusionCounts(nextInfusions));
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
@@ -1334,6 +1334,13 @@ export default function BuildForm({
         const next = { ...basicInfusions, [slot]: { ...basicInfusions[slot], level } };
         setBasicInfusions(next);
         applyBasicInfusionTotals(next);
+        // The mirrored totals (and therefore the stat calculation) change with
+        // the level; the hidden inputs only commit on the next render, so pass
+        // the fresh values straight to the recalculation.
+        recalcBuildStats({
+            ...basicInfusionTotals(next),
+            basicInfusionCounts: JSON.stringify(basicInfusionCounts(next)),
+        });
     }
 
     // Sum the infusion levels per type across all slots (the wiki allows one
@@ -1348,11 +1355,27 @@ export default function BuildForm({
     }
 
     function applyBasicInfusionTotals(infusions) {
+        setStatInputs((prev) => ({ ...prev, ...basicInfusionTotals(infusions) }));
+    }
+
+    // Base sums of the basic infusion levels, per type.
+    function basicInfusionTotals(infusions) {
         const totals = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
         for (const { name, level } of Object.values(infusions)) {
             if (totals[name.toLowerCase()] !== undefined) totals[name.toLowerCase()] += level;
         }
-        setStatInputs((prev) => ({ ...prev, ...totals }));
+        return totals;
+    }
+
+    // How many items carry each basic infusion type. Understanding's amplifier
+    // applies per item, so the stat calculation needs the counts (two items
+    // with Vitality II are 2 x (0.2 * level) extra levels, not one).
+    function basicInfusionCounts(infusions) {
+        const counts = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
+        for (const { name } of Object.values(infusions)) {
+            if (counts[name.toLowerCase()] !== undefined) counts[name.toLowerCase()] += 1;
+        }
+        return counts;
     }
 
     function basicSlotSelects(slot) {
@@ -3282,6 +3305,13 @@ export default function BuildForm({
                 <input type="hidden" name="vigor" value={statInputs.vigor} />
                 <input type="hidden" name="focus" value={statInputs.focus} />
                 <input type="hidden" name="perspicacity" value={statInputs.perspicacity} />
+                {/* How many items carry each basic infusion type; the Stats
+                    engine uses it for Understanding's per-item amplifier. */}
+                <input
+                    type="hidden"
+                    name="basicInfusionCounts"
+                    value={JSON.stringify(basicInfusionCounts(basicInfusions))}
+                />
             </div>
             <div className="row pt-1">
                 <span className="text-center text-danger fs-2 fw-bold">

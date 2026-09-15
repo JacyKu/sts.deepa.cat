@@ -19,6 +19,11 @@ const PINK_CHARM_STATS = new Set([
     'glorious_battle_collision_impact_damage_multiplier_percent',
     'grasping_claws_cage_melee_damage_multiplier_percent',
     'holy_javelin_stun_duration_flat',
+    'steel_trap_tether_damage_flat',
+    'steel_trap_tether_range_flat',
+    'sage\'s_insight_cooldown_rate_per_ability_reset_percent',
+    'sage\'s_insight_damage_modifier_per_stack_percent',
+    'sage\'s_insight_duration_flat',
 ]);
 
 class CharmFormatter {

@@ -35,6 +35,8 @@ const COMPONENT_RE = /\{"[^{}]*?"color":"([a-z_]+|#[0-9a-fA-F]{6})"[^{}]*?"text"
 
 export function normalizeStatText(text) {
     let t = String(text || '').trim();
+    // Removed/"negative marker" lines are written as "# -40% Blizzard Range".
+    t = t.replace(/^#+\s*/, '');
     t = t.replace(/^[+-]?\d+(\.\d+)?%?\s*/, ''); // leading "+15% " / " 4 "
     t = t.toLowerCase().replace(/['-]/g, '').replace(/\s+/g, '_');
     t = t.replace(/[^a-z0-9_]/g, '');
@@ -51,7 +53,9 @@ function stripRoman(normalized) {
 
 // Candidate keys a lore line may refer to, best first: suffix preference based
 // on how the value is written ("+15% Speed" -> speed_percent, " 4 Speed" ->
-// speed_base/speed_flat, " +4 Speed" -> speed_flat).
+// speed_base/speed_flat, " +4 Speed" -> speed_flat). Keys are normalized the
+// same way as the lore text (apostrophes/hyphens dropped), so stats named
+// after skills ("Sage's Insight ...") match their snake_case keys.
 function candidatesFor(statKeys, text) {
     const normalized = normalizeStatText(text);
     const [stripped] = stripRoman(normalized);
@@ -62,8 +66,9 @@ function candidatesFor(statKeys, text) {
     const exact = [];
     const base = [];
     for (const key of statKeys) {
-        const baseKey = key.replace(/_(percent|flat|base)$/, '');
-        if (key === normalized || key === stripped) exact.push(key);
+        const normKey = normalizeStatText(key);
+        const baseKey = normKey.replace(/_(percent|flat|base)$/, '');
+        if (normKey === normalized || normKey === stripped) exact.push(key);
         else if (baseKey === normalized || baseKey === stripped) base.push(key);
     }
     const rank = (key) => {

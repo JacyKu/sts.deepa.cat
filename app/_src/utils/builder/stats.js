@@ -118,6 +118,26 @@ class Stats {
         this.focus = formData.focus ? formData.focus : 0;
         this.perspicacity = formData.perspicacity ? formData.perspicacity : 0;
 
+        // Understanding (delve infusion): every non-Delve infusion each item
+        // carries gains (0.2 * level) levels. The per-type item counts come
+        // from the builder's basic infusion selections; like the other delve
+        // infusions, the situational chip decides whether it is counted.
+        if (this.hasDelveInfusion('Understanding') && formData.basicInfusionCounts) {
+            let counts = null;
+            try {
+                counts = JSON.parse(formData.basicInfusionCounts);
+            } catch (e) {
+                counts = null;
+            }
+            if (counts) {
+                const bonus = 0.2 * this.delveLevel;
+                for (const key of ['tenacity', 'vitality', 'vigor', 'focus', 'perspicacity']) {
+                    const items = Number(counts[key]) || 0;
+                    if (items > 0) this[key] = Number(this[key] || 0) + bonus * items;
+                }
+            }
+        }
+
         this.currentHealthPercent = formData.health
             ? new Percentage(Math.max(1, Number(formData.health)))
             : new Percentage(100);
