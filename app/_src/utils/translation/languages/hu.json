@@ -877,7 +877,7 @@
     "auth.linkConfirm.confirm": "Kapcsolás megerősítése",
     "auth.linkConfirm.confirmOwnership": "hogy megerősítsd, hogy ez a Minecraft-profil a tiéd.",
     "auth.linkConfirm.discordAccount": "Discord-fiók",
-    "auth.linkConfirm.invalid": "Ez a hivatkozás érvénytelen vagy lejárt. Futtasd a /stsmod link parancsot a játékban egy újért.",
+    "auth.linkConfirm.invalid": "Ez a hivatkozás érvénytelen vagy lejárt. Futtasd a /sts link parancsot a játékban egy újért.",
     "auth.linkConfirm.linked": "Összekapcsolva! Az STS mod fegyvertárából mentett buildek mostantól a fiókodban tárolódnak.",
     "auth.linkConfirm.linking": "Összekapcsolás…",
     "auth.linkConfirm.manageLinkedProfiles": "Összekapcsolt profiljaid kezelése",

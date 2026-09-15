@@ -877,7 +877,7 @@
     "auth.linkConfirm.confirm": "Подтвердить привязку",
     "auth.linkConfirm.confirmOwnership": "чтобы подтвердить, что этот профиль Minecraft принадлежит вам.",
     "auth.linkConfirm.discordAccount": "Аккаунт Discord",
-    "auth.linkConfirm.invalid": "Эта ссылка недействительна или истекла. Введите /stsmod link в игре, чтобы получить новую.",
+    "auth.linkConfirm.invalid": "Эта ссылка недействительна или истекла. Введите /sts link в игре, чтобы получить новую.",
     "auth.linkConfirm.linked": "Привязано! Сохранение сборок из арсенала мода STS теперь будет привязывать их к вашему аккаунту.",
     "auth.linkConfirm.linking": "Привязка…",
     "auth.linkConfirm.manageLinkedProfiles": "Управление привязанными профилями",

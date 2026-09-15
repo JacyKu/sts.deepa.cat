@@ -4,7 +4,7 @@ import React from 'react';
 import styles from '../styles/Account.module.css';
 import { useTranslation } from './useTranslation';
 
-// Confirmation page for the /stsmod link flow: the player ran the command in
+// Confirmation page for the /sts link flow: the player ran the command in
 // game, got a temp link, and landed here. If they're not logged in yet they
 // log in with Discord first (the login flow returns them to this page), then
 // confirm - which binds their Minecraft UUID to their Discord account.

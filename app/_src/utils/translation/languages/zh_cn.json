@@ -877,7 +877,7 @@
     "auth.linkConfirm.confirm": "确认链接",
     "auth.linkConfirm.confirmOwnership": "以确认此 Minecraft 个人资料属于你。",
     "auth.linkConfirm.discordAccount": "Discord 账号",
-    "auth.linkConfirm.invalid": "此链接无效或已过期。请在游戏中运行 /stsmod link 获取新的链接。",
+    "auth.linkConfirm.invalid": "此链接无效或已过期。请在游戏中运行 /sts link 获取新的链接。",
     "auth.linkConfirm.linked": "已链接！现在从 STS 模组军械库保存的配装将存储到你的账号中。",
     "auth.linkConfirm.linking": "链接中…",
     "auth.linkConfirm.manageLinkedProfiles": "管理你已链接的个人资料",

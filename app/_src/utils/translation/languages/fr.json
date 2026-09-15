@@ -877,7 +877,7 @@
     "auth.linkConfirm.confirm": "Confirmer la liaison",
     "auth.linkConfirm.confirmOwnership": "pour confirmer que ce profil Minecraft vous appartient.",
     "auth.linkConfirm.discordAccount": "Compte Discord",
-    "auth.linkConfirm.invalid": "Ce lien est invalide ou a expiré. Exécutez /stsmod link en jeu pour en obtenir un nouveau.",
+    "auth.linkConfirm.invalid": "Ce lien est invalide ou a expiré. Exécutez /sts link en jeu pour en obtenir un nouveau.",
     "auth.linkConfirm.linked": "Lié ! Les builds sauvegardés depuis l'armurerie du mod STS seront désormais stockés sur votre compte.",
     "auth.linkConfirm.linking": "Liaison…",
     "auth.linkConfirm.manageLinkedProfiles": "Gérer vos profils liés",

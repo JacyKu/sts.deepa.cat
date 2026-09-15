@@ -6,7 +6,7 @@ import { useSessionState } from './header';
 import { useTranslation } from './useTranslation';
 
 // The signed-in user's account page: Discord identity plus the Minecraft
-// UUIDs linked to it. Linking itself happens in game (/stsmod link); this
+// UUIDs linked to it. Linking itself happens in game (/sts link); this
 // page is where a player disconnects a UUID so it can be linked to a
 // different Discord account. Account deletion lives here too. The site
 // look settings live on their own page (/settings) for everyone.
@@ -227,7 +227,7 @@ export default function AccountPage() {
                         </ul>
                     ) : links.length === 0 ? (
                         <p className={styles.muted}>
-                            {t('account.noLinkedProfiles.before')} <code>/stsmod link</code>{' '}
+                            {t('account.noLinkedProfiles.before')} <code>/sts link</code>{' '}
                             {t('account.noLinkedProfiles.after')}
                         </p>
                     ) : (

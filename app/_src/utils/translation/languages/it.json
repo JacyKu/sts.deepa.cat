@@ -877,7 +877,7 @@
     "auth.linkConfirm.confirm": "Conferma collegamento",
     "auth.linkConfirm.confirmOwnership": "per confermare che questo profilo Minecraft ti appartiene.",
     "auth.linkConfirm.discordAccount": "Account Discord",
-    "auth.linkConfirm.invalid": "Questo link non è valido o è scaduto. Esegui /stsmod link in gioco per ottenerne uno nuovo.",
+    "auth.linkConfirm.invalid": "Questo link non è valido o è scaduto. Esegui /sts link in gioco per ottenerne uno nuovo.",
     "auth.linkConfirm.linked": "Collegato! I build salvati dall'armeria della mod STS verranno ora memorizzati sul tuo account.",
     "auth.linkConfirm.linking": "Collegamento…",
     "auth.linkConfirm.manageLinkedProfiles": "Gestisci i tuoi profili collegati",
