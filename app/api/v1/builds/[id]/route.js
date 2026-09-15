@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getBuild, updateBuild, updateBuildState, deleteBuild, setBuildPublic, buildNameTaken, isDuplicateNameError } from '../../../../../lib/sts-builds';
+import {
+    getBuild,
+    updateBuild,
+    updateBuildState,
+    deleteBuild,
+    setBuildPublic,
+    uniqueBuildName,
+    isDuplicateNameError,
+} from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
@@ -65,17 +73,13 @@ export async function PATCH(request, { params }) {
         if (wantsPublic && hasProfanity({ name: update.name, notes: update.notes, token, itemData })) {
             return NextResponse.json({ error: 'profanity' }, { status: 400 });
         }
-        // Build names are unique across the whole site: renaming to a name
-        // any other build already carries is rejected; the same applies when
-        // this row gets claimed onto the account (anonymous re-save while
-        // signed in) and its current name already conflicts.
+        // Build names are unique per account: a name the account already uses
+        // on another build gets " (2)", " (3)", ... appended automatically.
+        // This also covers claiming an anonymous row whose name collides with
+        // one of the account's builds. Other accounts may share the name.
         if (row && user) {
-            if (update.name !== undefined && update.name !== row.name && buildNameTaken(update.name, p.id)) {
-                return NextResponse.json({ error: 'duplicate' }, { status: 409 });
-            }
-            if (update.name === undefined && row.user_id !== user.id && row.name && buildNameTaken(row.name, p.id)) {
-                return NextResponse.json({ error: 'duplicate' }, { status: 409 });
-            }
+            const wanted = update.name !== undefined ? update.name : row.name;
+            if (wanted) update.name = uniqueBuildName(user.id, wanted, p.id);
         }
         if (row && row.is_public === 1) {
             update.summary = summary;
@@ -108,8 +112,9 @@ export async function PATCH(request, { params }) {
         }
         // savedToAccount tells the client the build is (now) attached to the
         // signed-in account - an anonymous row edited with its creator token
-        // gets claimed onto the account by the update above.
-        return NextResponse.json({ ok: true, savedToAccount: Boolean(user) });
+        // gets claimed onto the account by the update above. `name` is the
+        // final name (may carry a " (2)" suffix) when one was sent.
+        return NextResponse.json({ ok: true, savedToAccount: Boolean(user), name: update.name });
     }
 
     // Publicise / de-publicise a build. Requires a signed-in Discord user who
@@ -168,13 +173,11 @@ export async function PATCH(request, { params }) {
         return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
     }
 
-    // Renaming to a name any other build already carries is rejected
-    // (unchanged names pass through).
+    // Renaming: names are unique per account, so a name the account already
+    // uses on another build gets " (2)", " (3)", ... appended (unchanged
+    // names pass through). Other accounts may share the name.
     if (update.name !== undefined) {
-        const current = getBuild(p.id);
-        if (current && update.name !== current.name && buildNameTaken(update.name, p.id)) {
-            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
-        }
+        update.name = uniqueBuildName(user.id, update.name, p.id);
     }
 
     let saved;
@@ -189,7 +192,8 @@ export async function PATCH(request, { params }) {
     if (!saved) {
         return NextResponse.json({ error: 'build not found or not yours' }, { status: 404 });
     }
-    return NextResponse.json({ ok: true });
+    // Return the final name (may carry a " (2)" suffix).
+    return NextResponse.json({ ok: true, name: update.name });
 }
 
 export async function DELETE(request, { params }) {

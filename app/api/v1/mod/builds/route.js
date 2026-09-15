@@ -6,8 +6,8 @@ import {
     countRecentModSaves,
     countRecentBuilds,
     countRecentCustomItems,
-    buildNameTaken,
     findBuildByState,
+    uniqueBuildName,
     mergeReferencedCustomItems,
     getStsUserProfile,
     isDuplicateNameError,
@@ -71,8 +71,7 @@ export async function POST(request) {
         return out;
     };
     const infusions = sanitizeInfusions(body?.infusions);
-    const basicInfusions =
-        body?.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {};
+    const basicInfusions = body?.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {};
 
     if (link) {
         // Linked: save to the Discord account, private.
@@ -92,7 +91,10 @@ export async function POST(request) {
     } else {
         const quota = consumeRateLimit(`anon-mod-build:${uuid}`, limits.anonymousBuildsPerDay, dayWindowMs());
         if (!quota.allowed) {
-            return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Daily build limit reached. Try again tomorrow.' });
+            return rateLimitResponse({
+                resetAt: quota.resetAt,
+                hint: 'Daily build limit reached. Try again tomorrow.',
+            });
         }
     }
 
@@ -102,7 +104,12 @@ export async function POST(request) {
     // below (and shown on build cards).
     let createdItems = [];
     if (link && Array.isArray(body?.items) && body.items.length > 0) {
-        const unknown = new Set(findUnknownItemNames(body.items.map((item) => item?.name), itemData));
+        const unknown = new Set(
+            findUnknownItemNames(
+                body.items.map((item) => item?.name),
+                itemData
+            )
+        );
         const payloads = body.items.filter((item) => unknown.has(item?.name));
         // Embedded uploads share the account's daily custom-item budget; when
         // it is exhausted the build still saves, only the items are skipped.
@@ -135,19 +142,20 @@ export async function POST(request) {
         : itemData;
     const summary = computeBuildSummary(token, summaryData, skillsData);
 
-    // Build names are unique across the whole site (linked or not); re-saving
-    // the identical build keeps its own name.
-    if (name) {
-        const sameStateId = findBuildByState(link ? link.discord_id : null, {
-            token,
-            infusions,
-            revelation: false,
-            basicInfusions,
-        });
-        if (buildNameTaken(name, sameStateId || null)) {
-            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
-        }
-    }
+    // Build names are unique per account (linked or not): re-saving the
+    // identical build keeps its own name, while a different build whose name
+    // the account already uses gets " (2)", " (3)", ... appended - the mod
+    // path behaves exactly like the site. Other accounts may share a name.
+    const ownerId = link ? link.discord_id : null;
+    const sameStateId = name
+        ? findBuildByState(ownerId, {
+              token,
+              infusions,
+              revelation: false,
+              basicInfusions,
+          })
+        : null;
+    const buildName = name ? uniqueBuildName(ownerId, name, sameStateId) : null;
     let result;
     try {
         result = saveBuild({
@@ -157,8 +165,8 @@ export async function POST(request) {
                 revelation: false,
                 basicInfusions,
             },
-            userId: link ? link.discord_id : null,
-            name,
+            userId: ownerId,
+            name: buildName,
             notes: null,
             summary,
             source: 'mod',
@@ -178,6 +186,8 @@ export async function POST(request) {
         saved: true,
         id: result.id,
         isNew: result.isNew,
+        // The final name (duplicates get " (2)", ... appended).
+        name: buildName,
         url: `/b/v${tokenVersion}/${result.id}`,
         createdItems,
     });

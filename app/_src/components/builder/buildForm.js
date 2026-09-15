@@ -1355,14 +1355,9 @@ export default function BuildForm({
     function basicSlotSelects(slot) {
         const hasItem = stats.itemNames && stats.itemNames[slot] && stats.itemNames[slot] !== 'None';
         const cur = basicInfusions[slot];
-        // Only one of each infusion: already-picked infusions (on other
-        // slots) are removed from this dropdown so they can't be duplicated.
-        const pickedElsewhere = new Set(
-            Object.entries(basicInfusions)
-                .filter(([s]) => s !== slot)
-                .map(([, v]) => v.name)
-        );
-        const infusionOpts = BASIC_INFUSIONS.filter((i) => !pickedElsewhere.has(i.name)).map((i) => ({
+        // Regular infusions can be duplicated across items (unlike delve
+        // infusions), so every slot offers the full list.
+        const infusionOpts = BASIC_INFUSIONS.map((i) => ({
             value: i.name,
             label: i.name,
         }));
@@ -1809,6 +1804,8 @@ export default function BuildForm({
                     // The row got saved to (or claimed onto) the signed-in
                     // account: reveal the publicise/anonymity options.
                     if (result.savedToAccount) setOwnsBuild(true);
+                    // The server may have appended " (2)" to a duplicate name.
+                    if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
                     const link =
                         window.location.origin + getStsBase() + `/b/v${tokenVersion}/${activeBuildId}?v=${Date.now()}`;
                     setSaveState('copied');
@@ -1859,6 +1856,8 @@ export default function BuildForm({
                 // Remember the row so later edits update it instead of forking.
                 setActiveBuildId(d.id);
                 if (d.savedToAccount) setOwnsBuild(true);
+                // The server may have appended " (2)" to a duplicate name.
+                if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
                 // Move the address bar onto the build itself: a reload (or
                 // sharing the tab) keeps you on the saved build. replaceState,
                 // not pushState, so Back doesn't return to the blank builder.

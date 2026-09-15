@@ -219,8 +219,11 @@ export default function BuildsPage({ classOptions, specMap, itemGroups }) {
             body: JSON.stringify({ name }),
         })
             .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-            .then(() => {
-                setBuilds((prev) => prev.map((b) => (b.id === build.id ? { ...b, name } : b)));
+            .then((d) => {
+                // The server appends " (2)" when the account already uses the
+                // name, so show the final name it returns.
+                const finalName = d && d.name ? d.name : name;
+                setBuilds((prev) => prev.map((b) => (b.id === build.id ? { ...b, name: finalName } : b)));
             })
             .catch((err) => {
                 if (err && err.status === 409) setError('duplicate');

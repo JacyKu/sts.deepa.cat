@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import {
     saveBuild,
     setBuildPublic,
-    buildNameTaken,
+    uniqueBuildName,
     findBuildByState,
     countRecentBuilds,
     mergeReferencedCustomItems,
@@ -13,7 +13,13 @@ import { decodeBuildParam, getBuildTokenVersion, getBuildItemHashes } from '../.
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
-import { consumeRateLimit, dayWindowMs, getClientIp, rateLimitResponse, readRateLimits } from '../../../../lib/rate-limit';
+import {
+    consumeRateLimit,
+    dayWindowMs,
+    getClientIp,
+    rateLimitResponse,
+    readRateLimits,
+} from '../../../../lib/rate-limit';
 
 export async function POST(request) {
     const body = await request.json().catch(() => null);
@@ -39,18 +45,15 @@ export async function POST(request) {
         token,
         infusions: body.infusions && typeof body.infusions === 'object' ? body.infusions : {},
         revelation: Boolean(body.revelation),
-        basicInfusions:
-            body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
+        basicInfusions: body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
     };
-    // Build names are unique across the whole site: re-saving the identical
-    // build is fine (it maps back onto the same row), but a different build
-    // whose name is already taken anywhere is rejected.
-    if (body.name) {
-        const sameStateId = findBuildByState(user ? user.id : null, state);
-        if (buildNameTaken(body.name, sameStateId || null)) {
-            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
-        }
-    }
+    // Build names are unique per account: re-saving the identical build keeps
+    // its name, while a different build whose name the account already uses
+    // gets " (2)", " (3)", ... appended automatically. Other accounts may use
+    // the same name.
+    const ownerId = user ? user.id : null;
+    const sameStateId = body.name ? findBuildByState(ownerId, state) : null;
+    const buildName = body.name ? uniqueBuildName(ownerId, body.name, sameStateId) : null;
 
     // Daily upload limit: accounts are counted from the database (site and mod
     // saves share the budget); anonymous saves are counted per IP in memory.
@@ -60,9 +63,16 @@ export async function POST(request) {
             return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
         }
     } else {
-        const quota = consumeRateLimit(`anon-build:${getClientIp(request)}`, limits.anonymousBuildsPerDay, dayWindowMs());
+        const quota = consumeRateLimit(
+            `anon-build:${getClientIp(request)}`,
+            limits.anonymousBuildsPerDay,
+            dayWindowMs()
+        );
         if (!quota.allowed) {
-            return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Daily build limit reached. Try again tomorrow.' });
+            return rateLimitResponse({
+                resetAt: quota.resetAt,
+                hint: 'Daily build limit reached. Try again tomorrow.',
+            });
         }
     }
 
@@ -75,8 +85,8 @@ export async function POST(request) {
     try {
         result = saveBuild({
             state,
-            userId: user ? user.id : null,
-            name: body.name || null,
+            userId: ownerId,
+            name: buildName,
             // Notes are a signed-in feature: anonymous saves never carry them.
             notes: user ? body.notes || null : null,
             summary,
@@ -107,6 +117,9 @@ export async function POST(request) {
         id: result.id,
         isNew: result.isNew,
         savedToAccount: Boolean(user),
+        // The final name (duplicates get " (2)", ... appended server-side),
+        // so the builder can update its name field.
+        name: buildName,
         url: `/b/v${tokenVersion}/${result.id}`,
     });
     // Anonymous rows are editable in place only by the browser that created
