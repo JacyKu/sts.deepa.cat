@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
     getLinkByUuid,
+    getBuild,
     saveBuild,
     BUILD_NAME_MAX,
     countRecentModSaves,
@@ -181,6 +182,7 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
 
+    const savedRow = getBuild(result.id);
     return NextResponse.json({
         linked: Boolean(link),
         saved: true,
@@ -188,6 +190,8 @@ export async function POST(request) {
         isNew: result.isNew,
         // The final name (duplicates get " (2)", ... appended).
         name: buildName,
+        // The build's revision (?v=) for the link the mod shows back.
+        version: savedRow ? savedRow.revision || 1 : null,
         url: `/b/v${tokenVersion}/${result.id}`,
         createdItems,
     });

@@ -6,9 +6,9 @@ const LEGACY_COMPRESSED_PREFIX = 'z:';
 const BINARY_V1_PREFIX = 'v1_';
 
 // The build token generation this codec currently produces. Short links are
-// versioned against this (/b/v6/<id>) so older decoder versions can be kept
+// versioned against this (/b/v7/<id>) so older decoder versions can be kept
 // around and the link routing stays honest about what a token contains.
-export const CURRENT_TOKEN_VERSION = 6;
+export const CURRENT_TOKEN_VERSION = 7;
 
 // Reads the version byte out of a binary token (v1_<base64url>), or null for
 // legacy formats. Used to version short links and to validate that a token
@@ -235,7 +235,8 @@ export function decodeBuildParam(build, itemData) {
         if (bytes.length < 1 + 6 * 4) return null;
 
         const version = bytes[0];
-        if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6) return null;
+        if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7)
+            return null;
 
         const readU32 = (off) =>
             (bytes[off] | (bytes[off + 1] << 8) | (bytes[off + 2] << 16) | (bytes[off + 3] << 24)) >>> 0;
@@ -295,9 +296,10 @@ export function decodeBuildParam(build, itemData) {
 
             // Extra stat inputs. v6+ encodes health as a varint (no upper cap,
             // minimum 1); older tokens keep 7 single bytes (health 0-255).
+            // v7 shares the v6 layout.
             const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspicacity', 'region'];
             const STAT_DEFAULTS = [100, 0, 0, 0, 0, 0, 3];
-            if (version === 6) {
+            if (version >= 6) {
                 if (offset + 6 <= bytes.length) {
                     const singleStats = [
                         bytes[offset],
@@ -587,7 +589,7 @@ export function encodeBuildParamBinaryV2({
     }
     const czCount = writeVarint(czParts.length / 3);
 
-    const version = Uint8Array.from([6]);
+    const version = Uint8Array.from([CURRENT_TOKEN_VERSION]);
     const packed = concatBytes(
         version,
         hashes,

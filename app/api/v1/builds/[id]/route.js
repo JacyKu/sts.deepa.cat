@@ -113,8 +113,15 @@ export async function PATCH(request, { params }) {
         // savedToAccount tells the client the build is (now) attached to the
         // signed-in account - an anonymous row edited with its creator token
         // gets claimed onto the account by the update above. `name` is the
-        // final name (may carry a " (2)" suffix) when one was sent.
-        return NextResponse.json({ ok: true, savedToAccount: Boolean(user), name: update.name });
+        // final name (may carry a " (2)" suffix) when one was sent, and
+        // `version` the build's revision (?v= for the copied link).
+        const savedRow = getBuild(p.id);
+        return NextResponse.json({
+            ok: true,
+            savedToAccount: Boolean(user),
+            name: update.name,
+            version: savedRow ? savedRow.revision || 1 : null,
+        });
     }
 
     // Publicise / de-publicise a build. Requires a signed-in Discord user who

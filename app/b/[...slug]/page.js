@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 function parseSlug(slug) {
     if (!slug || slug.length === 0) return null;
     const [first, second] = slug;
-    // Versioned form: /b/v6/<id>
+    // Versioned form: /b/v7/<id>
     if (/^v\d+$/.test(first) && second) {
         return { version: first, id: second };
     }
@@ -46,10 +46,12 @@ export default async function BuildLinkPage({ params, searchParams }) {
     }
 
     // Short links are canonicalised (legacy /b/<id> -> /b/v<version>/<id>,
-    // or the reverse for legacy tokens) and always carry a ?v cache-buster
-    // built from the row's timestamps. Discord caches embeds per URL, so a
-    // shared link without a timestamp keeps serving the stale embed even
-    // after the build is edited; the ?v makes the URL change with the build.
+    // or the reverse for legacy tokens) and always carry the build's revision
+    // as ?v=<revision>. Discord caches embeds per URL, so the link only
+    // changes when the build is actually updated (the revision bumps) instead
+    // of serving a stale embed. Any other ?v value (older links used raw
+    // timestamps) is redirected to the current revision, so old links keep
+    // working and get converted automatically.
     const row = getBuild(parsed.id);
     if (row) {
         const tokenVersion = getBuildTokenVersion(row.token);
@@ -58,11 +60,9 @@ export default async function BuildLinkPage({ params, searchParams }) {
         // write operations (saves, publicise, ...) use it.
         const canonical = tokenVersion ? `${base}/b/v${tokenVersion}/${row.id}` : `${base}/b/${row.id}`;
         const versionOk = parsed.version === (tokenVersion ? `v${tokenVersion}` : null);
-        const cacheBuster = encodeURIComponent(
-            (row.updated_at || row.created_at || '') + '|' + (row.publicized_at || '')
-        );
-        if (!versionOk || !sp.v || row.id !== parsed.id) {
-            redirect(canonical + '?v=' + cacheBuster);
+        const revision = String(row.revision || 1);
+        if (!versionOk || !sp.v || sp.v !== revision || row.id !== parsed.id) {
+            redirect(canonical + '?v=' + revision);
         }
     }
 

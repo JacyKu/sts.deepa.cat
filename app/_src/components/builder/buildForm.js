@@ -1814,8 +1814,13 @@ export default function BuildForm({
                     if (result.savedToAccount) setOwnsBuild(true);
                     // The server may have appended " (2)" to a duplicate name.
                     if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
+                    // The server returns the build's revision (?v=), which
+                    // only changes when the build is updated.
                     const link =
-                        window.location.origin + getStsBase() + `/b/v${tokenVersion}/${activeBuildId}?v=${Date.now()}`;
+                        window.location.origin +
+                        getStsBase() +
+                        `/b/v${tokenVersion}/${activeBuildId}` +
+                        (result.version ? `?v=${result.version}` : '');
                     setSaveState('copied');
                     setSavedAnonymous(false);
                     if (navigator.clipboard) {
@@ -1860,7 +1865,9 @@ export default function BuildForm({
                 return r.json();
             })
             .then((d) => {
-                const link = window.location.origin + getStsBase() + d.url + `?v=${Date.now()}`;
+                // The server returns the build's revision (?v=), which only
+                // changes when the build is updated.
+                const link = window.location.origin + getStsBase() + d.url + (d.version ? `?v=${d.version}` : '');
                 // Remember the row so later edits update it instead of forking.
                 setActiveBuildId(d.id);
                 if (d.savedToAccount) setOwnsBuild(true);

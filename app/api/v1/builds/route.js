@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
     saveBuild,
     setBuildPublic,
+    getBuild,
     uniqueBuildName,
     findBuildByState,
     countRecentBuilds,
@@ -113,6 +114,7 @@ export async function POST(request) {
         });
     }
     const tokenVersion = getBuildTokenVersion(token) ?? '';
+    const savedRow = getBuild(result.id);
     const res = NextResponse.json({
         id: result.id,
         isNew: result.isNew,
@@ -120,6 +122,9 @@ export async function POST(request) {
         // The final name (duplicates get " (2)", ... appended server-side),
         // so the builder can update its name field.
         name: buildName,
+        // The build's revision is the ?v= cache-buster for the copied link:
+        // it only changes when the build is updated.
+        version: savedRow ? savedRow.revision || 1 : null,
         url: `/b/v${tokenVersion}/${result.id}`,
     });
     // Anonymous rows are editable in place only by the browser that created
