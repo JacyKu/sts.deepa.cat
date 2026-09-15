@@ -920,5 +920,13 @@
     "builds.bulkPublicised": "Publiés :",
     "builds.bulkUnpublicised": "Rendus privés :",
     "builds.bulkFailed": "Échecs :",
-    "settings.roundRadius": "Rayon des coins"
+    "settings.roundRadius": "Rayon des coins",
+    "account.uploadAvatar": "Importer une image",
+    "account.uploadedAvatar": "Importée",
+    "account.uploadAvatarHint": "PNG, JPEG, GIF ou WebP, 2 Mo maximum - jusqu’à 3 images personnalisées.",
+    "account.removeAvatar": "Supprimer l’image",
+    "account.errors.imageOnly": "Seuls les fichiers image peuvent être importés.",
+    "account.errors.imageTooLarge": "Cette image est trop lourde (2 Mo maximum).",
+    "account.errors.tooManyAvatars": "Vous pouvez enregistrer jusqu’à 3 images personnalisées.",
+    "account.errors.upload": "Impossible d’importer l’image."
 }

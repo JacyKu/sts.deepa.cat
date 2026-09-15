@@ -920,5 +920,13 @@
     "builds.bulkPublicised": "已公開：",
     "builds.bulkUnpublicised": "已設為私人：",
     "builds.bulkFailed": "失敗：",
-    "settings.roundRadius": "圓角半徑"
+    "settings.roundRadius": "圓角半徑",
+    "account.uploadAvatar": "上傳圖片",
+    "account.uploadedAvatar": "已上傳",
+    "account.uploadAvatarHint": "支援 PNG、JPEG、GIF 或 WebP，最大 2 MB——最多 3 張自訂圖片。",
+    "account.removeAvatar": "刪除圖片",
+    "account.errors.imageOnly": "只能上傳圖片檔案。",
+    "account.errors.imageTooLarge": "圖片過大（最大 2 MB）。",
+    "account.errors.tooManyAvatars": "最多可儲存 3 張自訂圖片。",
+    "account.errors.upload": "無法上傳圖片。"
 }

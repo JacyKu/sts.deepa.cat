@@ -10,6 +10,11 @@ import { useTranslation } from './useTranslation';
 // page is where a player disconnects a UUID so it can be linked to a
 // different Discord account. Account deletion lives here too. The site
 // look settings live on their own page (/settings) for everyone.
+// Uploaded profile pictures: image types the browser may pick, the size cap
+// (mirrors the server), and how many an account can keep.
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_UPLOADED_AVATARS = 3;
+
 export default function AccountPage() {
     const t = useTranslation();
     const session = useSessionState();
@@ -80,6 +85,70 @@ export default function AccountPage() {
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 session.setUser({ ...session.user, avatarUrl: d.avatarUrl, avatarSource: d.avatarSource });
+                window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
+            })
+            .catch(() => setAvatarError(t('account.errors.avatar')))
+            .finally(() => setSavingAvatar(false));
+    }
+
+    // Validate the picked file client-side, then read it as a data URL for
+    // the upload endpoint (which re-validates the bytes server-side).
+    function uploadAvatarFile(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (!file || savingAvatar) return;
+        if (!file.type || !file.type.startsWith('image/')) {
+            setAvatarError(t('account.errors.imageOnly'));
+            return;
+        }
+        if (file.size > MAX_AVATAR_BYTES) {
+            setAvatarError(t('account.errors.imageTooLarge'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => uploadAvatar(reader.result);
+        reader.onerror = () => setAvatarError(t('account.errors.upload'));
+        reader.readAsDataURL(file);
+    }
+
+    function uploadAvatar(dataUrl) {
+        setSavingAvatar(true);
+        setAvatarError(null);
+        fetch('/api/v1/account/avatars', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataUrl }),
+        })
+            .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+            .then((d) => {
+                session.setUser({
+                    ...session.user,
+                    avatarUrl: d.avatarUrl,
+                    avatarSource: d.avatarSource,
+                    uploadedAvatars: d.uploadedAvatars,
+                });
+                window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
+            })
+            .catch((err) => {
+                if (err && err.status === 409) setAvatarError(t('account.errors.tooManyAvatars'));
+                else setAvatarError(t('account.errors.upload'));
+            })
+            .finally(() => setSavingAvatar(false));
+    }
+
+    function removeAvatar(id) {
+        if (savingAvatar) return;
+        setSavingAvatar(true);
+        setAvatarError(null);
+        fetch(`/api/v1/account/avatars/${id}`, { method: 'DELETE' })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => {
+                session.setUser({
+                    ...session.user,
+                    avatarUrl: d.avatarUrl,
+                    avatarSource: d.avatarSource,
+                    uploadedAvatars: d.uploadedAvatars,
+                });
                 window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
             })
             .catch(() => setAvatarError(t('account.errors.avatar')))
@@ -265,7 +334,53 @@ export default function AccountPage() {
                             )}
                             <span className={styles.avatarChoiceLabel}>Minecraft</span>
                         </button>
+                        {(session.user.uploadedAvatars || []).map((avatar) => {
+                            const source = `upload:${avatar.id}`;
+                            const active = session.user.avatarSource === source;
+                            return (
+                                <div key={avatar.id} className={styles.avatarChoiceWrap}>
+                                    <button
+                                        type="button"
+                                        className={`${styles.avatarChoice}${
+                                            active ? ` ${styles.avatarChoiceActive}` : ''
+                                        }`}
+                                        onClick={() => chooseAvatar(source)}
+                                        disabled={savingAvatar}
+                                        aria-pressed={active}
+                                    >
+                                        <img src={avatar.url} alt="" width="48" height="48" />
+                                        <span className={styles.avatarChoiceLabel}>{t('account.uploadedAvatar')}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.avatarRemove}
+                                        onClick={() => removeAvatar(avatar.id)}
+                                        disabled={savingAvatar}
+                                        aria-label={t('account.removeAvatar')}
+                                        title={t('account.removeAvatar')}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            );
+                        })}
+                        {(session.user.uploadedAvatars || []).length < MAX_UPLOADED_AVATARS && (
+                            <label className={styles.avatarChoice}>
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/gif,image/webp"
+                                    className={styles.avatarFileInput}
+                                    onChange={uploadAvatarFile}
+                                    disabled={savingAvatar}
+                                />
+                                <span className={styles.avatarUploadPlus} aria-hidden="true">
+                                    +
+                                </span>
+                                <span className={styles.avatarChoiceLabel}>{t('account.uploadAvatar')}</span>
+                            </label>
+                        )}
                     </div>
+                    <p className={styles.muted}>{t('account.uploadAvatarHint')}</p>
                     {!session.user.minecraftAvatarUrl && <p className={styles.muted}>{t('account.linkAvatarHint')}</p>}
                     {avatarError && <p className={styles.error}>{avatarError}</p>}
                 </section>

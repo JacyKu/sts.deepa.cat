@@ -200,6 +200,58 @@
     font-size: 0.9rem;
 }
 
+/* Uploaded picture: the choice button plus a small remove badge. */
+.avatarChoiceWrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.avatarRemove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--negative, #ce2d27);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.avatarRemove:hover:not(:disabled) {
+    border-color: var(--negative, #ce2d27);
+    background: var(--negative, #ce2d27);
+    color: #fff;
+}
+
+.avatarRemove:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.avatarFileInput {
+    display: none;
+}
+
+.avatarUploadPlus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 1px dashed var(--glass-border);
+    border-radius: 4px;
+    color: var(--text-2);
+    font-size: 22px;
+    line-height: 1;
+}
+
 .loginLink {
     color: var(--accent, #9c59d1);
     font-weight: 600;

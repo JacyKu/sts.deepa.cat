@@ -920,5 +920,13 @@
     "builds.bulkPublicised": "Опубликовано:",
     "builds.bulkUnpublicised": "Скрыто:",
     "builds.bulkFailed": "Ошибок:",
-    "settings.roundRadius": "Радиус углов"
+    "settings.roundRadius": "Радиус углов",
+    "account.uploadAvatar": "Загрузить изображение",
+    "account.uploadedAvatar": "Загружено",
+    "account.uploadAvatarHint": "PNG, JPEG, GIF или WebP, до 2 МБ — до 3 своих изображений.",
+    "account.removeAvatar": "Удалить изображение",
+    "account.errors.imageOnly": "Можно загружать только изображения.",
+    "account.errors.imageTooLarge": "Это изображение слишком большое (максимум 2 МБ).",
+    "account.errors.tooManyAvatars": "Можно сохранить до 3 своих изображений.",
+    "account.errors.upload": "Не удалось загрузить изображение."
 }

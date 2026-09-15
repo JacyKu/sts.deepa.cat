@@ -920,5 +920,13 @@
     "builds.bulkPublicised": "Pubblicati:",
     "builds.bulkUnpublicised": "Resi privati:",
     "builds.bulkFailed": "Non riusciti:",
-    "settings.roundRadius": "Raggio degli angoli"
+    "settings.roundRadius": "Raggio degli angoli",
+    "account.uploadAvatar": "Carica immagine",
+    "account.uploadedAvatar": "Caricata",
+    "account.uploadAvatarHint": "PNG, JPEG, GIF o WebP, massimo 2 MB - fino a 3 immagini personalizzate.",
+    "account.removeAvatar": "Rimuovi immagine",
+    "account.errors.imageOnly": "È possibile caricare solo file immagine.",
+    "account.errors.imageTooLarge": "Questa immagine è troppo grande (massimo 2 MB).",
+    "account.errors.tooManyAvatars": "Puoi salvare fino a 3 immagini personalizzate.",
+    "account.errors.upload": "Impossibile caricare l’immagine."
 }

@@ -58,6 +58,16 @@ async function getFaviconDataUrl() {
 
 // Fetch a Discord CDN avatar and re-encode it as a PNG data URL for embedding
 // in the card image. Returns null when the fetch fails (e.g. deleted avatar).
+// The stored author avatar is either a Discord hash, an absolute URL
+// (Minecraft head) or a site-relative URL (uploaded picture). Build the URL
+// the embed can fetch: relative paths get the request origin.
+function resolveAuthorAvatarUrl(userId, avatar, origin) {
+    if (!avatar) return null;
+    if (avatar.startsWith('http')) return avatar;
+    if (avatar.startsWith('/')) return origin ? origin + avatar : null;
+    return userId ? `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=128&format=png` : null;
+}
+
 async function getAvatarDataUrl(url) {
     if (avatarCache.has(url)) return avatarCache.get(url);
     let dataUrl = null;
@@ -401,7 +411,7 @@ async function baseCardResponse() {
 
 // Shared skill/infusion set card: the same skill panel the build embeds use,
 // with the set's class/spec/points and (for delve sets) its infusions.
-async function setCardResponse(setId) {
+async function setCardResponse(setId, origin) {
     const row = getPublicSkillSet(setId);
     if (!row) return baseCardResponse();
 
@@ -411,10 +421,7 @@ async function setCardResponse(setId) {
     const totalSkillPoints = setData.skills.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
     const totalSpecPoints = setData.specSkills.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
     const humanClass = row.className ? row.className.charAt(0).toUpperCase() + row.className.slice(1) : null;
-    const avatarUrl =
-        row.userId && row.authorAvatar
-            ? `https://cdn.discordapp.com/avatars/${row.userId}/${row.authorAvatar}.png?size=128&format=png`
-            : null;
+    const avatarUrl = resolveAuthorAvatarUrl(row.userId, row.authorAvatar, origin);
     const avatarDataUrl = avatarUrl ? await getAvatarDataUrl(avatarUrl) : null;
 
     return new ImageResponse(
@@ -535,8 +542,9 @@ export async function GET(request) {
 
     // Shared skill/infusion sets (the /builder?set=<id> links) render with
     // the same skill panel the build cards use.
+    const origin = new URL(request.url).origin;
     if (setId) {
-        return setCardResponse(setId);
+        return setCardResponse(setId, origin);
     }
 
     // Saved builds can be rendered by DB id: the token alone can't carry the
@@ -554,7 +562,7 @@ export async function GET(request) {
             if (row.is_public === 1 && row.anonymous !== 1 && row.author_name) {
                 author = { name: row.author_name };
                 if (row.user_id && row.author_avatar) {
-                    author.avatarUrl = `https://cdn.discordapp.com/avatars/${row.user_id}/${row.author_avatar}.png?size=128&format=png`;
+                    author.avatarUrl = resolveAuthorAvatarUrl(row.user_id, row.author_avatar, origin);
                 }
             }
             return row.token;

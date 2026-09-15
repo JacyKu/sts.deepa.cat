@@ -920,5 +920,13 @@
     "builds.bulkPublicised": "Nyilvánossá tett:",
     "builds.bulkUnpublicised": "Priváttá tett:",
     "builds.bulkFailed": "Sikertelen:",
-    "settings.roundRadius": "Sarok lekerekítés"
+    "settings.roundRadius": "Sarok lekerekítés",
+    "account.uploadAvatar": "Kép feltöltése",
+    "account.uploadedAvatar": "Feltöltött",
+    "account.uploadAvatarHint": "PNG, JPEG, GIF vagy WebP, max. 2 MB - legfeljebb 3 saját kép.",
+    "account.removeAvatar": "Kép törlése",
+    "account.errors.imageOnly": "Csak képfájlok tölthetők fel.",
+    "account.errors.imageTooLarge": "Ez a kép túl nagy (max. 2 MB).",
+    "account.errors.tooManyAvatars": "Legfeljebb 3 saját képet menthetsz el.",
+    "account.errors.upload": "Nem sikerült feltölteni a képet."
 }

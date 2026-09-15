@@ -22,6 +22,7 @@ export async function GET() {
                   avatarSource: avatar.avatarSource,
                   discordAvatarUrl: avatar.discordAvatarUrl,
                   minecraftAvatarUrl: avatar.minecraftAvatarUrl,
+                  uploadedAvatars: avatar.uploadedAvatars,
                   anonymous,
                   stsCreatedAt: getStsUserCreatedAt(user.id),
               }
