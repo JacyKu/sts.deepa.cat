@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
     return (
         <LegalPage
             title="Privacy Policy"
-            meta="Last updated: August 27, 2026 | Applies to: https://deepa.cat"
+            meta="Last updated: September 15, 2026 | Applies to: https://deepa.cat"
             sections={[
                 {
                     heading: 'Introduction',
@@ -31,26 +31,50 @@ export default function PrivacyPolicyPage() {
                     paragraphs: [<>We collect several types of information in connection with the Service:</>],
                     items: [
                         <>
-                            <strong>Information you provide directly:</strong> Discord account name, user ID and avatar.
+                            <strong>Information you provide directly:</strong> Discord account name, user ID and avatar,
+                            plus the builds, notes and custom items you save on the site.
+                        </>,
+                        <>
+                            <strong>Minecraft data (mod and account linking):</strong> when you link a Minecraft
+                            profile, your Minecraft UUID and username, and the build or item data you choose to export
+                            or upload with the mod.
                         </>,
                         <>
                             <strong>Information collected automatically:</strong> None. We do not use analytics or
-                            tracking technologies.
+                            tracking technologies. Our network provider (Cloudflare) processes request data such as your
+                            IP address to deliver the site and protect it from abuse.
                         </>,
                         <>
-                            <strong>Information from third-party services:</strong> None.
+                            <strong>Information from third-party services:</strong> your Discord identity when you log
+                            in with Discord, and your Minecraft username and avatar from Mojang&apos;s public API and
+                            mc-heads.net when you link a profile.
                         </>,
                     ],
                 },
                 {
                     heading: 'How We Use Your Information',
                     paragraphs: [<>We use the information we collect to:</>],
-                    items: [<>Provide, operate, and maintain our Service</>, <>Comply with legal obligations</>],
+                    items: [
+                        <>
+                            Provide, operate, and maintain our Service (build planner, item database, public build
+                            database, custom items, Discord bot and Minecraft mod)
+                        </>,
+                        <>Link your Minecraft profile to your Discord account when you ask us to</>,
+                        <>Keep regular backups of the database so the Service can be restored after failures</>,
+                        <>Comply with legal obligations</>,
+                    ],
                 },
                 {
                     heading: 'How We Share Your Information',
                     paragraphs: [<>We may share your information in the following circumstances:</>],
                     items: [
+                        <>
+                            <strong>Service providers:</strong> the site is delivered through Cloudflare&apos;s network
+                            (traffic proxying, caching, DDoS protection and security), and database backups are stored
+                            in Cloudflare R2 object storage. Discord processes login (OAuth) and bot interactions. When
+                            you pick your Minecraft profile picture, your browser loads the head image from mc-heads.net
+                            (the image URL contains only your Minecraft UUID).
+                        </>,
                         <>
                             <strong>Legal requirements:</strong> We may disclose information if required by law or in
                             response to valid legal processes.
@@ -60,10 +84,27 @@ export default function PrivacyPolicyPage() {
                 {
                     heading: 'Cookies and Tracking Technologies',
                     paragraphs: [
-                        <>We do not use cookies or tracking technologies for advertising or analytics.</>,
                         <>
-                            When you log in with Discord, we set a session cookie to keep you signed in; it contains no
-                            more than your Discord identity and is deleted when you log out. Your site preferences are stored locally in your browser and are not transmitted to us.
+                            We do not use cookies or tracking technologies for advertising or analytics, and we do not
+                            share data with advertisers. We only set functional cookies the Service needs:
+                        </>,
+                    ],
+                    items: [
+                        <>
+                            <code>sts-session</code> - a session cookie set when you log in with Discord; it keeps you
+                            signed in and is deleted when you log out.
+                        </>,
+                        <>
+                            <code>sts-build-owner-&lt;id&gt;</code> - set when you save a build while logged out; it
+                            lets that browser edit or publicise the anonymous build it created. It lasts up to one year
+                            or until you clear your browser data.
+                        </>,
+                        <>
+                            <code>lang</code> - remembers the language you pick (a session cookie).
+                        </>,
+                        <>
+                            Your other preferences (theme, backdrop, animations, caching, drafts and comparison picks)
+                            are stored in your browser&apos;s local storage and are never sent to us.
                         </>,
                     ],
                 },
@@ -73,6 +114,11 @@ export default function PrivacyPolicyPage() {
                         <>We will retain your personal information for as long as necessary.</>,
                         <>
                             When we no longer need to retain your information, we will securely delete or anonymize it.
+                        </>,
+                        <>
+                            Database backups (which include the data above) are kept for a limited period - currently up
+                            to 30 days - and are then deleted automatically. Backups are stored on our server and in
+                            Cloudflare R2 object storage.
                         </>,
                     ],
                 },
@@ -128,6 +174,26 @@ export default function PrivacyPolicyPage() {
                             The bot does not store personal information: it keeps only a short-lived in-memory cache of
                             responses (a few minutes) and writes nothing to disk. Command interactions are processed by
                             Discord under Discord&apos;s own privacy policy.
+                        </>,
+                    ],
+                },
+                {
+                    heading: 'STS Minecraft Mod',
+                    paragraphs: [
+                        <>
+                            The Service includes an optional Minecraft mod that exports builds from the game, uploads
+                            them to the site, and can upload items the site does not know about as custom items.
+                        </>,
+                        <>
+                            The mod acts only when you run its commands. To upload to your account, you first link your
+                            Minecraft UUID to your Discord account: the mod asks the site for a single-use code, you
+                            open the confirmation link in your browser and confirm while logged in. The code expires
+                            after 15 minutes and is consumed on use, and the mod never sees your Discord credentials.
+                        </>,
+                        <>
+                            Uploaded builds and items are stored like content you save on the site: a build belongs to
+                            the linked account (or is stored anonymously when the UUID is not linked), and uploaded
+                            custom items are owned by the linked account. Rate limits apply to uploads.
                         </>,
                     ],
                 },
