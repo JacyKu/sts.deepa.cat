@@ -32,3 +32,24 @@
     background: var(--accent, #3d3286);
     border-color: var(--accent, #3d3286);
 }
+
+/* Phones: equal-width columns instead of wrapped, unevenly-sized tabs (the
+   row of labels used to break onto two lines and drift off centre). */
+@media (max-width: 700px) {
+    .dbTabs {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        gap: 6px;
+        width: 100%;
+    }
+
+    .dbTab {
+        padding: 9px 6px;
+        font-size: 0.85em;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}

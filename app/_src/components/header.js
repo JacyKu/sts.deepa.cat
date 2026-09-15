@@ -47,15 +47,23 @@ const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 // only the nav's own contents. Portaled out, the panel blurs whatever is
 // actually behind it. The anchor tracks the trigger button so the fixed
 // panel stays aligned on scroll/resize.
-function useMenuPortal(open) {
+// Anchors a portal menu to its trigger button. On phones the nav menu can
+// opt into a full-width sheet under the top bar: the hamburger sits in the
+// middle of the bar, so right-anchoring the panel to it pushed the panel off
+// the left edge of the screen.
+function useMenuPortal(open, { fullWidthOnMobile = false } = {}) {
     const [anchor, setAnchor] = React.useState(null);
     const ref = React.useRef(null);
     React.useLayoutEffect(() => {
         if (!open) return undefined;
         const measure = () => {
             const rect = ref.current ? ref.current.getBoundingClientRect() : null;
-            if (rect) {
-                setAnchor({ top: rect.bottom + 10, right: Math.max(8, window.innerWidth - rect.right) });
+            if (!rect) return;
+            const top = rect.bottom + 10;
+            if (fullWidthOnMobile && window.innerWidth <= 700) {
+                setAnchor({ top, left: 12, right: 12 });
+            } else {
+                setAnchor({ top, right: Math.max(8, window.innerWidth - rect.right) });
             }
         };
         measure();
@@ -65,10 +73,18 @@ function useMenuPortal(open) {
             window.removeEventListener('resize', measure);
             window.removeEventListener('scroll', measure, true);
         };
-    }, [open]);
+    }, [open, fullWidthOnMobile]);
     return {
         ref,
-        style: anchor ? { position: 'fixed', top: anchor.top, right: anchor.right, zIndex: 61 } : undefined,
+        style: anchor
+            ? {
+                  position: 'fixed',
+                  top: anchor.top,
+                  ...(anchor.left !== undefined ? { left: anchor.left } : {}),
+                  right: anchor.right,
+                  zIndex: 61,
+              }
+            : undefined,
     };
 }
 
@@ -280,7 +296,7 @@ export function HeaderNav() {
     const t = useTranslation();
     const [base, setBase] = React.useState('/sts');
     const [open, setOpen] = React.useState(false);
-    const menuPortal = useMenuPortal(open);
+    const menuPortal = useMenuPortal(open, { fullWidthOnMobile: true });
     React.useEffect(() => {
         setBase(getStsBase());
     }, []);

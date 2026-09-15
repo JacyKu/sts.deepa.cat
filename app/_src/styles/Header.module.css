@@ -225,10 +225,12 @@
         display: inline-flex;
     }
 
-    .mobileNav .menuPanel {
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%);
+    /* The nav panel is portaled and anchored full-width on phones (see
+       useMenuPortal); keep it scrollable so short landscape screens stay
+       usable. */
+    .menuPanel {
+        max-height: calc(100vh - 96px);
+        overflow-y: auto;
     }
 }
 

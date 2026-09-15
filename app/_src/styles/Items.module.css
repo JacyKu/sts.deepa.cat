@@ -2214,6 +2214,31 @@ div.builderStatCard {
     margin-top: 20px;
 }
 
+/* Region/class/spec and the infusion toggles sit inline on desktop; on
+   phones each cluster folds into a dropdown (see the max-width: 700px
+   block). The toggles and the collapsible body keep the desktop spacing
+   rules that used to apply to their elements directly. */
+.builderGroup,
+.builderGroupBody,
+.builderToggles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.builderGroupToggle {
+    display: none;
+}
+
+.builderImportGroup {
+    justify-self: end;
+    width: min(400px, 100%);
+}
+
+.builderImportBody {
+    display: block;
+}
+
 /* Experimental "New Layout": the equipment slot inputs go in a column on
    the left (rows of two), with the item tiles / charms / stats on the
    right. Only applies on desktop; below 992px (and with the setting off)
@@ -2300,6 +2325,13 @@ div.builderStatCard {
         height: 38px;
         padding: 6px 10px;
         font-size: 13px;
+    }
+
+    /* The controls now sit inside wrappers (group body / toggles): keep the
+       same 10px rhythm between them. */
+    .builderGroupBody,
+    .builderToggles {
+        gap: 10px;
     }
 }
 
@@ -2388,6 +2420,133 @@ div.builderStatCard {
 
     .czTrigger {
         font-size: 10px;
+    }
+}
+
+/* Phones: the top-row clusters fold into dropdowns. Region/class/spec and
+   import/skill sets each collapse behind a full-width toggle so the builder
+   header fits without the controls wrapping into a wall of fields. */
+@media (max-width: 700px) {
+    .builderTopRow {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            'selects'
+            'import'
+            'title';
+    }
+
+    .builderControls {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .builderGroup,
+    .builderImportGroup {
+        display: block;
+        width: 100%;
+    }
+
+    .builderTopRow > div.builderImportGroup {
+        justify-self: stretch;
+        width: 100%;
+    }
+
+    .builderGroupToggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 12px;
+        border: 2px solid var(--control-border);
+        background: var(--glass-1);
+        color: var(--text-1);
+        font-size: 0.95em;
+        text-align: left;
+        cursor: pointer;
+        transition:
+            border-color 150ms ease,
+            background-color 150ms ease;
+    }
+
+    .builderGroupToggle:hover {
+        border-color: var(--control-border-hover);
+        background: var(--glass-2);
+    }
+
+    .builderGroupLabel {
+        flex: 0 0 auto;
+        color: var(--text-2);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .builderGroupValue {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .builderGroupChevron {
+        flex: 0 0 auto;
+        display: inline-flex;
+        color: var(--text-2);
+        transition: transform 150ms ease;
+    }
+
+    .builderGroupOpen .builderGroupChevron {
+        transform: rotate(180deg);
+    }
+
+    .builderGroupBody,
+    .builderImportBody {
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        width: 100%;
+        padding-top: 10px;
+    }
+
+    .builderGroupOpen .builderGroupBody,
+    .builderGroupOpen .builderImportBody {
+        display: flex;
+    }
+
+    /* Stacked controls fill the row; bootstrap's me-* / ms-* margins are
+       irrelevant once each control is on its own line. */
+    .builderGroupBody > * {
+        width: 100%;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .builderToggles {
+        gap: 8px;
+        width: 100%;
+    }
+
+    /* The import url field shows inline when the group is open instead of
+       hiding behind the icon button (which is redundant inside a group). */
+    .builderImportGroup .importMenuBtn {
+        display: none;
+    }
+
+    .builderGroupOpen .importPanel {
+        display: block;
+        position: static;
+        width: 100%;
+        padding: 0;
+        border: none;
+        background: none;
+        box-shadow: none;
+    }
+
+    .builderImportBody .setsOpenButton {
+        margin-top: 0;
     }
 }
 

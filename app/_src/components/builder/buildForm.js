@@ -908,6 +908,10 @@ export default function BuildForm({
     // Saved skill/delve sets modal ("copy skills from a build" + apply saved
     // sets); opened by the "Skill sets" button under the import bar.
     const [setsOpen, setSetsOpen] = React.useState(false);
+    // Phones fold the region/class/spec cluster and the import/skill-set
+    // cluster into collapsible dropdowns (the inline rows don't fit).
+    const [regionClassOpen, setRegionClassOpen] = React.useState(false);
+    const [importOpen, setImportOpen] = React.useState(false);
 
     function triggerRedX() {
         setShowRedX(true);
@@ -3437,170 +3441,211 @@ export default function BuildForm({
     // with no gear and no charms would just create an empty share link).
     const buildContentReady = formHasEquippedItem(formRef.current) || charms.length > 0;
 
+    // Summary shown on the collapsed region/class dropdown on phones.
+    const selectedRegionLabel =
+        czOpen && regionValue === 2
+            ? t('builder.regions.darkestDepths')
+            : czOpen && regionValue === 3
+              ? t('builder.regions.celestialZenith')
+              : (regions.find((region) => region.value === regionValue) || {}).label || '';
+    const selectedClassLabel =
+        gameClass && gameClass !== 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : '';
+    const regionClassSummary = [selectedRegionLabel, selectedClassLabel, spec].filter(Boolean).join(' · ');
+
     return (
         <form ref={formRef} onSubmit={sendUpdate} onReset={resetForm} id="buildForm">
             {showRedX && <img src="/images/redx.png" className={styles.redXOverlay} alt="" />}
-            {/* Top row: region/class/spec on the left, title centered, import on the right */}
+            {/* Top row: region/class/spec + infusion toggles | title |
+                import/skill sets. On phones the two control clusters fold
+                into dropdowns (see the builder group styles) so the row fits
+                without wrapping. */}
             <div className={`${styles.builderTopRow} mb-1`}>
-                <div className="d-flex flex-wrap align-items-center">
-                    <div className="me-3">
-                        <FloatingLabel label={t('builder.misc.region')}>
-                            <Select
-                                instanceId="this-is-just-here-so-react-doesnt-yell-at-me"
-                                id="region"
-                                name="region"
-                                key={`region-${regionSelectKey}-${czOpen ? 'o' : 'c'}`}
-                                options={regions}
-                                value={
-                                    czOpen && regionValue === 2
-                                        ? { value: 2, label: t('builder.regions.darkestDepths') }
-                                        : czOpen && regionValue === 3
-                                          ? { value: 3, label: t('builder.regions.celestialZenith') }
-                                          : regions.find((r) => r.value === regionValue)
-                                }
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
-                                theme={(theme) => ({
-                                    ...theme,
-                                    borderRadius: 0,
-                                    colors: {
-                                        ...theme.colors,
-                                        primary: 'var(--text-1)',
-                                        primary25: 'var(--surface-2)',
-                                        neutral0: 'var(--glass-menu)',
-                                        neutral5: 'var(--glass-2)',
-                                        neutral10: 'var(--glass-2)',
-                                        neutral20: 'var(--control-border)',
-                                        neutral30: 'var(--control-border-hover)',
-                                        neutral60: 'var(--text-2)',
-                                        neutral80: 'var(--text-1)',
-                                    },
-                                })}
-                                styles={{
-                                    container: (base) => ({ ...base, width: '100%', minWidth: 150 }),
-                                    control: (base) => ({ ...base, minHeight: 42, height: 42 }),
-                                    valueContainer: (base) => ({
-                                        ...base,
-                                        height: 42,
-                                        paddingTop: 0,
-                                        paddingBottom: 0,
-                                    }),
-                                    indicatorsContainer: (base) => ({ ...base, height: 42 }),
-                                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                    menu: (base) => ({ ...base, zIndex: 9999 }),
-                                }}
-                                onChange={regionChanged}
-                            />
-                        </FloatingLabel>
+                <div className={`d-flex flex-wrap align-items-center ${styles.builderControls}`}>
+                    <div className={`${styles.builderGroup}${regionClassOpen ? ' ' + styles.builderGroupOpen : ''}`}>
+                        <button
+                            type="button"
+                            className={styles.builderGroupToggle}
+                            aria-expanded={regionClassOpen}
+                            aria-controls="builder-region-class"
+                            onClick={() => setRegionClassOpen((open) => !open)}
+                        >
+                            <span className={styles.builderGroupLabel}>
+                                {t('builder.misc.region')} / {t('builder.misc.class')}
+                            </span>
+                            <span className={styles.builderGroupValue}>{regionClassSummary}</span>
+                            <span className={styles.builderGroupChevron} aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                    <path d="M7 10l5 5 5-5z" />
+                                </svg>
+                            </span>
+                        </button>
+                        <div className={styles.builderGroupBody} id="builder-region-class">
+                            <div className="me-3">
+                                <FloatingLabel label={t('builder.misc.region')}>
+                                    <Select
+                                        instanceId="this-is-just-here-so-react-doesnt-yell-at-me"
+                                        id="region"
+                                        name="region"
+                                        key={`region-${regionSelectKey}-${czOpen ? 'o' : 'c'}`}
+                                        options={regions}
+                                        value={
+                                            czOpen && regionValue === 2
+                                                ? { value: 2, label: t('builder.regions.darkestDepths') }
+                                                : czOpen && regionValue === 3
+                                                  ? { value: 3, label: t('builder.regions.celestialZenith') }
+                                                  : regions.find((r) => r.value === regionValue)
+                                        }
+                                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                        menuPosition="fixed"
+                                        theme={(theme) => ({
+                                            ...theme,
+                                            borderRadius: 0,
+                                            colors: {
+                                                ...theme.colors,
+                                                primary: 'var(--text-1)',
+                                                primary25: 'var(--surface-2)',
+                                                neutral0: 'var(--glass-menu)',
+                                                neutral5: 'var(--glass-2)',
+                                                neutral10: 'var(--glass-2)',
+                                                neutral20: 'var(--control-border)',
+                                                neutral30: 'var(--control-border-hover)',
+                                                neutral60: 'var(--text-2)',
+                                                neutral80: 'var(--text-1)',
+                                            },
+                                        })}
+                                        styles={{
+                                            container: (base) => ({ ...base, width: '100%', minWidth: 150 }),
+                                            control: (base) => ({ ...base, minHeight: 42, height: 42 }),
+                                            valueContainer: (base) => ({
+                                                ...base,
+                                                height: 42,
+                                                paddingTop: 0,
+                                                paddingBottom: 0,
+                                            }),
+                                            indicatorsContainer: (base) => ({ ...base, height: 42 }),
+                                            menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                            menu: (base) => ({ ...base, zIndex: 9999 }),
+                                        }}
+                                        onChange={regionChanged}
+                                    />
+                                </FloatingLabel>
+                            </div>
+                            {czOpen ? (
+                                <div className={styles.czTreeSelector}>
+                                    <FloatingLabel label={t('builder.misc.tree')}>
+                                        <Select
+                                            instanceId="cz-tree"
+                                            name="czTree"
+                                            options={czTrees.map((t) => ({ value: t.tree, label: t.tree }))}
+                                            value={
+                                                czActiveTree
+                                                    ? { value: czActiveTree.tree, label: czActiveTree.tree }
+                                                    : null
+                                            }
+                                            onChange={(opt) => setCzSelectedTree(opt.value)}
+                                            isSearchable={false}
+                                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                            menuPosition="fixed"
+                                            theme={(theme) => ({
+                                                ...theme,
+                                                borderRadius: 0,
+                                                colors: {
+                                                    ...theme.colors,
+                                                    primary: 'var(--text-1)',
+                                                    primary25: 'var(--surface-2)',
+                                                    neutral0: 'var(--glass-menu)',
+                                                    neutral5: 'var(--glass-2)',
+                                                    neutral10: 'var(--glass-2)',
+                                                    neutral20: 'var(--control-border)',
+                                                    neutral30: 'var(--control-border-hover)',
+                                                    neutral60: 'var(--text-2)',
+                                                    neutral80: 'var(--text-1)',
+                                                },
+                                            })}
+                                            styles={{
+                                                container: (base) => ({ ...base, width: '100%', minWidth: 180 }),
+                                                control: (base) => ({ ...base, minHeight: 42, height: 42 }),
+                                                valueContainer: (base) => ({
+                                                    ...base,
+                                                    height: 42,
+                                                    paddingTop: 0,
+                                                    paddingBottom: 0,
+                                                }),
+                                                indicatorsContainer: (base) => ({ ...base, height: 42 }),
+                                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                                menu: (base) => ({ ...base, zIndex: 9999 }),
+                                            }}
+                                        />
+                                    </FloatingLabel>
+                                </div>
+                            ) : (
+                                <div>
+                                    <SelectInput
+                                        key={`class-${classSelectKey}`}
+                                        name="class"
+                                        floatingLabel={t('builder.misc.class')}
+                                        noneOption={true}
+                                        sortableStats={classes}
+                                        default={
+                                            gameClass != 'none'
+                                                ? {
+                                                      value: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
+                                                      label: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
+                                                  }
+                                                : undefined
+                                        }
+                                        onChange={classChanged}
+                                    />
+                                </div>
+                            )}
+                            {gameClass == 'none' || regionValue === 1 ? (
+                                ''
+                            ) : (
+                                <div className="ms-3">
+                                    <SelectInput
+                                        key={`spec-${specSelectKey}`}
+                                        name="spec"
+                                        floatingLabel={t('database.filters.spec')}
+                                        noneOption={true}
+                                        sortableStats={currentSpecOptions}
+                                        default={spec ? { value: spec, label: spec } : undefined}
+                                        onChange={specChanged}
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    {czOpen ? (
-                        <div className={styles.czTreeSelector}>
-                            <FloatingLabel label={t('builder.misc.tree')}>
-                                <Select
-                                    instanceId="cz-tree"
-                                    name="czTree"
-                                    options={czTrees.map((t) => ({ value: t.tree, label: t.tree }))}
-                                    value={czActiveTree ? { value: czActiveTree.tree, label: czActiveTree.tree } : null}
-                                    onChange={(opt) => setCzSelectedTree(opt.value)}
-                                    isSearchable={false}
-                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                    menuPosition="fixed"
-                                    theme={(theme) => ({
-                                        ...theme,
-                                        borderRadius: 0,
-                                        colors: {
-                                            ...theme.colors,
-                                            primary: 'var(--text-1)',
-                                            primary25: 'var(--surface-2)',
-                                            neutral0: 'var(--glass-menu)',
-                                            neutral5: 'var(--glass-2)',
-                                            neutral10: 'var(--glass-2)',
-                                            neutral20: 'var(--control-border)',
-                                            neutral30: 'var(--control-border-hover)',
-                                            neutral60: 'var(--text-2)',
-                                            neutral80: 'var(--text-1)',
-                                        },
-                                    })}
-                                    styles={{
-                                        container: (base) => ({ ...base, width: '100%', minWidth: 180 }),
-                                        control: (base) => ({ ...base, minHeight: 42, height: 42 }),
-                                        valueContainer: (base) => ({
-                                            ...base,
-                                            height: 42,
-                                            paddingTop: 0,
-                                            paddingBottom: 0,
-                                        }),
-                                        indicatorsContainer: (base) => ({ ...base, height: 42 }),
-                                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                        menu: (base) => ({ ...base, zIndex: 9999 }),
-                                    }}
-                                />
-                            </FloatingLabel>
-                        </div>
-                    ) : (
-                        <div>
-                            <SelectInput
-                                key={`class-${classSelectKey}`}
-                                name="class"
-                                floatingLabel={t('builder.misc.class')}
-                                noneOption={true}
-                                sortableStats={classes}
-                                default={
-                                    gameClass != 'none'
-                                        ? {
-                                              value: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
-                                              label: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
-                                          }
-                                        : undefined
-                                }
-                                onChange={classChanged}
+                    <div className={styles.builderToggles}>
+                        <label className={`${styles.delveToggle} ${delveOpen ? styles.delveToggleActive : ''} ms-3`}>
+                            <input
+                                type="checkbox"
+                                checked={delveOpen}
+                                onChange={(e) => setDelveOpen(e.target.checked)}
+                                aria-label={t('builder.misc.delveInfusions')}
                             />
-                        </div>
-                    )}
-                    {gameClass == 'none' || regionValue === 1 ? (
-                        ''
-                    ) : (
-                        <div className="ms-3">
-                            <SelectInput
-                                key={`spec-${specSelectKey}`}
-                                name="spec"
-                                floatingLabel={t('database.filters.spec')}
-                                noneOption={true}
-                                sortableStats={currentSpecOptions}
-                                default={spec ? { value: spec, label: spec } : undefined}
-                                onChange={specChanged}
+                            {t('builder.misc.delveInfusions')}
+                        </label>
+                        <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''} ms-3`}>
+                            <input
+                                type="checkbox"
+                                checked={basicOpen}
+                                onChange={(e) => setBasicOpen(e.target.checked)}
+                                aria-label={t('builder.misc.infusions')}
                             />
-                        </div>
-                    )}
-                    <label className={`${styles.delveToggle} ${delveOpen ? styles.delveToggleActive : ''} ms-3`}>
-                        <input
-                            type="checkbox"
-                            checked={delveOpen}
-                            onChange={(e) => setDelveOpen(e.target.checked)}
-                            aria-label={t('builder.misc.delveInfusions')}
-                        />
-                        {t('builder.misc.delveInfusions')}
-                    </label>
-                    <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''} ms-3`}>
-                        <input
-                            type="checkbox"
-                            checked={basicOpen}
-                            onChange={(e) => setBasicOpen(e.target.checked)}
-                            aria-label={t('builder.misc.infusions')}
-                        />
-                        {t('builder.misc.infusions')}
-                    </label>
-                    <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
-                        <input
-                            type="checkbox"
-                            name="revelation"
-                            value="1"
-                            checked={revelation}
-                            onChange={revelationChanged}
-                            aria-label={t('builder.misc.revelation')}
-                        />
-                        {t('builder.misc.revelation')}
-                    </label>
+                            {t('builder.misc.infusions')}
+                        </label>
+                        <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
+                            <input
+                                type="checkbox"
+                                name="revelation"
+                                value="1"
+                                checked={revelation}
+                                onChange={revelationChanged}
+                                aria-label={t('builder.misc.revelation')}
+                            />
+                            {t('builder.misc.revelation')}
+                        </label>
+                    </div>
                 </div>
                 <BuilderHeader
                     buildNameRef={buildNameRef}
@@ -3611,16 +3656,34 @@ export default function BuildForm({
                     build={build}
                     savedName={savedName}
                 />
-                <div style={{ justifySelf: 'end', width: 'min(400px, 100%)' }}>
-                    <BuildImportBar embedded />
+                <div className={`${styles.builderImportGroup}${importOpen ? ' ' + styles.builderGroupOpen : ''}`}>
                     <button
                         type="button"
-                        className={styles.setsOpenButton}
-                        onClick={() => setSetsOpen(true)}
-                        aria-haspopup="dialog"
+                        className={styles.builderGroupToggle}
+                        aria-expanded={importOpen}
+                        aria-controls="builder-import-sets"
+                        onClick={() => setImportOpen((open) => !open)}
                     >
-                        {t('builder.sets.skillSets')}
+                        <span className={styles.builderGroupLabel}>
+                            {t('builder.buttons.import')} / {t('builder.sets.skillSets')}
+                        </span>
+                        <span className={styles.builderGroupChevron} aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                <path d="M7 10l5 5 5-5z" />
+                            </svg>
+                        </span>
                     </button>
+                    <div className={styles.builderImportBody} id="builder-import-sets">
+                        <BuildImportBar embedded />
+                        <button
+                            type="button"
+                            className={styles.setsOpenButton}
+                            onClick={() => setSetsOpen(true)}
+                            aria-haspopup="dialog"
+                        >
+                            {t('builder.sets.skillSets')}
+                        </button>
+                    </div>
                 </div>
             </div>
 
