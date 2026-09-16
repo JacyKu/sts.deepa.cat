@@ -1178,7 +1178,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                         {visibleItems.length === 0 ? (
                             <p className={styles.muted}>{t('customItems.myItems.noResults')}</p>
                         ) : (
-                            <div className={styles.itemGrid}>
+                            <div className={`${styles.itemGrid} ${styles.searchResults}`}>
                                 {visibleItems.map((item) => (
                                     <CustomItemCard
                                         key={item.id}

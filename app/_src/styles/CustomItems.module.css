@@ -460,6 +460,12 @@
     max-width: 1160px;
 }
 
+/* Result grids sitting directly under a search form get the same 28px gap the
+   builds database (.grid) and custom items database (.dbTiles) use. */
+.searchResults {
+    margin-top: 28px;
+}
+
 /* Custom item tiles on the database page. The tile grid gets the same
    clearance below the filter form as the builds database grid; the View
    chip overlays each tile (inside its bounds) so the card stays intact. */

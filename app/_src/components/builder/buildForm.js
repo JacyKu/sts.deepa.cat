@@ -1680,11 +1680,17 @@ export default function BuildForm({
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 setLoggedIn(Boolean(d && d.user));
-                // New builds pick up the account-wide anonymity preference
-                // from the top-right settings menu; existing builds keep the
-                // anonymity flag saved on their own row.
-                if (d && d.user && !activeBuildId) {
-                    setPublicState((prev) => ({ ...prev, anonymous: Boolean(d.user.anonymous) }));
+                // The account-wide anonymity preference from the top-right
+                // settings menu is the default for every build: new ones start
+                // with it, existing ones follow it too unless they are already
+                // anonymous (mod uploads cannot know the preference, so their
+                // row flag stays 0). The checkbox below is the explicit
+                // per-build override.
+                if (d && d.user) {
+                    setPublicState((prev) => ({
+                        ...prev,
+                        anonymous: Boolean(d.user.anonymous) || (Boolean(activeBuildId) && prev.anonymous),
+                    }));
                 }
             })
             .catch(() => setLoggedIn(false));

@@ -292,15 +292,30 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
         fetch(`/api/v2/builds/${build.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ publicise: nextPublic, anonymous: build.anonymous }),
+            // Publicising a build that isn't already anonymous leaves the flag
+            // out so the server applies the account-wide anonymity preference.
+            // Mod uploads carry no session, so their row flag stays 0 even
+            // when the account prefers anonymity.
+            body: JSON.stringify(
+                nextPublic && !build.anonymous
+                    ? { publicise: true }
+                    : { publicise: nextPublic, anonymous: build.anonymous }
+            ),
         })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 setBuilds((prev) =>
-                    prev.map((b) => (b.id === build.id ? { ...b, isPublic: d.isPublic, anonymous: d.anonymous } : b))
+                    prev.map((b) =>
+                        b.id === build.id
+                            ? { ...b, isPublic: d.isPublic, anonymous: d.anonymous, publicBusy: false }
+                            : b
+                    )
                 );
             })
-            .catch(() => setError('publicise'));
+            .catch(() => {
+                setBuilds((prev) => prev.map((b) => (b.id === build.id ? { ...b, publicBusy: false } : b)));
+                setError('publicise');
+            });
     }
 
     function toggleSelectMode() {
@@ -352,7 +367,14 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
                 fetch(`/api/v2/builds/${build.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ publicise: nextPublic, anonymous: build.anonymous }),
+                    // Same rule as togglePublic: first-time publicises without
+                    // an explicit anonymous=false fall back to the account
+                    // preference on the server.
+                    body: JSON.stringify(
+                        nextPublic && !build.anonymous
+                            ? { publicise: true }
+                            : { publicise: nextPublic, anonymous: build.anonymous }
+                    ),
                 })
                     .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
                     .then((d) => {

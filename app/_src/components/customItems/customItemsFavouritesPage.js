@@ -180,7 +180,7 @@ export default function CustomItemsFavouritesPage() {
                             </p>
                         ) : (
                             <InfiniteScroll
-                                className={styles.itemGrid}
+                                className={`${styles.itemGrid} ${styles.searchResults}`}
                                 hasMore={hasMore}
                                 next={() => loadPage(pageRef.current + 1, false)}
                                 loader={<p className={styles.muted}>{t('customItems.favourites.end')}</p>}
