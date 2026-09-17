@@ -683,6 +683,22 @@ html a:hover {
     flex-direction: column;
 }
 
+/* Whole-UI scale: `zoom` on the root scales every element (px-sized text,
+   controls, sprite tiles) so dense pages read less cramped. Viewport units
+   are not scaled by zoom, so the full-height layout divides by the same
+   factor to keep the footer at the bottom of the screen. Browsers without
+   zoom support (older Firefox) simply keep the full size. */
+@supports (zoom: 1) {
+    html {
+        zoom: var(--ui-zoom, 0.9);
+    }
+
+    html body,
+    .site-content {
+        min-height: calc(100dvh / var(--ui-zoom, 0.9));
+    }
+}
+
 main {
     flex: 1 0 auto;
     width: 100%;

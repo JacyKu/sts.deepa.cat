@@ -11,7 +11,8 @@
 .main {
     width: 100%;
     max-width: 1160px;
-    padding: 0 12px 12px;
+    /* The .page wrapper already supplies the side padding. */
+    padding: 0 0 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -111,6 +112,14 @@
    the third empty. Override it to two equal tracks for this dialog. */
 .statSetsColumns[class] {
     grid-template-columns: 1fr 1fr;
+}
+
+/* Narrow screens: one column so the save row and the lists keep their width
+   (the shared collapse only targets the three-track builder grid). */
+@media (max-width: 992px) {
+    .statSetsColumns[class] {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Item database picker above the stat sets columns. */

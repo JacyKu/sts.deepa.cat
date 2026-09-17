@@ -415,9 +415,8 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
     }
 
     return (
-        <div className="container-fluid">
-            <main className={styles.page}>
-                <h1 className={styles.title}>
+        <main className={styles.page}>
+            <h1 className={styles.title}>
                     <TranslatableText identifier="builds.title" />
                 </h1>
                 <div className={styles.subNav}>
@@ -684,7 +683,6 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
                         )}
                     </>
                 )}
-            </main>
-        </div>
+        </main>
     );
 }

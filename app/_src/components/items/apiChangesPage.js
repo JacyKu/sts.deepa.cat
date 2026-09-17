@@ -27,11 +27,12 @@ function ItemLink({ name }) {
     );
 }
 
-// Local time-of-day for a run, so several runs on one date stay distinct.
+// Run times are shown in UTC so every visitor sees the same clock, not their
+// own local time.
 function timeLabel(at) {
     const date = new Date(at);
     if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
 function dateKey(at) {
@@ -76,7 +77,15 @@ function ChangedEntry({ entry }) {
     // stats are marked, unchanged ones are shown so the item is readable.
     const statLines = allStatLines(variant.before, variant.after);
     const topLines = topLevelDiffs(variant.before, variant.after);
-    const total = statLines.filter((line) => line.kind !== 'same').length + topLines.length;
+    const statCount = statLines.filter((line) => line.kind !== 'same').length;
+    const meta = [
+        variant.masterwork > 0 ? `${t('items.changes.masterwork')} ${variant.masterwork}` : null,
+        statCount > 0
+            ? `${statCount} ${statCount === 1 ? t('items.changes.stat') : t('items.changes.stats')}`
+            : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
     return (
         <div className={styles.changeEntry}>
             <div className={styles.changeEntryHead}>
@@ -85,12 +94,7 @@ function ChangedEntry({ entry }) {
                     <span className={styles.groupName}>
                         <ItemLink name={entry.name} />
                     </span>
-                    <span className={styles.groupMeta}>
-                        {variant.masterwork > 0
-                            ? `${t('items.changes.masterwork')} ${variant.masterwork} · `
-                            : ''}
-                        {total} {total === 1 ? t('items.changes.stat') : t('items.changes.stats')}
-                    </span>
+                    <span className={styles.groupMeta}>{meta}</span>
                 </span>
                 {entry.variants.length > 1 && (
                     <span
@@ -98,24 +102,21 @@ function ChangedEntry({ entry }) {
                         role="group"
                         aria-label={t('items.changes.masterwork')}
                     >
-                        {entry.variants.map((v, i) => {
-                            const filled = v.masterwork <= variant.masterwork;
-                            return (
-                                <button
-                                    key={v.key}
-                                    type="button"
-                                    className={`${itemsStyles.starSpan}${
-                                        filled ? ` ${itemsStyles.masterworkStar}` : ''
-                                    }`}
-                                    aria-pressed={i === activeIndex}
-                                    aria-label={`${t('items.changes.masterwork')} ${v.masterwork}`}
-                                    title={`${t('items.changes.masterwork')} ${v.masterwork}`}
-                                    onClick={() => setActiveIndex(i)}
-                                >
-                                    {filled ? '★' : '☆'}
-                                </button>
-                            );
-                        })}
+                        {entry.variants.map((v, i) => (
+                            <button
+                                key={v.key}
+                                type="button"
+                                className={`${styles.masterworkStar}${
+                                    v.masterwork <= variant.masterwork ? ` ${styles.masterworkStarOn}` : ''
+                                }`}
+                                aria-pressed={i === activeIndex}
+                                aria-label={`${t('items.changes.masterwork')} ${v.masterwork}`}
+                                title={`${t('items.changes.masterwork')} ${v.masterwork}`}
+                                onClick={() => setActiveIndex(i)}
+                            >
+                                ★
+                            </button>
+                        ))}
                     </span>
                 )}
             </div>
@@ -134,13 +135,15 @@ function ChangedEntry({ entry }) {
                         </div>
                     )
                 )}
-                {total === 0 && <div className={styles.complexLine}>{t('items.changes.noDiff')}</div>}
+                {statCount === 0 && topLines.length === 0 && (
+                    <div className={styles.complexLine}>{t('items.changes.noDiff')}</div>
+                )}
             </div>
         </div>
     );
 }
 
-function RunCard({ run, defaultOpen }) {
+function RunCard({ run, defaultOpen, showLoreOnly }) {
     const t = useTranslation();
     const [open, setOpen] = React.useState(defaultOpen);
     const counts = [
@@ -150,6 +153,10 @@ function RunCard({ run, defaultOpen }) {
     ]
         .filter(Boolean)
         .join(' · ');
+    // Lore-only entries are hidden unless the page toggle is on; the section
+    // count shows how many were recorded so nothing is lost silently.
+    const visibleChanged = showLoreOnly ? run.changed : run.changed.filter((entry) => !entry.loreOnly);
+    const hiddenChanged = run.changed.length - visibleChanged.length;
 
     return (
         <div className={styles.card}>
@@ -159,7 +166,9 @@ function RunCard({ run, defaultOpen }) {
                 aria-expanded={open}
                 onClick={() => setOpen((o) => !o)}
             >
-                <span className={styles.runTime}>{timeLabel(run.at)}</span>
+                <span className={styles.runTime}>
+                    {timeLabel(run.at)} <span className={styles.runTimeZone}>UTC</span>
+                </span>
                 <span className={styles.runCounts}>{counts}</span>
                 <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
                     ▸
@@ -186,13 +195,21 @@ function RunCard({ run, defaultOpen }) {
                         <section className={styles.runSection}>
                             <h3 className={styles.runSectionTitle}>
                                 {t('items.changes.changedItems')}{' '}
-                                <span className={styles.runSectionCount}>({run.changed.length})</span>
+                                <span className={styles.runSectionCount}>
+                                    (
+                                    {hiddenChanged > 0
+                                        ? `${visibleChanged.length}/${run.changed.length}`
+                                        : run.changed.length}
+                                    )
+                                </span>
                             </h3>
-                            <div className={styles.changeList}>
-                                {run.changed.map((entry) => (
-                                    <ChangedEntry key={entry.name} entry={entry} />
-                                ))}
-                            </div>
+                            {visibleChanged.length > 0 && (
+                                <div className={styles.changeList}>
+                                    {visibleChanged.map((entry) => (
+                                        <ChangedEntry key={entry.name} entry={entry} />
+                                    ))}
+                                </div>
+                            )}
                         </section>
                     )}
                     {run.removed.length > 0 && (
@@ -221,6 +238,11 @@ export default function ApiChangesPage({ itemData, history }) {
     const runs = React.useMemo(() => buildRunGroups(history, itemData || {}), [history, itemData]);
     const dateGroups = React.useMemo(() => groupByDate(runs), [runs]);
     const updatedAt = history && history.updatedAt ? history.updatedAt : null;
+    const [showLoreOnly, setShowLoreOnly] = React.useState(false);
+    const loreOnlyCount = React.useMemo(
+        () => runs.reduce((sum, run) => sum + run.changed.filter((entry) => entry.loreOnly).length, 0),
+        [runs]
+    );
 
     return (
         <div className={itemsStyles.container}>
@@ -239,12 +261,26 @@ export default function ApiChangesPage({ itemData, history }) {
                             {updatedAt ? (
                                 <span>
                                     {' '}
-                                    · {t('items.history.lastUpdated')} {formatDateString(updatedAt)}
+                                    · {t('items.history.lastUpdated')}{' '}
+                                    {formatDateString(updatedAt, { includeTime: true, utc: true })} UTC
                                 </span>
                             ) : null}
                         </span>
                     )}
                 </div>
+                {loreOnlyCount > 0 && (
+                    <div className={styles.toggleRow}>
+                        <label className={styles.loreToggle}>
+                            <input
+                                type="checkbox"
+                                checked={showLoreOnly}
+                                onChange={(e) => setShowLoreOnly(e.target.checked)}
+                                aria-label={t('items.changes.showLoreOnly')}
+                            />
+                            {t('items.changes.showLoreOnly')} ({loreOnlyCount})
+                        </label>
+                    </div>
+                )}
                 {runs.length === 0 ? (
                     <div className={itemsStyles.emptyState}>
                         <b>{t('items.changes.empty')}</b>
@@ -253,9 +289,16 @@ export default function ApiChangesPage({ itemData, history }) {
                     <div className={styles.groupList}>
                         {dateGroups.map((group) => (
                             <section key={group.date} className={styles.dateGroup}>
-                                <h2 className={styles.dateHeading}>{formatDateString(group.date)}</h2>
+                                <h2 className={styles.dateHeading}>
+                                    {formatDateString(group.date, { utc: true })}
+                                </h2>
                                 {group.runs.map((run) => (
-                                    <RunCard key={run.at} run={run} defaultOpen={run === runs[0]} />
+                                    <RunCard
+                                        key={run.at}
+                                        run={run}
+                                        defaultOpen={run === runs[0]}
+                                        showLoreOnly={showLoreOnly}
+                                    />
                                 ))}
                             </section>
                         ))}

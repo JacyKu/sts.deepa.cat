@@ -180,6 +180,21 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     // copy the stat rows of any of your custom items into the form, or save
     // the form's current stats as a named set to apply later.
     const [statSetsOpen, setStatSetsOpen] = React.useState(false);
+    // While the dialog is open: lock the page behind it (touch scroll would
+    // otherwise chain to the form) and let Escape close it.
+    React.useEffect(() => {
+        if (!statSetsOpen) return undefined;
+        const onKey = (event) => {
+            if (event.key === 'Escape') setStatSetsOpen(false);
+        };
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', onKey);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', onKey);
+        };
+    }, [statSetsOpen]);
     const [feedback, setFeedback] = React.useState(null);
     const feedbackTimerRef = React.useRef(null);
     const [statSets, setStatSets] = React.useState(null); // null = not loaded yet

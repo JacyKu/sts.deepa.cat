@@ -2831,3 +2831,13 @@ div.builderStatCard {
     font-size: 13px;
     text-align: center;
 }
+
+/* Narrow screens: stack the sets columns instead of squeezing every group
+   across one row. The base grid declaration sits below the earlier media
+   query in this file, so the collapse is declared again here to win. */
+@media (max-width: 992px) {
+    .setsColumns {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}

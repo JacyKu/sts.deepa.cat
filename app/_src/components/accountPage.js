@@ -4,6 +4,7 @@ import React from 'react';
 import styles from '../styles/Account.module.css';
 import { useSessionState } from './header';
 import { useTranslation } from './useTranslation';
+import { formatDateString } from '../utils/dateFormat';
 
 // The signed-in user's account page: Discord identity plus the Minecraft
 // UUIDs linked to it. Linking itself happens in game (/sts link); this
@@ -206,11 +207,20 @@ export default function AccountPage() {
                                     height="32"
                                 />
                             ) : null}
-                            <span className={styles.rowValue}>{session.user.globalName || session.user.username}</span>
-                            <span className={styles.linkDate}>
-                                {session.user.stsCreatedAt
-                                    ? `${t('account.created')} ${session.user.stsCreatedAt.slice(0, 10)}`
-                                    : ''}
+                            <span className={styles.linkMain}>
+                                <span className={styles.rowValue}>
+                                    {session.user.globalName || session.user.username}
+                                </span>
+                                <span className={styles.linkMeta}>
+                                    <span className={styles.linkDate}>
+                                        {session.user.stsCreatedAt
+                                            ? `${t('account.created')} ${formatDateString(
+                                                  session.user.stsCreatedAt,
+                                                  { spaceToT: true }
+                                              )}`
+                                            : ''}
+                                    </span>
+                                </span>
                             </span>
                         </li>
                     </ul>
@@ -243,25 +253,36 @@ export default function AccountPage() {
                                             height="32"
                                         />
                                     )}
-                                    <span className={styles.rowValue}>{link.mcName || link.uuid}</span>
-                                    {link.mcName && (
-                                        <span className={styles.uuidWrap}>
-                                            <code className={styles.uuidMuted} title={link.uuid}>
-                                                {shortUuid(link.uuid)}
-                                            </code>
-                                            <button
-                                                type="button"
-                                                className={styles.copyUuidButton}
-                                                onClick={() => copyUuid(link.uuid)}
-                                                aria-label={`${t('account.copyUuid')} ${link.uuid}`}
-                                                title={t('account.copyUuid')}
-                                            >
-                                                {copiedUuid === link.uuid ? t('common.copied') : t('common.copy')}
-                                            </button>
+                                    <span className={styles.linkMain}>
+                                        <span className={styles.rowValue} title={link.mcName || link.uuid}>
+                                            {link.mcName || link.uuid}
                                         </span>
-                                    )}
-                                    <span className={styles.linkDate}>
-                                        {t('account.linked')} {link.updated_at || link.created_at || ''}
+                                        <span className={styles.linkMeta}>
+                                            {link.mcName && (
+                                                <span className={styles.uuidWrap}>
+                                                    <code className={styles.uuidMuted} title={link.uuid}>
+                                                        {shortUuid(link.uuid)}
+                                                    </code>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.copyUuidButton}
+                                                        onClick={() => copyUuid(link.uuid)}
+                                                        aria-label={`${t('account.copyUuid')} ${link.uuid}`}
+                                                        title={t('account.copyUuid')}
+                                                    >
+                                                        {copiedUuid === link.uuid
+                                                            ? t('common.copied')
+                                                            : t('common.copy')}
+                                                    </button>
+                                                </span>
+                                            )}
+                                            <span className={styles.linkDate}>
+                                                {t('account.linked')}{' '}
+                                                {formatDateString(link.updated_at || link.created_at || '', {
+                                                    spaceToT: true,
+                                                })}
+                                            </span>
+                                        </span>
                                     </span>
                                     <button
                                         type="button"

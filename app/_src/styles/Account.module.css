@@ -76,6 +76,10 @@
 .rowValue {
     color: var(--text-1);
     font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .muted {
@@ -112,6 +116,7 @@
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
+    max-width: 100%;
 }
 
 .copyUuidButton {
@@ -275,10 +280,28 @@
     border: 1px solid var(--glass-border);
 }
 
+/* Name + UUID/date stack next to the avatar, so the row stays readable on
+   narrow screens instead of squeezing every field onto one line. */
+.linkMain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.linkMeta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.75rem;
+    min-width: 0;
+}
+
 .linkDate {
     color: var(--text-2);
     font-size: 0.85rem;
-    margin-left: auto;
+    white-space: nowrap;
 }
 
 .unlinkButton,
@@ -289,6 +312,7 @@
     padding: 0.35rem 0.9rem;
     cursor: pointer;
     font-size: 0.9rem;
+    flex-shrink: 0;
 }
 
 .unlinkButton:hover,

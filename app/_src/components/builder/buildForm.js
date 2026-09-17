@@ -915,6 +915,21 @@ export default function BuildForm({
     // Saved skill/delve sets modal ("copy skills from a build" + apply saved
     // sets); opened by the "Skill sets" button under the import bar.
     const [setsOpen, setSetsOpen] = React.useState(false);
+    // While the dialog is open: lock the page behind it (touch scroll would
+    // otherwise chain to the builder) and let Escape close it.
+    React.useEffect(() => {
+        if (!setsOpen) return undefined;
+        const onKey = (event) => {
+            if (event.key === 'Escape') setSetsOpen(false);
+        };
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', onKey);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', onKey);
+        };
+    }, [setsOpen]);
     // Phones fold the region/class/spec cluster and the import/skill-set
     // cluster into collapsible dropdowns (the inline rows don't fit).
     const [regionClassOpen, setRegionClassOpen] = React.useState(false);

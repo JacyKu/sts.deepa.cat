@@ -557,6 +557,7 @@
     "items.changes.noDiff": "No visible stat difference (item data changed).",
     "items.changes.removed": "removed",
     "items.changes.removedItems": "Removed items",
+    "items.changes.showLoreOnly": "Show lore-only changes",
     "items.changes.stat": "stat",
     "items.changes.stats": "stats",
     "items.changes.title": "API Changes",

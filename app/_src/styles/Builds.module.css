@@ -2,8 +2,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0 12px 24px;
+    padding: 0 12px 48px;
     color: var(--text-1);
+    width: 100%;
 }
 
 .title {
@@ -237,12 +238,15 @@
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 16px;
+    width: 100%;
 }
 
 /* The My Builds / My Items switcher sits in the row next to Favourites;
-   drop the standalone tab row's vertical margins there. */
+   drop the standalone tab row's vertical margins there, and span the full
+   page width so its buttons keep the same size as the other My pages. */
 .subNavTabs[class] {
     margin: 0;
+    width: 100%;
 }
 
 .subNavBtn {
@@ -261,6 +265,15 @@
 .subNavBtn:hover {
     border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
+}
+
+@media (max-width: 700px) {
+    /* Match the global phone heading size (the fixed 40px otherwise wins
+       over globals.css and makes this page's title bigger than the others). */
+    .title {
+        font-size: 1.7rem;
+        line-height: 1.2;
+    }
 }
 
 @media (max-width: 560px) {

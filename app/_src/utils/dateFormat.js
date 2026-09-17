@@ -24,13 +24,21 @@ export function setAmericanDateEnabled(enabled) {
 // Formats one of the site's stored timestamps (SQLite "YYYY-MM-DD HH:MM:SS"
 // or ISO-ish strings, always treated as UTC) as a short date. Existing call
 // sites differ in whether they convert the space to a "T" before parsing,
-// which `spaceToT` preserves.
-export function formatDateString(raw, { spaceToT = false } = {}) {
+// which `spaceToT` preserves. `utc` keeps the display in UTC (for times that
+// must read the same for every visitor) and `includeTime` appends HH:MM.
+export function formatDateString(raw, { spaceToT = false, includeTime = false, utc = false } = {}) {
     let text = String(raw == null ? '' : raw).trim();
     if (!text) return '';
-    const d = new Date((spaceToT ? text.replace(' ', 'T') : text) + 'Z');
+    const value = spaceToT ? text.replace(' ', 'T') : text;
+    // Stored timestamps usually have no timezone; only append the Z when the
+    // string does not already carry one (ISO strings from the API end in Z).
+    const d = new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : value + 'Z');
     if (Number.isNaN(d.getTime())) return '';
-    return isAmericanDateEnabled()
-        ? d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-        : d.toLocaleDateString();
+    const zone = utc ? { timeZone: 'UTC' } : undefined;
+    const dateText = isAmericanDateEnabled()
+        ? d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', ...zone })
+        : d.toLocaleDateString(undefined, zone);
+    if (!includeTime) return dateText;
+    const timeText = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', ...zone });
+    return `${dateText} ${timeText}`;
 }

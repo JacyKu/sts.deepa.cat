@@ -5,6 +5,19 @@
 // masterwork level, which the page switches between with the item tiles' star
 // switcher. Pure so it can be exercised from Node without a browser.
 
+import { diffStats, topLevelDiffs } from './itemDiff';
+
+// True when the only difference between two item states is flavour text (the
+// lore/description fields): no stat changed and no plain field changed. The
+// changes page hides these entries by default - they are not balance changes -
+// and reveals them with a toggle.
+function isLoreOnlyChange(before, after) {
+    if (!before || !after) return false;
+    if (diffStats(before, after).length > 0) return false;
+    const top = topLevelDiffs(before, after);
+    return top.length > 0 && top.every((line) => line.complex);
+}
+
 function archivedItem(archives, key, at) {
     const records = archives[key];
     if (!Array.isArray(records) || records.length === 0) return null;
@@ -47,7 +60,7 @@ export function buildRunGroups(history, itemData) {
                     const after =
                         index >= 0 && index + 1 < records.length ? records[index + 1].item : items[key] || null;
                     const item = after || before;
-                    return { key, name: (item && item.name) || key, before, after, item };
+                    return { key, name: (item && item.name) || key, before, after, item, loreOnly: isLoreOnlyChange(before, after) };
                 })
                 .filter((entry) => entry.before && entry.after);
 
@@ -60,11 +73,15 @@ export function buildRunGroups(history, itemData) {
                     before: entry.before,
                     after: entry.after,
                     item: entry.item,
+                    loreOnly: entry.loreOnly,
                 });
                 changedGroups.set(entry.name, group);
             }
             const changed = [...changedGroups.values()].map((group) => ({
                 ...group,
+                // An entry is lore-only when every masterwork variant only had
+                // its lore/description text touched.
+                loreOnly: group.variants.every((v) => v.loreOnly),
                 variants: group.variants.sort((a, b) => a.masterwork - b.masterwork),
             }));
 
