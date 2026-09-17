@@ -234,7 +234,131 @@
     padding: 1px 8px;
 }
 
-/* Loading placeholder: mirrors .groupList/.card/.groupHeader geometry. */
+/* API changes page (app/items/changes) --------------------------------- */
+
+/* Small sprite box for dense change lists: the 64px sheet tile scaled to
+   32px, cropped by the wrapper. */
+.compactIcon {
+    width: 36px;
+    height: 36px;
+    padding: 2px;
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+
+.compactIcon > :global(.monumenta-items),
+.compactIcon > :global(.monumenta-charms),
+.compactIcon > :global(.minecraft) {
+    transform: scale(0.5);
+    transform-origin: top left;
+    image-rendering: pixelated;
+}
+
+.runHeader {
+    gap: 12px;
+}
+
+.runDate {
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.runCounts {
+    font-size: 12px;
+    color: var(--text-2, #bbb);
+}
+
+.runSection {
+    margin: 8px 0 14px;
+}
+
+.runSection:last-child {
+    margin-bottom: 2px;
+}
+
+.runSectionTitle {
+    margin: 0 0 6px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-2, #aaa);
+}
+
+.runSectionCount {
+    font-weight: normal;
+}
+
+.chipList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.itemChip {
+    font-size: 13px;
+    border: 1px solid var(--glass-border, #444);
+    background: var(--glass-1, rgba(255, 255, 255, 0.04));
+    padding: 2px 8px;
+}
+
+.itemChipRemoved {
+    border-color: rgba(252, 84, 84, 0.5);
+}
+
+.itemChip a {
+    color: var(--text-2, #eee);
+    text-decoration: none;
+}
+
+.itemChip a:hover {
+    text-decoration: underline;
+}
+
+.changeList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.changeEntry {
+    border: 1px solid var(--glass-border, #444);
+    background: var(--glass-1, rgba(255, 255, 255, 0.04));
+    padding: 6px 10px;
+}
+
+.changeEntryHead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.changeEntryTitles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.changeEntryDiffs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 6px;
+}
+
+.skeletonRunCard {
+    width: 100%;
+    background: var(--glass-2, #1d1a24);
+    border: 1px solid var(--glass-border, #444);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 12px;
+    height: 78px;
+}
+
+/* Loading placeholder: mirrors the group/run list geometry. */
 .skeletonSummary {
     height: 14px;
     width: 260px;

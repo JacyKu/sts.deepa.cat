@@ -257,6 +257,7 @@ const enabledBoxes = {
 
     // Class-ability situationals (Warrior Frenzy's on-kill buff).
     frenzy: false,
+    frenzy_enhancement: false,
 
     // Delve infusion situationals: the infusion's stat effect only counts
     // while its checkbox is ticked (matches the infusion's in-game condition).
@@ -624,24 +625,34 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         });
     }
     // Warrior Frenzy: on-kill attack-speed buff. Only counts while the box is
-    // ticked (its magnitude depends on the Frenzy skill level).
+    // ticked (its magnitude depends on the Frenzy skill level); the skill's
+    // Enhancement (next-attack damage) has its own toggle.
     if (classAbilityContext && classAbilityContext.frenzyLevel > 0) {
+        const frenzyLabel = classAbilityContext.frenzyLevel >= 2 ? 'Frenzy (Lv 2)' : 'Frenzy';
         tempClass.push(
             <div className="col-auto" key={'classabilitybox-frenzy'}>
                 <CheckboxWithLabel
-                    name={
-                        classAbilityContext.frenzyLevel >= 3
-                            ? 'Frenzy (Lv 3)'
-                            : classAbilityContext.frenzyLevel === 2
-                              ? 'Frenzy (Lv 2)'
-                              : 'Frenzy'
-                    }
+                    name={frenzyLabel}
+                    inputName="frenzy"
                     enchantName="frenzy"
                     checked={enabledBoxes.frenzy}
                     onChange={checkboxChanged}
                 />
             </div>
         );
+        if (classAbilityContext.frenzyEnhanced) {
+            tempClass.push(
+                <div className="col-auto" key={'classabilitybox-frenzy-enhancement'}>
+                    <CheckboxWithLabel
+                        name="Frenzy (Enhancement)"
+                        inputName="frenzy_enhancement"
+                        enchantName="frenzy"
+                        checked={enabledBoxes.frenzy_enhancement}
+                        onChange={checkboxChanged}
+                    />
+                </div>
+            );
+        }
     }
 
     let temp = [];
@@ -3256,6 +3267,7 @@ export default function BuildForm({
                 ></TranslatableText>
                 {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, {
                     frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
+                    frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
                 })}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">

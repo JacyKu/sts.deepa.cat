@@ -363,6 +363,9 @@
 }
 
 .historyLinkRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     margin: -4px 0 8px;
 }
 

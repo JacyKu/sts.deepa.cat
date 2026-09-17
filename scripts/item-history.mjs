@@ -1,23 +1,25 @@
 // Archive helpers for item stat history.
 //
 // items.json is overwritten wholesale every time update-items.mjs fetches a
-// fresh dump from the Monumenta API. Any stat change would otherwise be lost
+// fresh dump from the Monumenta API. Any difference would otherwise be lost
 // silently. This module diffs the outgoing items.json against the incoming
 // one and appends each changed/removed item's PREVIOUS state to
 // public/items/item-history.json, so the site can show "this item used to
-// be X" timelines.
+// be X" timelines. Every dump that differs (added-only included) also records
+// a run entry, which the /items/changes page renders as a dated API
+// changelog (new / changed / removed items).
 //
 // File shape:
 //   {
 //     updatedAt: <ISO>,            // last time an archive run happened
 //     runs: [
 //       { at: <ISO>, added: [keys], removed: [keys], changed: [keys] },
-//       ...
+//       ...                        // newest first
 //     ],
 //     items: {
 //       "<item key>": [            // newest archive first
 //         { at: <ISO>, item: <full pre-change item object> },
-//         ...
+//         ...                      // changed/removed items only
 //       ]
 //     }
 //   }
@@ -95,7 +97,7 @@ export function mergeHistory(historyRaw, currentItems, nextItems, now = new Date
         if (!currentKeys.has(key)) added.push(key);
     }
 
-    if (changed.length === 0 && removed.length === 0) {
+    if (changed.length === 0 && removed.length === 0 && added.length === 0) {
         return {
             raw: null,
             summary: { changed: [], removed: [], added },
