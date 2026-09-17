@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from '../../styles/History.module.css';
 import DiffLine from './itemDiffLine';
+import { useItemHistory } from './itemHistoryContext';
 import { formatDateString } from '../../utils/dateFormat';
 import { diffStats, topLevelDiffs, humanizeField } from '../../utils/items/itemDiff';
 import { useTranslation } from '../useTranslation';
@@ -42,8 +43,9 @@ function VersionRow({ record, afterItem }) {
 // that never changed.
 export default function ItemHistoryPanel({ records, currentItem }) {
     const t = useTranslation();
+    const { enabled: historyEnabled } = useItemHistory();
     const [open, setOpen] = React.useState(false);
-    if (!records || records.length === 0) return null;
+    if (!historyEnabled || !records || records.length === 0) return null;
 
     // Records are newest-first in the file; render oldest-first so the newest
     // state sits at the bottom (right above "current stats").

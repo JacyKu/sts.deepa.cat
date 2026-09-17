@@ -225,7 +225,10 @@ export default function ApiChangesPage({ itemData, history }) {
     return (
         <div className={itemsStyles.container}>
             <main className={itemsStyles.main}>
-                <h1>{t('items.changes.title')}</h1>
+                <h1>
+                    {t('items.changes.title')}{' '}
+                    <span className={styles.experimentalBadge}>{t('items.changes.experimental')}</span>
+                </h1>
                 <div className={styles.summaryLine}>
                     <Link href="/items" className={styles.backLink}>
                         ← {t('items.changes.backToItems')}

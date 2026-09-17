@@ -7,6 +7,7 @@ import { FONT_ORDER, FONT_STACKS } from './header';
 import { useTranslation } from './useTranslation';
 import BuilderLayoutToggle from './builderLayoutToggle';
 import CardItemsFirstToggle from './cardItemsFirstToggle';
+import ItemHistoryToggle from './itemHistoryToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
 import DateFormatToggle from './dateFormatToggle';
 import { HEADER_TITLE_MAX, HEADER_TITLE_KEY, saveHeaderTitle } from './headerTitle';
@@ -759,6 +760,7 @@ export default function SettingsPage() {
                     <CacheCustomItemsToggle className={styles.bareToggle} />
                     <DateFormatToggle className={styles.bareToggle} />
                     <CardItemsFirstToggle className={styles.bareToggle} />
+                    <ItemHistoryToggle className={styles.bareToggle} />
                 </div>
             </section>
         </main>

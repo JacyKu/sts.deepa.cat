@@ -11,6 +11,7 @@ import { BuildListProvider } from './_src/components/items/buildListContext';
 import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
 import { BuilderLayoutProvider } from './_src/components/builderLayoutContext';
 import { CardItemsFirstProvider } from './_src/components/items/cardItemsFirstContext';
+import { ItemHistoryProvider } from './_src/components/items/itemHistoryContext';
 import { FavouritesEnabledProvider } from './_src/components/items/favouritesEnabledContext';
 import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
 import Header, { HeaderNav } from './_src/components/header';
@@ -82,6 +83,7 @@ export default async function StsLayout({ children }) {
                                                     <BuildListEnabledProvider>
                                                         <BuilderLayoutProvider>
                                                             <CardItemsFirstProvider>
+                                                                <ItemHistoryProvider>
                                                                 <FavouritesEnabledProvider>
                                                                     <ItemFavouritesProvider>
                                                                         <SiteNav
@@ -97,6 +99,7 @@ export default async function StsLayout({ children }) {
                                                                         <Footer />
                                                                     </ItemFavouritesProvider>
                                                                 </FavouritesEnabledProvider>
+                                                                </ItemHistoryProvider>
                                                             </CardItemsFirstProvider>
                                                         </BuilderLayoutProvider>
                                                     </BuildListEnabledProvider>
