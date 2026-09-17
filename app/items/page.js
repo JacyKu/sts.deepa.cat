@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { getItemData } from '../_src/utils/itemsData';
+import { getItemData, getItemHistory } from '../_src/utils/itemsData';
 import ItemsPage from '../_src/components/itemsPage';
 import ItemsSkeleton from '../_src/components/itemsSkeleton';
 
@@ -28,6 +28,15 @@ export default function Page() {
 }
 
 async function ItemsView() {
-    const itemData = await getItemData();
-    return <ItemsPage itemData={itemData} />;
+    const [itemData, history] = await Promise.all([getItemData(), getItemHistory()]);
+    // The stat history now renders inside the item tiles themselves. Removed
+    // items have no tile, so their records stay on the API changes page only
+    // (keeps the already large items payload from growing with dead items).
+    const itemHistory = {};
+    if (history && history.items) {
+        for (const [key, records] of Object.entries(history.items)) {
+            if (itemData[key] && Array.isArray(records) && records.length > 0) itemHistory[key] = records;
+        }
+    }
+    return <ItemsPage itemData={itemData} itemHistory={itemHistory} />;
 }

@@ -4,20 +4,37 @@ import React from 'react';
 import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/History.module.css';
 import TranslatableEnchant from '../translatableEnchant';
+import { numericValue } from '../../utils/items/itemDiff';
 
-// One stat diff line (added / removed / changed), shared by the stat history
-// timeline and the API changes page.
+// One stat line, shared by the item tiles' history panels and the API changes
+// page. The label is shown once ("Attack Damage 14 -> 10 (-4)"), which keeps
+// changed and unchanged lines compact and easy to scan.
 export default function DiffLine({ line }) {
-    if (line.kind === 'added') {
+    if (line.kind === 'same') {
         return (
-            <div className={styles.diffLine}>
-                <span className={`${styles.kindDot} ${styles.addedDot}`} aria-hidden="true"></span>
+            <div className={`${styles.diffLine} ${styles.sameLine}`}>
                 <TranslatableEnchant
                     title={line.name}
                     className={itemsStyles[line.fresh.style]}
                     style={line.fresh.color ? { color: line.fresh.color } : undefined}
                 >
-                    {line.fresh.text}
+                    {`${line.fresh.label} ${line.fresh.valueText}`.trim()}
+                </TranslatableEnchant>
+            </div>
+        );
+    }
+    if (line.kind === 'added') {
+        return (
+            <div className={styles.diffLine}>
+                <span className={`${styles.changeMark} ${styles.deltaUp}`} aria-hidden="true">
+                    +
+                </span>
+                <TranslatableEnchant
+                    title={line.name}
+                    className={itemsStyles[line.fresh.style]}
+                    style={line.fresh.color ? { color: line.fresh.color } : undefined}
+                >
+                    {`${line.fresh.label} ${line.fresh.valueText}`.trim()}
                 </TranslatableEnchant>
             </div>
         );
@@ -25,33 +42,34 @@ export default function DiffLine({ line }) {
     if (line.kind === 'removed') {
         return (
             <div className={styles.diffLine}>
-                <span className={`${styles.kindDot} ${styles.removedDot}`} aria-hidden="true"></span>
+                <span className={`${styles.changeMark} ${styles.deltaDown}`} aria-hidden="true">
+                    −
+                </span>
                 <s
                     className={`${itemsStyles[line.old.style]} ${styles.removedText}`}
                     style={line.old.color ? { color: line.old.color } : undefined}
                 >
-                    {line.old.text}
+                    {`${line.old.label} ${line.old.valueText}`.trim()}
                 </s>
             </div>
         );
     }
     if (line.kind === 'changed') {
-        const pct = /percent/i.test(line.name);
+        const oldNum = numericValue(line.old.rawValue);
+        const newNum = numericValue(line.fresh.rawValue);
+        const hasNums = Number.isFinite(oldNum) && Number.isFinite(newNum);
+        const delta = hasNums ? Math.round((newNum - oldNum) * 100) / 100 : NaN;
+        const hasDelta = hasNums && delta !== 0;
+        const isPercentStat = /%/.test(line.fresh.valueText) || /%/.test(line.old.valueText);
+
         return (
             <div className={styles.diffLine}>
                 <span
-                    className={`${styles.kindDot} ${
-                        line.delta > 0 ? styles.buffDot : line.delta < 0 ? styles.nerfDot : styles.changedDot
-                    }`}
-                    aria-hidden="true"
-                ></span>
-                <span className={styles.oldText}>
-                    <TranslatableEnchant
-                        title={line.name}
-                        style={line.old.color ? { color: line.old.color } : undefined}
-                    >
-                        {line.old.text}
-                    </TranslatableEnchant>
+                    className={`${itemsStyles[line.old.style]} ${styles.oldValue}`}
+                    style={line.old.color ? { color: line.old.color } : undefined}
+                >
+                    <TranslatableEnchant title={line.name}>{line.old.label}</TranslatableEnchant>{' '}
+                    {line.old.valueText}
                 </span>
                 <span className={styles.arrow} aria-hidden="true">
                     →
@@ -61,13 +79,15 @@ export default function DiffLine({ line }) {
                     className={itemsStyles[line.fresh.style]}
                     style={line.fresh.color ? { color: line.fresh.color } : undefined}
                 >
-                    {line.fresh.text}
+                    {line.fresh.valueText}
                 </TranslatableEnchant>
-                {Number.isFinite(line.delta) && line.delta !== 0 && (
-                    <span className={`${styles.delta} ${line.delta > 0 ? styles.deltaUp : styles.deltaDown}`}>
-                        {line.delta > 0 ? '+' : ''}
-                        {line.delta}
-                        {pct ? '%' : ''}
+                {hasDelta && (
+                    <span className={styles.delta}>
+                        <span className={styles.deltaBracket}>(</span>
+                        <span className={delta > 0 ? styles.deltaUp : styles.deltaDown}>
+                            {`${delta > 0 ? '+' : ''}${delta}${isPercentStat ? '%' : ''}`}
+                        </span>
+                        <span className={styles.deltaBracket}>)</span>
                     </span>
                 )}
             </div>

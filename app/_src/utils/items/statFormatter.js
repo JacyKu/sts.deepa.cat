@@ -98,7 +98,9 @@ class StatFormatter {
             .replace(/[\s+ ]/g, '');
     }
 
-    static toHumanReadable(stat, value) {
+    // Raw human-readable stat name ("attack_damage_percent" -> "Attack Damage
+    // Percent"), before any display suffix stripping.
+    static humanName(stat) {
         let humanStr = stat.name
             .split('_')
             .filter((part) => part != 'm' && part != 'p' && part != 'bow' && part != 'tool')
@@ -107,35 +109,60 @@ class StatFormatter {
         humanStr = humanStr.replace(' Of ', ' of '); // curses, ashes, rage of the keter
         humanStr = humanStr.replace(' The ', ' the '); // rage of the keter, curse of the veil
         humanStr = humanStr.replace('Jungles', "Jungle's"); // kapple
-        switch (stat.format) {
-            case Formats.ENCHANT: {
-                humanStr = `${humanStr} ${value}`;
-                break;
-            }
-            case Formats.SINGLE_ENCHANT: {
-                // The level should not be displayed. humanStr is already good to go.
-                break;
-            }
-            case Formats.ATTRIBUTE: {
-                humanStr = `${value > 0 ? '+' : ''}${value}${
-                    humanStr.includes(' Percent') || PERCENT_BASE_LABELS.has(humanStr) ? '%' : ''
-                } ${humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '')}`;
-                break;
-            }
-            case Formats.CURSE: {
-                humanStr = `${humanStr} ${value}`;
-                break;
-            }
-            case Formats.SINGLE_CURSE: {
-                // The level should not be displayed. humanStr is already good to go.
-                break;
-            }
-            case Formats.BASE_STAT: {
-                humanStr = `${value} ${humanStr.replace(' Base', '').replace(' Flat', '')}`;
-                break;
-            }
+        return humanStr;
+    }
+
+    // Display label with format suffixes removed ("Attack Damage Percent" ->
+    // "Attack Damage").
+    static displayLabel(stat) {
+        const humanStr = StatFormatter.humanName(stat);
+        if (stat.format === Formats.ATTRIBUTE) {
+            return humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '');
+        }
+        if (stat.format === Formats.BASE_STAT) {
+            return humanStr.replace(' Base', '').replace(' Flat', '');
         }
         return humanStr;
+    }
+
+    // Display value without the label ("+15%", "14", "3"; empty for stats
+    // whose level is not shown).
+    static valueText(stat, value) {
+        switch (stat.format) {
+            case Formats.ATTRIBUTE: {
+                const humanStr = StatFormatter.humanName(stat);
+                const percent = humanStr.includes(' Percent') || PERCENT_BASE_LABELS.has(humanStr);
+                return `${value > 0 ? '+' : ''}${value}${percent ? '%' : ''}`;
+            }
+            case Formats.ENCHANT:
+            case Formats.CURSE:
+            case Formats.BASE_STAT:
+                return `${value}`;
+            default:
+                // SINGLE_ENCHANT / SINGLE_CURSE: the level is not displayed.
+                return '';
+        }
+    }
+
+    static toHumanReadable(stat, value) {
+        const label = StatFormatter.displayLabel(stat);
+        const valueText = StatFormatter.valueText(stat, value);
+        switch (stat.format) {
+            case Formats.ENCHANT:
+            case Formats.CURSE: {
+                // "Melee Protection 2", "Curse of the Veil 3".
+                return `${label} ${valueText}`;
+            }
+            case Formats.ATTRIBUTE:
+            case Formats.BASE_STAT: {
+                // "+15% Speed", "1.6 Attack Speed".
+                return `${valueText} ${label}`;
+            }
+            default: {
+                // SINGLE_ENCHANT / SINGLE_CURSE: "Absorbing Barrier".
+                return label;
+            }
+        }
     }
 
     static statStyle(stat, value, type) {
@@ -217,13 +244,18 @@ class StatFormatter {
 // renders it, so change logs can diff one version against another.
 export function describeStat(name, rawValue, color) {
     const format = inferFormat(name, rawValue);
+    const stat = { name, format };
     return {
         name,
         rawValue,
         format,
         color: color || null,
-        text: StatFormatter.toHumanReadable({ name, format }, rawValue),
-        style: StatFormatter.statStyle({ name, format }, rawValue),
+        text: StatFormatter.toHumanReadable(stat, rawValue),
+        // Label and value separately, so change lines can show the label once
+        // ("Attack Damage 14 -> 10") instead of repeating the full text.
+        label: StatFormatter.displayLabel(stat),
+        valueText: StatFormatter.valueText(stat, rawValue),
+        style: StatFormatter.statStyle(stat, rawValue),
         rank: formatRank(format),
     };
 }

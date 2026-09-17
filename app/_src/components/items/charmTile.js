@@ -1,5 +1,6 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
+import ItemHistoryPanel from './itemHistoryPanel';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { useLowResource } from '../lowResourceContext';
@@ -237,6 +238,7 @@ function CharmTile(data) {
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{`${item.extras.notes}`}</p> : ''}
                 </>
             )}
+            <ItemHistoryPanel records={data.history} currentItem={item} />
         </div>
     );
 }

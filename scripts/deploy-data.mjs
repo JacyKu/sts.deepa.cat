@@ -72,11 +72,12 @@ function main() {
         `[deploy:data] data OK (${stats.mapKeys} map keys, ${stats.animated} animated, ${stats.items} items)`
     );
 
-    // 2. Pack the data directories (items + spritesheets only).
+    // 2. Pack the data directories (items + spritesheets only; the local
+    // recovery backups under items/backups stay on this machine).
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const tarName = `sts-data-${stamp}.tar`;
     const tarPath = path.join(os.tmpdir(), tarName);
-    run('tar', ['-cf', tarPath, '-C', PUBLIC_DIR, 'items', 'spritesheets']);
+    run('tar', ['-cf', tarPath, '-C', PUBLIC_DIR, '--exclude=items/backups', 'items', 'spritesheets']);
     const sizeMb = (fs.statSync(tarPath).size / 1048576).toFixed(1);
     console.log(`[deploy:data] packed ${tarName} (${sizeMb} MB) -> ${target.label}`);
 

@@ -24,10 +24,8 @@
 //     }
 //   }
 //
-// Runs are bounded to the last 200 so the file doesn't grow forever with
-// run bookkeeping (the per-item archives themselves are kept in full).
-
-const MAX_RUNS = 200;
+// Runs are kept forever: the /items/changes page renders every recorded
+// update, grouped by date, so any past API change stays viewable.
 
 // Stable deep equality: property insertion order may differ between two
 // dumps of the same logical item, so compare canonically key-sorted objects.
@@ -113,7 +111,6 @@ export function mergeHistory(historyRaw, currentItems, nextItems, now = new Date
     }
 
     history.runs.unshift({ at: now, added, removed, changed });
-    if (history.runs.length > MAX_RUNS) history.runs.length = MAX_RUNS;
     history.updatedAt = now;
 
     return {

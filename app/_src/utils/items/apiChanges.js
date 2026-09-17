@@ -1,13 +1,24 @@
 // Turns the recorded API runs (item-history.json) into display-ready groups:
 // for every run the added items, the changed items with both item states (so
-// the UI can render stat differences), and the removed items. Pure so it can
-// be exercised from Node without a browser.
+// the UI can render stat differences), and the removed items. Masterwork
+// variants of one item are combined under a single entry with a variant per
+// masterwork level, which the page switches between with the item tiles' star
+// switcher. Pure so it can be exercised from Node without a browser.
 
 function archivedItem(archives, key, at) {
     const records = archives[key];
     if (!Array.isArray(records) || records.length === 0) return null;
     const exact = records.find((record) => record.at === at);
     return (exact || records[0]).item || null;
+}
+
+// One chip per item name, even when several masterwork variants changed.
+function dedupeByName(entries) {
+    const seen = new Map();
+    for (const entry of entries) {
+        if (!seen.has(entry.name)) seen.set(entry.name, entry);
+    }
+    return [...seen.values()];
 }
 
 export function buildRunGroups(history, itemData) {
@@ -18,11 +29,13 @@ export function buildRunGroups(history, itemData) {
     return runs
         .map((run) => {
             const at = run.at;
-            const added = (run.added || []).map((key) => {
-                const item = items[key] || archivedItem(archives, key, at);
-                return { key, item, name: (item && item.name) || key };
-            });
-            const changed = (run.changed || [])
+            const added = dedupeByName(
+                (run.added || []).map((key) => {
+                    const item = items[key] || archivedItem(archives, key, at);
+                    return { key, item, name: (item && item.name) || key };
+                })
+            );
+            const changedEntries = (run.changed || [])
                 .map((key) => {
                     // The archive records the state BEFORE each run. The state
                     // after a run is the next newer record, or the live item.
@@ -37,10 +50,30 @@ export function buildRunGroups(history, itemData) {
                     return { key, name: (item && item.name) || key, before, after, item };
                 })
                 .filter((entry) => entry.before && entry.after);
-            const removed = (run.removed || []).map((key) => {
-                const item = archivedItem(archives, key, at);
-                return { key, item, name: (item && item.name) || key };
-            });
+
+            const changedGroups = new Map();
+            for (const entry of changedEntries) {
+                const group = changedGroups.get(entry.name) || { name: entry.name, variants: [] };
+                group.variants.push({
+                    key: entry.key,
+                    masterwork: Number(entry.item && entry.item.masterwork) || 0,
+                    before: entry.before,
+                    after: entry.after,
+                    item: entry.item,
+                });
+                changedGroups.set(entry.name, group);
+            }
+            const changed = [...changedGroups.values()].map((group) => ({
+                ...group,
+                variants: group.variants.sort((a, b) => a.masterwork - b.masterwork),
+            }));
+
+            const removed = dedupeByName(
+                (run.removed || []).map((key) => {
+                    const item = archivedItem(archives, key, at);
+                    return { key, item, name: (item && item.name) || key };
+                })
+            );
             return { at, added, changed, removed };
         })
         .filter((run) => run.added.length > 0 || run.changed.length > 0 || run.removed.length > 0);

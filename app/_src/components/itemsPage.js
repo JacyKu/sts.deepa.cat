@@ -405,11 +405,23 @@ function getRelevantItems(data, itemData, hideSkins) {
     return items;
 }
 
-export default function ItemsPage({ itemData }) {
+export default function ItemsPage({ itemData, itemHistory }) {
     const { hidden: hideSkins } = useHideSkins();
     const [relevantItems, setRelevantItems] = React.useState(() => getRelevantItems({}, itemData, false));
     const [itemsToShow, setItemsToShow] = React.useState(20);
     const itemsToLoad = 20;
+
+    // Masterwork variants share a display name but keep separate history, so
+    // group their records by masterwork level for MasterworkableItemTile.
+    const historyByMasterwork = React.useMemo(() => {
+        const out = {};
+        for (const [key, records] of Object.entries(itemHistory || {})) {
+            const item = itemData[key];
+            if (!item || item.masterwork == null) continue;
+            (out[item.name] ||= {})[item.masterwork] = records;
+        }
+        return out;
+    }, [itemHistory, itemData]);
     // The latest search form data (name/lore/filters/toggles), so toggling
     // "hide skinned items" re-applies the current search instead of resetting.
     const filterDataRef = React.useRef({});
@@ -449,9 +461,6 @@ export default function ItemsPage({ itemData }) {
                     {relevantItems.length}
                 </h4>
                 <div className={styles.historyLinkRow}>
-                    <Link href="/items/history" className={styles.historyLink}>
-                        <TranslatableText identifier="items.history.link"></TranslatableText>
-                    </Link>
                     <Link href="/items/changes" className={styles.historyLink}>
                         <TranslatableText identifier="items.changes.link"></TranslatableText>
                     </Link>
@@ -479,6 +488,7 @@ export default function ItemsPage({ itemData }) {
                                         name={name[0].name}
                                         item={name}
                                         itemData={itemData}
+                                        historyByMasterwork={historyByMasterwork[name[0].name]}
                                         showListButton
                                         showFavouriteButton
                                     ></MasterworkableItemTile>
@@ -490,6 +500,7 @@ export default function ItemsPage({ itemData }) {
                                         key={name}
                                         name={itemData[name].name}
                                         item={itemData[name]}
+                                        history={itemHistory?.[name]}
                                         showListButton
                                         showFavouriteButton
                                     ></CharmTile>
@@ -501,6 +512,7 @@ export default function ItemsPage({ itemData }) {
                                         key={name}
                                         name={name}
                                         item={itemData[name]}
+                                        history={itemHistory?.[name]}
                                         showListButton
                                     ></ConsumableTile>
                                 );
@@ -510,6 +522,7 @@ export default function ItemsPage({ itemData }) {
                                     key={name}
                                     name={name}
                                     item={itemData[name]}
+                                    history={itemHistory?.[name]}
                                     showListButton
                                     showFavouriteButton
                                 ></ItemTile>

@@ -6,9 +6,10 @@ import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/History.module.css';
 import HistoryIcon from './historyIcon';
 import DiffLine from './itemDiffLine';
+import { useMaxMasterwork } from './maxMasterworkContext';
 import { formatDateString } from '../../utils/dateFormat';
 import { buildRunGroups } from '../../utils/items/apiChanges';
-import { diffStats, topLevelDiffs } from '../../utils/items/itemDiff';
+import { allStatLines, topLevelDiffs, humanizeField } from '../../utils/items/itemDiff';
 import { useTranslation } from '../useTranslation';
 
 function wikiHref(name) {
@@ -26,23 +27,97 @@ function ItemLink({ name }) {
     );
 }
 
+// Local time-of-day for a run, so several runs on one date stay distinct.
+function timeLabel(at) {
+    const date = new Date(at);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function dateKey(at) {
+    return String(at || '').slice(0, 10);
+}
+
+// Runs arrive newest-first; collect them under their calendar date (also
+// newest-first) so the page reads as a dated changelog.
+function groupByDate(runs) {
+    const groups = [];
+    for (const run of runs) {
+        const key = dateKey(run.at);
+        const last = groups[groups.length - 1];
+        if (last && last.date === key) last.runs.push(run);
+        else groups.push({ date: key, runs: [run] });
+    }
+    return groups;
+}
+
 function ChangedEntry({ entry }) {
     const t = useTranslation();
-    const statLines = diffStats(entry.before, entry.after);
-    const topLines = topLevelDiffs(entry.before, entry.after);
-    const total = statLines.length + topLines.length;
+    // Masterwork variants of one item share an entry; the star switcher (the
+    // same as the item tiles) picks which variant's diff is shown. The
+    // default follows the header's "max masterwork" setting, like the item
+    // tiles do.
+    const { enabled: maxMasterworkDefault } = useMaxMasterwork();
+    const defaultIndex = React.useMemo(() => {
+        if (entry.variants.length === 0) return 0;
+        if (!maxMasterworkDefault) return 0;
+        let best = 0;
+        for (let i = 1; i < entry.variants.length; i++) {
+            if (entry.variants[i].masterwork > entry.variants[best].masterwork) best = i;
+        }
+        return best;
+    }, [entry.variants, maxMasterworkDefault]);
+    const [activeIndex, setActiveIndex] = React.useState(defaultIndex);
+    React.useEffect(() => {
+        setActiveIndex(defaultIndex);
+    }, [defaultIndex]);
+    const variant = entry.variants[Math.min(activeIndex, entry.variants.length - 1)];
+    // The full stat block of the variant, in the item display order; changed
+    // stats are marked, unchanged ones are shown so the item is readable.
+    const statLines = allStatLines(variant.before, variant.after);
+    const topLines = topLevelDiffs(variant.before, variant.after);
+    const total = statLines.filter((line) => line.kind !== 'same').length + topLines.length;
     return (
         <div className={styles.changeEntry}>
             <div className={styles.changeEntryHead}>
-                <HistoryIcon item={entry.item} compact />
+                <HistoryIcon item={variant.item} compact />
                 <span className={styles.changeEntryTitles}>
                     <span className={styles.groupName}>
                         <ItemLink name={entry.name} />
                     </span>
                     <span className={styles.groupMeta}>
+                        {variant.masterwork > 0
+                            ? `${t('items.changes.masterwork')} ${variant.masterwork} · `
+                            : ''}
                         {total} {total === 1 ? t('items.changes.stat') : t('items.changes.stats')}
                     </span>
                 </span>
+                {entry.variants.length > 1 && (
+                    <span
+                        className={styles.masterworkSwitcher}
+                        role="group"
+                        aria-label={t('items.changes.masterwork')}
+                    >
+                        {entry.variants.map((v, i) => {
+                            const filled = v.masterwork <= variant.masterwork;
+                            return (
+                                <button
+                                    key={v.key}
+                                    type="button"
+                                    className={`${itemsStyles.starSpan}${
+                                        filled ? ` ${itemsStyles.masterworkStar}` : ''
+                                    }`}
+                                    aria-pressed={i === activeIndex}
+                                    aria-label={`${t('items.changes.masterwork')} ${v.masterwork}`}
+                                    title={`${t('items.changes.masterwork')} ${v.masterwork}`}
+                                    onClick={() => setActiveIndex(i)}
+                                >
+                                    {filled ? '★' : '☆'}
+                                </button>
+                            );
+                        })}
+                    </span>
+                )}
             </div>
             <div className={styles.changeEntryDiffs}>
                 {statLines.map((line) => (
@@ -51,11 +126,11 @@ function ChangedEntry({ entry }) {
                 {topLines.map((line, i) =>
                     line.complex ? (
                         <div key={`top-${i}`} className={styles.complexLine}>
-                            {line.key} {t('items.history.changed')}
+                            {humanizeField(line.key)} {t('items.history.changed')}
                         </div>
                     ) : (
                         <div key={`top-${i}`} className={styles.complexLine}>
-                            {line.key}: {line.old} → {line.fresh}
+                            {humanizeField(line.key)}: {line.old} → {line.fresh}
                         </div>
                     )
                 )}
@@ -84,7 +159,7 @@ function RunCard({ run, defaultOpen }) {
                 aria-expanded={open}
                 onClick={() => setOpen((o) => !o)}
             >
-                <span className={styles.runDate}>{formatDateString(run.at)}</span>
+                <span className={styles.runTime}>{timeLabel(run.at)}</span>
                 <span className={styles.runCounts}>{counts}</span>
                 <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
                     ▸
@@ -115,7 +190,7 @@ function RunCard({ run, defaultOpen }) {
                             </h3>
                             <div className={styles.changeList}>
                                 {run.changed.map((entry) => (
-                                    <ChangedEntry key={entry.key} entry={entry} />
+                                    <ChangedEntry key={entry.name} entry={entry} />
                                 ))}
                             </div>
                         </section>
@@ -144,6 +219,7 @@ function RunCard({ run, defaultOpen }) {
 export default function ApiChangesPage({ itemData, history }) {
     const t = useTranslation();
     const runs = React.useMemo(() => buildRunGroups(history, itemData || {}), [history, itemData]);
+    const dateGroups = React.useMemo(() => groupByDate(runs), [runs]);
     const updatedAt = history && history.updatedAt ? history.updatedAt : null;
 
     return (
@@ -153,9 +229,6 @@ export default function ApiChangesPage({ itemData, history }) {
                 <div className={styles.summaryLine}>
                     <Link href="/items" className={styles.backLink}>
                         ← {t('items.changes.backToItems')}
-                    </Link>
-                    <Link href="/items/history" className={styles.backLink}>
-                        {t('items.changes.itemHistory')}
                     </Link>
                     {runs.length > 0 && (
                         <span className={styles.summaryText}>
@@ -175,8 +248,13 @@ export default function ApiChangesPage({ itemData, history }) {
                     </div>
                 ) : (
                     <div className={styles.groupList}>
-                        {runs.map((run, i) => (
-                            <RunCard key={run.at} run={run} defaultOpen={i === 0} />
+                        {dateGroups.map((group) => (
+                            <section key={group.date} className={styles.dateGroup}>
+                                <h2 className={styles.dateHeading}>{formatDateString(group.date)}</h2>
+                                {group.runs.map((run) => (
+                                    <RunCard key={run.at} run={run} defaultOpen={run === runs[0]} />
+                                ))}
+                            </section>
                         ))}
                     </div>
                 )}

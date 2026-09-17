@@ -163,32 +163,17 @@
     line-height: 1.5;
 }
 
-.kindDot {
-    display: inline-block;
-    flex: 0 0 auto;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    transform: translateY(-1px);
-    margin-right: 2px;
+/* Leading + / − marker on added and removed stat lines (mono, like the
+   app's other numeric values). */
+.changeMark {
+    font-family: monospace;
+    font-weight: 700;
 }
 
-.addedDot,
-.buffDot {
-    background: #4ade4a;
-}
-
-.removedDot,
-.nerfDot {
-    background: #fc5454;
-}
-
-.changedDot {
-    background: #f5b95c;
-}
-
-.oldText {
-    color: var(--text-2, #999);
+/* Before-side of a changed stat keeps its stat colour, just slightly
+   dimmed so the new value still stands out. */
+.oldValue {
+    opacity: 0.75;
 }
 
 .arrow {
@@ -199,9 +184,21 @@
     opacity: 0.75;
 }
 
+/* Unchanged stats in a full item stat listing: shown so the item's whole
+   stat block is readable, de-emphasised against the changed lines. */
+.sameLine {
+    opacity: 0.7;
+}
+
+/* Plain numeric change on a changed stat line, in the app's mono style: grey
+   brackets with the value coloured by its direction. */
 .delta {
-    font-weight: 600;
-    margin-left: 4px;
+    font-size: 0.9em;
+    font-family: monospace;
+}
+
+.deltaBracket {
+    color: var(--text-2, #999);
 }
 
 .deltaUp {
@@ -236,12 +233,17 @@
 
 /* API changes page (app/items/changes) --------------------------------- */
 
-/* Small sprite box for dense change lists: the 64px sheet tile scaled to
-   32px, cropped by the wrapper. */
+/* Small sprite box for dense change lists. The item sheet styles scale every
+   sprite with !important so its artwork renders at a uniform size; zooming
+   the box - which composes with that transform - shows the whole icon at
+   half size instead of cropping it. */
 .compactIcon {
-    width: 36px;
-    height: 36px;
-    padding: 2px;
+    width: 80px;
+    height: 80px;
+    zoom: 0.5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
     flex: 0 0 auto;
 }
@@ -249,8 +251,6 @@
 .compactIcon > :global(.monumenta-items),
 .compactIcon > :global(.monumenta-charms),
 .compactIcon > :global(.minecraft) {
-    transform: scale(0.5);
-    transform-origin: top left;
     image-rendering: pixelated;
 }
 
@@ -258,9 +258,55 @@
     gap: 12px;
 }
 
-.runDate {
+.runTime {
     font-weight: bold;
     font-size: 15px;
+    min-width: 52px;
+    text-align: left;
+}
+
+/* One calendar date's worth of runs (updates are kept forever, so the page
+   reads as a dated changelog). */
+.dateGroup {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dateHeading {
+    margin: 12px 0 0;
+    padding-bottom: 4px;
+    font-size: 16px;
+    text-align: left;
+    color: var(--text-1, #eee);
+    border-bottom: 1px solid var(--glass-border, #444);
+}
+
+/* Per-item history panel rendered inside the item tiles. */
+.itemHistory {
+    margin-top: 6px;
+    width: 100%;
+    border-top: 1px dashed var(--glass-border, #444);
+}
+
+.itemHistoryToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 2px;
+    background: none;
+    border: none;
+    color: var(--text-2, #bbb);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.itemHistoryToggle:hover {
+    color: var(--text-1, #eee);
 }
 
 .runCounts {
@@ -330,6 +376,26 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* Star switcher for masterwork variants, matching the item tiles. */
+.masterworkSwitcher {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    flex: 0 0 auto;
+}
+
+.masterworkSwitcher button {
+    background: none;
+    border: none;
+    padding: 0 1px;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    color: inherit;
+    cursor: pointer;
 }
 
 .changeEntryTitles {

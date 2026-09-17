@@ -1,6 +1,7 @@
 import styles from '../../styles/Items.module.css';
 import Enchants from './enchants';
 import LoreText from './loreText';
+import ItemHistoryPanel from './itemHistoryPanel';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -165,6 +166,7 @@ function ConsumableTile(data) {
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
                 </>
             )}
+            <ItemHistoryPanel records={data.history} currentItem={item} />
         </div>
     );
 }

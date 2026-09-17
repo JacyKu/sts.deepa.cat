@@ -8,7 +8,29 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
 const HISTORY_TARGET = path.join(__dirname, '..', 'public', 'items', 'item-history.json');
 const SKILLS_TARGET = path.join(__dirname, '..', 'public', 'items', 'skills.json');
+// Timestamped copies of the outgoing history are kept here before every
+// rewrite, so an accidental loss (deleted file, bad write) can be recovered.
+const BACKUPS_DIR = path.join(__dirname, '..', 'public', 'items', 'backups');
+const HISTORY_BACKUPS_KEPT = 10;
 const MIN_ITEMS = 1000;
+
+async function backupHistoryFile() {
+    try {
+        const existing = await fs.readFile(HISTORY_TARGET, 'utf8');
+        if (!existing.trim()) return;
+        await fs.mkdir(BACKUPS_DIR, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        await fs.writeFile(path.join(BACKUPS_DIR, `item-history-${stamp}.json`), existing);
+        const backups = (await fs.readdir(BACKUPS_DIR))
+            .filter((name) => name.startsWith('item-history-') && name.endsWith('.json'))
+            .sort();
+        for (const name of backups.slice(0, Math.max(0, backups.length - HISTORY_BACKUPS_KEPT))) {
+            await fs.rm(path.join(BACKUPS_DIR, name), { force: true });
+        }
+    } catch (err) {
+        // First run (no history yet) or unreadable file - nothing to back up.
+    }
+}
 
 const sources = [
     {
@@ -126,6 +148,7 @@ async function main() {
     }
     const { raw: historyNext, summary } = mergeHistory(historyRaw, current, result.data);
     if (historyNext) {
+        await backupHistoryFile();
         const tmpH = HISTORY_TARGET + '.tmp';
         await fs.writeFile(tmpH, historyNext);
         await fs.rename(tmpH, HISTORY_TARGET);

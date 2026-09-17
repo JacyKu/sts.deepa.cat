@@ -1,5 +1,6 @@
 import Enchants from './enchants';
 import LoreText from './loreText';
+import ItemHistoryPanel from './itemHistoryPanel';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -224,6 +225,7 @@ function ItemTile(data) {
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
                 </>
             )}
+            <ItemHistoryPanel records={data.history} currentItem={item} />
         </div>
     );
 }

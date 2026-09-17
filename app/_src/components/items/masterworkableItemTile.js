@@ -1,5 +1,6 @@
 import Enchants from './enchants';
 import LoreText from './loreText';
+import ItemHistoryPanel from './itemHistoryPanel';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
@@ -436,6 +437,10 @@ function MasterworkableItemTile(data) {
             ) : (
                 ''
             )}
+            <ItemHistoryPanel
+                records={data.historyByMasterwork ? data.historyByMasterwork[activeItem.masterwork] : null}
+                currentItem={activeItem}
+            />
         </div>
     );
 }

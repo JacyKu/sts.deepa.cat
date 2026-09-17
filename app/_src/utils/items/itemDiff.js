@@ -21,9 +21,11 @@ export function valueKey(value) {
     return String(value);
 }
 
-// Per-stat differences between two item states: added / removed / changed
-// lines, with the delta when both sides are numeric.
-export function diffStats(beforeItem, afterItem) {
+// Every stat of the newer state, with the changed/added/removed ones marked
+// and unchanged ones kept as 'same'. Sorted in the item display order
+// (enchants, curses, attributes, base stats; alphabetical within a group),
+// so the list reads exactly like the item's stat block.
+function statLines(beforeItem, afterItem) {
     const beforeSnap = statSnapshot(beforeItem && beforeItem.stats, beforeItem && beforeItem.statColors);
     const afterSnap = statSnapshot(afterItem && afterItem.stats, afterItem && afterItem.statColors);
     const names = [...new Set([...beforeSnap.keys(), ...afterSnap.keys()])];
@@ -38,16 +40,48 @@ export function diffStats(beforeItem, afterItem) {
         } else if (old && fresh && valueKey(old.rawValue) !== valueKey(fresh.rawValue)) {
             const beforeNum = numericValue(old.rawValue);
             const afterNum = numericValue(fresh.rawValue);
+            const rawDelta = afterNum - beforeNum;
             lines.push({
                 name,
                 kind: 'changed',
                 old,
                 fresh,
-                delta: !Number.isNaN(beforeNum) && !Number.isNaN(afterNum) ? afterNum - beforeNum : NaN,
+                // Round so floating point noise (2.3000000000000007) never
+                // reaches the UI.
+                delta: Number.isFinite(rawDelta) ? Math.round(rawDelta * 100) / 100 : NaN,
             });
+        } else if (old && fresh) {
+            lines.push({ name, kind: 'same', fresh });
         }
     }
+    lines.sort((a, b) => {
+        const rankA = (a.fresh || a.old).rank;
+        const rankB = (b.fresh || b.old).rank;
+        if (rankA !== rankB) return rankA - rankB;
+        return a.name.localeCompare(b.name);
+    });
     return lines;
+}
+
+// Per-stat differences between two item states: added / removed / changed
+// lines (with the delta when both sides are numeric).
+export function diffStats(beforeItem, afterItem) {
+    return statLines(beforeItem, afterItem).filter((line) => line.kind !== 'same');
+}
+
+// The full stat list of the newer state: every stat, with changes marked and
+// unchanged stats kept so it is clear what the item actually has.
+export function allStatLines(beforeItem, afterItem) {
+    return statLines(beforeItem, afterItem);
+}
+
+// Human-readable label for an item data field (base_item -> "Base item").
+const FIELD_LABELS = { base_item: 'Base item', mmlore: 'MM lore', original_item: 'Original item' };
+
+export function humanizeField(key) {
+    if (FIELD_LABELS[key]) return FIELD_LABELS[key];
+    const words = String(key).replaceAll('_', ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // Differences in the plain text fields (type, tier, region, ...) and a
