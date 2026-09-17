@@ -23,6 +23,7 @@ const DELVE_CARAPACE_DR_PER_LEVEL = 0.0125; // Carapace
 const DELVE_FUELED_DR_PER_LEVEL = 0.003; // Fueled (4 mobs)
 const DELVE_ORBITAL_DR_PER_LEVEL = 0.015; // Orbital (scalable types)
 const DELVE_PENNATE_FALL_PER_LEVEL = 0.05; // Pennate (fall only)
+const DELVE_DECAPITATION_PER_LEVEL = 0.0125; // Decapitation (melee crit damage)
 
 class Stats {
     constructor(itemData, formData, enabledBoxes, extraStats, enabledClassAbilityBuffs) {
@@ -296,6 +297,11 @@ class Stats {
         let attackDamageCrit = this.cumbersome ? attackDamage : attackDamage * 1.5;
         attackDamage += flatAttackDamage;
         attackDamageCrit += flatAttackDamage; // this is not a bug, flat damage is added after the crit multiplier
+        // Decapitation (delve infusion): melee critical strikes deal
+        // (1.25% * level) more damage. Counted while its situational chip is
+        // ticked, like the other infusions.
+        if (this.hasDelveInfusion('Decapitation'))
+            attackDamageCrit *= 1 + DELVE_DECAPITATION_PER_LEVEL * this.delveLevel;
 
         // attack speed
         let attackSpeed =
