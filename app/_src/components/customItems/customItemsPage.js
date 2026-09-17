@@ -187,6 +187,11 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     const [statSetName, setStatSetName] = React.useState('');
     const [confirmDelSet, setConfirmDelSet] = React.useState(null); // set id awaiting 2nd click
     const confirmDelTimerRef = React.useRef(null);
+    // Database item picker in the stat sets dialog: search the Monumenta item
+    // dump and copy an existing item's stats into the form.
+    const [lookupQuery, setLookupQuery] = React.useState('');
+    const [lookupResults, setLookupResults] = React.useState(null); // null = nothing searched yet
+    const [lookupBusy, setLookupBusy] = React.useState(false);
     const [spriteMap, setSpriteMap] = React.useState(null);
 
     const [name, setName] = React.useState('');
@@ -572,6 +577,22 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         say(true, `${t('customItems.feedback.statsFrom')} "${item.name}" ${t('customItems.feedback.statsIntoForm')}.`);
     }
 
+    // Copies a picked database item's stats into the form (the stat sets
+    // dialog's "copy from an existing item" picker). Like the own-item copy
+    // above, the dialog stays open so its feedback line stays visible.
+    function copyStatsFromLookup(item) {
+        const rows = Object.entries(item.stats || {}).map(([key, value]) => ({ key, value: String(value) }));
+        if (rows.length === 0) {
+            say(false, `"${item.name}" ${t('customItems.itemLookup.hasNoStats')}`);
+            return;
+        }
+        applyStatRows(rows);
+        say(
+            true,
+            `${t('customItems.feedback.statsFrom')} "${item.name}" ${t('customItems.feedback.statsIntoForm')}.`
+        );
+    }
+
     function say(ok, text) {
         setFeedback({ ok, text });
         window.clearTimeout(feedbackTimerRef.current);
@@ -603,6 +624,39 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         refreshStatSets();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statSetsOpen]);
+
+    // Debounced search of the Monumenta item database for the stat sets
+    // dialog's item picker (stats included, so picking one can copy them).
+    React.useEffect(() => {
+        if (!statSetsOpen) return undefined;
+        const query = lookupQuery.trim();
+        if (!query) {
+            setLookupResults(null);
+            setLookupBusy(false);
+            return undefined;
+        }
+        let active = true;
+        setLookupBusy(true);
+        const timer = window.setTimeout(() => {
+            fetch(`${base}/api/v2/items/search?stats=1&limit=25&q=${encodeURIComponent(query)}`)
+                .then((response) =>
+                    response.ok ? response.json() : Promise.reject(new Error('HTTP ' + response.status))
+                )
+                .then((data) => {
+                    if (active) setLookupResults(data.results || []);
+                })
+                .catch(() => {
+                    if (active) setLookupResults([]);
+                })
+                .finally(() => {
+                    if (active) setLookupBusy(false);
+                });
+        }, 300);
+        return () => {
+            active = false;
+            window.clearTimeout(timer);
+        };
+    }, [lookupQuery, statSetsOpen, base]);
 
     // The current form's stats, as rows without ids - the shape that gets
     // stored in a set and re-applied later.
@@ -1021,7 +1075,53 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     ✕
                                 </button>
                             </div>
-                            <p className={itemsStyles.setsHint}>{t('customItems.statSets.hint')}</p>
+                            <section className={`${itemsStyles.setsGroup} ${styles.itemLookupGroup}`}>
+                                <h3 className={itemsStyles.setsGroupTitle}>{t('customItems.itemLookup.title')}</h3>
+                                <input
+                                    type="text"
+                                    className={`${itemsStyles.setsInput} ${styles.itemLookupInput}`}
+                                    placeholder={t('customItems.itemLookup.placeholder')}
+                                    value={lookupQuery}
+                                    onChange={(e) => setLookupQuery(e.target.value)}
+                                    aria-label={t('customItems.itemLookup.title')}
+                                />
+                                {lookupBusy ? (
+                                    <p className={itemsStyles.setsEmpty}>{t('common.loading')}</p>
+                                ) : lookupResults === null ? (
+                                    <p className={itemsStyles.setsEmpty}>{t('customItems.itemLookup.hint')}</p>
+                                ) : lookupResults.length === 0 ? (
+                                    <p className={itemsStyles.setsEmpty}>{t('customItems.itemLookup.noResults')}</p>
+                                ) : (
+                                    <ul className={`${itemsStyles.setsList} ${styles.itemLookupList}`}>
+                                        {lookupResults.map((entry) => {
+                                            const statCount = Object.keys(entry.stats || {}).length;
+                                            return (
+                                                <li key={entry.name} className={itemsStyles.setsRow}>
+                                                    <span className={itemsStyles.setsRowName}>
+                                                        {entry.name}
+                                                        <span className={itemsStyles.setsMeta}>
+                                                            {[entry.type, entry.tier]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
+                                                            {statCount > 0
+                                                                ? ` · ${statCount} ${t('customItems.statSets.stats')}`
+                                                                : ` · ${t('customItems.statSets.noStats')}`}
+                                                        </span>
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        className={itemsStyles.setsBtn}
+                                                        disabled={statCount === 0}
+                                                        onClick={() => copyStatsFromLookup(entry)}
+                                                    >
+                                                        {t('customItems.statSets.copyStats')}
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+                            </section>
                             <div className={`${itemsStyles.setsColumns} ${styles.statSetsColumns}`}>
                                 <section className={itemsStyles.setsGroup}>
                                     <h3 className={itemsStyles.setsGroupTitle}>

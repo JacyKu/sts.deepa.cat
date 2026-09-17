@@ -113,6 +113,20 @@
     grid-template-columns: 1fr 1fr;
 }
 
+/* Item database picker above the stat sets columns. */
+.itemLookupGroup {
+    margin-bottom: 12px;
+}
+
+.itemLookupInput {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.itemLookupList {
+    max-height: 170px;
+}
+
 .field {
     display: flex;
     flex-direction: column;

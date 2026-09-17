@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getItemData } from '../../../../_src/utils/itemsData';
-// Free-text item search (used by the Discord bot):
-//   /api/v2/items/search?q=...&limit=...
+// Free-text item search (used by the Discord bot and the custom item maker):
+//   /api/v2/items/search?q=...&limit=...&stats=1
 // Matches item names (case-insensitive substring) and, for charms, their
 // ability text - the same matching the items page uses. Masterwork variants
 // are grouped under the base name, like the item tiles do. An empty q
 // returns the first `limit` items (used for the bot's initial autocomplete
-// list before the user types).
+// list before the user types). stats=1 adds each item's stats as plain
+// numbers, which the custom item maker copies into its form.
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get('q') || '').trim().toLowerCase();
     const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 25));
+    const withStats = searchParams.get('stats') === '1';
 
     const itemData = await getItemData();
     const results = [];
@@ -32,10 +34,23 @@ export async function GET(request) {
             baseItem: item.base_item || null,
             masterwork: Number(item.masterwork) || 0,
             power: item.power != null ? Number(item.power) : null,
+            ...(withStats ? { stats: normalizedStats(item.stats) } : {}),
         });
         if (results.length >= limit) break;
     }
     return NextResponse.json({ count: q ? seen.size : results.length, results });
+}
+
+// Stats may be stored as objects ({ value, locked }); the custom item maker
+// only deals in plain numbers, so flatten them and drop non-numeric values.
+function normalizedStats(stats) {
+    const out = {};
+    for (const [key, raw] of Object.entries(stats || {})) {
+        const value = raw !== null && typeof raw === 'object' && 'value' in raw ? raw.value : raw;
+        const num = Number(value);
+        if (Number.isFinite(num)) out[key] = num;
+    }
+    return out;
 }
 
 // Human-readable charm ability text, so searches can match abilities the same
