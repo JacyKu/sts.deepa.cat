@@ -7,7 +7,7 @@ import styles from '../../styles/History.module.css';
 import HistoryIcon from './historyIcon';
 import DiffLine from './itemDiffLine';
 import { useMaxMasterwork } from './maxMasterworkContext';
-import { formatDateString } from '../../utils/dateFormat';
+import { formatDateString, formatMonthString } from '../../utils/dateFormat';
 import { buildRunGroups } from '../../utils/items/apiChanges';
 import { allStatLines, topLevelDiffs, humanizeField } from '../../utils/items/itemDiff';
 import { useTranslation } from '../useTranslation';
@@ -27,27 +27,21 @@ function ItemLink({ name }) {
     );
 }
 
-// Run times are shown in UTC so every visitor sees the same clock, not their
-// own local time.
-function timeLabel(at) {
-    const date = new Date(at);
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+// Runs are grouped by month; each run shows its full timestamp (UTC) so
+// several runs on one day stay distinct.
+function monthKey(at) {
+    return String(at || '').slice(0, 7);
 }
 
-function dateKey(at) {
-    return String(at || '').slice(0, 10);
-}
-
-// Runs arrive newest-first; collect them under their calendar date (also
+// Runs arrive newest-first; collect them under their month (also
 // newest-first) so the page reads as a dated changelog.
-function groupByDate(runs) {
+function groupByMonth(runs) {
     const groups = [];
     for (const run of runs) {
-        const key = dateKey(run.at);
+        const key = monthKey(run.at);
         const last = groups[groups.length - 1];
-        if (last && last.date === key) last.runs.push(run);
-        else groups.push({ date: key, runs: [run] });
+        if (last && last.month === key) last.runs.push(run);
+        else groups.push({ month: key, runs: [run] });
     }
     return groups;
 }
@@ -167,7 +161,8 @@ function RunCard({ run, defaultOpen, showLoreOnly }) {
                 onClick={() => setOpen((o) => !o)}
             >
                 <span className={styles.runTime}>
-                    {timeLabel(run.at)} <span className={styles.runTimeZone}>UTC</span>
+                    {formatDateString(run.at, { includeTime: true, utc: true })}{' '}
+                    <span className={styles.runTimeZone}>UTC</span>
                 </span>
                 <span className={styles.runCounts}>{counts}</span>
                 <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
@@ -236,7 +231,7 @@ function RunCard({ run, defaultOpen, showLoreOnly }) {
 export default function ApiChangesPage({ itemData, history }) {
     const t = useTranslation();
     const runs = React.useMemo(() => buildRunGroups(history, itemData || {}), [history, itemData]);
-    const dateGroups = React.useMemo(() => groupByDate(runs), [runs]);
+    const monthGroups = React.useMemo(() => groupByMonth(runs), [runs]);
     const updatedAt = history && history.updatedAt ? history.updatedAt : null;
     const [showLoreOnly, setShowLoreOnly] = React.useState(false);
     const loreOnlyCount = React.useMemo(
@@ -287,11 +282,9 @@ export default function ApiChangesPage({ itemData, history }) {
                     </div>
                 ) : (
                     <div className={styles.groupList}>
-                        {dateGroups.map((group) => (
-                            <section key={group.date} className={styles.dateGroup}>
-                                <h2 className={styles.dateHeading}>
-                                    {formatDateString(group.date, { utc: true })}
-                                </h2>
+                        {monthGroups.map((group) => (
+                            <section key={group.month} className={styles.dateGroup}>
+                                <h2 className={styles.dateHeading}>{formatMonthString(group.month)}</h2>
                                 {group.runs.map((run) => (
                                     <RunCard
                                         key={run.at}

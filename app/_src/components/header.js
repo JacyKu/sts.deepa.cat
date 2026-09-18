@@ -10,6 +10,7 @@ import ObtainmentToggle from './items/obtainmentToggle';
 import HideSkinsToggle from './items/hideSkinsToggle';
 import FavouritesToggle from './items/favouritesToggle';
 import MaxMasterworkToggle from './items/maxMasterworkToggle';
+import ItemHistoryToggle from './items/itemHistoryToggle';
 import BuildListToggle from './items/buildListToggle';
 import AnimationsToggle from './items/animationsToggle';
 import styles from '../styles/Header.module.css';
@@ -691,6 +692,7 @@ export default function Header() {
                                 <HideSkinsToggle className={styles.loreToggle} />
                                 <FavouritesToggle className={styles.loreToggle} />
                                 <MaxMasterworkToggle className={styles.loreToggle} />
+                                <ItemHistoryToggle className={styles.loreToggle} />
                                 <BuildListToggle className={styles.loreToggle} />
                                 <Link className={styles.navButton} href="/settings" onClick={closeMenu}>
                                     {t('header.siteSettings')}

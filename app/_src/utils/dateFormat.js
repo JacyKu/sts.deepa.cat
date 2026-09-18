@@ -21,6 +21,17 @@ export function setAmericanDateEnabled(enabled) {
     }
 }
 
+// Month + year heading (e.g. "September 2026") for the dated changelog
+// groups in the API changes page. Always UTC so the heading matches the run
+// timestamps shown under it.
+export function formatMonthString(raw) {
+    const text = String(raw == null ? '' : raw).trim();
+    if (!text) return '';
+    const d = new Date(text.slice(0, 7) + '-01T00:00:00Z');
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
 // Formats one of the site's stored timestamps (SQLite "YYYY-MM-DD HH:MM:SS"
 // or ISO-ish strings, always treated as UTC) as a short date. Existing call
 // sites differ in whether they convert the space to a "T" before parsing,
