@@ -18,6 +18,7 @@ import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
 import NotificationsBar from './_src/components/notificationsBar';
 import DevSiteBanner from './_src/components/devSiteBanner';
+import SanctionBanner from './_src/components/sanctionBanner';
 import SiteNav from './_src/components/headerTitle';
 
 export const metadata = {
@@ -95,6 +96,7 @@ export default async function StsLayout({ children }) {
                                                                         </SiteNav>
                                         <NotificationsBar />
                                         <DevSiteBanner />
+                                        <SanctionBanner />
                                         <div className="site-main">{children}</div>
                                                                         <Footer />
                                                                     </ItemFavouritesProvider>

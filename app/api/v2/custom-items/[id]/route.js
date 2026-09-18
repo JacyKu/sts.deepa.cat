@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser } from '../../../../../lib/session';
+import { sanctionBlock } from '../../../../../lib/moderation';
 import {
     getCustomItem,
     deleteCustomItem,
@@ -34,6 +35,9 @@ export async function GET(_request, { params }) {
 
 export async function PATCH(request, { params }) {
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not edit content.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

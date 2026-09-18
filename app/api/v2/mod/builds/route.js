@@ -31,6 +31,7 @@ import {
     readRateLimits,
 } from '../../../../../lib/rate-limit';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
+import { sanctionBlockForId } from '../../../../../lib/moderation';
 
 // Save a build from the STS mod. The mod sends the v1_ build token it
 // generated, optionally with the player's Minecraft UUID:
@@ -61,6 +62,11 @@ export async function POST(request) {
     // link: the public UUID alone is not proof of ownership.
     if (link && !verifyModToken(uuid, body?.deviceToken)) {
         return NextResponse.json({ error: 'invalid device token' }, { status: 401 });
+    }
+    // Banned/suspended accounts may browse but not upload builds.
+    if (link) {
+        const blocked = sanctionBlockForId(link.discord_id);
+        if (blocked) return blocked;
     }
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     // Decode must produce a real build querystring: the codec passes unknown

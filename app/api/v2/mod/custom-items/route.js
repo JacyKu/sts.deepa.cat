@@ -10,6 +10,7 @@ import { getItemData } from '../../../../_src/utils/itemsData';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
 import { rateLimitResponse, readRateLimits } from '../../../../../lib/rate-limit';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
+import { sanctionBlockForId } from '../../../../../lib/moderation';
 
 // Upload items from the game as custom items on the linked account.
 //
@@ -41,6 +42,9 @@ export async function POST(request) {
             { status: 401 }
         );
     }
+    // Banned/suspended accounts may browse but not upload items.
+    const blocked = sanctionBlockForId(link.discord_id);
+    if (blocked) return blocked;
 
     const items = Array.isArray(body?.items) ? body.items : [];
     if (items.length === 0 || items.length > 50) {

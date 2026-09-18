@@ -694,6 +694,11 @@ export default function Header() {
                                 <MaxMasterworkToggle className={styles.loreToggle} />
                                 <ItemHistoryToggle className={styles.loreToggle} />
                                 <BuildListToggle className={styles.loreToggle} />
+                                {session.user && session.user.isModerator && (
+                                    <Link className={styles.navButton} href="/moderation" onClick={closeMenu}>
+                                        {t('moderation.title')}
+                                    </Link>
+                                )}
                                 <Link className={styles.navButton} href="/settings" onClick={closeMenu}>
                                     {t('header.siteSettings')}
                                 </Link>

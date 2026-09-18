@@ -14,6 +14,7 @@ import { decodeBuildParam, getBuildTokenVersion, getBuildItemHashes } from '../.
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
+import { sanctionBlock } from '../../../../lib/moderation';
 import { bodyTooLarge, tooLargeJson } from '../../../../lib/request-guards';
 import {
     consumeRateLimit,
@@ -41,6 +42,9 @@ export async function POST(request) {
     // (publicise, anonymous or not) requires the account, so anonymously
     // posted builds stay on the user's account instead of a local token.
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not save anything.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     // Publicising at save time must pass the same profanity gate as the
     // publicise endpoint: never surface a build with blocked words.
     if (user && body.publicise && hasProfanity({ name: body.name, notes: body.notes, token, itemData })) {

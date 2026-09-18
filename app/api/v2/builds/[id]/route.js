@@ -11,6 +11,7 @@ import {
 } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
+import { sanctionBlock } from '../../../../../lib/moderation';
 import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
@@ -32,6 +33,9 @@ export async function GET(request, { params }) {
 export async function PATCH(request, { params }) {
     const p = await params;
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not edit or (de)publicise.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (bodyTooLarge(request)) return tooLargeJson();
     const body = await request.json().catch(() => null);
 

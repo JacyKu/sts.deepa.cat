@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { listSkillSetsByUser, saveSkillSet, SKILL_SET_KINDS, SKILL_SET_NAME_MAX } from '../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../lib/session';
+import { sanctionBlock } from '../../../../lib/moderation';
 import { bodyTooLarge, tooLargeJson } from '../../../../lib/request-guards';
 
 // Saved skill/delve sets are personal - Discord sign-in required (matches
@@ -30,6 +31,9 @@ export async function GET() {
 
 export async function POST(request) {
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not save sets.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

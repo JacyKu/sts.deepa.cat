@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser, resolveProfileAvatar } from '../../../../../lib/session';
+import { sanctionBlock } from '../../../../../lib/moderation';
 import { saveUserAvatar, setAvatarSource, MAX_UPLOADED_AVATARS } from '../../../../../lib/sts-builds';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
 
@@ -35,6 +36,9 @@ function sniffImageMime(buffer) {
 
 export async function POST(request) {
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not upload pictures.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDiscordUser, resolveProfileAvatar } from '../../../../../lib/session';
+import { sanctionBlock } from '../../../../../lib/moderation';
 import { setAvatarSource, listLinksForDiscord } from '../../../../../lib/sts-builds';
 
 // Saves the profile-picture preference: 'discord' (Discord avatar),
@@ -9,6 +10,9 @@ import { setAvatarSource, listLinksForDiscord } from '../../../../../lib/sts-bui
 // custom items show the new picture.
 export async function POST(request) {
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not change their picture.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

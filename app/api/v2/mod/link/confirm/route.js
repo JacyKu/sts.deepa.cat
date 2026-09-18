@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { confirmPendingLink, getPendingLink, ensureStsUser } from '../../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../../lib/session';
+import { sanctionBlock } from '../../../../../../lib/moderation';
 
 // Confirms a pending Minecraft link. Requires a signed-in Discord session: the
 // confirmed UUID becomes that account's Minecraft identity. A UUID that is
@@ -8,6 +9,9 @@ import { getDiscordUser } from '../../../../../../lib/session';
 // it on the site first (the confirm page links to /account).
 export async function POST(request) {
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not link new profiles.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { deleteSkillSet, setSkillSetPublic } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
+import { sanctionBlock } from '../../../../../lib/moderation';
 
 // Deletes one of the caller's saved skill/delve sets. Only the owner can
 // delete; nobody can read or write someone else's sets.
@@ -21,6 +22,9 @@ export async function DELETE(_request, { params }) {
 // login feature like saving itself; the public page needs no account.
 export async function POST(request, { params }) {
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not save sets.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
