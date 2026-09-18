@@ -340,8 +340,11 @@
 
 .cardSide {
     position: absolute;
-    top: -2px;
-    height: calc(100% + 4px);
+    /* The UI zoom (0.9) lays the card's 2px border out as ~1px, so the
+       extension meets the card's outer edge with a 1px overhang; using 2px
+       here made it 1px taller than the card at the top and bottom. */
+    top: -1px;
+    height: calc(100% + 2px);
     width: 0;
     opacity: 0;
     display: flex;
