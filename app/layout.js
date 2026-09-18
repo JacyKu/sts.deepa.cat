@@ -94,10 +94,10 @@ export default async function StsLayout({ children }) {
                                                                         >
                                                                             <Header />
                                                                         </SiteNav>
-                                        <NotificationsBar />
-                                        <DevSiteBanner />
-                                        <SanctionBanner />
-                                        <div className="site-main">{children}</div>
+                                                                        <NotificationsBar />
+                                                                        <DevSiteBanner />
+                                                                        <SanctionBanner />
+                                                                        <div className="site-main">{children}</div>
                                                                         <Footer />
                                                                     </ItemFavouritesProvider>
                                                                 </FavouritesEnabledProvider>

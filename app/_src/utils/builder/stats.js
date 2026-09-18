@@ -95,6 +95,7 @@ class Stats {
             point_blank: { enabled: enabledBoxes.point_blank, level: 0 },
             sniper: { enabled: enabledBoxes.sniper, level: 0 },
             first_strike: { enabled: enabledBoxes.first_strike, level: 0 },
+            momentum: { enabled: enabledBoxes.momentum, level: 0 },
             regicide: { enabled: enabledBoxes.regicide, level: 0 },
             trivium: { enabled: enabledBoxes.trivium, level: 0 },
             stamina: { enabled: enabledBoxes.stamina, level: 0 },
@@ -202,6 +203,8 @@ class Stats {
         // damage situationals
 
         let firstStrikeSit = this.situationals.first_strike.enabled ? 10 * this.situationals.first_strike.level : 0;
+        // Momentum: (level * 10)% damage on the next hit while sprinting.
+        let momentumSit = this.situationals.momentum.enabled ? 10 * this.situationals.momentum.level : 0;
         let regicideSit = this.situationals.regicide.enabled ? 10 * this.situationals.regicide.level : 0;
         let triviumSit = this.situationals.trivium.enabled ? 10 * this.situationals.trivium.level : 0;
         let staminaSit = this.situationals.stamina.enabled ? 10 * this.situationals.stamina.level : 0;
@@ -236,6 +239,7 @@ class Stats {
         // gear damage
         this.attackDamagePercent.add(this.damageInfusionsMultiplier * Number(this.vigor));
         this.attackDamagePercent.add(firstStrikeSit);
+        this.attackDamagePercent.add(momentumSit);
         this.attackDamagePercent.add(regicideSit);
         this.attackDamagePercent.add(staminaSit);
         this.attackDamagePercent.add(abyssalSit);

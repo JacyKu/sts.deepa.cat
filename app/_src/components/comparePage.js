@@ -192,6 +192,7 @@ const situationalDefenses = [
 const situationalFlatDamage = ['smite', 'duelist', 'slayer', 'point_blank', 'sniper'];
 const situationalPercentDamage = [
     'first_strike',
+    'momentum',
     'regicide',
     'trivium',
     'stamina',

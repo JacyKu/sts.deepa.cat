@@ -243,6 +243,7 @@ const enabledBoxes = {
     point_blank: false,
     sniper: false,
     first_strike: false,
+    momentum: false,
     regicide: false,
     trivium: false,
     stamina: false,
@@ -302,6 +303,7 @@ const situationalFlatDamage = ['smite', 'duelist', 'slayer', 'point_blank', 'sni
 
 const situationalPercentDamage = [
     'first_strike',
+    'momentum',
     'regicide',
     'trivium',
     'stamina',

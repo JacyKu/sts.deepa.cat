@@ -102,6 +102,7 @@
     "items.enchant.unbreaking": "Makes gear break (level + 1)x slower.\nWorks the same on tools, weapons, and armor.",
     "items.enchant.unbreakable": "No durability is taken when used.",
     "items.enchant.mending": "Items with Mending that are worn or held repair 2 durability per xp orb consumed, chosen at random among your items with Mending.",
+    "items.enchant.momentum": "Gain (level * 10)% damage on your next hit within 3 seconds if you have been sprinting for at least 2 seconds, hitting an enemy resets the timer.",
     "items.enchant.infinity": "Bows and crossbows do not consume vanilla arrows, potions never go empty, and food never runs out.",
     "items.enchant.darksight": "Gives night vision when held or worn.",
     "items.enchant.radiant": "While held in your main hand, gain Glowing and Night Vision for 30s. You must be the soulbound owner of your item for this to work.",

@@ -683,18 +683,17 @@ html a:hover {
     flex-direction: column;
 }
 
-/* Whole-UI scale: `zoom` on the root scales every element (px-sized text,
-   controls, sprite tiles) so dense pages read less cramped. Viewport units
-   are not scaled by zoom, so the full-height layout divides by the same
-   factor to keep the footer at the bottom of the screen. Browsers without
-   zoom support (older Firefox) simply keep the full size. */
+/* Whole-UI scale: the app column is zoomed so every element (px-sized text,
+   controls, sprite tiles) reads less cramped. The zoom sits on .site-content
+   rather than <html> on purpose: dropdown menus are portaled to <body> and
+   position themselves from viewport coordinates, so keeping them outside the
+   zoomed subtree stops the browser from scaling those coordinates twice.
+   Viewport units are not scaled by zoom, so the full-height layout divides by
+   the same factor to keep the footer at the bottom. Browsers without zoom
+   support (older Firefox) simply keep the full size. */
 @supports (zoom: 1) {
-    html {
-        zoom: var(--ui-zoom, 0.9);
-    }
-
-    html body,
     .site-content {
+        zoom: var(--ui-zoom, 0.9);
         min-height: calc(100dvh / var(--ui-zoom, 0.9));
     }
 }
