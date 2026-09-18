@@ -943,6 +943,7 @@
     "account.errors.tooManyAvatars": "You can save up to 3 custom pictures.",
     "account.errors.upload": "Could not upload the picture.",
     "moderation.title": "Moderation",
+    "moderation.experimental": "EXPERIMENTAL",
     "moderation.signedInAs": "Signed in as",
     "moderation.tabs.users": "Users",
     "moderation.tabs.builds": "Builds",

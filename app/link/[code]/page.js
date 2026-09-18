@@ -7,7 +7,17 @@ export const dynamic = 'force-dynamic';
 
 export const metadata = {
     title: 'Link Minecraft profile',
-    description: 'Link your Minecraft profile to your STS Discord account',
+    description: 'Link your Minecraft profile to your Discord account',
+    openGraph: {
+        title: 'Link Minecraft profile',
+        description: 'Link your Minecraft profile to your Discord account',
+        images: [{ url: '/favicon/favicon.png' }],
+    },
+    twitter: {
+        title: 'Link Minecraft profile',
+        description: 'Link your Minecraft profile to your Discord account',
+        images: ['/favicon/favicon.png'],
+    },
 };
 
 export default async function Page({ params }) {

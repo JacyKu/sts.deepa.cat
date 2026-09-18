@@ -2,7 +2,17 @@ import LegalPage from '../_src/components/legalPage';
 
 export const metadata = {
     title: 'Privacy Policy',
-    description: 'Privacy Policy for deepa.cat',
+    description: 'How Spare the Sympathy stores and uses your data',
+    openGraph: {
+        title: 'Privacy Policy',
+        description: 'How Spare the Sympathy stores and uses your data',
+        images: [{ url: '/favicon/favicon.png' }],
+    },
+    twitter: {
+        title: 'Privacy Policy',
+        description: 'How Spare the Sympathy stores and uses your data',
+        images: ['/favicon/favicon.png'],
+    },
 };
 
 export default function PrivacyPolicyPage() {

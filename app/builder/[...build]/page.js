@@ -17,7 +17,7 @@ export async function generateMetadata({ params }) {
     if (!build) {
         return {
             title: 'Monumenta Builder',
-            description: 'Monumenta build tool.',
+            description: 'Make and share Monumenta builds.',
             keywords,
             openGraph: {
                 siteName: 'SPARE THE SYMPATHY',

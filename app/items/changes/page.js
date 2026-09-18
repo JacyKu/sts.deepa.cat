@@ -5,16 +5,16 @@ import ApiChangesSkeleton from '../../_src/components/items/apiChangesSkeleton';
 
 export const metadata = {
     title: 'Monumenta API Changes (Experimental)',
-    description: 'Every Monumenta item API update: new items, removed items and stat changes. Experimental feature.',
+    description: 'New, removed and changed Monumenta items recorded from the API. Experimental feature.',
     keywords: 'Monumenta, Minecraft, MMORPG, Items, API, Changes, Nerfs, Buffs',
     openGraph: {
         title: 'Monumenta API Changes (Experimental)',
-        description: 'Every Monumenta item API update: new items, removed items and stat changes. Experimental feature.',
+        description: 'New, removed and changed Monumenta items recorded from the API. Experimental feature.',
         images: [{ url: '/favicon/favicon.png' }],
     },
     twitter: {
         title: 'Monumenta API Changes (Experimental)',
-        description: 'Every Monumenta item API update: new items, removed items and stat changes. Experimental feature.',
+        description: 'New, removed and changed Monumenta items recorded from the API. Experimental feature.',
         images: ['/favicon/favicon.png'],
     },
 };

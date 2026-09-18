@@ -13,6 +13,22 @@
     font-weight: 600;
 }
 
+/* "Experimental" chip next to the page title (matches the compare page). */
+.experimentalBadge {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 12px;
+    padding: 3px 10px;
+    border: 1px solid var(--accent, #9c59d1);
+    background: var(--surface-2);
+    color: var(--accent, #9c59d1);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
 .tabs {
     display: flex;
     gap: 0.35rem;

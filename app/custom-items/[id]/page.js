@@ -6,16 +6,16 @@ import CustomItemSkeleton from '../../_src/components/customItems/customItemSkel
 
 export const metadata = {
     title: 'Custom Item',
-    description: 'A shared custom Monumenta item',
+    description: 'A Monumenta custom item shared on the site',
     keywords: 'Monumenta, Minecraft, MMORPG, Items, Custom Item',
     openGraph: {
         title: 'Custom Item',
-        description: 'A shared custom Monumenta item',
+        description: 'A Monumenta custom item shared on the site',
         images: [{ url: '/favicon/favicon.png' }],
     },
     twitter: {
         title: 'Custom Item',
-        description: 'A shared custom Monumenta item',
+        description: 'A Monumenta custom item shared on the site',
         images: ['/favicon/favicon.png'],
     },
 };

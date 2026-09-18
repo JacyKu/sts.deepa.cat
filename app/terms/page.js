@@ -2,7 +2,17 @@ import LegalPage from '../_src/components/legalPage';
 
 export const metadata = {
     title: 'Terms of Service',
-    description: 'Terms of Service for deepa.cat',
+    description: 'Rules for using Spare the Sympathy',
+    openGraph: {
+        title: 'Terms of Service',
+        description: 'Rules for using Spare the Sympathy',
+        images: [{ url: '/favicon/favicon.png' }],
+    },
+    twitter: {
+        title: 'Terms of Service',
+        description: 'Rules for using Spare the Sympathy',
+        images: ['/favicon/favicon.png'],
+    },
 };
 
 export default function TermsOfServicePage() {

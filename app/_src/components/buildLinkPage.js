@@ -19,7 +19,7 @@ const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
 export async function buildLinkMetadata(id) {
     const row = getBuild(id);
     if (!row) {
-        return { title: 'Monumenta Builder' };
+        return { title: 'Monumenta Builder', description: 'Make and share Monumenta builds.' };
     }
 
     const headersList = await headers();

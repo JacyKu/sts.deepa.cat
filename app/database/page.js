@@ -5,7 +5,17 @@ export const dynamic = 'force-dynamic';
 
 export const metadata = {
     title: 'Build Database',
-    description: 'Browse public Monumenta builds shared by the community',
+    description: 'Browse public Monumenta builds',
+    openGraph: {
+        title: 'Build Database',
+        description: 'Browse public Monumenta builds',
+        images: [{ url: '/favicon/favicon.png' }],
+    },
+    twitter: {
+        title: 'Build Database',
+        description: 'Browse public Monumenta builds',
+        images: ['/favicon/favicon.png'],
+    },
 };
 
 export default async function Database() {

@@ -7,16 +7,16 @@ import CustomItemsSkeleton from '../_src/components/customItems/customItemsSkele
 
 export const metadata = {
     title: 'Custom Items',
-    description: 'Create custom Monumenta items with custom stats and a texture from the game',
+    description: 'Make custom Monumenta items with your own stats and textures',
     keywords: 'Monumenta, Minecraft, MMORPG, Items, Custom Item',
     openGraph: {
         title: 'Custom Items',
-        description: 'Create custom Monumenta items with custom stats and a texture from the game',
+        description: 'Make custom Monumenta items with your own stats and textures',
         images: [{ url: '/favicon/favicon.png' }],
     },
     twitter: {
         title: 'Custom Items',
-        description: 'Create custom Monumenta items with custom stats and a texture from the game',
+        description: 'Make custom Monumenta items with your own stats and textures',
         images: ['/favicon/favicon.png'],
     },
 };

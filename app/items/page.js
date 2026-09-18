@@ -5,16 +5,16 @@ import ItemsSkeleton from '../_src/components/itemsSkeleton';
 
 export const metadata = {
     title: 'Monumenta Items',
-    description: 'Monumenta item finder',
+    description: 'Search Monumenta items, including their stats and lore',
     keywords: 'Monumenta, Minecraft, MMORPG, Items, Item Guide',
     openGraph: {
         title: 'Monumenta Items',
-        description: 'Monumenta item finder',
+        description: 'Search Monumenta items, including their stats and lore',
         images: [{ url: '/favicon/favicon.png' }],
     },
     twitter: {
         title: 'Monumenta Items',
-        description: 'Monumenta item finder',
+        description: 'Search Monumenta items, including their stats and lore',
         images: ['/favicon/favicon.png'],
     },
 };

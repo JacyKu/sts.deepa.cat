@@ -500,7 +500,10 @@ export default function ModerationPage({ moderator, moderatorId }) {
     const [tab, setTab] = React.useState('users');
     return (
         <main className={styles.page}>
-            <h1 className={styles.title}>{t('moderation.title')}</h1>
+            <h1 className={styles.title}>
+                {t('moderation.title')}{' '}
+                <span className={styles.experimentalBadge}>{t('moderation.experimental')}</span>
+            </h1>
             {moderator ? <p className={styles.muted}>{t('moderation.signedInAs')} {moderator}</p> : null}
             <nav className={styles.tabs} aria-label={t('moderation.title')}>
                 {TABS.map((key) => (

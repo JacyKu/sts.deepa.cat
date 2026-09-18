@@ -8,7 +8,8 @@ import ModerationPage from '../_src/components/moderationPage';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-    title: 'Moderation',
+    title: 'Moderation (Experimental)',
+    description: 'Moderation tools for site staff',
     robots: { index: false, follow: false },
 };
 

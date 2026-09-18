@@ -26,25 +26,25 @@ export const metadata = {
         default: 'Spare the Sympathy',
         template: '%s - Spare the Sympathy',
     },
-    description: 'Monumenta Items and Builds',
-    // Same env var that pins the Discord OAuth redirect URI: set
-    // STS_PUBLIC_BASE_URL per environment (see .env.example) so absolute
-    // metadata URLs (OG/Twitter cards) point at the right host everywhere.
-    metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
-    icons: { icon: '/favicon/favicon.ico' },
-    openGraph: {
-        siteName: 'Spare the Sympathy',
-        type: 'website',
-        title: 'Spare the Sympathy',
-        description: 'Monumenta Items and Builds',
-        images: [{ url: '/favicon/favicon.png' }],
-    },
-    twitter: {
-        card: 'summary',
-        title: 'Spare the Sympathy',
-        description: 'Monumenta Items and Builds',
-        images: ['/favicon/favicon.png'],
-    },
+        description: 'Monumenta item lookup, build maker and public build database',
+        // Same env var that pins the Discord OAuth redirect URI: set
+        // STS_PUBLIC_BASE_URL per environment (see .env.example) so absolute
+        // metadata URLs (OG/Twitter cards) point at the right host everywhere.
+        metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
+        icons: { icon: '/favicon/favicon.ico' },
+        openGraph: {
+            siteName: 'Spare the Sympathy',
+            type: 'website',
+            title: 'Spare the Sympathy',
+            description: 'Monumenta item lookup, build maker and public build database',
+            images: [{ url: '/favicon/favicon.png' }],
+        },
+        twitter: {
+            card: 'summary',
+            title: 'Spare the Sympathy',
+            description: 'Monumenta item lookup, build maker and public build database',
+            images: ['/favicon/favicon.png'],
+        },
 };
 
 export default async function StsLayout({ children }) {
