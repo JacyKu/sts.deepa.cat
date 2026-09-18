@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { confirmPendingLink, getPendingLink, ensureStsUser } from '../../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../../lib/session';
+import { refreshMinecraftAvatar } from '../../../../../../lib/minecraft-profile';
 import { sanctionBlock } from '../../../../../../lib/moderation';
 
 // Confirms a pending Minecraft link. Requires a signed-in Discord session: the
@@ -28,6 +29,14 @@ export async function POST(request) {
     }
     if (!result.ok) {
         return NextResponse.json({ error: 'expired' }, { status: 410 });
+    }
+    // The UUID may have a head cached from an earlier link; a (re-)link must
+    // show the account's current skin, so drop the cached copy and fetch it
+    // again now. A failing render API never fails the link itself.
+    try {
+        await refreshMinecraftAvatar(result.uuid);
+    } catch (e) {
+        // keep the confirmation result even when the head cannot be refreshed
     }
     return NextResponse.json({ ok: true, uuid: result.uuid });
 }
