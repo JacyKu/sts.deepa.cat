@@ -602,6 +602,16 @@ export default function SearchForm({ update, itemData }) {
         setEffectKey(getResetKey('effects'));
         setFilters([{ activeCategory: null, selected: null, uniqueKey: new Date().getTime() }]);
         update({});
+
+        const elementsSelected = form.current?.elements;
+        if (elementsSelected) {
+            if (elementsSelected.hideUnobtainable) elementsSelected.hideUnobtainable.checked = false;
+
+            if (elementsSelected.hideNonGear) elementsSelected.hideNonGear.checked = false;
+            if (elementsSelected.hideQuestItems) elementsSelected.hideQuestItems.checked = false;
+            if (elementsSelected.searchName) elementsSelected.searchName.value = '';
+            if (elementsSelected.searchLore) elementsSelected.searchLore.value = '';
+        }
     }
 
     function disableRightClick(event) {
@@ -624,13 +634,7 @@ export default function SearchForm({ update, itemData }) {
     }
 
     return (
-        <form
-            className={styles.searchForm}
-            onSubmit={sendUpdate}
-            onReset={resetForm}
-            onContextMenu={disableRightClick}
-            ref={form}
-        >
+        <form className={styles.searchForm} onSubmit={sendUpdate} onContextMenu={disableRightClick} ref={form}>
             <div className={styles.searchContainer} ref={searchContainer}>
                 {filters.map((f) => (
                     <div className={styles.filterEntry} key={`div-${f.uniqueKey}`}>
@@ -682,9 +686,10 @@ export default function SearchForm({ update, itemData }) {
                 <input className={styles.submitButton} type="submit" value={t('common.search')} />
                 <input
                     className={styles.warningButton}
-                    type="reset"
+                    type="button"
                     value={t('common.reset')}
                     aria-label={t('items.searchForm.resetAria')}
+                    onClick={resetForm}
                 />
             </div>
             <div className={styles.toggleRow}>
