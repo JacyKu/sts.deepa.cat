@@ -22,11 +22,18 @@ export default function InfiniteScroll({ className, children, next, hasMore = tr
         const el = containerRef.current;
         if (!el) return;
 
+        // Coalesce bursts of scroll events into one measurement per frame so
+        // fast scrolling can't queue several page loads in a row.
+        let frame = 0;
         const check = () => {
-            const rect = el.getBoundingClientRect();
-            if (rect.bottom <= window.innerHeight + 300) {
-                nextRef.current();
-            }
+            if (frame) return;
+            frame = requestAnimationFrame(() => {
+                frame = 0;
+                const rect = el.getBoundingClientRect();
+                if (rect.bottom <= window.innerHeight + 300) {
+                    nextRef.current();
+                }
+            });
         };
 
         // Fill the initial viewport without requiring a scroll first.
@@ -35,6 +42,7 @@ export default function InfiniteScroll({ className, children, next, hasMore = tr
         window.addEventListener('resize', check, { passive: true });
         const interval = setInterval(check, 500);
         return () => {
+            if (frame) cancelAnimationFrame(frame);
             window.removeEventListener('scroll', check);
             window.removeEventListener('resize', check);
             clearInterval(interval);

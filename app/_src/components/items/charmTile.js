@@ -51,34 +51,35 @@ function getCharmSheetClass(charmName) {
     return `monumenta-${charmName.replaceAll(' ', '-').replaceAll('_', '-').replaceAll("'", '').trim()}`;
 }
 
-function doesStyleExist(className) {
-    let styleSheets;
+// The sprite CSS has thousands of classes, so walking every stylesheet for
+// each lookup added up fast when many charm tiles mounted at once (scrolling
+// the item grid). Collect the class names once and cache them.
+let spriteClassNames = null;
+function collectSpriteClassNames() {
+    const names = new Set();
     try {
-        styleSheets = document.styleSheets;
-    } catch (e) {
-        return false;
-    }
-
-    for (let i = 0; i < styleSheets.length; i++) {
-        let rules;
-        try {
-            rules = styleSheets[i].cssRules;
-        } catch (e) {
-            // Cross-origin stylesheets (e.g., CDN bootstrap) throw on cssRules.
-            continue;
-        }
-
-        if (!rules) {
-            continue;
-        }
-
-        for (let x = 0; x < rules.length; x++) {
-            if (rules[x].selectorText == `.${className}`) {
-                return true;
+        for (const sheet of document.styleSheets) {
+            let rules;
+            try {
+                rules = sheet.cssRules;
+            } catch (e) {
+                // Cross-origin stylesheets (e.g., CDN bootstrap) throw on cssRules.
+                continue;
+            }
+            if (!rules) continue;
+            for (const rule of rules) {
+                const text = rule && rule.selectorText;
+                if (!text) continue;
+                if (/^\.[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text)) names.add(text.slice(1));
             }
         }
-    }
-    return false;
+    } catch (e) {}
+    return names;
+}
+
+function doesStyleExist(className) {
+    if (spriteClassNames === null) spriteClassNames = collectSpriteClassNames();
+    return spriteClassNames.has(className);
 }
 
 function CharmTile(data) {

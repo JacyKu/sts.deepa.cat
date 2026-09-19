@@ -502,10 +502,25 @@ function applyStatsUpdate(itemNames, itemData, setStats, update) {
     }, 120);
 }
 
+// Base-name -> masterwork variants, built once per itemData object. Scanning
+// the full item list (several thousand entries) for every equipped slot on
+// every render was one of the most expensive things the builder did.
+let masterworkIndex = null;
+let masterworkIndexSource = null;
 function createMasterworkData(name, itemData) {
-    return Object.keys(itemData)
-        .filter((itemName) => itemData[itemName].name == name)
-        .map((itemName) => itemData[itemName]);
+    if (masterworkIndexSource !== itemData) {
+        const index = new Map();
+        for (const itemName of Object.keys(itemData)) {
+            const item = itemData[itemName];
+            if (!item || typeof item.name !== 'string') continue;
+            const list = index.get(item.name);
+            if (list) list.push(item);
+            else index.set(item.name, [item]);
+        }
+        masterworkIndex = index;
+        masterworkIndexSource = itemData;
+    }
+    return masterworkIndex.get(name) || [];
 }
 
 function removeMasterworkFromName(name) {
@@ -822,6 +837,98 @@ const toSnakeName = (name) =>
 const skillIconSrc = (name) => `/images/skills/${toSnakeName(name)}.png`;
 const czIconSrc = (name) => `/images/cz/${toSnakeName(name)}.png`;
 
+// Current health slider + number box. This lives in its own component and
+// keeps both inputs uncontrolled: dragging the slider updates the native
+// input and its CSS variables directly, so the (very large) builder form only
+// re-renders - and the stats only recalculate - once the value is released.
+function HealthControls({ value, onSchedule, onCommit, currentHealth, healthFinal }) {
+    const t = useTranslation();
+    const sliderRef = React.useRef(null);
+    const numberRef = React.useRef(null);
+
+    const clamp = (raw) => {
+        const n = Number(raw);
+        return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 100));
+    };
+
+    // Parent-driven changes (restoring a build, reset, basic infusions) push
+    // the value down into the native inputs.
+    React.useEffect(() => {
+        const v = clamp(value);
+        for (const el of [sliderRef.current, numberRef.current]) {
+            if (el && el.value !== String(v)) el.value = String(v);
+        }
+        if (sliderRef.current) {
+            sliderRef.current.style.setProperty('--slider-color', `hsl(${(v / 100) * 120} 70% 45%)`);
+            sliderRef.current.style.setProperty('--slider-pct', `${v}%`);
+        }
+    }, [value]);
+
+    function handleInput(event) {
+        const v = clamp(event.target.value);
+        const el = sliderRef.current;
+        if (el) {
+            el.style.setProperty('--slider-color', `hsl(${(v / 100) * 120} 70% 45%)`);
+            el.style.setProperty('--slider-pct', `${v}%`);
+        }
+        onSchedule();
+    }
+
+    function commit(event) {
+        onCommit(String(clamp(event.target.value)));
+    }
+
+    function submitOnEnter(event) {
+        if (event.key === 'Enter') event.currentTarget.blur();
+    }
+
+    return (
+        <div className="text-center mx-2">
+            <div className={styles.enchantTooltip}>
+                <p className="mb-1">
+                    <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
+                </p>
+                <span className={styles.enchantTooltipText}>{t('builder.misc.maxHealthPercentTooltip')}</span>
+            </div>
+            <div className={styles.healthSliderRow}>
+                <input
+                    ref={sliderRef}
+                    type="range"
+                    name="health"
+                    min="0"
+                    max="100"
+                    step="1"
+                    defaultValue={clamp(value)}
+                    onChange={handleInput}
+                    onPointerUp={commit}
+                    onKeyUp={commit}
+                    onBlur={commit}
+                    className={styles.healthSlider}
+                />
+                <input
+                    ref={numberRef}
+                    type="number"
+                    name="health"
+                    min="0"
+                    max="100"
+                    step="1"
+                    defaultValue={clamp(value)}
+                    onChange={handleInput}
+                    onBlur={commit}
+                    onKeyDown={submitOnEnter}
+                    className={styles.healthPercentInput}
+                    aria-label={t('builder.misc.maxHealthPercentAria')}
+                />
+                <span className={styles.healthPoints}>
+                    {Number.isFinite(currentHealth) ? Math.round(currentHealth) : '–'}
+                    {' / '}
+                    {Number.isFinite(healthFinal) ? Math.round(healthFinal) : '–'}
+                </span>
+            </div>
+        </div>
+    );
+}
+
 export default function BuildForm({
     update,
     build,
@@ -1043,50 +1150,31 @@ export default function BuildForm({
         }
     }
 
-    function statInputChanged(name, event) {
-        const next = { ...statInputs, [name]: event.target.value };
-        setStatInputs(next);
-        // The recalc reads the form's DOM values, but the controlled inputs
-        // only reflect the new state after React commits (next render). The
-        // health slider shares its field name with the number box, and
-        // Object.fromEntries keeps the last duplicate - so without this
-        // override the stats would use the number input's stale value and
-        // never catch up on a single click.
-        scheduleStatsRecalc({ [name]: event.target.value });
-    }
-
-    // Typed values snap back into the 0-100 range (and to the default when
-    // the box is left empty), so the slider and the saved build stay valid.
-    function healthPercentBlur() {
-        const raw = Number(statInputs.health);
-        const value = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 100;
-        setStatInputs((prev) => ({ ...prev, health: String(value) }));
-        flushStatsRecalc();
+    // Called by HealthControls once the slider/number box is released or the
+    // field is left: mirror the settled value into state and rebuild now.
+    function commitHealthInput(value) {
+        setStatInputs((prev) => ({ ...prev, health: value }));
+        // Deferred so React has committed the clamped value to the DOM before
+        // the rebuild reads the form (typing 150 must calculate with 100).
+        setTimeout(() => flushStatsRecalc(), 0);
     }
 
     // The Stats rebuild is synchronous and heavy, so the health slider and the
-    // tenacity/vitality/... number inputs throttle it instead of firing one
-    // rebuild per keystroke/tick. Leading edge keeps the numbers alive while
-    // dragging; trailing edge settles the final value once input stops.
-    const STAT_RECALC_WINDOW = 120;
+    // tenacity/vitality/... number inputs only recompute once the user stops
+    // adjusting them. A trailing debounce keeps the CPU idle while the slider
+    // is being dragged; releasing it (or blurring the field) runs the rebuild
+    // a moment later.
+    const STAT_RECALC_WINDOW = 150;
     const statRecalcTimerRef = React.useRef(null);
-    const statLastRecalcRef = React.useRef(0);
 
-    function scheduleStatsRecalc(statOverrides) {
-        const elapsed = Date.now() - statLastRecalcRef.current;
-        if (elapsed >= STAT_RECALC_WINDOW) {
-            statLastRecalcRef.current = Date.now();
-            recalcBuildStats(statOverrides);
-        } else if (!statRecalcTimerRef.current) {
-            statRecalcTimerRef.current = setTimeout(() => {
-                statRecalcTimerRef.current = null;
-                statLastRecalcRef.current = Date.now();
-                // By the time the trailing edge fires, React has committed the
-                // new values to the DOM - re-reading the form is authoritative
-                // (the leading-edge override would be stale here).
-                recalcBuildStats();
-            }, STAT_RECALC_WINDOW - elapsed);
-        }
+    function scheduleStatsRecalc() {
+        if (statRecalcTimerRef.current) clearTimeout(statRecalcTimerRef.current);
+        statRecalcTimerRef.current = setTimeout(() => {
+            statRecalcTimerRef.current = null;
+            // By the time this fires React has committed the new values to the
+            // DOM, so re-reading the form is authoritative.
+            recalcBuildStats();
+        }, STAT_RECALC_WINDOW);
     }
 
     function flushStatsRecalc() {
@@ -1094,7 +1182,6 @@ export default function BuildForm({
             clearTimeout(statRecalcTimerRef.current);
             statRecalcTimerRef.current = null;
         }
-        statLastRecalcRef.current = Date.now();
         recalcBuildStats();
     }
 
@@ -1564,24 +1651,34 @@ export default function BuildForm({
         resetForm();
     }
 
-    const currentClassSkills = (() => {
+    // Memoized: returning a fresh [] on every render made every memo that
+    // depends on these lists (the charm selector's whole option list) rebuild
+    // on every keystroke/slider tick.
+    const currentClassSkills = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none') return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
         return cls ? cls.skills || [] : [];
-    })();
+    }, [skillsData, gameClass]);
 
-    const currentSpecOptions = (() => {
+    const currentSpecOptions = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none') return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
         return (cls?.specs || []).map((s) => ({ value: s.specName, label: s.specName }));
-    })();
+    }, [skillsData, gameClass]);
 
-    const currentSpecSkills = (() => {
+    const currentSpecSkills = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
         const specData = cls?.specs?.find((s) => s.specName == spec);
         return specData ? specData.specSkills || [] : [];
-    })();
+    }, [skillsData, gameClass, spec]);
+
+    // Stable name lists for the charm selector: it memoizes its option list
+    // against these props, so freshly mapped arrays on every render made it
+    // rebuild the whole charm list over and over.
+    const charmNameList = React.useMemo(() => charms.map((c) => c.name), [charms]);
+    const classSkillNameList = React.useMemo(() => currentClassSkills.map((s) => s.name), [currentClassSkills]);
+    const specSkillNameList = React.useMemo(() => currentSpecSkills.map((s) => s.name), [currentSpecSkills]);
 
     // Rebuild the class-ability buff flags from skill points, spec skill
     // points, and the enhancement checkboxes. The stat engine reads these.
@@ -2913,10 +3010,6 @@ export default function BuildForm({
         { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
-    // Current health as a % of max health (0-100), clamped for the slider.
-    // Note: `|| 100` would snap a legit 0% back to 100, so check explicitly.
-    const rawHealthPercent = Number(statInputs.health);
-    const healthPercentInput = Math.max(0, Math.min(100, Number.isFinite(rawHealthPercent) ? rawHealthPercent : 100));
     const healthStats = [
         { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
         { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },
@@ -3200,9 +3293,9 @@ export default function BuildForm({
                         translatableName={'builder.charms.select'}
                         itemData={itemData}
                         hideList
-                        charmNames={charms.map((c) => c.name)}
-                        classSkillNames={currentClassSkills.map((s) => s.name)}
-                        specSkillNames={currentSpecSkills.map((s) => s.name)}
+                        charmNames={charmNameList}
+                        classSkillNames={classSkillNameList}
+                        specSkillNames={specSkillNameList}
                         selectedClass={gameClass}
                     ></CharmSelector>
                 </div>
@@ -3288,49 +3381,13 @@ export default function BuildForm({
                 })}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">
-                            <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
-                        </p>
-                        <span className={styles.enchantTooltipText}>{t('builder.misc.maxHealthPercentTooltip')}</span>
-                    </div>
-                    <div className={styles.healthSliderRow}>
-                        <input
-                            type="range"
-                            name="health"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={healthPercentInput}
-                            onChange={(e) => statInputChanged('health', e)}
-                            className={styles.healthSlider}
-                            style={{
-                                '--slider-color': `hsl(${(healthPercentInput / 100) * 120} 70% 45%)`,
-                                '--slider-pct': `${healthPercentInput}%`,
-                            }}
-                        />
-                        <input
-                            type="number"
-                            name="health"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={statInputs.health}
-                            onChange={(e) => statInputChanged('health', e)}
-                            onBlur={healthPercentBlur}
-                            className={styles.healthPercentInput}
-                            aria-label={t('builder.misc.maxHealthPercentAria')}
-                        />
-                        <span className={styles.healthPoints}>
-                            {Number.isFinite(itemsToDisplay.currentHealth)
-                                ? Math.round(itemsToDisplay.currentHealth)
-                                : '–'}
-                            {' / '}
-                            {Number.isFinite(itemsToDisplay.healthFinal) ? Math.round(itemsToDisplay.healthFinal) : '–'}
-                        </span>
-                    </div>
-                </div>
+                <HealthControls
+                    value={statInputs.health}
+                    onSchedule={scheduleStatsRecalc}
+                    onCommit={commitHealthInput}
+                    currentHealth={itemsToDisplay.currentHealth}
+                    healthFinal={itemsToDisplay.healthFinal}
+                />
                 {/* Basic infusion totals (levels summed across slots) live in
                     hidden inputs so the stat calculation (Stats reads
                     formData.tenacity/vitality/vigor/focus/perspicacity) and
