@@ -601,6 +601,7 @@ export default function SearchForm({ update, itemData }) {
         setBaseItemKey(getResetKey('baseItem'));
         setEffectKey(getResetKey('effects'));
         setFilters([{ activeCategory: null, selected: null, uniqueKey: new Date().getTime() }]);
+        update({});
     }
 
     function disableRightClick(event) {
