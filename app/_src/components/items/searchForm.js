@@ -633,7 +633,12 @@ export default function SearchForm({ update, itemData }) {
     }
 
     return (
-        <form className={styles.searchForm} onSubmit={sendUpdate} onContextMenu={disableRightClick} ref={form}>
+        <form
+            className={styles.searchForm}
+            onSubmit={sendUpdate}
+            onContextMenu={disableRightClick}
+            ref={form}
+        >
             <div className={styles.searchContainer} ref={searchContainer}>
                 {filters.map((f) => (
                     <div className={styles.filterEntry} key={`div-${f.uniqueKey}`}>
