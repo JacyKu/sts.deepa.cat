@@ -606,7 +606,6 @@ export default function SearchForm({ update, itemData }) {
         const elementsSelected = form.current?.elements;
         if (elementsSelected) {
             if (elementsSelected.hideUnobtainable) elementsSelected.hideUnobtainable.checked = false;
-
             if (elementsSelected.hideNonGear) elementsSelected.hideNonGear.checked = false;
             if (elementsSelected.hideQuestItems) elementsSelected.hideQuestItems.checked = false;
             if (elementsSelected.searchName) elementsSelected.searchName.value = '';
