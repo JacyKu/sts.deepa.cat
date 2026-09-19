@@ -1,5 +1,6 @@
 .searchForm {
-    width: min(1000px, 100%);
+    width: 100%;
+    max-width: 560px;
     margin: 0 15px;
 }
 
