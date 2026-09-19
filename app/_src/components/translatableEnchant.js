@@ -26,9 +26,10 @@ export default function TranslatableEnchant({ title, className, style, children 
     const { lang } = useLanguageContext();
     const key = `items.enchant.${formatTitle(title)}`;
     const description = SupportedLanguages[lang][key];
+    const tooltipClass = description ? styles.enchantTooltip : '';
     return (
         <span
-            className={className ? `${styles.enchantTooltip} ${className}` : styles.enchantTooltip}
+            className={[tooltipClass, className].filter(Boolean).join(' ') || ''}
             style={style}
             key={`${lang}-${key}`}
         >
