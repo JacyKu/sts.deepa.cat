@@ -942,6 +942,11 @@
     color: #37485a;
 }
 
+/* The Wanderer's Fortune (Wheel of Fortune casino items). */
+.fortune {
+    color: #ffd700;
+}
+
 .twisted {
     color: #6b0000;
 }
