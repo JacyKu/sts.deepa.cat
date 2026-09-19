@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { headers, cookies } from 'next/headers';
-import { getBuild, mergeCustomItems } from '../../../lib/sts-builds';
+import { getBuild, mergeReferencedCustomItems } from '../../../lib/sts-builds';
+import { getBuildItemHashes } from '../utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
 import { getItemData, getSkillsData } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
@@ -18,7 +19,7 @@ const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
 export async function buildLinkMetadata(id) {
     const row = getBuild(id);
     if (!row) {
-        return { title: 'Monumenta Builder' };
+        return { title: 'Monumenta Builder', description: 'Make and share Monumenta builds.' };
     }
 
     const headersList = await headers();
@@ -27,10 +28,10 @@ export async function buildLinkMetadata(id) {
     const title = row.name || getLinkPreviewTitle(row.token, itemData, null, skillsData);
     const description = getLinkPreviewDescription(row.token, itemData, skillsData, row.parsedState?.infusions);
     // The DB-backed image carries the delve infusions, which the token alone can't.
-    // The &v cache-buster (the row's updated_at + publicized_at) changes on
-    // every edit and on publicise/anonymity changes, so Discord fetches a fresh
-    // image instead of serving its cached embed (e.g. the author bar).
-    const imageUrl = '/api/v1/og?id=' + id + '&v=' + encodeURIComponent((row.updated_at || '') + '|' + (row.publicized_at || ''));
+    // The &v cache-buster is the row's revision: it bumps on every real change
+    // (edit, publicise, anonymity), so Discord fetches a fresh image instead of
+    // serving its cached embed (e.g. the author bar).
+    const imageUrl = '/api/v2/og?id=' + id + '&v=' + (row.revision || 1);
 
     return {
         metadataBase: new URL('https://' + requestHost),
@@ -64,7 +65,11 @@ export async function BuildLinkPageView(id) {
     }
 
     const user = await getDiscordUser();
-    const itemData = mergeCustomItems(await getItemData(), user ? user.id : null);
+    const itemData = mergeReferencedCustomItems(
+        await getItemData(),
+        user ? user.id : null,
+        getBuildItemHashes(row.token)
+    );
     // The build opens in place; saves update the DB row, they don't rewrite URLs.
     const isOwner = Boolean(user && row.user_id && user.id === row.user_id);
     // Anonymous rows are editable + publicisable by whoever holds their

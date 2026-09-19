@@ -4,10 +4,12 @@ import React from 'react';
 
 // Build card layout preference: show the equipped items strip on the card
 // face and move the skill chips into the hover panel (default is the
-// opposite - skills on the card, items on hover).
+// opposite - skills on the card, items on hover). This is the global
+// default set on the settings page; the swap button on an individual card
+// overrides it for that card alone.
 const STORAGE_KEY = 'cardItemsFirst';
 
-const CardItemsFirstContext = React.createContext({ itemsFirst: false, toggle: () => {} });
+const CardItemsFirstContext = React.createContext({ itemsFirst: false, setItemsFirst: () => {} });
 
 export function CardItemsFirstProvider({ children }) {
     const [itemsFirst, setItemsFirst] = React.useState(false);
@@ -16,16 +18,14 @@ export function CardItemsFirstProvider({ children }) {
             setItemsFirst(localStorage.getItem(STORAGE_KEY) === 'true');
         } catch (e) {}
     }, []);
-    const toggle = React.useCallback(() => {
-        setItemsFirst((itemsFirst) => {
-            const next = !itemsFirst;
-            try {
-                localStorage.setItem(STORAGE_KEY, String(next));
-            } catch (e) {}
-            return next;
-        });
+    const update = React.useCallback((next) => {
+        setItemsFirst(next);
+        try {
+            localStorage.setItem(STORAGE_KEY, String(next));
+        } catch (e) {}
     }, []);
-    return <CardItemsFirstContext.Provider value={{ itemsFirst, toggle }}>{children}</CardItemsFirstContext.Provider>;
+    const value = React.useMemo(() => ({ itemsFirst, setItemsFirst: update }), [itemsFirst, update]);
+    return <CardItemsFirstContext.Provider value={value}>{children}</CardItemsFirstContext.Provider>;
 }
 
 export function useCardItemsFirst() {

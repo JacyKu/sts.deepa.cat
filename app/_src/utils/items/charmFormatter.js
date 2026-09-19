@@ -1,5 +1,31 @@
 import styles from '../../styles/Items.module.css';
 
+// Charm stats Monumenta renders in pink (#ff9cf0) instead of the standard
+// positive cyan - read from the items' in-game MMCharmText. Per-stat, so a
+// pink-keyed line stays pink on every charm/masterwork that carries it.
+const PINK_CHARM_STATS = new Set([
+    'totemic_consecration_strength_amplifier_percent',
+    'totemic_consecration_speed_amplifier_percent',
+    'wind_walk_vulnerability_amplifier_percent',
+    'wind_walk_vulnerability_duration_flat',
+    'wind_bomb_explosions_flat',
+    'dark_pact_deactivation_damage_radius_flat',
+    'dark_pact_damage_per_absorption_on_deactivation_flat',
+    'unstable_amalgam_health_flat',
+    'unstable_amalgam_taunt_range_flat',
+    'thunder_step_rewind_trail_damage_flat',
+    'bodkin_blitz_damage_on_passthrough_flat',
+    'glorious_battle_collision_knockback_flat',
+    'glorious_battle_collision_impact_damage_multiplier_percent',
+    'grasping_claws_cage_melee_damage_multiplier_percent',
+    'holy_javelin_stun_duration_flat',
+    'steel_trap_tether_damage_flat',
+    'steel_trap_tether_range_flat',
+    'sage\'s_insight_cooldown_rate_per_ability_reset_percent',
+    'sage\'s_insight_damage_modifier_per_stack_percent',
+    'sage\'s_insight_duration_flat',
+]);
+
 class CharmFormatter {
     static camelCase(str) {
         if (!str) return '';
@@ -26,10 +52,11 @@ class CharmFormatter {
 
     static statStyle(stat, valueObj) {
         let value = valueObj.value; // hack to fix locked charms
-        return (stat.includes('cooldown') &&
-            !stat.includes('reduction') &&
-            !stat.includes('recharge') &&
-            !stat.includes('_cap')) || // need _cap because otherwise it matches esCAPe death
+        const goodWhenNegative =
+            (stat.includes('cooldown') &&
+                !stat.includes('reduction') &&
+                !stat.includes('recharge') &&
+                !stat.includes('_cap')) || // need _cap because otherwise it matches esCAPe death
             stat.includes('price') ||
             (stat.includes('threshold') &&
                 !stat.includes('rejuvenation') &&
@@ -39,13 +66,12 @@ class CharmFormatter {
             stat.includes('self_damage') ||
             stat.includes('delay') ||
             stat.includes('penalty') ||
-            stat.includes('requirement')
-            ? value < 0
-                ? 'positiveCharm'
-                : 'negativeCharm'
-            : value < 0
-              ? 'negativeCharm'
-              : 'positiveCharm';
+            stat.includes('requirement');
+        if (goodWhenNegative) return value < 0 ? 'positiveCharm' : 'negativeCharm';
+        if (value < 0) return 'negativeCharm';
+        // A handful of charm stats display pink in-game (see PINK_CHARM_STATS).
+        if (PINK_CHARM_STATS.has(stat)) return 'charmPink';
+        return 'positiveCharm';
     }
 
     // Splits a charm stat into its label and value parts so the builder's
@@ -64,13 +90,24 @@ class CharmFormatter {
         };
     }
 
-    static formatCharm(charm) {
+    // Exact per-stat color from the Monumenta API (items.json statColors);
+    // null when unavailable so the class-based fallback applies.
+    static statColor(stat, statColors) {
+        return (statColors && statColors[stat]) || null;
+    }
+
+    static formatCharm(charm, statColors) {
         let formattedStats = [];
 
         for (const stat in charm) {
             if (charm[stat]) {
+                const color = this.statColor(stat, statColors);
                 formattedStats.push(
-                    <span className={styles[this.statStyle(stat, charm[stat])]} key={stat}>
+                    <span
+                        className={styles[this.statStyle(stat, charm[stat])]}
+                        style={color ? { color } : undefined}
+                        key={stat}
+                    >
                         {this.toHumanReadable(stat, charm[stat])}
                     </span>
                 );

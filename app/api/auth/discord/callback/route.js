@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { exchangeDiscordCode, getSession, discordRedirectUri, appUrl } from '../../../../../lib/session';
+import {
+    exchangeDiscordCode,
+    getSession,
+    discordRedirectUri,
+    appUrl,
+    safeRedirectPath,
+} from '../../../../../lib/session';
+import { ensureStsUser } from '../../../../../lib/sts-builds';
 
 export async function GET(request) {
     const url = new URL(request.url);
@@ -8,19 +15,23 @@ export async function GET(request) {
     const state = url.searchParams.get('state');
     const redirectUri = discordRedirectUri(request.url);
 
+    // The state cookie is required: without it the callback could be triggered
+    // cross-site with an attacker's OAuth code (login CSRF), binding the
+    // victim's browser session to the attacker's Discord account.
     const cookieStore = await cookies();
     const stored = cookieStore.get('sts-oauth-state');
+    if (!stored) {
+        return NextResponse.redirect(appUrl(request.url, '/builder?login=failed'));
+    }
     let nextPath = '/builder';
-    if (stored) {
-        try {
-            const parsed = JSON.parse(stored.value);
-            if (!state || parsed.state !== state) {
-                return NextResponse.redirect(appUrl(request.url, '/builder?login=failed'));
-            }
-            nextPath = typeof parsed.next === 'string' ? parsed.next : '/builder';
-        } catch (e) {
+    try {
+        const parsed = JSON.parse(stored.value);
+        if (!state || parsed.state !== state) {
             return NextResponse.redirect(appUrl(request.url, '/builder?login=failed'));
         }
+        nextPath = safeRedirectPath(parsed.next);
+    } catch (e) {
+        return NextResponse.redirect(appUrl(request.url, '/builder?login=failed'));
     }
 
     if (!code) {
@@ -32,6 +43,7 @@ export async function GET(request) {
         const session = await getSession();
         session.user = user;
         await session.save();
+        ensureStsUser(user.id, user);
         cookieStore.delete('sts-oauth-state');
         return NextResponse.redirect(appUrl(request.url, nextPath));
     } catch (e) {

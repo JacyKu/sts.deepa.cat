@@ -1,5 +1,6 @@
 {
     "decay": "Applies a Decay effect that deals (level) Ailment DPS for 4 seconds.",
+    "momentum": "Gain (level * 10)% damage on your next hit within 3 seconds if you have been sprinting for at least 2 seconds, hitting an enemy resets the timer.",
     "regeneration": "When equipped, regain sqrt(level) / 12 health 4 times per second.",
     "aquaaffinity": "Allows you to mine blocks underwater as if you were on land.",
     "firststrike": "The first melee hit, projectile damage or thrown Alchemist Potion against a mob deals 10 * level % more damage. Melee damage from enchantments or abilities will also be affected if it is applied simultaneously with a melee hit. The bonus damage can be reapplied to the same target every 3 seconds.",

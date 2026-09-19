@@ -45,9 +45,18 @@
         transform 75ms ease;
 }
 
+/* Fixed "Sort by" control, always shown above the filter rows. The extra
+   top margin offsets the floating label so the gap to the tabs matches the
+   filter-row spacing; the bottom gap matches the 6px between filter rows. */
+.sortControl {
+    width: 100%;
+    max-width: 560px;
+    margin: 8px auto 6px;
+}
+
 .addBtn:hover {
     background: var(--glass-2);
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .addBtn:active {
@@ -70,7 +79,7 @@
 
 .searchName:focus {
     outline: none;
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .valueInput {
@@ -86,7 +95,7 @@
 
 .valueInput:focus {
     outline: none;
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .cascade {
@@ -102,16 +111,18 @@
 
 .skeletonCards {
     width: 100%;
-    max-width: 1100px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
+    max-width: 1160px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+    gap: 10px;
     margin-top: 28px;
 }
 
 .skeletonCard {
-    height: 180px;
-    padding: 14px;
+    width: 380px;
+    height: 210px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -120,6 +131,21 @@
 .skeletonCardTitle {
     height: 16px;
     width: 65%;
+    margin: 0;
+}
+
+/* Title + favourite button row, matching the real build card's top row. */
+.skeletonCardTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.skeletonCardHeart {
+    width: 56px;
+    height: 28px;
+    flex-shrink: 0;
     margin: 0;
 }
 
@@ -142,11 +168,32 @@
 }
 
 .title {
-    margin: 10px 0;
     font-size: 40px;
     font-weight: 500;
     line-height: 48px;
     text-align: start;
+}
+
+/* Match the global phone heading size (the fixed 40px otherwise wins over
+   globals.css and makes this page's title bigger than the others). */
+@media (max-width: 700px) {
+    .title {
+        font-size: 1.7rem;
+        line-height: 1.2;
+    }
+}
+
+/* My Builds / My Favourites / My Items switcher under the favourites title.
+   No top margin: the h1 already leaves 16px below it, like the other
+   account pages. */
+.myTabs[class] {
+    margin: 0 0 8px;
+}
+
+/* Builds / Custom items section tabs on the favourites pages; sits right
+   under the account pages switcher. */
+.favTabs[class] {
+    margin: 0 0 8px;
 }
 
 .muted {
@@ -171,7 +218,7 @@
 }
 
 .loginBtn:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: var(--glass-2);
 }
 
@@ -228,7 +275,7 @@
 
 .grid {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1160px;
     display: flex;
     flex-wrap: wrap;
     justify-content: space-evenly;
@@ -241,7 +288,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    width: 360px;
+    width: 380px;
     padding: 18px;
     background: #111111;
     border: 2px solid var(--glass-border);
@@ -253,27 +300,30 @@
         transform 150ms ease;
 }
 
-:global(html[data-theme='light']) .card {
+:global(html[data-theme='light']) .card,
+:global(html[data-theme='glass-light']) .card {
     background: #ffffff;
 }
 
 .card:hover {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
     background: #1a1a1a;
     text-decoration: none;
 }
 
-:global(html[data-theme='light']) .card:hover {
+:global(html[data-theme='light']) .card:hover,
+:global(html[data-theme='glass-light']) .card:hover {
     background: #f5f5f5;
 }
 
 .cardExpanded {
     z-index: 20;
     background: #1a1a1a;
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
-:global(html[data-theme='light']) .cardExpanded {
+:global(html[data-theme='light']) .cardExpanded,
+:global(html[data-theme='glass-light']) .cardExpanded {
     background: #f5f5f5;
 }
 
@@ -290,8 +340,11 @@
 
 .cardSide {
     position: absolute;
-    top: -2px;
-    height: calc(100% + 4px);
+    /* The UI zoom (0.9) lays the card's 2px border out as ~1px, so the
+       extension meets the card's outer edge with a 1px overhang; using 2px
+       here made it 1px taller than the card at the top and bottom. */
+    top: -1px;
+    height: calc(100% + 2px);
     width: 0;
     opacity: 0;
     display: flex;
@@ -308,7 +361,8 @@
         opacity 180ms ease;
 }
 
-:global(html[data-theme='light']) .cardSide {
+:global(html[data-theme='light']) .cardSide,
+:global(html[data-theme='glass-light']) .cardSide {
     background: #f5f5f5;
 }
 
@@ -323,7 +377,7 @@
 }
 
 .cardExpanded .cardSide {
-    border-color: var(--control-border-hover);
+    border-color: var(--accent-line, var(--control-border-hover));
 }
 
 .cardSideOpen {
@@ -344,6 +398,130 @@
 
 .cardSideOpen .previewRowWrap {
     animation: sideIn 250ms ease both;
+}
+
+/* Custom items are called out in yellow wherever their name or slot type is
+   shown (quickview rows and the compact item strip); the rule lives after
+   .previewSlot/.itemStripLabel so it wins the color cascade. */
+
+/* Notes panel: opens below the card on hover and grows with the text up to a
+   maximum height (then scrolls). With the side extension open it stretches
+   underneath it as well. */
+.cardNotes {
+    position: absolute;
+    top: calc(100% - 2px);
+    width: 0;
+    max-height: 0;
+    opacity: 0;
+    padding: 0 10px;
+    background: #1a1a1a;
+    border: 2px solid var(--glass-border);
+    border-top: none;
+    overflow: hidden;
+    transition:
+        width 220ms ease,
+        max-height 220ms ease,
+        opacity 180ms ease,
+        padding 220ms ease;
+}
+
+:global(html[data-theme='light']) .cardNotes,
+:global(html[data-theme='glass-light']) .cardNotes {
+    background: #f5f5f5;
+}
+
+.cardExpanded .cardNotes {
+    border-color: var(--accent-line, var(--control-border-hover));
+}
+
+.cardNotesRight {
+    left: -2px;
+}
+
+.cardNotesLeft {
+    right: -2px;
+}
+
+.cardNotesOpen {
+    width: calc(100% + 4px);
+    max-height: 220px;
+    opacity: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.cardNotesWide {
+    width: calc(100% + 340px);
+}
+
+/* Round-corners mode: an expanded card and its extensions must read as one
+   surface. The corners where the panels attach are squared off (only the outer
+   corners stay rounded) and the borders that meet inside are hidden, so no
+   seams show between the card, the side extension and the notes panel.
+   `!important` is needed to beat the global `html[data-round] *` rules. */
+:global(html[data-round='true']) .cardExpanded:has(.cardSideRight) {
+    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 calc(var(--round-radius, 8px) + 4px) !important;
+    border-right-color: transparent !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardSideLeft) {
+    border-radius: 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 !important;
+    border-left-color: transparent !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardNotes) {
+    border-radius: calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+    border-bottom-color: transparent !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardSideRight):has(.cardNotes) {
+    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardSideLeft):has(.cardNotes) {
+    border-radius: 0 calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardSideRight {
+    border-radius: 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 !important;
+}
+
+:global(html[data-round='true']) .cardSideLeft {
+    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 calc(var(--round-radius, 8px) + 4px) !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideRight {
+    border-radius: 0 calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideLeft {
+    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 0 !important;
+}
+
+:global(html[data-round='true']) .cardNotes {
+    border-radius: 0 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) !important;
+}
+
+.cardNotesLabel {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-2);
+    margin-bottom: 4px;
+}
+
+.cardNotesBody {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-1);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.mobileNotes {
+    border-top: 1px solid var(--glass-border);
+    margin-top: 2px;
+    padding-top: 10px;
 }
 
 .previewRowWrap {
@@ -378,7 +556,8 @@
     animation: detailIn 180ms ease;
 }
 
-:global(html[data-theme='light']) .itemDetail {
+:global(html[data-theme='light']) .itemDetail,
+:global(html[data-theme='glass-light']) .itemDetail {
     background: #6639622d;
 }
 
@@ -402,13 +581,31 @@
     }
 }
 
+/* 64px of artwork in the side panel. The spritesheet's per-token fill rules
+   use transform: scale(...) !important, so a transform on the sprite itself
+   would be overridden; the downscale lives on the wrapper via zoom (which
+   composes with the child transform). The 1.15 matches the items page zoom so
+   full and under-filled cells normalize to the same rendered content size. */
 .previewIcon {
     flex-shrink: 0;
-    width: 64px;
-    height: 64px;
+    width: 73.6px;
+    height: 73.6px;
+    zoom: 0.8696;
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.previewIcon .previewSprite {
+    transform: scale(1.15);
+}
+
+/* Hide-textures placeholder for the side panel rows. */
+.previewLowRes {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--control-border, #333);
+    background: var(--surface-2, #17171f);
 }
 
 .previewSprite {
@@ -498,6 +695,119 @@
 .swapLayoutBtn:hover {
     color: var(--accent, #9c59d1);
     border-color: var(--accent, #9c59d1);
+}
+
+/* Add-to-comparison button: sits to the LEFT of the favourite button and is
+   always visible (unlike the swap button, which stays hover-only below). */
+.compareLayoutBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    order: -1;
+    box-sizing: border-box;
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease;
+}
+
+.compareLayoutBtn:hover {
+    color: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+}
+
+.compareLayoutBtnOn {
+    color: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+}
+
+/* Dock listing the builds picked for comparison (bottom-right). */
+.compareDock {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--glass-menu);
+    border: 2px solid var(--glass-border);
+    box-shadow: var(--shadow-elevated);
+    max-width: min(560px, calc(100vw - 32px));
+}
+
+.compareDockInfo {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.compareDockTitle {
+    font-weight: 700;
+    color: var(--text-1);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.compareDockPick {
+    padding: 2px 8px;
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compareDockHint {
+    color: var(--text-2);
+    font-size: 0.78rem;
+}
+
+.compareDockActions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.compareDockBtn {
+    padding: 6px 14px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--text-1);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.compareDockBtn:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    filter: brightness(115%);
+}
+
+.compareDockClear {
+    padding: 4px 10px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.compareDockClear:hover {
+    color: var(--negative, #ce2d27);
+    border-color: var(--negative, #ce2d27);
 }
 
 .cardTitle {
@@ -591,7 +901,10 @@
 }
 
 /* Animated swap between the skills row and the item strip: each chip / icon
-   cascades in with a small drop (30ms stagger). */
+   cascades in with a small drop (30ms stagger). The `to` keyframe deliberately
+   has no transform: with fill-mode `both` a lingering translateY(0) would keep
+   a stacking context on every chip, trapping their tooltips below the
+   layout-swap button. */
 @keyframes cardContentIn {
     from {
         opacity: 0;
@@ -600,7 +913,6 @@
 
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
@@ -612,7 +924,7 @@
     border: 1px solid var(--glass-border);
     background: var(--surface-2);
     font-size: 13px;
-    animation: cardContentIn 220ms ease both;
+    animation: cardContentIn 220ms ease backwards;
 }
 
 .skillChip:nth-child(2) {
@@ -640,10 +952,12 @@
 }
 
 /* Compact item icon strip on the card face (shown when items take the
-   inline slot: "items first" toggle, or a build with no skills). The
-   spritesheets are laid out for 64px boxes with fixed pixel positions, so
-   each sprite renders at its native 64px and is uniformly scaled down via
-   transform - no cropping or misalignment at other sizes. */
+   inline slot: "items first" toggle, or a build with no skills). The wrapper
+   zooms the whole 73.6px design box down to 40px; zoom (unlike transform on
+   the sprite) is not overridden by the spritesheet's per-token
+   transform: scale(...) !important fill rules, and the sprite's own
+   scale(1.15) normalizes full and under-filled cells to the same content
+   size. */
 .itemStrip {
     display: flex;
     flex-wrap: wrap;
@@ -662,7 +976,7 @@
     align-items: center;
     gap: 2px;
     cursor: pointer;
-    animation: cardContentIn 220ms ease both;
+    animation: cardContentIn 220ms ease backwards;
 }
 
 .itemStripWrap:nth-child(2) {
@@ -690,24 +1004,25 @@
 }
 
 .itemStripIcon {
-    width: 40px;
-    height: 40px;
+    width: 73.6px;
+    height: 73.6px;
+    zoom: 0.5435;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Hide-textures placeholder for the compact strip icons. */
 .stripLowRes {
-    width: 40px;
-    height: 40px;
+    width: 100%;
+    height: 100%;
     border: 1px solid var(--control-border, #333);
     background: var(--surface-2, #17171f);
 }
 
 .itemStripIcon .previewSprite {
-    width: 64px;
-    height: 64px;
-    transform: scale(0.625);
-    transform-origin: top left;
+    transform: scale(1.15);
 }
 
 .itemStripLabel {
@@ -716,6 +1031,13 @@
     color: var(--text-2);
     text-transform: uppercase;
     letter-spacing: 0.4px;
+}
+
+/* Custom items are called out in yellow wherever their name or slot type is
+   shown (quickview rows and the compact item strip). Defined after the
+   classes it overrides so it wins the color cascade. */
+.customItem {
+    color: #fcb23d;
 }
 
 .skillAbbr {
@@ -762,6 +1084,30 @@
     margin-top: auto;
 }
 
+/* Custom items / notes indicators: same box shape as the layout-swap button,
+   shown at the end of the card tags row (yellow for custom items, blue for
+   notes). They stretch to the tag height like the other tags so the region tag
+   and icons stay the same size. The notes themselves open on card hover. */
+.cardIndicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 28px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    flex-shrink: 0;
+}
+
+.cardIndicatorCustom {
+    color: #fcb23d;
+}
+
+.cardIndicatorNotes {
+    color: #7cc4ff;
+}
+
 .cardMeta {
     display: flex;
     flex-wrap: wrap;
@@ -788,6 +1134,8 @@
 }
 
 .avatar {
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     flex-shrink: 0;
 }

@@ -1,16 +1,43 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mergeHistory } from './item-history.mjs';
+import { extractStatColors } from './stat-colors.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
+const HISTORY_TARGET = path.join(__dirname, '..', 'public', 'items', 'item-history.json');
 const SKILLS_TARGET = path.join(__dirname, '..', 'public', 'items', 'skills.json');
+// Timestamped copies of the outgoing history are kept here before every
+// rewrite, so an accidental loss (deleted file, bad write) can be recovered.
+const BACKUPS_DIR = path.join(__dirname, '..', 'public', 'items', 'backups');
+const HISTORY_BACKUPS_KEPT = 10;
 const MIN_ITEMS = 1000;
+
+async function backupHistoryFile() {
+    try {
+        const existing = await fs.readFile(HISTORY_TARGET, 'utf8');
+        if (!existing.trim()) return;
+        await fs.mkdir(BACKUPS_DIR, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        await fs.writeFile(path.join(BACKUPS_DIR, `item-history-${stamp}.json`), existing);
+        const backups = (await fs.readdir(BACKUPS_DIR))
+            .filter((name) => name.startsWith('item-history-') && name.endsWith('.json'))
+            .sort();
+        for (const name of backups.slice(0, Math.max(0, backups.length - HISTORY_BACKUPS_KEPT))) {
+            await fs.rm(path.join(BACKUPS_DIR, name), { force: true });
+        }
+    } catch (err) {
+        // First run (no history yet) or unreadable file - nothing to back up.
+    }
+}
 
 const sources = [
     {
         name: 'Monumenta API',
-        url: 'https://api.playmonumenta.com/items',
+        // itemswithnbt is a superset of /items: same item fields plus the
+        // in-game NBT, whose lore carries the exact color of every stat line.
+        url: 'https://api.playmonumenta.com/itemswithnbt',
         headers: {},
     },
     {
@@ -83,6 +110,23 @@ async function main() {
         }
     }
 
+    // Pull the exact per-stat display colors out of the NBT lore and drop the
+    // NBT itself (the site never consumes it). Items from sources without NBT
+    // simply get no statColors and render with the site's fallback palette.
+    let coloredItems = 0;
+    let coloredStats = 0;
+    for (const key of result.keys) {
+        const item = result.data[key];
+        const colors = extractStatColors(item);
+        if (colors) {
+            item.statColors = colors;
+            coloredItems++;
+            coloredStats += Object.keys(colors).length;
+        }
+        delete item.nbt;
+    }
+    console.log(`stat colors: ${coloredItems} items, ${coloredStats} stat lines`);
+
     const removed = currentCount - result.keys.length;
     console.log(
         `\nitems.json: ${currentCount} -> ${result.keys.length} items (${removed >= 0 ? '-' : '+'}${Math.abs(removed)})`
@@ -92,6 +136,32 @@ async function main() {
     if (dryRun) {
         console.log('\nDry run - not writing.');
         return;
+    }
+
+    // Archive every item whose data changed before overwriting: the old
+    // version moves into item-history.json instead of being lost forever.
+    let historyRaw = null;
+    try {
+        historyRaw = await fs.readFile(HISTORY_TARGET, 'utf8');
+    } catch (err) {
+        historyRaw = null; // first run - the archive file doesn't exist yet
+    }
+    const { raw: historyNext, summary } = mergeHistory(historyRaw, current, result.data);
+    if (historyNext) {
+        await backupHistoryFile();
+        const tmpH = HISTORY_TARGET + '.tmp';
+        await fs.writeFile(tmpH, historyNext);
+        await fs.rename(tmpH, HISTORY_TARGET);
+        console.log(
+            `\nArchived stat history: ${summary.changed.length} changed, ${summary.removed.length} removed, ${summary.added.length} added`
+        );
+        for (const key of summary.changed.slice(0, 10)) console.log(`  changed: ${key}`);
+        if (summary.removed.length) {
+            for (const key of summary.removed.slice(0, 10)) console.log(`  removed: ${key}`);
+        }
+        if (summary.changed.length > 10) console.log(`  ... and ${summary.changed.length - 10} more`);
+    } else {
+        console.log('\nNo item stat changes detected - history left unchanged.');
     }
 
     const tmp = TARGET + '.tmp';

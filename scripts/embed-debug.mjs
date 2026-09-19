@@ -233,7 +233,7 @@ await fs.mkdir(OUT, { recursive: true });
 const manifest = [];
 let ok = 0;
 for (const { name, build, note } of builds) {
-    const url = BASE + '/api/v1/og' + (build ? '?build=' + encodeURIComponent(build) : '');
+    const url = BASE + '/api/v2/og' + (build ? '?build=' + encodeURIComponent(build) : '');
     const res = await fetch(url);
     if (!res.ok) {
         console.log(`FAIL ${name}: HTTP ${res.status}`);
@@ -305,8 +305,8 @@ for (const { name, build, note } of pairTargets) {
             return Buffer.from(await res.arrayBuffer());
         };
         const [authorBuf, anonBuf] = await Promise.all([
-            fetchPng(`${BASE}/api/v1/og?id=${authId}&v=debug`),
-            fetchPng(`${BASE}/api/v1/og?id=${anonId}&v=debug`),
+            fetchPng(`${BASE}/api/v2/og?id=${authId}&v=debug`),
+            fetchPng(`${BASE}/api/v2/og?id=${anonId}&v=debug`),
         ]);
         await fs.writeFile(path.join(OUT, `${name}-author.png`), authorBuf);
         await fs.writeFile(path.join(OUT, `${name}-anon.png`), anonBuf);

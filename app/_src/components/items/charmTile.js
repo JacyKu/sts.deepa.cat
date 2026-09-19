@@ -1,13 +1,18 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
+import ItemHistoryPanel from './itemHistoryPanel';
+import LoreText from './loreText';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { useLowResource } from '../lowResourceContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useHideObtainment } from './hideObtainmentContext';
+import { useHideLore } from './hideLoreContext';
 import { useItemFavourites } from './itemFavouritesContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { useInView } from '../inView';
+import { useTranslation } from '../useTranslation';
 
 function camelCase(str) {
     if (!str) return '';
@@ -19,23 +24,27 @@ function camelCase(str) {
         .replace(/\s+/g, '');
 }
 
-function makePowerString(power) {
+function makePowerString(power, t) {
     return (
         <span>
-            Charm Power: <span className={styles.masterworkStar}>{'★'.repeat(power)}</span>
+            {t('items.searchForm.charmPower')}: <span className={styles.masterworkStar}>{'★'.repeat(power)}</span>
         </span>
     );
 }
 
 function makeClassString(className) {
+    // Custom charm items have no class; leave the class label out then.
+    if (!className) return null;
     return <span className={styles[className.toLowerCase()]}>{className}</span>;
 }
 
 function getImageName(charmTier, charmClass, charmPower) {
+    // Custom charm items have no class: fall back to the plain charm sprite.
+    const cls = charmClass || 'Generalist';
     if (charmTier == 'Epic') {
         return `Epic-Charm-${charmPower}`;
     }
-    return `${charmClass == 'Alchemist' ? 'Alch' : charmClass == 'Generalist' ? 'Gen' : charmClass}-Charm${charmTier == 'Base' ? '' : `-${charmTier}`}-${charmPower}`;
+    return `${cls == 'Alchemist' ? 'Alch' : cls == 'Generalist' ? 'Gen' : cls}-Charm${charmTier == 'Base' ? '' : `-${charmTier}`}-${charmPower}`;
 }
 
 function getCharmSheetClass(charmName) {
@@ -72,18 +81,21 @@ function doesStyleExist(className) {
     return false;
 }
 
-export default function CharmTile(data) {
+function CharmTile(data) {
     const item = data.item;
+    const t = useTranslation();
     const [cssClass, setCssClass] = React.useState(getCharmSheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
     const [spriteMap, setSpriteMap] = React.useState(null);
+    const { ref, inView, minHeight } = useInView(null);
     const { lowRes } = useLowResource();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { hidden: hideLore } = useHideLore();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
 
-    let formattedCharm = CharmFormatter.formatCharm(item.stats);
+    let formattedCharm = CharmFormatter.formatCharm(item.stats, item.statColors);
 
     React.useEffect(() => {
         let active = true;
@@ -122,8 +134,14 @@ export default function CharmTile(data) {
         }
     }, [item.name, item.tier, item.class_name, item.power, spriteMap]);
 
+    if (!inView) {
+        return (
+            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
+        );
+    }
+
     return (
-        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"
@@ -131,8 +149,8 @@ export default function CharmTile(data) {
                     onClick={() => toggleItem(item.name, item.type)}
                     aria-label={
                         listItems.includes(item.name)
-                            ? `Remove ${item.name} from build list`
-                            : `Add ${item.name} to build list`
+                            ? `${t('common.remove')} ${item.name} ${t('items.buildList.fromBuildList')}`
+                            : `${t('common.add')} ${item.name} ${t('items.buildList.toBuildList')}`
                     }
                 >
                     {listItems.includes(item.name) ? '✓' : '+'}
@@ -151,12 +169,16 @@ export default function CharmTile(data) {
                     }
                     aria-label={
                         favouriteSet.has(item.name)
-                            ? `Remove ${item.name} from favourites`
+                            ? `${t('common.remove')} ${item.name} ${t('items.favourite.fromFavourites')}`
                             : authenticated
-                              ? `Add ${item.name} to favourites`
-                              : 'Log in to favourite'
+                              ? `${t('common.add')} ${item.name} ${t('items.favourite.toFavourites')}`
+                              : t('items.favourite.login')
                     }
-                    title={favouriteSet.has(item.name) ? 'Remove from favourites' : 'Add to favourites'}
+                    title={
+                        favouriteSet.has(item.name)
+                            ? `${t('common.remove')} ${t('items.favourite.fromFavourites')}`
+                            : `${t('common.add')} ${t('items.favourite.toFavourites')}`
+                    }
                 >
                     <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
                         <path
@@ -191,29 +213,38 @@ export default function CharmTile(data) {
                 <TranslatableText identifier="items.type.charm"></TranslatableText>
             </span>
             {item['original_item'] ? (
-                <span className={styles.infoText}>{`Skin for ${item['original_item']} `}</span>
+                <span className={styles.infoText}>{`${t('items.skinFor')} ${item['original_item']} `}</span>
             ) : (
                 ''
             )}
             <span className={styles.infoText}>
-                {makePowerString(item.power)} - {makeClassString(item.class_name)}
+                {makePowerString(item.power, t)}
+                {/* Custom charm items carry no class; drop the label then. */}
+                {item.class_name && <> - {makeClassString(item.class_name)}</>}
             </span>
             {formattedCharm}
             <span>
-                <span className={styles.infoText}>{`${item.region} `}</span>
-                <span className={styles[camelCase(item.tier)]}>{item.tier != 'Base' ? `${item.tier} ` : ''}Charm</span>
+                {item.region && <span className={styles.infoText}>{`${item.region} `}</span>}
+                <span className={styles[camelCase(item.tier)]}>
+                    {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}
+                    {t('items.type.charm')}
+                </span>
             </span>
-            <span className={styles[camelCase(item.location)]}>{item.location}</span>
+            {item.location && <span className={styles[camelCase(item.location)]}>{item.location}</span>}
+            {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (
                 <>
                     {item.extras?.poi ? (
-                        <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p>
+                        <p className={`${styles.infoText} m-0`}>{`${t('items.foundIn')} ${item.extras.poi}`}</p>
                     ) : (
                         ''
                     )}
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{`${item.extras.notes}`}</p> : ''}
                 </>
             )}
+            <ItemHistoryPanel records={data.history} currentItem={item} />
         </div>
     );
 }
+
+export default React.memo(CharmTile);

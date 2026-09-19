@@ -101,7 +101,6 @@ async function main() {
     }
     console.log(`Handbook descriptions: ${handbook.size}`);
 
-    // Load the current en.json catalog.
     const en = JSON.parse(await fs.readFile(EN_PATH, 'utf8'));
     const enchKeys = Object.keys(en).filter((k) => k.startsWith('items.enchant.'));
 

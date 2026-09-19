@@ -1,27 +1,29 @@
 import { Suspense } from 'react';
 import { getItemData } from '../_src/utils/itemsData';
 import { buildStatCategories } from '../_src/utils/items/statCategories';
+import { baseItemOptionsFrom } from '../_src/utils/items/baseItems';
 import CustomItemsPage from '../_src/components/customItems/customItemsPage';
+import CustomItemsSkeleton from '../_src/components/customItems/customItemsSkeleton';
 
 export const metadata = {
     title: 'Custom Items',
-    description: 'Create custom Monumenta items with custom stats and a texture from the game',
+    description: 'Make custom Monumenta items with your own stats and textures',
     keywords: 'Monumenta, Minecraft, MMORPG, Items, Custom Item',
     openGraph: {
         title: 'Custom Items',
-        description: 'Create custom Monumenta items with custom stats and a texture from the game',
+        description: 'Make custom Monumenta items with your own stats and textures',
         images: [{ url: '/favicon/favicon.png' }],
     },
     twitter: {
         title: 'Custom Items',
-        description: 'Create custom Monumenta items with custom stats and a texture from the game',
+        description: 'Make custom Monumenta items with your own stats and textures',
         images: ['/favicon/favicon.png'],
     },
 };
 
 export default function Page() {
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<CustomItemsSkeleton />}>
             <CustomItemsView />
         </Suspense>
     );
@@ -29,5 +31,10 @@ export default function Page() {
 
 async function CustomItemsView() {
     const itemData = await getItemData();
-    return <CustomItemsPage statCategories={buildStatCategories(itemData)} />;
+    return (
+        <CustomItemsPage
+            statCategories={buildStatCategories(itemData)}
+            baseItemOptions={baseItemOptionsFrom(itemData)}
+        />
+    );
 }

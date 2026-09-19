@@ -25,7 +25,26 @@
     --control-border-focus: rgba(255, 255, 255, 0.28);
     --control-focus-ring: rgba(255, 255, 255, 0.12);
 
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(17, 17, 17, 0.97);
+
     --text-on-accent: #fff;
+
+    /* Accent (recoloured by the active colour/pride backdrop scheme) + soft
+       derivatives used for hover rings, selection and focus states. */
+    --accent: #9c59d1;
+    --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+    --accent-line: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* Accent touches sprinkled across the app. */
+::selection {
+    background: var(--accent-soft);
+}
+
+:where(button, a, [role='button'], input, select, textarea):focus-visible {
+    outline: 2px solid var(--accent-line);
+    outline-offset: 1px;
 }
 
 :root[data-theme='light'] {
@@ -43,6 +62,9 @@
     --glass-2: rgba(255, 255, 255, 0.72);
     --glass-border: rgba(0, 0, 0, 0.16);
 
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(255, 255, 255, 0.97);
+
     --shadow-elevated: 0 10px 24px rgba(0, 0, 0, 0.14);
 
     --control-border: rgba(0, 0, 0, 0.14);
@@ -51,6 +73,450 @@
     --control-focus-ring: rgba(0, 0, 0, 0.1);
 
     --text-on-accent: #fff;
+}
+
+/* White glass: glass styling (translucent surfaces over a fixed, softly
+   colored backdrop) with a light/white base instead of the dark one. */
+:root[data-theme='glass-light'] {
+    color-scheme: light;
+
+    --bg-0: #e8ecf6;
+    --surface-1: rgba(0, 0, 0, 0.05);
+    --surface-2: rgba(0, 0, 0, 0.09);
+    --text-1: #0b0f1c;
+    --text-2: #46506b;
+    --border-1: rgba(0, 0, 0, 0.1);
+
+    --glass-1: rgba(255, 255, 255, 0.62);
+    --glass-2: rgba(255, 255, 255, 0.52);
+    --glass-border: rgba(0, 0, 0, 0.1);
+
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(248, 249, 253, 0.97);
+
+    --shadow-elevated: 0 12px 28px rgba(40, 52, 110, 0.22);
+
+    --control-border: rgba(0, 0, 0, 0.16);
+    --control-border-hover: rgba(0, 0, 0, 0.26);
+    --control-border-focus: rgba(0, 0, 0, 0.34);
+    --control-focus-ring: rgba(0, 0, 0, 0.12);
+
+    --text-on-accent: #fff;
+}
+
+/* Glass theme: translucent surfaces over a soft colored backdrop, so the
+   existing --glass surfaces (nav, cards, inputs) actually have something
+   to blur. */
+:root[data-theme='glass'] {
+    color-scheme: dark;
+
+    --bg-0: #070a12;
+    --surface-1: rgba(255, 255, 255, 0.05);
+    --surface-2: rgba(255, 255, 255, 0.09);
+    --text-1: #eef2ff;
+    --text-2: #9aa5c0;
+    --border-1: rgba(255, 255, 255, 0.12);
+
+    --glass-1: rgba(14, 19, 32, 0.6);
+    --glass-2: rgba(20, 27, 44, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.16);
+
+    /* Dropdown menus: near-opaque so list text stays readable over glass. */
+    --glass-menu: rgba(14, 19, 32, 0.96);
+
+    --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.55);
+
+    --control-border: rgba(255, 255, 255, 0.2);
+    --control-border-hover: rgba(255, 255, 255, 0.32);
+    --control-border-focus: rgba(255, 255, 255, 0.4);
+    --control-focus-ring: rgba(255, 255, 255, 0.16);
+
+    --text-on-accent: #fff;
+}
+
+html[data-theme='glass'] body {
+    background-color: #070a12;
+    background-attachment: fixed;
+}
+
+html[data-theme='glass-light'] body {
+    background-color: #e8ecf6;
+    background-attachment: fixed;
+}
+
+/* Glass glow blobs: soft colored spots rendered as fixed elements behind
+   the page. Their transform is GPU-composited, so the drift animation runs
+   on the compositor thread (no per-frame repaints). Positions/sizes are
+   randomized per page load by the settings (header.js); "Animate backdrop"
+   adds the drift animation with a randomized duration and delay. */
+.glass-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    filter: blur(var(--glass-frost-blur, 0px));
+}
+
+.glass-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(70px);
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+.glass-blob-anim {
+    animation: glassBlobDrift 30s ease-in-out infinite alternate;
+}
+
+/* Item cards (item/charm/consumable/masterwork tiles) sit on the hardcoded
+   #110110 background; on the glass theme they get translucent so the
+   coloured backdrop shows through. */
+html[data-theme='glass'] [class*='itemTile'] {
+    background: rgba(17, 1, 16, 0.65);
+}
+
+html[data-theme='glass-light'] [class*='itemTile'] {
+    background: rgba(255, 255, 255, 0.62);
+}
+
+@keyframes glassBlobDrift {
+    0% {
+        transform: translate(0, 0);
+    }
+    25% {
+        transform: translate(14vw, -10vh);
+    }
+    50% {
+        transform: translate(-12vw, 12vh);
+    }
+    75% {
+        transform: translate(10vw, 16vh);
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+
+/* "Flag gradient": instead of scattered blobs, show the whole flag as a
+   full-page gradient in the correct stripe order. The angle is randomized
+   per page load (--glass-angle, set by the settings), the stripes feather
+   into each other and stay translucent so the backdrop reads as soft colour
+   rather than hard bands. */
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='enby'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='enby'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(252, 244, 49, 0.5) 0%,
+        rgba(252, 244, 49, 0.5) 20%,
+        rgba(255, 255, 255, 0.4) 27%,
+        rgba(255, 255, 255, 0.4) 46%,
+        rgba(156, 89, 209, 0.55) 53%,
+        rgba(156, 89, 209, 0.55) 72%,
+        rgba(7, 10, 18, 0.85) 79%,
+        rgba(7, 10, 18, 0.85) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='trans'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='trans'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(91, 206, 250, 0.5) 0%,
+        rgba(91, 206, 250, 0.5) 16%,
+        rgba(245, 169, 184, 0.48) 23%,
+        rgba(245, 169, 184, 0.48) 38%,
+        rgba(255, 255, 255, 0.4) 45%,
+        rgba(255, 255, 255, 0.4) 55%,
+        rgba(245, 169, 184, 0.48) 62%,
+        rgba(245, 169, 184, 0.48) 77%,
+        rgba(91, 206, 250, 0.5) 84%,
+        rgba(91, 206, 250, 0.5) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='rainbow'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='rainbow'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(228, 3, 3, 0.5) 0%,
+        rgba(228, 3, 3, 0.5) 12%,
+        rgba(255, 140, 0, 0.48) 19%,
+        rgba(255, 140, 0, 0.48) 30%,
+        rgba(255, 237, 0, 0.45) 37%,
+        rgba(255, 237, 0, 0.45) 48%,
+        rgba(0, 128, 38, 0.45) 55%,
+        rgba(0, 128, 38, 0.45) 66%,
+        rgba(36, 64, 142, 0.5) 73%,
+        rgba(36, 64, 142, 0.5) 84%,
+        rgba(115, 41, 130, 0.5) 91%,
+        rgba(115, 41, 130, 0.5) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='gay'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='gay'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(7, 141, 112, 0.5) 0%,
+        rgba(7, 141, 112, 0.5) 16%,
+        rgba(38, 206, 170, 0.48) 23%,
+        rgba(38, 206, 170, 0.48) 38%,
+        rgba(152, 232, 193, 0.42) 45%,
+        rgba(152, 232, 193, 0.42) 55%,
+        rgba(123, 173, 226, 0.48) 62%,
+        rgba(123, 173, 226, 0.48) 77%,
+        rgba(80, 73, 204, 0.5) 84%,
+        rgba(80, 73, 204, 0.5) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='lesbian'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='lesbian'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(213, 45, 0, 0.5) 0%,
+        rgba(213, 45, 0, 0.5) 10%,
+        rgba(239, 118, 39, 0.48) 17%,
+        rgba(239, 118, 39, 0.48) 27%,
+        rgba(255, 154, 86, 0.45) 34%,
+        rgba(255, 154, 86, 0.45) 44%,
+        rgba(255, 255, 255, 0.4) 51%,
+        rgba(255, 255, 255, 0.4) 56%,
+        rgba(209, 98, 164, 0.48) 63%,
+        rgba(209, 98, 164, 0.48) 73%,
+        rgba(181, 86, 144, 0.48) 80%,
+        rgba(181, 86, 144, 0.48) 90%,
+        rgba(163, 2, 98, 0.5) 97%,
+        rgba(163, 2, 98, 0.5) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='bi'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='bi'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(214, 2, 112, 0.5) 0%,
+        rgba(214, 2, 112, 0.5) 28%,
+        rgba(155, 79, 150, 0.48) 35%,
+        rgba(155, 79, 150, 0.48) 62%,
+        rgba(0, 56, 168, 0.5) 69%,
+        rgba(0, 56, 168, 0.5) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='pan'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='pan'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(255, 28, 142, 0.5) 0%,
+        rgba(255, 28, 142, 0.5) 28%,
+        rgba(255, 215, 0, 0.45) 35%,
+        rgba(255, 215, 0, 0.45) 62%,
+        rgba(26, 179, 255, 0.5) 69%,
+        rgba(26, 179, 255, 0.5) 100%
+    );
+}
+
+/* Basic single-colour schemes: a soft fade of one hue. */
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='red'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='red'] body {
+    background-image: linear-gradient(var(--glass-angle, 135deg), rgba(228, 3, 3, 0.5) 0%, rgba(228, 3, 3, 0.18) 100%);
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='orange'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='orange'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(255, 140, 0, 0.5) 0%,
+        rgba(255, 140, 0, 0.18) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='yellow'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='yellow'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(255, 215, 0, 0.45) 0%,
+        rgba(255, 215, 0, 0.16) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='green'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='green'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(0, 128, 38, 0.5) 0%,
+        rgba(0, 128, 38, 0.18) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='blue'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='blue'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(37, 99, 235, 0.5) 0%,
+        rgba(37, 99, 235, 0.18) 100%
+    );
+}
+
+html[data-theme='glass'][data-glass-flag][data-glass-scheme='purple'] body,
+html[data-theme='glass-light'][data-glass-flag][data-glass-scheme='purple'] body {
+    background-image: linear-gradient(
+        var(--glass-angle, 135deg),
+        rgba(156, 89, 209, 0.5) 0%,
+        rgba(156, 89, 209, 0.18) 100%
+    );
+}
+
+html[data-theme='glass'] :where(input[type='text'], input[type='number'], input[type='password'], textarea, select),
+html[data-theme='glass-light']
+    :where(input[type='text'], input[type='number'], input[type='password'], textarea, select) {
+    backdrop-filter: blur(10px);
+}
+
+/* Translucent menu/dialog surfaces stay readable by frosting whatever is
+   behind them. Applies on every theme (the glass ones simply have more
+   transparent surfaces to begin with). */
+html [class*='menuPanel'],
+html [class*='betaDialog'],
+html [class*='modal'],
+html [class*='tooltipText'] {
+    backdrop-filter: blur(16px);
+}
+
+/* react-select dropdown menus (portaled or not) get the same frosted look
+   as the app's other menu surfaces, site-wide. */
+html [class$='-menu'] {
+    backdrop-filter: blur(16px);
+}
+
+/* The dim layers behind dialogs/modals frost the page they cover, so the
+   content doesn't fight the dialog text. Dropdown menus don't need this:
+   blurring just the panel itself is enough, without frosting the whole
+   page behind an open menu. */
+html [class*='overlay'] {
+    backdrop-filter: blur(10px);
+}
+
+/* Frost veil: sits above the backdrop (blobs/flags/effects) but below every
+   real element, blurring only what the backdrop paints. The amount comes
+   from --glass-frost-blur (set by the settings' blur slider). */
+.glass-frost {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    backdrop-filter: blur(var(--glass-frost-blur, 0px));
+}
+
+/* Wawa cat full-screen backdrop. Blur is applied as a filter directly on the
+   layer (like matrix/photo): the extra-scheme backdrops skip the backdrop-
+   filter frost veil, so the slider amount is mirrored here instead. */
+.glass-wawa {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: url('/images/wawa.jpg');
+    background-size: cover;
+    background-position: center;
+    filter: blur(var(--glass-frost-blur, 0px));
+}
+
+/* Visitor-uploaded backdrop image (stored as a data URL in their browser). */
+.glass-photo {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-size: cover;
+    background-position: center;
+    filter: blur(var(--glass-frost-blur, 0px));
+}
+
+/* Matrix rain canvas backdrop. The rain canvas is its own composited layer,
+   which a backdrop-filter veil above it cannot sample, so the frost amount
+   is applied as a filter directly on the layer instead. */
+.glass-matrix {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    filter: blur(var(--glass-frost-blur, 0px));
+}
+
+.glass-matrix canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* The in-field typing input react-select renders is a plain text input, so
+   the glass-theme frosted-input rule would draw a blur box around it. Only
+   that element opts out of the backdrop blur. */
+html [class*='-container'] input[role='combobox'],
+html input[role='combobox'] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+/* react-select controls: thin 1px borders and a subtle focus ring matching the app's inputs */
+[class$='-container']:focus-within > [class$='-control'] {
+    box-shadow: 0 0 0 1px var(--control-border-focus) !important;
+    border-color: var(--control-border-focus) !important;
+}
+
+/* No square corners: every element gets a small radius. The exact radius is
+   user-adjustable (Settings -> Round corners -> Corner radius) via
+   --round-radius, defaulting to the 8px the rounded look shipped with. */
+html[data-round='true'] * {
+    border-radius: var(--round-radius, 8px) !important;
+}
+
+/* ...but not icon artwork: an <svg> has overflow: hidden by default, so a
+   border-radius clips the vector's corners (e.g. the heart favourite icon). */
+html[data-round='true'] svg {
+    border-radius: 0 !important;
+}
+
+/* Native checkboxes ignore border-radius; draw them rounded instead. */
+html[data-round='true'] input[type='checkbox'] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 2px solid var(--control-border);
+    background: var(--glass-2);
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+html[data-round='true'] input[type='checkbox']:checked {
+    background-color: var(--text-1);
+}
+
+html[data-round='true'] input[type='checkbox']:checked::after {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 8px;
+    margin: 1px auto 0;
+    border: solid var(--bg-0);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Larger surfaces keep a slightly softer radius (4px more than the base). */
+html[data-round='true'] [class*='itemTile'],
+html[data-round='true'] [class*='card'],
+html[data-round='true'] [class*='menuPanel'],
+html[data-round='true'] [class*='skillsSection'],
+html[data-round='true'] [class*='statCard'],
+html[data-round='true'] [class*='charmCardWrap'],
+html[data-round='true'] [class*='builderSide'],
+html[data-round='true'] [class*='betaDialog'] {
+    border-radius: calc(var(--round-radius, 8px) + 4px) !important;
 }
 
 @font-face {
@@ -80,6 +546,38 @@
 @font-face {
     font-family: 'Minecraft';
     src: url('/fonts/MinecraftBoldItalic.otf') format('opentype');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-Italic.otf') format('opentype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'OpenDyslexic';
+    src: url('/fonts/OpenDyslexic-BoldItalic.otf') format('opentype');
     font-weight: 700;
     font-style: italic;
     font-display: swap;
@@ -125,9 +623,19 @@ html[data-font='default'] body {
         sans-serif;
 }
 
+/* "Monospace" mode: everything in a mono face. */
+html[data-font='mono'] body {
+    font-family: 'Ubuntu Mono', 'Courier New', monospace;
+}
+
 /* "Minecraft" mode: everything (including the platform nav) in the pixel font. */
 html[data-font='minecraft'] * {
     font-family: 'Minecraft', monospace;
+}
+
+/* "Dyslexia friendly" mode: OpenDyslexic everywhere. */
+html[data-font='dyslexia'] * {
+    font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif;
 }
 
 html[data-font='minecraft'] body {
@@ -175,12 +683,28 @@ html a:hover {
     flex-direction: column;
 }
 
+/* Whole-UI scale: the app column is zoomed so every element (px-sized text,
+   controls, sprite tiles) reads less cramped. The zoom sits on .site-content
+   rather than <html> on purpose: dropdown menus are portaled to <body> and
+   position themselves from viewport coordinates, so keeping them outside the
+   zoomed subtree stops the browser from scaling those coordinates twice.
+   Viewport units are not scaled by zoom, so the full-height layout divides by
+   the same factor to keep the footer at the bottom. Browsers without zoom
+   support (older Firefox) simply keep the full size. */
+@supports (zoom: 1) {
+    .site-content {
+        zoom: var(--ui-zoom, 0.9);
+        min-height: calc(100dvh / var(--ui-zoom, 0.9));
+    }
+}
+
 main {
     flex: 1 0 auto;
+    width: 100%;
 }
 
 html h1 {
-    margin: 10px;
+    margin: 20px 0 16px;
     font-size: 2.5rem;
     line-height: 1.2;
 }
@@ -289,12 +813,6 @@ html textarea {
     border-radius: 0;
 }
 
-/* react-select controls: thin 1px borders and a subtle focus ring matching the app's inputs */
-[class$='-container']:focus-within > [class$='-control'] {
-    box-shadow: 0 0 0 1px var(--control-border-focus) !important;
-    border-color: var(--control-border-focus) !important;
-}
-
 button {
     cursor: pointer;
 }
@@ -318,5 +836,125 @@ button:disabled {
     background: var(--glass-1);
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Generalized accent on inputs, buttons and button-like links (nav/footer
+   chips, login buttons, tab buttons). Hovering or focusing any generic
+   control tints its border with the active accent (--accent-line). The
+   search / reset / copy / share buttons keep their neutral styling, and the
+   semantic controls - favourite hearts, delete/remove, colour pickers -
+   keep their own colours. Plain text links have no border, so they are
+   unaffected. */
+html
+    :is(
+        a,
+        button,
+        input[type='button'],
+        input[type='submit'],
+        input[type='reset'],
+        input[type='text'],
+        input[type='search'],
+        input[type='number'],
+        input[type='password'],
+        input[type='email'],
+        input[type='url'],
+        select,
+        textarea
+    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not(
+        [class*='resetButton']
+    ):not([class*='favBtn']):not([class*='favourite']):not([class*='iconBtn']):not([class*='delete']):not(
+        [class*='Remove']
+    ):not([class*='remove']):not([class*='Clear']):not([class*='clear']):not([class*='colourChip']):not(
+        [class*='themeCard']
+    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):not(
+        [class*='cardExpanded']
+    ):hover,
+html
+    :is(
+        a,
+        button,
+        input[type='button'],
+        input[type='submit'],
+        input[type='reset'],
+        input[type='text'],
+        input[type='search'],
+        input[type='number'],
+        input[type='password'],
+        input[type='email'],
+        input[type='url'],
+        select,
+        textarea
+    ):not([class*='submitButton']):not([class*='warningButton']):not([class*='shareButton']):not(
+        [class*='resetButton']
+    ):not([class*='favBtn']):not([class*='favourite']):not([class*='iconBtn']):not([class*='delete']):not(
+        [class*='Remove']
+    ):not([class*='remove']):not([class*='Clear']):not([class*='clear']):not([class*='colourChip']):not(
+        [class*='themeCard']
+    ):not([class*='danger']):not([class*='negative']):not([class*='logout']):not([class*='unlink']):not(
+        [class*='cardExpanded']
+    ):focus {
+    border-color: var(--accent-line, var(--control-border-hover)) !important;
+}
+
+/* ---------- Accessibility ---------- */
+
+/* Reduce motion globally: kill CSS transitions/animations and smooth
+   scrolling (stepped spritesheet textures still animate; they need frames). */
+html[data-motion='off'] *,
+html[data-motion='off'] *::before,
+html[data-motion='off'] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* High contrast: near-opaque surfaces, pure text colours and strong borders
+   on top of whichever theme is active. Dark bases first; light bases
+   override below (same specificity, later wins). */
+:root[data-contrast='high'] {
+    --bg-0: #000;
+    --surface-1: #0d0d0d;
+    --surface-2: #1c1c1c;
+    --text-1: #ffffff;
+    --text-2: #e6e6e6;
+    --border-1: #ffffff;
+    --glass-1: #0a0a0a;
+    --glass-2: #161616;
+    --glass-border: #ffffff;
+    --glass-menu: #000000;
+    --control-border: #ffffff;
+    --control-border-hover: #ffffff;
+    --control-border-focus: #ffffff;
+    --control-focus-ring: rgba(255, 255, 255, 0.5);
+    --shadow-elevated: none;
+}
+
+:root[data-contrast='high'][data-theme='light'],
+:root[data-contrast='high'][data-theme='glass-light'] {
+    --bg-0: #ffffff;
+    --surface-1: #f2f2f2;
+    --surface-2: #e0e0e0;
+    --text-1: #000000;
+    --text-2: #1f1f1f;
+    --border-1: #000000;
+    --glass-1: #ffffff;
+    --glass-2: #ededed;
+    --glass-border: #000000;
+    --glass-menu: #ffffff;
+    --control-border: #000000;
+    --control-border-hover: #000000;
+    --control-border-focus: #000000;
+    --control-focus-ring: rgba(0, 0, 0, 0.5);
+    --shadow-elevated: none;
+}
+
+/* Solid surfaces under cards/panels so text never fights a busy backdrop. */
+html[data-contrast='high'] [class*='itemTile'],
+html[data-contrast='high'] [class*='card'],
+html[data-contrast='high'] [class*='menuPanel'],
+html[data-contrast='high'] [class*='modal'],
+html[data-contrast='high'] [class*='betaDialog'],
+html[data-contrast='high'] [class*='skeleton'] {
+    backdrop-filter: none !important;
 }

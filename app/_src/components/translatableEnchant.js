@@ -7,9 +7,11 @@ function formatTitle(str) {
     if (!str) return '';
     if (str.toLowerCase().includes('infinity')) return 'infinity';
     // Curses are keyed by their short name (e.g. "crippling") rather than the
-    // full stat name ("curse_of_crippling"), so drop the prefix before camelizing.
+    // full stat name ("curse_of_crippling"), so drop the prefix (and the
+    // underscore that follows it) before camelizing - otherwise the leading
+    // underscore makes the first letter uppercase and the lang key misses.
     if (str.startsWith('curse_of')) {
-        str = str.slice('curse_of'.length);
+        str = str.slice('curse_of'.length).replace(/^_/, '');
     }
     return str
         .replaceAll('jungle_s', 'jungles')
@@ -20,13 +22,14 @@ function formatTitle(str) {
         .replace(/[\s+-]/g, '');
 }
 
-export default function TranslatableEnchant({ title, className, children }) {
+export default function TranslatableEnchant({ title, className, style, children }) {
     const { lang } = useLanguageContext();
     const key = `items.enchant.${formatTitle(title)}`;
     const description = SupportedLanguages[lang][key];
     return (
         <span
             className={className ? `${styles.enchantTooltip} ${className}` : styles.enchantTooltip}
+            style={style}
             key={`${lang}-${key}`}
         >
             {children}

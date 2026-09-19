@@ -1,140 +1,37 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import Select from 'react-select';
 import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
 import DatabaseSkeleton from './databaseSkeleton';
 import InfiniteScroll from './infiniteScroll';
+import DatabaseTabs from './databaseTabs';
+import FloatingLabel from './items/floatingLabel';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
+import { translate } from '../utils/translation/translate';
 import sf from '../styles/SearchForm.module.css';
 import styles from '../styles/Database.module.css';
 import { getStsBase } from '../utils/base';
+import {
+    FilterRow,
+    buildFilterCategories,
+    buildSlotOptions,
+    buildSortOptions,
+    selectTheme,
+    selectStyles,
+} from './builds/filterRow';
 
-const REGIONS = ['Valley', 'Isles', 'Ring', 'Darkest Depths', 'Celestial Zenith'];
+// Pending comparison picks, shared with the /compare page: entries carry the
+// build's own /b/v<version>/<id> URL + a display name. Two picks jump
+// straight to the comparison; one leaves a dock so another can be added.
+const COMPARE_PICKS_KEY = 'sts-compare-picks';
 
-// The same react-select look the rest of the app uses (builder, items page).
-const selectTheme = (theme) => ({
-    ...theme,
-    borderRadius: 0,
-    colors: {
-        ...theme.colors,
-        primary: 'var(--text-1)',
-        primary25: 'var(--surface-2)',
-        neutral0: 'var(--glass-1)',
-        neutral5: 'var(--glass-2)',
-        neutral10: 'var(--glass-2)',
-        neutral20: 'var(--control-border)',
-        neutral30: 'var(--control-border-hover)',
-        neutral60: 'var(--text-2)',
-        neutral80: 'var(--text-1)',
-    },
-});
-
-const selectStyles = {
-    container: (base) => ({ ...base, width: '100%' }),
-    control: (base) => ({ ...base, minHeight: 42, height: 42 }),
-    valueContainer: (base) => ({ ...base, height: 42, paddingTop: 0, paddingBottom: 0 }),
-    indicatorsContainer: (base) => ({ ...base, height: 42 }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    menu: (base) => ({ ...base, zIndex: 9999 }),
-};
-
-// One applied filter: a category dropdown + a value control + a delete button,
-// mirroring the items page's SelectWithTriggers rows. The Item category is a
-// cascade: the slot dropdown fills the rest of the row, and once a slot is
-// chosen a second row appears below with the actual item names.
-function FilterRow({ categories, row, onChangeCategory, onChangeSlot, onChangeValue, onDelete, t, itemGroups, slotOptions }) {
-    const cat = categories.find((c) => c.name === row.category);
-    const optList = cat && cat.type === 'select' ? cat.options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o)) : [];
-    const current = optList.find((o) => o.value === row.value) || null;
-    const slot = slotOptions.find((o) => o.value === row.slot) || null;
-    const itemOpts =
-        row.slot && itemGroups[row.slot]
-            ? [{ value: 'Any', label: t('database.any') }, ...itemGroups[row.slot].map((n) => ({ value: n, label: n }))]
-            : [];
-    const currentItem = itemOpts.find((o) => o.value === row.value) || null;
-    return (
-        <>
-            <div className={sf.filterRow}>
-                <div className={sf.filterMain}>
-                    <Select
-                        className={sf.categorySelect}
-                        instanceId={`dbcat-${row.key}`}
-                        options={categories.map((c) => ({ value: c.name, label: t(c.labelKey) }))}
-                        value={cat ? { value: cat.name, label: t(cat.labelKey) } : null}
-                        onChange={(opt) => onChangeCategory(row.key, opt ? opt.value : null)}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
-                        theme={selectTheme}
-                        styles={selectStyles}
-                    />
-                    <div className={sf.selectorSelect}>
-                        {cat && cat.type === 'select' && (
-                            <Select
-                                instanceId={`dbval-${row.key}`}
-                                options={optList}
-                                value={current}
-                                onChange={(opt) => onChangeValue(row.key, opt ? opt.value : null)}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
-                                theme={selectTheme}
-                                styles={selectStyles}
-                            />
-                        )}
-                        {cat && cat.type === 'cascade' && (
-                            <Select
-                                instanceId={`dbslot-${row.key}`}
-                                options={slotOptions}
-                                value={slot}
-                                onChange={(opt) => onChangeSlot(row.key, opt ? opt.value : null)}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
-                                theme={selectTheme}
-                                styles={selectStyles}
-                            />
-                        )}
-                        {cat && cat.type === 'text' && (
-                            <input
-                                className={styles.valueInput}
-                                value={row.value || ''}
-                                onChange={(e) => onChangeValue(row.key, e.target.value)}
-                                placeholder={t(cat.labelKey)}
-                                aria-label={t(cat.labelKey)}
-                            />
-                        )}
-                    </div>
-                </div>
-                <input
-                    type="button"
-                    className={`${sf.deleteButton} ${sf.filterDelete}`}
-                    value="X"
-                    onClick={() => onDelete(row.key)}
-                    aria-label="Remove filter"
-                />
-            </div>
-            {cat && cat.type === 'cascade' && row.slot && (
-                <div className={styles.subRow}>
-                    <Select
-                        instanceId={`dbitem-${row.key}`}
-                        options={itemOpts}
-                        value={currentItem}
-                        onChange={(opt) => onChangeValue(row.key, opt ? opt.value : null)}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
-                        theme={selectTheme}
-                        styles={selectStyles}
-                    />
-                </div>
-            )}
-        </>
-    );
-}
-
-export default function DatabasePage({ classOptions, specMap, itemGroups }) {
+export default function DatabasePage({ classOptions, specMap, itemGroups, skillOptions = [], skillMap = null }) {
     const { lang } = useLanguageContext();
-    const t = (id) => (SupportedLanguages[lang] && SupportedLanguages[lang][id]) || id;
+    const t = (id) => translate(lang, id);
 
     const [base, setBase] = React.useState('/sts');
     const [user, setUser] = React.useState(null);
@@ -142,6 +39,8 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
 
     const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]); // applied filters
     const [searchName, setSearchName] = React.useState('');
+    // Sort is a fixed control above the filter rows, not an addable filter.
+    const [sort, setSort] = React.useState('top');
 
     const [builds, setBuilds] = React.useState([]);
     const [page, setPage] = React.useState(1);
@@ -149,54 +48,51 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
 
-    const allSpecs = React.useMemo(() => [...new Set(Object.values(specMap).flat())], [specMap]);
-    const slotOptions = React.useMemo(
-        () => [
-            { value: 'Mainhand', label: t('items.type.mainhand') },
-            { value: 'Offhand', label: t('items.type.offhand') },
-            { value: 'Helmet', label: t('items.type.helmet') },
-            { value: 'Chestplate', label: t('items.type.chestplate') },
-            { value: 'Leggings', label: t('items.type.leggings') },
-            { value: 'Boots', label: t('items.type.boots') },
-            { value: 'Charm', label: t('items.type.charm') },
-        ],
-        [t]
-    );
+    const slotOptions = React.useMemo(() => buildSlotOptions(t), [t]);
+    // The Skill filter narrows to the selected Class filter's skills (base +
+    // its spec skills, plus the class-independent CZ/DD abilities).
+    const selectedClass = React.useMemo(() => {
+        for (const r of rows) {
+            if (r.category === 'class' && r.value) return r.value;
+        }
+        return null;
+    }, [rows]);
     const categories = React.useMemo(
-        () => [
-            { name: 'class', labelKey: 'database.filters.class', type: 'select', options: classOptions },
-            { name: 'region', labelKey: 'database.filters.region', type: 'select', options: REGIONS },
-            { name: 'spec', labelKey: 'database.filters.spec', type: 'select', options: allSpecs },
-            {
-                name: 'hasCharms',
-                labelKey: 'database.filters.hasCharms',
-                type: 'select',
-                options: [
-                    { value: '1', label: t('database.yes') },
-                    { value: '0', label: t('database.no') },
-                ],
-            },
-            { name: 'item', labelKey: 'database.filters.item', type: 'cascade' },
-            { name: 'skill', labelKey: 'database.filters.skill', type: 'text' },
-            { name: 'author', labelKey: 'database.filters.author', type: 'text' },
-            {
-                name: 'sort',
-                labelKey: 'database.filters.sort',
-                type: 'select',
-                options: [
-                    { value: 'top', label: t('database.sort.top') },
-                    { value: 'new', label: t('database.sort.new') },
-                    { value: 'power', label: t('database.sort.power') },
-                ],
-            },
-        ],
-        [classOptions, allSpecs, t]
+        () =>
+            buildFilterCategories(classOptions, specMap, t, {
+                includeSort: false,
+                skillOptions,
+                skillMap,
+                selectedClass,
+            }),
+        [classOptions, specMap, t, skillOptions, skillMap, selectedClass]
     );
+
+    // Drop a Skill filter value that the newly selected class doesn't offer
+    // (it would otherwise keep filtering invisibly).
+    React.useEffect(() => {
+        if (!selectedClass || !skillMap) return;
+        const valid = new Set(skillMap[selectedClass] || []);
+        setRows((prev) => {
+            let changed = false;
+            const next = prev.map((r) => {
+                if (r.category === 'skill' && r.value && !valid.has(r.value)) {
+                    changed = true;
+                    return { ...r, value: null };
+                }
+                return r;
+            });
+            return changed ? next : prev;
+        });
+    }, [selectedClass, skillMap]);
+    const sortOptions = React.useMemo(() => buildSortOptions(t), [t]);
 
     const rowsRef = React.useRef(rows);
     rowsRef.current = rows;
     const nameRef = React.useRef(searchName);
     nameRef.current = searchName;
+    const sortRef = React.useRef(sort);
+    sortRef.current = sort;
     const pageRef = React.useRef(page);
     pageRef.current = page;
     const loadingRef = React.useRef(false);
@@ -221,19 +117,17 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         }, 400);
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rows, searchName]);
+    }, [rows, searchName, sort]);
 
     function loadPage(nextPage, replace) {
         if (loadingRef.current && !replace) return;
         loadingRef.current = true;
         setLoading(true);
         const seq = ++loadSeq.current;
-        // The sort order comes from a "Sort by" filter row; default: top.
-        const sortRow = rowsRef.current.find((r) => r.category === 'sort' && r.value);
         const params = new URLSearchParams({
             page: String(nextPage),
             limit: '24',
-            sort: sortRow ? sortRow.value : 'top',
+            sort: sortRef.current,
         });
         if (nameRef.current) params.set('q', nameRef.current);
         // Last row wins per category. "Any" (the Item cascade's placeholder
@@ -246,7 +140,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
             else params.set(r.category, r.value);
         }
 
-        fetch(`/api/v1/builds/public?${params.toString()}`)
+        fetch(`/api/v2/builds/public?${params.toString()}`)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => {
                 if (seq !== loadSeq.current) return;
@@ -309,29 +203,98 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
         // The debounced effect picks up the cleared rows/name and reloads.
         setRows([{ key: Date.now(), category: null, value: null }]);
         setSearchName('');
+        setSort('top');
         setPage(1);
     }
 
-    function toggleFavourite(buildId, favourite) {
+    const toggleFavourite = React.useCallback((buildId, favourite) => {
         setBuilds((prev) =>
             prev.map((b) => {
                 if (b.id !== buildId) return b;
                 return { ...b, myFavourite: favourite, favouriteCount: b.favouriteCount + (favourite ? 1 : -1) };
             })
         );
+    }, []);
+
+    // Comparison picking: builds are collected in localStorage, shown on a
+    // small dock, and two picks auto-navigate to /compare.
+    const router = useRouter();
+    const [comparePicks, setComparePicks] = React.useState([]);
+    React.useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(COMPARE_PICKS_KEY);
+            if (raw) setComparePicks(JSON.parse(raw).slice(0, 2));
+        } catch (e) {}
+    }, []);
+
+    function persistCompare(next) {
+        setComparePicks(next);
+        try {
+            if (next.length > 0) window.localStorage.setItem(COMPARE_PICKS_KEY, JSON.stringify(next));
+            else window.localStorage.removeItem(COMPARE_PICKS_KEY);
+        } catch (e) {}
     }
 
-    const sortOptions = [
-        { value: 'top', label: t('database.sort.top') },
-        { value: 'new', label: t('database.sort.new') },
-        { value: 'power', label: t('database.sort.power') },
-    ];
+    const toggleCompare = React.useCallback(
+        (build) => {
+            const url = build.url;
+            const current = comparePicks.some((p) => p.url === url);
+            let next = comparePicks.filter((p) => p.url !== url);
+            if (!current) {
+                const display =
+                    build.name ||
+                    [build.class, build.spec].filter(Boolean).join(' · ') ||
+                    `${t('builds.fallbackName')} ${build.id}`;
+                next = [...next, { url, id: build.id, name: display }];
+            }
+            persistCompare(next);
+            if (next.length === 2) {
+                // Both sides picked: go compare. Clear the dock so the next pair
+                // starts fresh.
+                const qs = new URLSearchParams({
+                    left: next[0].url,
+                    right: next[1].url,
+                });
+                persistCompare([]);
+                router.push('/compare?' + qs.toString());
+            }
+        },
+        [comparePicks, router, t]
+    );
+
+    function goCompareSingle() {
+        if (comparePicks.length === 0) return;
+        const qs = new URLSearchParams({ left: comparePicks[0].url });
+        persistCompare([]);
+        router.push('/compare?' + qs.toString());
+    }
+
+    function clearCompare() {
+        persistCompare([]);
+    }
 
     return (
         <div className={styles.page}>
             <h1 className={styles.title}>
                 <TranslatableText identifier="database.title" />
             </h1>
+            <DatabaseTabs active="builds" />
+
+            <div className={styles.sortControl}>
+                <FloatingLabel label={t('database.filters.sort')}>
+                    <Select
+                        instanceId="db-sort"
+                        options={sortOptions}
+                        value={sortOptions.find((o) => o.value === sort) || null}
+                        onChange={(opt) => setSort(opt ? opt.value : 'top')}
+                        isSearchable={false}
+                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                        theme={selectTheme}
+                        styles={selectStyles}
+                    />
+                </FloatingLabel>
+            </div>
 
             {rows.length > 0 && (
                 <div className={styles.rows}>
@@ -357,7 +320,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
                 <input
                     type="button"
                     className={styles.addBtn}
-                    value="+ Add"
+                    value={'+ ' + t('common.add')}
                     aria-label={t('database.addFilter')}
                     onClick={addFilterRow}
                 />
@@ -373,8 +336,8 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
             />
 
             <div className={sf.filterActions}>
-                <input type="button" className={sf.submitButton} value="Search" onClick={searchNow} />
-                <input type="button" className={sf.warningButton} value="Reset" onClick={resetFilters} />
+                <input type="button" className={sf.submitButton} value={t('common.search')} onClick={searchNow} />
+                <input type="button" className={sf.warningButton} value={t('common.reset')} onClick={resetFilters} />
             </div>
 
             {error ? (
@@ -400,9 +363,40 @@ export default function DatabasePage({ classOptions, specMap, itemGroups }) {
                             user={authChecked ? user : null}
                             base={base}
                             onToggleFavourite={toggleFavourite}
+                            onAddCompare={toggleCompare}
+                            compareActive={comparePicks.some((p) => p.url === build.url)}
                         />
                     ))}
                 </InfiniteScroll>
+            )}
+
+            {comparePicks.length > 0 && (
+                <div className={styles.compareDock}>
+                    <div className={styles.compareDockInfo}>
+                        <span className={styles.compareDockTitle}>{t('compare.action')}</span>
+                        {comparePicks.map((p) => (
+                            <span key={p.url} className={styles.compareDockPick}>
+                                {p.name}
+                            </span>
+                        ))}
+                        <span className={styles.compareDockHint}>
+                            {comparePicks.length === 1 ? t('compare.dockHint') : ''}
+                        </span>
+                    </div>
+                    <div className={styles.compareDockActions}>
+                        <button type="button" className={styles.compareDockBtn} onClick={goCompareSingle}>
+                            {t('compare.action')}
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.compareDockClear}
+                            onClick={clearCompare}
+                            aria-label={t('compare.clearPicks')}
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

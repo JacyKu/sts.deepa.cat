@@ -1,0 +1,571 @@
+/* Item stat history page (app/items/history). Structure only - stat text
+   colors come from Items.module.css stat classes; palette from the theme
+   variables used across the site. */
+
+.summaryLine {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    color: var(--text-2, #ddd);
+    margin: 4px 0 12px;
+    font-size: 14px;
+}
+
+.backLink {
+    color: var(--accent-line, var(--accent, #4a78fc));
+    text-decoration: none;
+}
+
+.backLink:hover {
+    text-decoration: underline;
+}
+
+.summaryText {
+    color: var(--text-2, #ddd);
+}
+
+.groupList {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 880px;
+}
+
+.card {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--glass-1, #1d1a24);
+    border: 2px solid var(--glass-border, #444);
+    box-shadow: var(--shadow-elevated);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+
+.groupHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+}
+
+.groupHeader:hover {
+    background: var(--glass-2, rgba(255, 255, 255, 0.06));
+    filter: brightness(108%);
+}
+
+.groupIcon {
+    padding: 4px;
+    flex: 0 0 auto;
+}
+
+.groupIcon > :global(.monumenta-items),
+.groupIcon > :global(.minecraft) {
+    transform: scale(1);
+}
+
+.groupTitles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.groupName {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.groupName a {
+    color: var(--text-1, #eee);
+    text-decoration: none;
+}
+
+.groupName a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.groupMeta {
+    font-size: 12px;
+    color: var(--text-2, #bbb);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.removedChip {
+    color: #fc5454;
+    border: 1px solid rgba(252, 84, 84, 0.6);
+    border-radius: 999px;
+    padding: 0 7px;
+    font-size: 11px;
+}
+
+.chevron {
+    margin-left: auto;
+    color: var(--text-2, #999);
+    transition: transform 0.2s ease;
+    flex: 0 0 auto;
+}
+
+.chevronOpen {
+    transform: rotate(90deg);
+}
+
+.timeline {
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--glass-border, #444);
+}
+
+.versionRow {
+    margin: 4px 0 12px 14px;
+    padding-left: 14px;
+    border-left: 1px solid var(--glass-border, #555);
+    position: relative;
+}
+
+.versionRow::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-line, #4a78fc);
+}
+
+.versionHead {
+    margin-bottom: 3px;
+}
+
+.versionDate {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-2, #aaa);
+}
+
+.diffLine {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Leading + / − marker on added and removed stat lines (mono, like the
+   app's other numeric values). */
+.changeMark {
+    font-family: monospace;
+    font-weight: 700;
+}
+
+/* Before-side of a changed stat keeps its stat colour, just slightly
+   dimmed so the new value still stands out. */
+.oldValue {
+    opacity: 0.75;
+}
+
+.arrow {
+    color: var(--text-2, #777);
+}
+
+.removedText {
+    opacity: 0.75;
+}
+
+/* Unchanged stats in a full item stat listing: shown so the item's whole
+   stat block is readable, de-emphasised against the changed lines. */
+.sameLine {
+    opacity: 0.7;
+}
+
+/* Plain numeric change on a changed stat line, in the app's mono style: grey
+   brackets with the value coloured by its direction. */
+.delta {
+    font-size: 0.9em;
+    font-family: monospace;
+}
+
+.deltaBracket {
+    color: var(--text-2, #999);
+}
+
+.deltaUp {
+    color: #4ade4a;
+}
+
+.deltaDown {
+    color: #fc5454;
+}
+
+.complexLine {
+    font-size: 12px;
+    font-style: italic;
+    color: var(--text-2, #999);
+    margin: 2px 0;
+}
+
+.currentRow {
+    margin: 0 0 2px 14px;
+    padding-left: 14px;
+}
+
+.currentBadge {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--text-2, #aaa);
+    background: var(--glass-1, #242032);
+    border: 1px solid var(--glass-border, #444);
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+
+/* API changes page (app/items/changes) --------------------------------- */
+
+/* Small sprite box for dense change lists. The item sheet styles scale every
+   sprite with !important so its artwork renders at a uniform size; zooming
+   the box - which composes with that transform - shows the whole icon at
+   half size instead of cropping it. */
+.compactIcon {
+    width: 80px;
+    height: 80px;
+    zoom: 0.5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+
+.compactIcon > :global(.monumenta-items),
+.compactIcon > :global(.monumenta-charms),
+.compactIcon > :global(.minecraft) {
+    image-rendering: pixelated;
+}
+
+.runHeader {
+    gap: 12px;
+}
+
+.runTime {
+    font-weight: bold;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+/* Times are UTC so every visitor reads the same clock. */
+.runTimeZone {
+    font-size: 10px;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    color: var(--text-2, #bbb);
+}
+
+.runCounts {
+    font-size: 12px;
+    color: var(--text-2, #bbb);
+}
+
+/* Experimental feature badge (same styling as the compare page). */
+.experimentalBadge {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 12px;
+    padding: 3px 10px;
+    border: 1px solid var(--accent, #9c59d1);
+    background: var(--surface-2);
+    color: var(--accent, #9c59d1);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* One calendar date's worth of runs (updates are kept forever, so the page
+   reads as a dated changelog). */
+.dateGroup {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dateHeading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0 0;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: left;
+    color: var(--text-1, #eee);
+}
+
+.dateHeading::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-border, #444);
+}
+
+/* Per-item history panel rendered inside the item tiles. */
+.itemHistory {
+    margin-top: 6px;
+    width: 100%;
+    border-top: 1px dashed var(--glass-border, #444);
+}
+
+.itemHistoryToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 2px;
+    background: none;
+    border: none;
+    color: var(--text-2, #bbb);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.itemHistoryToggle:hover {
+    color: var(--text-1, #eee);
+}
+
+/* The timeline inside item tiles is tighter than the changes page's run
+   cards: smaller padding and indents so the history fits the narrow tile. */
+.itemHistory .timeline {
+    padding: 6px 10px 8px;
+}
+
+.itemHistory .versionRow {
+    margin: 2px 0 8px 8px;
+    padding-left: 10px;
+}
+
+.itemHistory .versionHead {
+    margin-bottom: 1px;
+}
+
+.itemHistory .currentRow {
+    margin: 0 0 2px 8px;
+    padding-left: 10px;
+}
+
+.runSection {
+    margin: 8px 0 14px;
+}
+
+.runSection:last-child {
+    margin-bottom: 2px;
+}
+
+.runSectionTitle {
+    margin: 0 0 6px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-2, #aaa);
+}
+
+.runSectionCount {
+    font-weight: normal;
+}
+
+.chipList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.itemChip {
+    font-size: 13px;
+    border: 1px solid var(--glass-border, #444);
+    background: var(--glass-2, rgba(255, 255, 255, 0.06));
+    padding: 3px 10px;
+    transition: filter 0.15s ease;
+}
+
+.itemChip:hover {
+    filter: brightness(115%);
+}
+
+.itemChipRemoved {
+    border-color: rgba(252, 84, 84, 0.5);
+}
+
+.itemChip a {
+    color: var(--text-1, #eee);
+    text-decoration: none;
+}
+
+.itemChip a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.changeList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.changeEntry {
+    border: 1px solid var(--glass-border, #444);
+    background: var(--glass-2, rgba(255, 255, 255, 0.06));
+    padding: 8px 12px;
+    transition: filter 0.15s ease;
+}
+
+.changeEntry:hover {
+    filter: brightness(108%);
+}
+
+.changeEntryHead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Star switcher for masterwork variants, styled like the build card stars
+   (filled gold stars, no outlines). */
+.masterworkSwitcher {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    letter-spacing: 1px;
+    flex: 0 0 auto;
+}
+
+.masterworkStar {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--text-2, #bbb);
+    cursor: pointer;
+}
+
+.masterworkStarOn {
+    color: #fcb23d;
+}
+
+.changeEntryTitles {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.changeEntryDiffs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 7px;
+    padding-left: 4px;
+}
+
+/* Page-level toggle for the hidden lore-only entries (plain checkbox label,
+   like the toggles on the items page). */
+.toggleRow {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 18px;
+    margin: -4px 0 10px;
+}
+
+.loreToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-2, #bbb);
+    cursor: pointer;
+    user-select: none;
+}
+
+.loreToggle:hover {
+    color: var(--text-1, #eee);
+}
+
+.loreToggle input {
+    margin: 0;
+    accent-color: var(--accent, #9c59d1);
+}
+
+.skeletonRunCard {
+    width: 100%;
+    background: var(--glass-1, #1d1a24);
+    border: 2px solid var(--glass-border, #444);
+    box-shadow: var(--shadow-elevated);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 12px;
+    height: 78px;
+}
+
+/* Loading placeholder: mirrors the group/run list geometry. */
+.skeletonSummary {
+    height: 14px;
+    width: 260px;
+    margin: 4px 0 12px;
+}
+
+.skeletonCard {
+    width: 100%;
+    background: var(--glass-2, #1d1a24);
+    border: 1px solid var(--glass-border, #444);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    height: 78px;
+}
+
+.skeletonIcon {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 auto;
+}
+
+.skeletonLines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.skeletonLine {
+    height: 15px;
+    width: 45%;
+}
+
+.skeletonLineShort {
+    height: 12px;
+    width: 25%;
+}

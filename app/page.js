@@ -5,14 +5,16 @@ import styles from './_src/styles/Home.module.css';
 import Link from 'next/link';
 import { getStsBase } from './_src/utils/base';
 import TranslatableText from './_src/components/translatableText';
+import { useTranslation } from './_src/components/useTranslation';
 
 export default function Home() {
+    const t = useTranslation();
     const [base, setBase] = React.useState('/sts');
     const [itemCount, setItemCount] = React.useState(null);
 
     React.useEffect(() => {
         setBase(getStsBase());
-        fetch('/api/v1/spritesheetCoverage')
+        fetch('/api/v2/spritesheetCoverage')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (d && d.totals) setItemCount(d.totals.items);
@@ -24,7 +26,11 @@ export default function Home() {
         <div className={styles.container}>
             <main className={styles.main}>
                 <h1 className={styles.title}>Spare the Sympathy</h1>
-                {itemCount !== null && <p className={styles.stats}>{itemCount.toLocaleString()} items catalogued</p>}
+                {itemCount !== null && (
+                    <p className={styles.stats}>
+                        {itemCount.toLocaleString()} {t('index.itemsCatalogued')}
+                    </p>
+                )}
                 <div className={styles.grid}>
                     <Link href={base + '/items'} className={styles.card}>
                         <h2>

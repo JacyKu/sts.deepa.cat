@@ -45,8 +45,18 @@ const MAINHAND_ATTRIBUTES = new Set([
     'potion_recharge_rate',
 ]);
 
+// Spell power on wands reads as "+X% ..." on the item, like the regular
+// attribute lines, instead of the flat "_base" display. A weapon's base
+// attack speed is a plain speed value (e.g. 1.6 / 0.8), NOT a percentage, so
+// it stays on the "_base" (base stat) format.
+const PERCENT_BASE_STATS = new Set(['spell_power_base']);
+const PERCENT_BASE_LABELS = new Set(['Spell Power Base']);
+
 function attributeBaseName(name) {
-    return name.replace(/_percent$/, '').replace(/_flat$/, '').replace(/_base$/, '');
+    return name
+        .replace(/_percent$/, '')
+        .replace(/_flat$/, '')
+        .replace(/_base$/, '');
 }
 
 function inferFormat(name, value) {
@@ -54,6 +64,7 @@ function inferFormat(name, value) {
     if (name.startsWith('curse_')) return Formats.CURSE;
     if (name.endsWith('_fragility')) return Formats.CURSE;
     if (PLAIN_CURSES.has(name)) return Formats.CURSE;
+    if (PERCENT_BASE_STATS.has(name)) return Formats.ATTRIBUTE;
     if (name.endsWith('_percent') || name.endsWith('_flat')) return Formats.ATTRIBUTE;
     if (name.endsWith('_base')) return Formats.BASE_STAT;
     if (Number.isInteger(value) && value >= 1) return Formats.ENCHANT;
@@ -65,12 +76,14 @@ function formatRank(format) {
         case Formats.ENCHANT:
         case Formats.SINGLE_ENCHANT:
             return 0;
-        case Formats.ATTRIBUTE:
+        case Formats.CURSE:
             return 1;
-        case Formats.BASE_STAT:
+        case Formats.ATTRIBUTE:
             return 2;
+        case Formats.BASE_STAT:
+            return 3;
         default:
-            return 3; // curses
+            return 4;
     }
 }
 
@@ -85,7 +98,9 @@ class StatFormatter {
             .replace(/[\s+ ]/g, '');
     }
 
-    static toHumanReadable(stat, value) {
+    // Raw human-readable stat name ("attack_damage_percent" -> "Attack Damage
+    // Percent"), before any display suffix stripping.
+    static humanName(stat) {
         let humanStr = stat.name
             .split('_')
             .filter((part) => part != 'm' && part != 'p' && part != 'bow' && part != 'tool')
@@ -94,39 +109,69 @@ class StatFormatter {
         humanStr = humanStr.replace(' Of ', ' of '); // curses, ashes, rage of the keter
         humanStr = humanStr.replace(' The ', ' the '); // rage of the keter, curse of the veil
         humanStr = humanStr.replace('Jungles', "Jungle's"); // kapple
-        switch (stat.format) {
-            case Formats.ENCHANT: {
-                humanStr = `${humanStr} ${value}`;
-                break;
-            }
-            case Formats.SINGLE_ENCHANT: {
-                // The level should not be displayed. humanStr is already good to go.
-                break;
-            }
-            case Formats.ATTRIBUTE: {
-                humanStr = `${value > 0 ? '+' : ''}${value}${humanStr.includes(' Percent') || humanStr == 'Spell Power Base' ? '%' : ''} ${humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '')}`;
-                break;
-            }
-            case Formats.CURSE: {
-                humanStr = `${humanStr} ${value}`;
-                break;
-            }
-            case Formats.SINGLE_CURSE: {
-                // The level should not be displayed. humanStr is already good to go.
-                break;
-            }
-            case Formats.BASE_STAT: {
-                humanStr = `${value} ${humanStr.replace(' Base', '').replace(' Flat', '')}`;
-                break;
-            }
+        return humanStr;
+    }
+
+    // Display label with format suffixes removed ("Attack Damage Percent" ->
+    // "Attack Damage").
+    static displayLabel(stat) {
+        const humanStr = StatFormatter.humanName(stat);
+        if (stat.format === Formats.ATTRIBUTE) {
+            return humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '');
+        }
+        if (stat.format === Formats.BASE_STAT) {
+            return humanStr.replace(' Base', '').replace(' Flat', '');
         }
         return humanStr;
+    }
+
+    // Display value without the label ("+15%", "14", "3"; empty for stats
+    // whose level is not shown).
+    static valueText(stat, value) {
+        switch (stat.format) {
+            case Formats.ATTRIBUTE: {
+                const humanStr = StatFormatter.humanName(stat);
+                const percent = humanStr.includes(' Percent') || PERCENT_BASE_LABELS.has(humanStr);
+                return `${value > 0 ? '+' : ''}${value}${percent ? '%' : ''}`;
+            }
+            case Formats.ENCHANT:
+            case Formats.CURSE:
+            case Formats.BASE_STAT:
+                return `${value}`;
+            default:
+                // SINGLE_ENCHANT / SINGLE_CURSE: the level is not displayed.
+                return '';
+        }
+    }
+
+    static toHumanReadable(stat, value) {
+        const label = StatFormatter.displayLabel(stat);
+        const valueText = StatFormatter.valueText(stat, value);
+        switch (stat.format) {
+            case Formats.ENCHANT:
+            case Formats.CURSE: {
+                // "Melee Protection 2", "Curse of the Veil 3".
+                return `${label} ${valueText}`;
+            }
+            case Formats.ATTRIBUTE:
+            case Formats.BASE_STAT: {
+                // "+15% Speed", "1.6 Attack Speed".
+                return `${valueText} ${label}`;
+            }
+            default: {
+                // SINGLE_ENCHANT / SINGLE_CURSE: "Absorbing Barrier".
+                return label;
+            }
+        }
     }
 
     static statStyle(stat, value, type) {
         switch (stat.format) {
             case Formats.ATTRIBUTE: {
                 if (value < 0) return 'negativeStat';
+                // Wand spell power base reads as a regular blue attribute
+                // rather than a mainhand-green line.
+                if (PERCENT_BASE_STATS.has(stat.name)) return 'statAttribute';
                 const base = attributeBaseName(stat.name);
                 if (ARMOR_AGILITY_STATS.has(base)) return 'statArmorAgility';
                 if (MAINHAND_ATTRIBUTES.has(base)) return 'statMainhand';
@@ -145,7 +190,7 @@ class StatFormatter {
         }
     }
 
-    static formatStats(stats) {
+    static formatStats(stats, statColors) {
         if (stats == undefined) {
             return '';
         }
@@ -168,20 +213,66 @@ class StatFormatter {
             entries.push({ name, rawValue, format: inferFormat(name, rawValue) });
         }
 
-        // Group by stat type (enchants, attributes, base stats, curses),
-        // then alphabetically within each group.
+        // Group by stat type (enchants, curses, attributes, base stats),
+        // then alphabetically within each group. Curses sit right below the
+        // enchants and above the attribute/base lines.
         entries.sort((a, b) => {
             const rankDiff = formatRank(a.format) - formatRank(b.format);
             if (rankDiff !== 0) return rankDiff;
             return a.name.localeCompare(b.name);
         });
 
-        return entries.map(({ name, rawValue, format }) => (
-            <TranslatableEnchant key={name} title={name} className={styles[this.statStyle({ name, format }, rawValue)]}>
-                {this.toHumanReadable({ name, format }, rawValue)}
-            </TranslatableEnchant>
-        ));
+        return entries.map(({ name, rawValue, format }) => {
+            // The Monumenta API provides the exact color of each stat line;
+            // it overrides the convention-based class when present.
+            const color = statColors && statColors[name];
+            return (
+                <TranslatableEnchant
+                    key={name}
+                    title={name}
+                    className={styles[this.statStyle({ name, format }, rawValue)]}
+                    style={color ? { color } : undefined}
+                >
+                    {this.toHumanReadable({ name, format }, rawValue)}
+                </TranslatableEnchant>
+            );
+        });
     }
+}
+
+// History page support: describe a single stat the same way formatStats
+// renders it, so change logs can diff one version against another.
+export function describeStat(name, rawValue, color) {
+    const format = inferFormat(name, rawValue);
+    const stat = { name, format };
+    return {
+        name,
+        rawValue,
+        format,
+        color: color || null,
+        text: StatFormatter.toHumanReadable(stat, rawValue),
+        // Label and value separately, so change lines can show the label once
+        // ("Attack Damage 14 -> 10") instead of repeating the full text.
+        label: StatFormatter.displayLabel(stat),
+        valueText: StatFormatter.valueText(stat, rawValue),
+        style: StatFormatter.statStyle(stat, rawValue),
+        rank: formatRank(format),
+    };
+}
+
+// Unwraps an item's stats object into a Map of stat name -> describeStat
+// (hides the same internal flags formatStats skips).
+export function statSnapshot(stats, statColors) {
+    const out = new Map();
+    if (!stats || typeof stats !== 'object') return out;
+    for (const name of Object.keys(stats)) {
+        if (HIDDEN_STATS.has(name)) continue;
+        let raw = stats[name];
+        if (raw !== undefined && raw !== null && typeof raw === 'object' && 'value' in raw) raw = raw.value;
+        if (raw === undefined) continue;
+        out.set(name, describeStat(name, raw, statColors && statColors[name]));
+    }
+    return out;
 }
 
 export default StatFormatter;

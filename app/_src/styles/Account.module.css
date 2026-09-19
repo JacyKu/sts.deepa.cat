@@ -1,0 +1,807 @@
+.page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.title {
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+.card {
+    background: var(--glass-1);
+    border: 1px solid var(--glass-border);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Danger zone: a slightly red outline to set it apart from the other cards. */
+.dangerCard {
+    border-color: color-mix(in srgb, var(--negative, #ce2d27) 45%, var(--glass-border));
+}
+
+/* Page tabs (e.g. between My Account and Site settings). */
+.tabs {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.tab {
+    padding: 0.4rem 0.9rem;
+    color: var(--text-2);
+    border: 1px solid var(--glass-border);
+    background: var(--surface-2);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.tab:hover {
+    color: var(--text-1);
+    border-color: var(--text-2);
+    text-decoration: none;
+}
+
+.tabActive,
+.tabActive:hover {
+    color: var(--text-1);
+    border-color: var(--accent, #9c59d1);
+    box-shadow: 0 0 0 1px var(--accent, #9c59d1) inset;
+    cursor: default;
+}
+
+.cardTitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+}
+
+.rowLabel {
+    color: var(--text-2);
+    min-width: 140px;
+}
+
+.rowValue {
+    color: var(--text-1);
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.muted {
+    color: var(--text-2);
+    margin: 0;
+}
+
+.error {
+    color: #ff6b6b;
+    margin: 0;
+}
+
+.success {
+    color: #6bcf7f;
+    margin: 0;
+}
+
+.uuid {
+    font-family: monospace;
+    color: var(--text-1);
+    user-select: all;
+}
+
+.uuidMuted {
+    font-family: monospace;
+    color: var(--text-2);
+    user-select: all;
+    font-size: 0.85rem;
+}
+
+/* Shortened UUID + its copy button. */
+.uuidWrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.copyUuidButton {
+    padding: 0.15rem 0.5rem;
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.copyUuidButton:hover {
+    border-color: var(--control-border-hover);
+    background: var(--surface-2);
+    color: var(--text-1);
+}
+
+.mcAvatar {
+    border-radius: 4px;
+    border: 1px solid var(--glass-border);
+    image-rendering: pixelated;
+    flex-shrink: 0;
+}
+
+/* Profile picture picker: the two avatar options side by side. */
+.avatarChoices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.avatarChoice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--glass-2);
+    border: 2px solid var(--glass-border);
+    color: var(--text-1);
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.avatarChoice:hover:not(:disabled) {
+    border-color: var(--control-border-hover);
+    background: var(--surface-2);
+}
+
+.avatarChoice:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.avatarChoiceActive,
+.avatarChoiceActive:hover:not(:disabled) {
+    border-color: var(--accent, #9c59d1);
+    background: var(--surface-2);
+}
+
+.avatarChoice img {
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+}
+
+.avatarPixel {
+    image-rendering: pixelated;
+}
+
+.avatarPlaceholder {
+    width: 48px;
+    height: 48px;
+    border: 1px dashed var(--glass-border);
+    border-radius: 4px;
+}
+
+.avatarChoiceLabel {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* Uploaded picture: the choice button plus a small remove badge. */
+.avatarChoiceWrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.avatarRemove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--negative, #ce2d27);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.avatarRemove:hover:not(:disabled) {
+    border-color: var(--negative, #ce2d27);
+    background: var(--negative, #ce2d27);
+    color: #fff;
+}
+
+.avatarRemove:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.avatarFileInput {
+    display: none;
+}
+
+.avatarUploadPlus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 1px dashed var(--glass-border);
+    border-radius: 4px;
+    color: var(--text-2);
+    font-size: 22px;
+    line-height: 1;
+}
+
+.loginLink {
+    color: var(--accent, #9c59d1);
+    font-weight: 600;
+}
+
+.linkList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.linkRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+}
+
+/* Name + UUID/date stack next to the avatar, so the row stays readable on
+   narrow screens instead of squeezing every field onto one line. */
+.linkMain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.linkMeta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.75rem;
+    min-width: 0;
+}
+
+.linkDate {
+    color: var(--text-2);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.unlinkButton,
+.confirmButton {
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.35rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.unlinkButton:hover,
+.confirmButton:hover {
+    background: var(--glass-3, var(--glass-2));
+}
+
+/* Disconnecting is destructive: hover fills red like the other danger
+   buttons. */
+.unlinkButton:hover {
+    border-color: var(--negative, #ce2d27);
+    background: var(--negative, #ce2d27);
+    color: var(--text-on-accent, #fff);
+}
+
+.unlinkButton:disabled,
+.confirmButton:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.confirmButton {
+    align-self: flex-start;
+    background: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.55rem 1.5rem;
+}
+
+.deleteButton {
+    align-self: flex-start;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #ff8080;
+    padding: 0.55rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.deleteButton:hover {
+    background: rgba(239, 68, 68, 0.28);
+}
+
+.deleteButton:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* Skeleton building blocks for the page loading state: flat slabs matching
+   the page's surfaces (no border or rounding of their own, subtle pulse). */
+.sk {
+    background: var(--glass-2);
+    animation: accountSkPulse 1.2s ease-in-out infinite;
+}
+
+.skTitle {
+    width: 240px;
+    height: 30px;
+    margin: 0.25rem 0 1rem;
+}
+
+.skTabRow {
+    display: flex;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
+.skTab {
+    width: 110px;
+    height: 30px;
+}
+
+.skCard {
+    min-height: 150px;
+    padding: 0;
+}
+
+.skIcon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+/* Shimmer lines sit flush inside the linked-account row skeleton. */
+.linkRow .skLine,
+.linkRow .skLineShort {
+    margin-bottom: 0;
+    width: 40%;
+}
+
+.skLine {
+    width: 60%;
+    height: 14px;
+    margin-bottom: 12px;
+}
+
+.skLineShort {
+    width: 40%;
+    height: 14px;
+}
+
+@keyframes accountSkPulse {
+    0%,
+    100% {
+        opacity: 0.55;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.cancelButton {
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.55rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cancelButton:hover {
+    background: var(--glass-3, var(--glass-2));
+}
+
+.confirmRow {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+/* Theme section: a row of swatch cards (one per look) plus a "Round
+   corners" styling toggle that applies on top of any theme. */
+.themeGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.themeCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    color: var(--text-1);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: left;
+}
+
+.themeCard:hover {
+    border-color: var(--text-2);
+}
+
+.themeCardActive {
+    border-color: var(--accent, #9c59d1);
+    box-shadow: 0 0 0 1px var(--accent, #9c59d1);
+}
+
+.themeSwatch {
+    display: block;
+    height: 64px;
+    border: 1px solid var(--glass-border);
+    /* Per-card layered backgrounds come from inline CSS vars so each
+       swatch can mimic its theme's real look. */
+    background: var(--swatch-bg, #111);
+    position: relative;
+}
+
+.themeToggleRow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    color: var(--text-1);
+    font-size: 0.95rem;
+    width: fit-content;
+}
+
+.themeToggleRow input {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent, #9c59d1);
+}
+
+/* Corner-radius slider, shown only while "Round corners" is on. */
+.radiusRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+    color: var(--text-1);
+    font-size: 0.95rem;
+    width: fit-content;
+}
+
+.radiusRow input[type='range'] {
+    width: 200px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent, #9c59d1);
+}
+
+.radiusLabel {
+    min-width: 90px;
+}
+
+.radiusValue {
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    min-width: 40px;
+}
+
+/* Backdrop colour list: one chip per scheme, each with a flag-stripe
+   preview, sitting under the theme cards. */
+.glassColours {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid var(--glass-border);
+    padding-top: 0.75rem;
+}
+
+.subTitle {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-1);
+}
+
+/* Tiny labels splitting the backdrop colour chips into pride flags and
+   plain colours. */
+.colourGroup {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0.25rem 0 -0.15rem;
+    color: var(--text-2);
+}
+
+.colourList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.colourChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.6rem 0.3rem 0.35rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    color: var(--text-1);
+    font-size: 0.85rem;
+}
+
+.colourChip:hover {
+    border-color: var(--text-2);
+}
+
+.colourChipActive {
+    border-color: var(--accent, #9c59d1);
+    box-shadow: 0 0 0 1px var(--accent, #9c59d1);
+}
+
+.colourSwatch {
+    display: block;
+    width: 44px;
+    height: 16px;
+    border: 1px solid var(--glass-border);
+    /* Stripe preview comes from an inline --chip-bg gradient. */
+    background: var(--chip-bg, #888);
+}
+
+.glassToggles {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.customEditor {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+}
+
+.colourPickers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 100%;
+}
+
+.colourPickerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.colourPicker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-1);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.colourPicker input[type='color'] {
+    width: 44px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--glass-border);
+    background: none;
+    cursor: pointer;
+}
+
+.colourPicker input[type='color']:hover {
+    border-color: var(--text-2);
+}
+
+.colourRemove,
+.colourAdd {
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.colourRemove:hover,
+.colourAdd:hover {
+    background: var(--glass-3, var(--glass-2));
+    border-color: var(--text-2);
+}
+
+/* Backdrop blur slider: frosted veil above the backdrop. */
+.blurRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-top: 0.35rem;
+}
+
+.blurLabel {
+    color: var(--text-2);
+    font-size: 0.85rem;
+    min-width: 96px;
+}
+
+.blurRow input[type='range'] {
+    flex: 1;
+    min-width: 140px;
+    accent-color: var(--accent, #9c59d1);
+    cursor: pointer;
+}
+
+.blurValue {
+    color: var(--text-1);
+    font-size: 0.85rem;
+    min-width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Uploaded backdrop image (stored in the browser only). */
+.accentRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.accentRow .colourRemove {
+    margin-left: auto;
+}
+
+.uploadRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.uploadButton {
+    background: var(--glass-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.uploadButton:hover {
+    background: var(--glass-3, var(--glass-2));
+    border-color: var(--text-2);
+}
+
+.uploadButton input {
+    display: none;
+}
+
+.uploadNote {
+    color: var(--text-2);
+    font-size: 0.8rem;
+}
+
+/* Site options (builder/cache toggles + font) at the bottom of the Settings
+   card. Kept compact: the toggle chips sit in one wrapping row and the font
+   picker is a slim inline row. */
+.siteOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid var(--glass-border);
+    padding-top: 0.6rem;
+}
+
+.fontRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.fontLabel {
+    color: var(--text-2);
+    font-size: 0.85rem;
+}
+
+.fontSelect {
+    width: 120px;
+}
+
+.headerTitleControls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.headerTitleInput {
+    width: 170px;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.headerTitleInput::placeholder {
+    color: var(--text-2);
+}
+
+.headerTitleInput:focus {
+    outline: none;
+    border-color: var(--accent-line, var(--control-border-hover));
+}
+
+.siteToggleRow {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+/* These toggles draw themselves as bordered chips (SearchForm's toggleLabel);
+   strip that so they match the borderless checkbox rows used by the other
+   settings (Round corners etc). */
+.bareToggle,
+.bareToggle:hover {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 0.85rem;
+}

@@ -6,9 +6,9 @@ const LEGACY_COMPRESSED_PREFIX = 'z:';
 const BINARY_V1_PREFIX = 'v1_';
 
 // The build token generation this codec currently produces. Short links are
-// versioned against this (/b/v6/<id>) so older decoder versions can be kept
+// versioned against this (/b/v7/<id>) so older decoder versions can be kept
 // around and the link routing stays honest about what a token contains.
-export const CURRENT_TOKEN_VERSION = 6;
+export const CURRENT_TOKEN_VERSION = 7;
 
 // Reads the version byte out of a binary token (v1_<base64url>), or null for
 // legacy formats. Used to version short links and to validate that a token
@@ -23,18 +23,64 @@ export function getBuildTokenVersion(token) {
     }
 }
 
-function isLegacyBuildString(value) {
-    // Current legacy format is a querystring-like payload containing keys like m=, o=, ...
-    return typeof value === 'string' && value.includes('=') && value.includes('&');
+// The six equipment item-key hashes stored in a v1 binary token (little
+// endian, right after the version byte), zero slots removed. Returns null for
+// legacy tokens. Used to resolve which public custom items a build references
+// without decoding the whole token.
+export function getBuildItemHashes(token) {
+    if (typeof token !== 'string' || !token.startsWith(BINARY_V1_PREFIX)) return null;
+    try {
+        const bytes = fromBase64Url(token.slice(BINARY_V1_PREFIX.length));
+        if (bytes.length < 25) return null;
+        const hashes = [];
+        for (let i = 0; i < 6; i++) {
+            const offset = 1 + i * 4;
+            const hash =
+                (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+            if (hash !== 0) hashes.push(hash);
+        }
+        return hashes;
+    } catch (e) {
+        return null;
+    }
 }
 
-function fnv1a32(str) {
+// Same hashes but paired with their equipment slot, so a referenced custom
+// item can be placed on the build card in the right slot. Returns null for
+// legacy tokens.
+export function getBuildItemSlots(token) {
+    if (typeof token !== 'string' || !token.startsWith(BINARY_V1_PREFIX)) return null;
+    try {
+        const bytes = fromBase64Url(token.slice(BINARY_V1_PREFIX.length));
+        if (bytes.length < 25) return null;
+        const keys = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+        const slots = [];
+        for (let i = 0; i < 6; i++) {
+            const offset = 1 + i * 4;
+            const hash =
+                (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+            if (hash !== 0) slots.push({ slot: keys[i], hash });
+        }
+        return slots;
+    } catch (e) {
+        return null;
+    }
+}
+
+// FNV-1a over UTF-16 code units - the same hash the token stores for item
+// keys (kept in sync with the encoder above and the Java BuildTokenEncoder).
+export function fnv1a32(str) {
     let hash = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) {
         hash ^= str.charCodeAt(i);
         hash = Math.imul(hash, 0x01000193);
     }
     return hash >>> 0;
+}
+
+function isLegacyBuildString(value) {
+    // Current legacy format is a querystring-like payload containing keys like m=, o=, ...
+    return typeof value === 'string' && value.includes('=') && value.includes('&');
 }
 
 function writeVarint(num) {
@@ -107,13 +153,16 @@ function getTextCodec() {
     return { encoder, decoder };
 }
 
+let hashLookupCache = null;
 function buildHashLookup(itemData) {
+    if (!itemData) return new Map();
+    if (hashLookupCache && hashLookupCache.data === itemData) return hashLookupCache.map;
     const map = new Map();
-    if (!itemData) return map;
     for (const key of Object.keys(itemData)) {
         const h = fnv1a32(key);
         if (!map.has(h)) map.set(h, key);
     }
+    hashLookupCache = { data: itemData, map };
     return map;
 }
 
@@ -186,7 +235,8 @@ export function decodeBuildParam(build, itemData) {
         if (bytes.length < 1 + 6 * 4) return null;
 
         const version = bytes[0];
-        if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6) return null;
+        if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7)
+            return null;
 
         const readU32 = (off) =>
             (bytes[off] | (bytes[off + 1] << 8) | (bytes[off + 2] << 16) | (bytes[off + 3] << 24)) >>> 0;
@@ -246,9 +296,10 @@ export function decodeBuildParam(build, itemData) {
 
             // Extra stat inputs. v6+ encodes health as a varint (no upper cap,
             // minimum 1); older tokens keep 7 single bytes (health 0-255).
+            // v7 shares the v6 layout.
             const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspicacity', 'region'];
             const STAT_DEFAULTS = [100, 0, 0, 0, 0, 0, 3];
-            if (version === 6) {
+            if (version >= 6) {
                 if (offset + 6 <= bytes.length) {
                     const singleStats = [
                         bytes[offset],
@@ -538,7 +589,7 @@ export function encodeBuildParamBinaryV2({
     }
     const czCount = writeVarint(czParts.length / 3);
 
-    const version = Uint8Array.from([6]);
+    const version = Uint8Array.from([CURRENT_TOKEN_VERSION]);
     const packed = concatBytes(
         version,
         hashes,

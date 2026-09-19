@@ -9,37 +9,42 @@ import { HideSkinsProvider } from './_src/components/items/hideSkinsContext';
 import { MaxMasterworkProvider } from './_src/components/items/maxMasterworkContext';
 import { BuildListProvider } from './_src/components/items/buildListContext';
 import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
+import { BuilderLayoutProvider } from './_src/components/builderLayoutContext';
 import { CardItemsFirstProvider } from './_src/components/items/cardItemsFirstContext';
+import { ItemHistoryProvider } from './_src/components/items/itemHistoryContext';
 import { FavouritesEnabledProvider } from './_src/components/items/favouritesEnabledContext';
 import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
 import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
-import SiteNav from '@deepa/shared/site-nav';
+import NotificationsBar from './_src/components/notificationsBar';
+import DevSiteBanner from './_src/components/devSiteBanner';
+import SanctionBanner from './_src/components/sanctionBanner';
+import SiteNav from './_src/components/headerTitle';
 
 export const metadata = {
     title: {
         default: 'Spare the Sympathy',
         template: '%s - Spare the Sympathy',
     },
-    description: 'Monumenta Items and Builds',
-    // Same env var that pins the Discord OAuth redirect URI: set
-    // STS_PUBLIC_BASE_URL per environment (see .env.example) so absolute
-    // metadata URLs (OG/Twitter cards) point at the right host everywhere.
-    metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
-    icons: { icon: '/favicon/favicon.ico' },
-    openGraph: {
-        siteName: 'Spare the Sympathy',
-        type: 'website',
-        title: 'Spare the Sympathy',
-        description: 'Monumenta Items and Builds',
-        images: [{ url: '/favicon/favicon.png' }],
-    },
-    twitter: {
-        card: 'summary',
-        title: 'Spare the Sympathy',
-        description: 'Monumenta Items and Builds',
-        images: ['/favicon/favicon.png'],
-    },
+        description: 'Monumenta item lookup, build maker and public build database',
+        // Same env var that pins the Discord OAuth redirect URI: set
+        // STS_PUBLIC_BASE_URL per environment (see .env.example) so absolute
+        // metadata URLs (OG/Twitter cards) point at the right host everywhere.
+        metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
+        icons: { icon: '/favicon/favicon.ico' },
+        openGraph: {
+            siteName: 'Spare the Sympathy',
+            type: 'website',
+            title: 'Spare the Sympathy',
+            description: 'Monumenta item lookup, build maker and public build database',
+            images: [{ url: '/favicon/favicon.png' }],
+        },
+        twitter: {
+            card: 'summary',
+            title: 'Spare the Sympathy',
+            description: 'Monumenta item lookup, build maker and public build database',
+            images: ['/favicon/favicon.png'],
+        },
 };
 
 export default async function StsLayout({ children }) {
@@ -53,7 +58,7 @@ export default async function StsLayout({ children }) {
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link
-                    href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap"
+                    href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&family=Ubuntu+Mono:wght@400;700&display=swap"
                     rel="stylesheet"
                 />
             </head>
@@ -77,17 +82,28 @@ export default async function StsLayout({ children }) {
                                             <MaxMasterworkProvider>
                                                 <BuildListProvider>
                                                     <BuildListEnabledProvider>
-                                                        <CardItemsFirstProvider>
-                                                            <FavouritesEnabledProvider>
-                                                                <ItemFavouritesProvider>
-                                                                    <SiteNav showBeta center={<HeaderNav />}>
-                                                                        <Header />
-                                                                    </SiteNav>
-                                                                    <div className="site-main">{children}</div>
-                                                                    <Footer />
-                                                                </ItemFavouritesProvider>
-                                                            </FavouritesEnabledProvider>
-                                                        </CardItemsFirstProvider>
+                                                        <BuilderLayoutProvider>
+                                                            <CardItemsFirstProvider>
+                                                                <ItemHistoryProvider>
+                                                                <FavouritesEnabledProvider>
+                                                                    <ItemFavouritesProvider>
+                                                                        <SiteNav
+                                                                            center={<HeaderNav />}
+                                                                            brand="Spare the Sympathy"
+                                                                            brandHref="https://sts.deepa.cat"
+                                                                        >
+                                                                            <Header />
+                                                                        </SiteNav>
+                                                                        <NotificationsBar />
+                                                                        <DevSiteBanner />
+                                                                        <SanctionBanner />
+                                                                        <div className="site-main">{children}</div>
+                                                                        <Footer />
+                                                                    </ItemFavouritesProvider>
+                                                                </FavouritesEnabledProvider>
+                                                                </ItemHistoryProvider>
+                                                            </CardItemsFirstProvider>
+                                                        </BuilderLayoutProvider>
                                                     </BuildListEnabledProvider>
                                                 </BuildListProvider>
                                             </MaxMasterworkProvider>

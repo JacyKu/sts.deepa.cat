@@ -3,6 +3,7 @@ import TranslatableText from '../translatableText';
 import CharmTile from '../items/charmTile';
 import SelectInput from '../items/selectInput';
 import { useItemFavourites } from '../items/itemFavouritesContext';
+import { useTranslation } from '../useTranslation';
 import React from 'react';
 
 // Human-readable ability text for a charm (stat names + values), so the
@@ -67,6 +68,21 @@ export function computeCharmTotals(itemData, charmNames) {
     return Object.fromEntries(Object.entries(totals).filter(([, obj]) => obj.value !== 0));
 }
 
+// Per-stat display colors (from the API's NBT lore) for the equipped charms:
+// the first charm that provides a stat defines the color of the summed line.
+export function computeCharmStatColors(itemData, charmNames) {
+    const colors = {};
+    for (const name of charmNames || []) {
+        const key = resolveCharmKey(itemData, name);
+        const statColors = key ? itemData[key].statColors : null;
+        if (!statColors) continue;
+        for (const [stat, color] of Object.entries(statColors)) {
+            if (!colors[stat]) colors[stat] = color;
+        }
+    }
+    return colors;
+}
+
 // Skill names -> snake tokens ("Hand of Light" -> "hand_of_light"), used to
 // match charm stats that name the skill they affect.
 function skillTokens(names) {
@@ -89,20 +105,27 @@ export default function CharmSelector({
     charmNames,
     classSkillNames,
     specSkillNames,
+    selectedClass,
 }) {
     const inputRef = React.useRef();
+    const t = useTranslation();
     const [warn, setWarn] = React.useState(null);
     const warnTimeoutRef = React.useRef();
 
-    // Relevance rule: a charm is offered only if it is a Generalist charm, or
-    // one of its stats affects a skill of the selected class or specialization.
-    // With no class selected every charm is offered.
+    // Relevance rule: a charm is offered only if it is a Generalist charm, a
+    // charm of the currently selected class, or one of its stats affects a
+    // skill of the selected class or specialization. Class-owned charms are
+    // always offered even when their stat names don't line up with a skill
+    // name (e.g. alchemist potion charms like Oversized Flask). With no class
+    // selected every charm is offered.
+    const selectedClassName = selectedClass ? String(selectedClass).toLowerCase() : '';
     const relevantTokens = skillTokens([...(classSkillNames || []), ...(specSkillNames || [])]);
     const isCharmRelevant = (key) => {
         const charm = itemData[key];
         if (!charm || charm.type !== 'Charm') return false;
         if (relevantTokens.size === 0) return true;
         if (charm.class_name === 'Generalist') return true;
+        if (selectedClassName && charm.class_name && charm.class_name.toLowerCase() === selectedClassName) return true;
         const stats = charm.stats || {};
         return Object.keys(stats).some((stat) => {
             const s = stat.toLowerCase();
@@ -112,20 +135,24 @@ export default function CharmSelector({
             return false;
         });
     };
-    const charmOptions = Object.keys(itemData)
-        .filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key))
-        // Custom charms may be keyed by id (when the name collides with an
-        // existing item); always show the charm's name in the selector.
-        .map((key) => (itemData[key].isCustomItem ? { value: key, label: itemData[key].name } : key));
+    const { favouriteSet } = useItemFavourites();
+    const charmName = (option) => (typeof option === 'object' ? option.label : itemData[option].name);
 
     // Pin the user's favourited charms to the top of the selector. Favourites
     // are stored by display name, while options are keyed by full item keys
     // ("Event Horizon (orange_glazed_terracotta)"), so compare against the
     // charm's display name. The sort is stable, so non-favourites keep their
     // original order.
-    const { favouriteSet } = useItemFavourites();
-    const charmName = (option) => (typeof option === 'object' ? option.label : itemData[option].name);
-    charmOptions.sort((a, b) => Number(favouriteSet.has(charmName(b))) - Number(favouriteSet.has(charmName(a))));
+    const charmOptions = React.useMemo(() => {
+        const options = Object.keys(itemData)
+            .filter((key) => itemData[key].type === 'Charm' && isCharmRelevant(key))
+            // Custom charms may be keyed by id (when the name collides with an
+            // existing item); always show the charm's name in the selector.
+            .map((key) => (itemData[key].isCustomItem ? { value: key, label: itemData[key].name } : key));
+        options.sort((a, b) => Number(favouriteSet.has(charmName(b))) - Number(favouriteSet.has(charmName(a))));
+        return options;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [itemData, classSkillNames, specSkillNames, selectedClass, favouriteSet]);
 
     const maxPower = 12;
     const entries = charmNames || [];
@@ -183,7 +210,7 @@ export default function CharmSelector({
             if (!other) continue;
             if (other.locked || obj.locked) {
                 showWarn(
-                    `"${itemData[actualName].name}" could not be added: it conflicts with the locked charm stat from "${other.name}" (${stat.replace(/_/g, ' ')}).`
+                    `"${itemData[actualName].name}" ${t('builder.charms.couldNotAdd')} ${t('builder.charms.lockedConflict')} "${other.name}" (${stat.replace(/_/g, ' ')}).`
                 );
                 return;
             }

@@ -10,8 +10,9 @@
 
 .main {
     width: 100%;
-    max-width: 1080px;
-    padding: 12px;
+    max-width: 1160px;
+    /* The .page wrapper already supplies the side padding. */
+    padding: 0 0 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -20,7 +21,27 @@
 .title {
     color: var(--text-1);
     text-align: center;
-    margin: 8px 0 12px;
+}
+
+/* The My Builds / My Items switcher under the title. No top margin: the h1
+   already leaves 16px below it, the same gap the My Builds page uses before
+   its Favourites row. */
+.myTabs[class] {
+    margin: 0 0 8px;
+}
+
+/* Builds / Custom items section tabs on the favourites pages; sits right
+   under the account pages switcher. */
+.favTabs[class] {
+    margin: 0 0 8px;
+}
+
+/* Empty / login / error notes under the favourites tabs. Same spacing as the
+   builds favourites page's muted paragraph (Database.module.css .muted). */
+.favNote[class] {
+    margin: 0;
+    padding: 20px 0;
+    text-align: center;
 }
 
 .muted {
@@ -41,10 +62,96 @@
     margin: 4px 0;
 }
 
+.formActions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.formActionWrap {
+    flex: 1 1 200px;
+    min-width: 0;
+    display: flex;
+}
+
+/* Neutral sibling of the Save/Reset buttons: same sizing (padding/margins)
+   so the row keeps one height, but without the accent gradients. */
+.statSetsButton {
+    margin-block: 0.5vh;
+    margin-inline: 0.25vw;
+    padding: 0.5vh;
+    width: 100%;
+    border: 2px solid var(--control-border);
+    background: var(--glass-1);
+    color: var(--text-1);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        transform 75ms ease;
+}
+
+.statSetsButton:hover {
+    border-color: var(--control-border-hover);
+    background: var(--glass-2);
+}
+
+.statSetsButton:active {
+    transform: translateY(1px);
+}
+
+/* The stat sets dialog only carries two short columns, so it does not need
+   the 1050px the builder's three-column skill sets dialog does. Items.module
+   css loads after this file, so bump specificity to win the cascade. */
+.statSetsDialog[class] {
+    width: min(800px, 100%);
+}
+
+/* The shared column grid is fixed at three tracks; two sections would leave
+   the third empty. Override it to two equal tracks for this dialog. */
+.statSetsColumns[class] {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* Narrow screens: one column so the save row and the lists keep their width
+   (the shared collapse only targets the three-track builder grid). */
+@media (max-width: 992px) {
+    .statSetsColumns[class] {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Item database picker above the stat sets columns. */
+.itemLookupGroup {
+    margin-bottom: 12px;
+}
+
+.itemLookupInput {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.itemLookupList {
+    max-height: 170px;
+}
+
 .field {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+/* Type + Base item sit side by side on wide forms and stack when narrow. */
+.fieldRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.fieldRow > .field {
+    flex: 1 1 260px;
+    min-width: 0;
 }
 
 .fieldLabel {
@@ -148,7 +255,9 @@
 .textureRow {
     display: flex;
     gap: 10px;
-    align-items: center;
+    /* Top-align the input with the Name input next to it; the taller sprite
+       preview only extends below. */
+    align-items: flex-start;
 }
 
 .textureRow input {
@@ -168,6 +277,8 @@
     overflow-y: auto;
     background: var(--glass-1);
     border: 2px solid var(--glass-border);
+    /* Same frosted look as every other dropdown surface. */
+    backdrop-filter: blur(16px);
     z-index: 10;
 }
 
@@ -213,6 +324,11 @@
     width: 100%;
 }
 
+/* The row being dragged stays in place but fades. */
+.statRowDragging {
+    opacity: 0.35;
+}
+
 .statRow > div {
     flex: 2;
     min-width: 0;
@@ -224,6 +340,93 @@
     min-width: 0;
 }
 
+/* The grip starts the drag-to-reorder (drag-and-drop needs a mouse, so it is
+   hidden on touch - the up/down arrows below take over there). */
+.statHandle {
+    flex-shrink: 0;
+    height: 42px;
+    width: 36px;
+    border: 2px solid var(--control-border);
+    background: var(--glass-1);
+    color: var(--text-2);
+    border-radius: 0;
+    padding: 0;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.statHandle:hover {
+    color: var(--text-1);
+    border-color: var(--control-border-hover);
+    background: var(--glass-2);
+}
+
+.statHandle:active {
+    cursor: grabbing;
+}
+
+@media (pointer: coarse) {
+    .statHandle {
+        display: none;
+    }
+}
+
+/* Touch devices have no HTML5 drag-and-drop, so up/down buttons take over
+   there. They are hidden on mouse/trackpad pointers - reordering there is
+   done by dragging the row itself. */
+.statMoveControls {
+    display: none;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+@media (pointer: coarse) {
+    .statMoveControls {
+        display: inline-flex;
+    }
+}
+
+.statMoveBtn {
+    flex-shrink: 0;
+    height: 42px;
+    width: 34px;
+    border: 2px solid var(--control-border);
+    background: var(--glass-1);
+    color: var(--text-2);
+    border-radius: 0;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease,
+        background-color 150ms ease,
+        transform 75ms ease;
+}
+
+.statMoveBtn:hover:not(:disabled) {
+    color: var(--text-1);
+    border-color: var(--control-border-hover);
+    background: var(--glass-2);
+}
+
+.statMoveBtn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.statMoveBtn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
 .iconBtn {
     flex-shrink: 0;
     height: var(--control-height, 42px);
@@ -233,7 +436,6 @@
     border: 2px solid rgba(157, 13, 41, 0.9);
     background: var(--glass-1);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     border-radius: 0;
     padding: 0;
     line-height: 1;
@@ -254,31 +456,79 @@
     transform: translateY(1px);
 }
 
-.iconBtn:hover {
-    color: var(--text-1);
-    border-color: #fc5454;
+.copyDone {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    color: var(--text-2);
 }
 
 /* Saved items ---------------------------------------------------------- */
 
 .listHeader {
     margin-top: 12px;
+    margin-bottom: 18px;
     width: 100%;
     max-width: 720px;
     text-align: center;
 }
 
 .itemGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
     gap: 10px;
     width: 100%;
-    max-width: 760px;
+    max-width: 1160px;
+}
+
+/* Result grids sitting directly under a search form get the same 28px gap the
+   builds database (.grid) and custom items database (.dbTiles) use. */
+.searchResults {
+    margin-top: 28px;
+}
+
+/* Custom item tiles on the database page. The tile grid gets the same
+   clearance below the filter form as the builds database grid; the View
+   chip overlays each tile (inside its bounds) so the card stays intact. */
+.dbTiles {
+    margin-top: 28px;
+}
+
+.dbTileWrap {
+    position: relative;
+    margin: 4px;
+    /* Behave like the items page grid: rows stretch so every card in a row
+       is the same height. Making the wrap a flex row lets the inner tile
+       stretch to the wrap's full height too (the wrap height matches the
+       tallest tile of the row, so chips stay anchored inside each tile). */
+    display: flex;
+}
+
+/* The whole card is the link: it behaves like a card the tile components
+   already animate on hover (their own CSS), the wrapper adds the pointer and
+   a focus ring for keyboard use. Inner anchors (the tile's wiki name link)
+   are click-through so a card click always opens the item's share view. */
+.dbTileWrap {
+    cursor: pointer;
+    outline: none;
+}
+
+.dbTileWrap:focus-visible {
+    outline: 2px solid var(--control-border-focus);
+    outline-offset: 2px;
+}
+
+.dbTileWrap :global(a) {
+    pointer-events: none;
 }
 
 /* Card format mirrors the public build database cards (Database.module.css):
    square corners, dark card background, title row, tag row, content, then the
-   author/date meta row. */
+   author/date meta row. The card is a link to the item's share view, and the
+   management buttons sit in a separated actions row at the bottom - exactly
+   like the "My Builds" cards. */
 .customItem {
     position: relative;
     display: flex;
@@ -290,11 +540,28 @@
     background: #111111;
     border: 2px solid var(--glass-border);
     color: var(--text-1);
+    text-decoration: none;
     box-shadow: var(--shadow-elevated);
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        transform 150ms ease;
 }
 
-:global(html[data-theme='light']) .customItem {
+.customItem:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: #1a1a1a;
+    text-decoration: none;
+}
+
+:global(html[data-theme='light']) .customItem,
+:global(html[data-theme='glass-light']) .customItem {
     background: #ffffff;
+}
+
+:global(html[data-theme='light']) .customItem:hover,
+:global(html[data-theme='glass-light']) .customItem:hover {
+    background: #f5f5f5;
 }
 
 .cardTop {
@@ -312,6 +579,41 @@
     white-space: nowrap;
     font-weight: 600;
     font-size: 17px;
+}
+
+/* Heart + pencil group on the card's top-right. */
+.cardTopBtns {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Pencil edit button in the card's top-right, mirroring the builder header's
+   build-name edit button. */
+.editIconBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 5px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-1);
+    color: var(--text-1);
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+}
+
+.editIconBtn:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--glass-2);
+}
+
+.editIconBtn:active {
+    background: var(--glass-1);
 }
 
 .cardTags {
@@ -356,6 +658,8 @@
 }
 
 .avatar {
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -381,8 +685,141 @@
     font-size: 0.9em;
 }
 
-.itemActions {
+.cardActions {
     display: flex;
-    gap: 6px;
     flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.rowBtn {
+    display: inline-block;
+    padding: 6px 12px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--text-1);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.rowBtn:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--surface-2);
+}
+
+.rowBtn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Destructive action: red outline that fills in on hover. */
+.rowBtnDanger {
+    border-color: var(--negative, #ce2d27);
+    color: var(--negative, #ce2d27);
+}
+
+.rowBtnDanger:hover {
+    border-color: var(--negative, #ce2d27);
+    background: var(--negative, #ce2d27);
+    color: var(--text-on-accent, #fff);
+}
+
+/* Loading placeholder geometry (mirrors the form and .customItem cards). */
+.skeletonBlock {
+    background: color-mix(in srgb, var(--text-1) 18%, transparent);
+}
+
+.skeletonForm {
+    width: 100%;
+    max-width: 720px;
+    height: 320px;
+    margin: 8px 0 16px;
+}
+
+.skeletonHeading {
+    height: 20px;
+    width: 180px;
+    margin: 4px 0 10px;
+}
+
+/* My Pages switcher placeholder (three tabs, the middle one wider), matching
+   the real tab row's margins so the form and grid stay put. */
+.skeletonTabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    width: 100%;
+}
+
+.skeletonTab {
+    height: 43px;
+    width: 110px;
+}
+
+.skeletonTabWide {
+    height: 43px;
+    width: 140px;
+}
+
+.skeletonCardLine {
+    height: 16px;
+    width: 60%;
+}
+
+.skeletonCardIconBtn {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+/* Heart + count button placeholder: same box as Database.module.css .favBtn. */
+.skeletonCardHeart {
+    width: 60px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.skeletonCardTag {
+    height: 26px;
+    width: 70px;
+}
+
+.skeletonCardLines {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+.skeletonCardIcon {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 auto;
+}
+
+.skeletonCardShort {
+    height: 12px;
+    width: 35%;
+}
+
+.skeletonCardBtn,
+.skeletonCardBtnShort {
+    height: 32px;
+    width: 108px;
+}
+
+.skeletonCardBtnShort {
+    width: 70px;
 }

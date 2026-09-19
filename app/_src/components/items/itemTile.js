@@ -1,9 +1,10 @@
 import Enchants from './enchants';
 import LoreText from './loreText';
+import ItemHistoryPanel from './itemHistoryPanel';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
@@ -11,6 +12,8 @@ import { useLowResource } from '../lowResourceContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useItemFavourites } from './itemFavouritesContext';
+import { useInView } from '../inView';
+import { useTranslation } from '../useTranslation';
 
 function camelCase(str, upper) {
     if (!str) return '';
@@ -54,8 +57,9 @@ function doesNameContainNonASCII(name) {
     return false;
 }
 
-export default function ItemTile(data) {
+function ItemTile(data) {
     const item = data.item;
+    const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
     const { lowRes } = useLowResource();
@@ -65,6 +69,7 @@ export default function ItemTile(data) {
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
+    const { ref, inView, minHeight } = useInView(null);
 
     // If the item name has accented characters, they are actually not present in the item's name property,
     // but they are present in the item's key. In that case, set the name to the key.
@@ -87,9 +92,18 @@ export default function ItemTile(data) {
     React.useEffect(() => {
         // Custom items carry their chosen texture directly; regular items go
         // through the sprite map (preferred) or the legacy name heuristic.
-        const mappedClass = item.textureToken
-            ? `monumenta-${item.textureToken}`
-            : getMappedSpriteClass(spriteMap, item.name);
+        // A token that no longer exists in the map (dropped by a later
+        // spritesheet import) falls back to the name-based mapping.
+        const tokenClass =
+            item.textureToken && (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken))
+                ? `monumenta-${item.textureToken}`
+                : null;
+        if (tokenClass) {
+            setBaseBackgroundClass('monumenta-items');
+            setCssClass(tokenClass);
+            return;
+        }
+        const mappedClass = getMappedSpriteClass(spriteMap, item.name);
         if (mappedClass) {
             setBaseBackgroundClass('monumenta-items');
             setCssClass(mappedClass);
@@ -108,8 +122,14 @@ export default function ItemTile(data) {
         setCssClass(`minecraft-${getMinecraftTextureKey(item['base_item'])}`);
     }, [item, spriteMap]);
 
+    if (!inView) {
+        return (
+            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
+        );
+    }
+
     return (
-        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"
@@ -117,8 +137,8 @@ export default function ItemTile(data) {
                     onClick={() => toggleItem(item.name, item.type)}
                     aria-label={
                         listItems.includes(item.name)
-                            ? `Remove ${item.name} from build list`
-                            : `Add ${item.name} to build list`
+                            ? `${t('common.remove')} ${item.name} ${t('items.buildList.fromBuildList')}`
+                            : `${t('common.add')} ${item.name} ${t('items.buildList.toBuildList')}`
                     }
                 >
                     {listItems.includes(item.name) ? '✓' : '+'}
@@ -137,12 +157,16 @@ export default function ItemTile(data) {
                     }
                     aria-label={
                         favouriteSet.has(item.name)
-                            ? `Remove ${item.name} from favourites`
+                            ? `${t('common.remove')} ${item.name} ${t('items.favourite.fromFavourites')}`
                             : authenticated
-                              ? `Add ${item.name} to favourites`
-                              : 'Log in to favourite'
+                              ? `${t('common.add')} ${item.name} ${t('items.favourite.toFavourites')}`
+                              : t('items.favourite.login')
                     }
-                    title={favouriteSet.has(item.name) ? 'Remove from favourites' : 'Add to favourites'}
+                    title={
+                        favouriteSet.has(item.name)
+                            ? `${t('common.remove')} ${t('items.favourite.fromFavourites')}`
+                            : `${t('common.add')} ${t('items.favourite.toFavourites')}`
+                    }
                 >
                     <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
                         <path
@@ -177,10 +201,10 @@ export default function ItemTile(data) {
             </span>
             <span className={styles.infoText}>
                 <TranslatableText identifier={`items.type.${getItemType(item)}`}></TranslatableText>
-                {` - ${item['base_item']} `}
+                {item['base_item'] ? ` - ${item['base_item']} ` : ''}
             </span>
             {item['original_item'] ? (
-                <span className={styles.infoText}>{`Skin for ${item['original_item']} `}</span>
+                <span className={styles.infoText}>{`${t('items.skinFor')} ${item['original_item']} `}</span>
             ) : (
                 ''
             )}
@@ -194,13 +218,16 @@ export default function ItemTile(data) {
             {!hideObtainment && (
                 <>
                     {item.extras?.poi ? (
-                        <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p>
+                        <p className={`${styles.infoText} m-0`}>{`${t('items.foundIn')} ${item.extras.poi}`}</p>
                     ) : (
                         ''
                     )}
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
                 </>
             )}
+            <ItemHistoryPanel records={data.history} currentItem={item} />
         </div>
     );
 }
+
+export default React.memo(ItemTile);

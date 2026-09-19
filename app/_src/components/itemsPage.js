@@ -10,8 +10,10 @@ import SearchForm from './items/searchForm';
 import React from 'react';
 import InfiniteScroll from './infiniteScroll';
 import TranslatableText from './translatableText';
+import Link from 'next/link';
 import { useHideSkins } from './items/hideSkinsContext';
 import skinNames from '../data/skins.json';
+import { groupMasterworkItems } from '../utils/itemList';
 
 // Skin variants confirmed from the Monumenta wiki "Skins" sections.
 const SKIN_NAMES = new Set(skinNames);
@@ -99,6 +101,13 @@ const TYPE_GROUPS = {
         'Wand',
         'Alchemist Bag',
     ],
+};
+
+// Charm skill -> charm stat prefixes. The Elemental Spirits spec skill is
+// named "Fire Elemental Spirit" by the API but affects the fire, ice and
+// generic spirit stats, so one filter entry matches both elements.
+const CHARM_SKILL_STAT_TOKENS = {
+    fire_elemental_spirit: ['elemental_spirits', 'fire_elemental_spirit', 'ice_elemental_spirit'],
 };
 
 // Human-readable ability text for a charm (stat names + values), used to let
@@ -357,14 +366,18 @@ function getRelevantItems(data, itemData, hideSkins) {
     let wantedCharmSkills = extractFilterValues(data, 'charmSkillSelect').reverse();
     if (wantedCharmSkills.length > 0) {
         wantedCharmSkills.forEach((skill) => {
-            // Charm stats are keyed by the skill they affect, e.g.
-            // "arcane_strike_cooldown_percent" for Arcane Strike.
+            // The Elemental Spirits spec skill is named "Fire Elemental Spirit"
+            // in the API but covers the fire, ice and generic spirit charm
+            // stats, so match all three prefixes.
             const token = skill.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            const tokens = CHARM_SKILL_STAT_TOKENS[token] || [token];
             items = items.filter(
                 (name) =>
                     itemData[name].type == 'Charm' &&
                     itemData[name].stats &&
-                    Object.keys(itemData[name].stats).some((stat) => stat === token || stat.startsWith(token + '_'))
+                    Object.keys(itemData[name].stats).some((stat) =>
+                        tokens.some((t) => stat === t || stat.startsWith(t + '_'))
+                    )
             );
         });
     }
@@ -385,59 +398,30 @@ function getRelevantItems(data, itemData, hideSkins) {
         });
     }
 
-    // Group up masterwork tiers by their name using an object, removing them from items.
-    let masterworkItems = {};
-    let otherPositionsToRemove = [];
-    // Go through the array in reverse order to have the splice work properly
-    // (items will go down in position if not removed from the end)
-    for (let i = items.length - 1; i >= 0; i--) {
-        let name = items[i];
-        if (itemData[name].masterwork != undefined) {
-            let itemName = itemData[name].name;
-            if (!masterworkItems[itemName]) {
-                masterworkItems[itemName] = { items: [], lowestPosition: 9999999, lowestPositionName: null };
-            }
-            masterworkItems[itemName].items.push(itemData[name]);
-            if (i < masterworkItems[itemName].lowestPosition) {
-                // Remove the old lowest position item
-                if (masterworkItems[itemName].lowestPosition < 9999999) {
-                    otherPositionsToRemove.push(masterworkItems[itemName].lowestPosition);
-                }
-                // Set the new lowest position
-                masterworkItems[itemName].lowestPosition = i;
-                masterworkItems[itemName].lowestPositionName = name;
-            } else {
-                otherPositionsToRemove.push(i);
-            }
-        }
-    }
-
-    // Remove all the excess items that need to be grouped up
-    otherPositionsToRemove = otherPositionsToRemove.sort((pos1, pos2) => pos2 - pos1);
-    for (const pos of otherPositionsToRemove) {
-        items.splice(pos, 1);
-    }
-
-    // Re-insert the groups as arrays into the items array, IN THE CORRECT POSITION.
-    let masterworkGroups = Object.keys(masterworkItems).sort(
-        (item1, item2) => masterworkItems[item2].lowestPosition - masterworkItems[item1].lowestPosition
-    );
-    for (const masterworkGroup of masterworkGroups) {
-        items.splice(
-            items.indexOf(masterworkItems[masterworkGroup].lowestPositionName),
-            1,
-            masterworkItems[masterworkGroup].items
-        );
-    }
+    // Group up masterwork tiers by their name into a single entry (shared
+    // logic with the coverage/landing count - see utils/itemList.js).
+    groupMasterworkItems(items, itemData);
 
     return items;
 }
 
-export default function ItemsPage({ itemData }) {
+export default function ItemsPage({ itemData, itemHistory }) {
     const { hidden: hideSkins } = useHideSkins();
     const [relevantItems, setRelevantItems] = React.useState(() => getRelevantItems({}, itemData, false));
     const [itemsToShow, setItemsToShow] = React.useState(20);
     const itemsToLoad = 20;
+
+    // Masterwork variants share a display name but keep separate history, so
+    // group their records by masterwork level for MasterworkableItemTile.
+    const historyByMasterwork = React.useMemo(() => {
+        const out = {};
+        for (const [key, records] of Object.entries(itemHistory || {})) {
+            const item = itemData[key];
+            if (!item || item.masterwork == null) continue;
+            (out[item.name] ||= {})[item.masterwork] = records;
+        }
+        return out;
+    }, [itemHistory, itemData]);
     // The latest search form data (name/lore/filters/toggles), so toggling
     // "hide skinned items" re-applies the current search instead of resetting.
     const filterDataRef = React.useRef({});
@@ -467,18 +451,27 @@ export default function ItemsPage({ itemData }) {
     return (
         <div className={styles.container}>
             <main className={styles.main}>
-                <h1>Monumenta Items</h1>
+                <h1>
+                    <TranslatableText identifier="items.title"></TranslatableText>
+                </h1>
                 <SearchForm update={handleChange} itemData={itemData}></SearchForm>
                 <BuildListPanel></BuildListPanel>
                 <h4 className={styles.resultCount}>
                     <TranslatableText identifier="items.searchForm.itemsFound"></TranslatableText>{' '}
                     {relevantItems.length}
                 </h4>
+                <div className={styles.historyLinkRow}>
+                    <Link href="/items/changes" className={styles.historyLink}>
+                        <TranslatableText identifier="items.changes.link"></TranslatableText>
+                    </Link>
+                </div>
                 {relevantItems.length === 0 ? (
                     <div className={styles.emptyState}>
-                        <b>No items found.</b>
+                        <b>
+                            <TranslatableText identifier="items.noItemsFound"></TranslatableText>
+                        </b>
                         <br />
-                        Try clearing some filters or searching for something else.
+                        <TranslatableText identifier="items.noItemsFoundHint"></TranslatableText>
                     </div>
                 ) : (
                     <InfiniteScroll
@@ -495,6 +488,7 @@ export default function ItemsPage({ itemData }) {
                                         name={name[0].name}
                                         item={name}
                                         itemData={itemData}
+                                        historyByMasterwork={historyByMasterwork[name[0].name]}
                                         showListButton
                                         showFavouriteButton
                                     ></MasterworkableItemTile>
@@ -506,6 +500,7 @@ export default function ItemsPage({ itemData }) {
                                         key={name}
                                         name={itemData[name].name}
                                         item={itemData[name]}
+                                        history={itemHistory?.[name]}
                                         showListButton
                                         showFavouriteButton
                                     ></CharmTile>
@@ -517,6 +512,7 @@ export default function ItemsPage({ itemData }) {
                                         key={name}
                                         name={name}
                                         item={itemData[name]}
+                                        history={itemHistory?.[name]}
                                         showListButton
                                     ></ConsumableTile>
                                 );
@@ -526,6 +522,7 @@ export default function ItemsPage({ itemData }) {
                                     key={name}
                                     name={name}
                                     item={itemData[name]}
+                                    history={itemHistory?.[name]}
                                     showListButton
                                     showFavouriteButton
                                 ></ItemTile>

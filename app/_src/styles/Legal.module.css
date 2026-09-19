@@ -1,16 +1,14 @@
 .container {
     width: 100%;
     max-width: 800px;
-    margin: 20px auto;
-    padding: 24px 28px;
+    margin: 0 auto 20px;
+    padding: 0 28px 24px;
     background: var(--glass-1);
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
 }
 
 .title {
-    margin: 0 0 4px;
     font-size: 2.2rem;
     font-weight: 700;
     line-height: 1.2;

@@ -1,0 +1,448 @@
+'use client';
+
+import React from 'react';
+import styles from '../styles/Account.module.css';
+import { useSessionState } from './header';
+import { useTranslation } from './useTranslation';
+import { formatDateString } from '../utils/dateFormat';
+
+// The signed-in user's account page: Discord identity plus the Minecraft
+// UUIDs linked to it. Linking itself happens in game (/sts link); this
+// page is where a player disconnects a UUID so it can be linked to a
+// different Discord account. Account deletion lives here too. The site
+// look settings live on their own page (/settings) for everyone.
+// Uploaded profile pictures: image types the browser may pick, the size cap
+// (mirrors the server), and how many an account can keep.
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_UPLOADED_AVATARS = 3;
+
+export default function AccountPage() {
+    const t = useTranslation();
+    const session = useSessionState();
+    const [links, setLinks] = React.useState([]);
+    const [loaded, setLoaded] = React.useState(false);
+    const [error, setError] = React.useState(null);
+    const [busy, setBusy] = React.useState(null);
+    const [confirmDelete, setConfirmDelete] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
+    const [deleteError, setDeleteError] = React.useState(null);
+    const [savingAvatar, setSavingAvatar] = React.useState(false);
+    const [avatarError, setAvatarError] = React.useState(null);
+    const [copiedUuid, setCopiedUuid] = React.useState(null);
+
+    React.useEffect(() => {
+        if (!session.checked) return;
+        if (!session.user) {
+            setLoaded(true);
+            return;
+        }
+        fetch('/api/v2/mod/link')
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => {
+                setLinks(d.links || []);
+                setLoaded(true);
+            })
+            .catch(() => {
+                setLoaded(true);
+            });
+    }, [session.checked, session.user]);
+
+    function unlink(uuid) {
+        setBusy(uuid);
+        setError(null);
+        fetch('/api/v2/mod/link?uuid=' + encodeURIComponent(uuid), { method: 'DELETE' })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then(() => setLinks((prev) => prev.filter((l) => l.uuid !== uuid)))
+            .catch(() => setError(t('account.errors.disconnect')))
+            .finally(() => setBusy(null));
+    }
+
+    // Short display form: enough of both ends to recognise the UUID; the copy
+    // button hands out the full value.
+    function shortUuid(uuid) {
+        if (typeof uuid !== 'string' || uuid.length <= 14) return uuid;
+        return `${uuid.slice(0, 8)}…${uuid.slice(-4)}`;
+    }
+
+    function copyUuid(uuid) {
+        navigator.clipboard
+            .writeText(uuid)
+            .then(() => {
+                setCopiedUuid(uuid);
+                setTimeout(() => setCopiedUuid((current) => (current === uuid ? null : current)), 1500);
+            })
+            .catch(() => {});
+    }
+
+    function chooseAvatar(source) {
+        if (!session.user || savingAvatar || source === session.user.avatarSource) return;
+        setSavingAvatar(true);
+        setAvatarError(null);
+        fetch('/api/v2/account/avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source }),
+        })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => {
+                session.setUser({ ...session.user, avatarUrl: d.avatarUrl, avatarSource: d.avatarSource });
+                window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
+            })
+            .catch(() => setAvatarError(t('account.errors.avatar')))
+            .finally(() => setSavingAvatar(false));
+    }
+
+    // Validate the picked file client-side, then read it as a data URL for
+    // the upload endpoint (which re-validates the bytes server-side).
+    function uploadAvatarFile(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (!file || savingAvatar) return;
+        if (!file.type || !file.type.startsWith('image/')) {
+            setAvatarError(t('account.errors.imageOnly'));
+            return;
+        }
+        if (file.size > MAX_AVATAR_BYTES) {
+            setAvatarError(t('account.errors.imageTooLarge'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => uploadAvatar(reader.result);
+        reader.onerror = () => setAvatarError(t('account.errors.upload'));
+        reader.readAsDataURL(file);
+    }
+
+    function uploadAvatar(dataUrl) {
+        setSavingAvatar(true);
+        setAvatarError(null);
+        fetch('/api/v2/account/avatars', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataUrl }),
+        })
+            .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+            .then((d) => {
+                session.setUser({
+                    ...session.user,
+                    avatarUrl: d.avatarUrl,
+                    avatarSource: d.avatarSource,
+                    uploadedAvatars: d.uploadedAvatars,
+                });
+                window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
+            })
+            .catch((err) => {
+                if (err && err.status === 409) setAvatarError(t('account.errors.tooManyAvatars'));
+                else setAvatarError(t('account.errors.upload'));
+            })
+            .finally(() => setSavingAvatar(false));
+    }
+
+    function removeAvatar(id) {
+        if (savingAvatar) return;
+        setSavingAvatar(true);
+        setAvatarError(null);
+        fetch(`/api/v2/account/avatars/${id}`, { method: 'DELETE' })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => {
+                session.setUser({
+                    ...session.user,
+                    avatarUrl: d.avatarUrl,
+                    avatarSource: d.avatarSource,
+                    uploadedAvatars: d.uploadedAvatars,
+                });
+                window.dispatchEvent(new CustomEvent('sts-avatar-updated', { detail: { avatarUrl: d.avatarUrl } }));
+            })
+            .catch(() => setAvatarError(t('account.errors.avatar')))
+            .finally(() => setSavingAvatar(false));
+    }
+
+    function deleteProfile() {
+        setDeleting(true);
+        setDeleteError(null);
+        fetch('/api/v2/account/delete', { method: 'POST' })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then(() => {
+                window.location.href = '/';
+            })
+            .catch(() => setDeleteError(t('account.errors.delete')))
+            .finally(() => setDeleting(false));
+    }
+
+    if (!session.checked) {
+        return (
+            <main className={styles.page}>
+                <div className={`${styles.sk} ${styles.skTitle}`} />
+                <div className={styles.skTabRow}>
+                    <div className={`${styles.sk} ${styles.skTab}`} />
+                    <div className={`${styles.sk} ${styles.skTab}`} />
+                </div>
+                <div className={`${styles.sk} ${styles.skCard}`} />
+                <div className={`${styles.sk} ${styles.skCard}`} />
+            </main>
+        );
+    }
+
+    return (
+        <main className={styles.page}>
+            <h1 className={styles.title}>{t('auth.myAccount')}</h1>
+            <nav className={styles.tabs} aria-label={t('account.navigation')}>
+                <span className={`${styles.tab} ${styles.tabActive}`} aria-current="page">
+                    {t('auth.myAccount')}
+                </span>
+                <a className={styles.tab} href="/settings">
+                    {t('settings.siteSettings')}
+                </a>
+            </nav>
+            {session.user ? (
+                <section className={styles.card}>
+                    <h2 className={styles.cardTitle}>{t('account.linkedAccounts')}</h2>
+                    <ul className={styles.linkList}>
+                        <li className={styles.linkRow}>
+                            {session.user.discordAvatarUrl || session.user.avatarUrl ? (
+                                <img
+                                    className={styles.mcAvatar}
+                                    src={session.user.discordAvatarUrl || session.user.avatarUrl}
+                                    alt=""
+                                    width="32"
+                                    height="32"
+                                />
+                            ) : null}
+                            <span className={styles.linkMain}>
+                                <span className={styles.rowValue}>
+                                    {session.user.globalName || session.user.username}
+                                </span>
+                                <span className={styles.linkMeta}>
+                                    <span className={styles.linkDate}>
+                                        {session.user.stsCreatedAt
+                                            ? `${t('account.created')} ${formatDateString(
+                                                  session.user.stsCreatedAt,
+                                                  { spaceToT: true }
+                                              )}`
+                                            : ''}
+                                    </span>
+                                </span>
+                            </span>
+                        </li>
+                    </ul>
+                    {error && <p className={styles.error}>{error}</p>}
+                    {!loaded ? (
+                        <ul className={styles.linkList}>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <li key={i} className={styles.linkRow}>
+                                    <div className={`${styles.sk} ${styles.skIcon}`} />
+                                    <div className={`${styles.sk} ${styles.skLine}`} />
+                                    <div className={`${styles.sk} ${styles.skLineShort}`} />
+                                </li>
+                            ))}
+                        </ul>
+                    ) : links.length === 0 ? (
+                        <p className={styles.muted}>
+                            {t('account.noLinkedProfiles.before')} <code>/sts link</code>{' '}
+                            {t('account.noLinkedProfiles.after')}
+                        </p>
+                    ) : (
+                        <ul className={styles.linkList}>
+                            {links.map((link) => (
+                                <li key={link.uuid} className={styles.linkRow}>
+                                    {link.mcAvatar && (
+                                        <img
+                                            className={styles.mcAvatar}
+                                            src={link.mcAvatar}
+                                            alt=""
+                                            width="32"
+                                            height="32"
+                                        />
+                                    )}
+                                    <span className={styles.linkMain}>
+                                        <span className={styles.rowValue} title={link.mcName || link.uuid}>
+                                            {link.mcName || link.uuid}
+                                        </span>
+                                        <span className={styles.linkMeta}>
+                                            {link.mcName && (
+                                                <span className={styles.uuidWrap}>
+                                                    <code className={styles.uuidMuted} title={link.uuid}>
+                                                        {shortUuid(link.uuid)}
+                                                    </code>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.copyUuidButton}
+                                                        onClick={() => copyUuid(link.uuid)}
+                                                        aria-label={`${t('account.copyUuid')} ${link.uuid}`}
+                                                        title={t('account.copyUuid')}
+                                                    >
+                                                        {copiedUuid === link.uuid
+                                                            ? t('common.copied')
+                                                            : t('common.copy')}
+                                                    </button>
+                                                </span>
+                                            )}
+                                            <span className={styles.linkDate}>
+                                                {t('account.linked')}{' '}
+                                                {formatDateString(link.updated_at || link.created_at || '', {
+                                                    spaceToT: true,
+                                                })}
+                                            </span>
+                                        </span>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className={styles.unlinkButton}
+                                        onClick={() => unlink(link.uuid)}
+                                        disabled={busy === link.uuid}
+                                    >
+                                        {busy === link.uuid ? t('account.disconnecting') : t('account.disconnect')}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            ) : (
+                <section className={styles.card}>
+                    <h2 className={styles.cardTitle}>{t('account.linkedAccounts')}</h2>
+                    <p className={styles.muted}>
+                        <a
+                            href={`/api/auth/discord/login?next=${encodeURIComponent('/account')}`}
+                            className={styles.loginLink}
+                        >
+                            {t('auth.loginWithDiscord')}
+                        </a>{' '}
+                        {t('account.loginToManage')}
+                    </p>
+                </section>
+            )}
+
+            {session.user && (
+                <section className={styles.card}>
+                    <h2 className={styles.cardTitle}>{t('account.profilePicture')}</h2>
+                    <p className={styles.muted}>{t('account.profilePictureHint')}</p>
+                    <div className={styles.avatarChoices}>
+                        <button
+                            type="button"
+                            className={`${styles.avatarChoice}${
+                                session.user.avatarSource !== 'minecraft' ? ` ${styles.avatarChoiceActive}` : ''
+                            }`}
+                            onClick={() => chooseAvatar('discord')}
+                            disabled={savingAvatar}
+                            aria-pressed={session.user.avatarSource !== 'minecraft'}
+                        >
+                            {session.user.discordAvatarUrl ? (
+                                <img src={session.user.discordAvatarUrl} alt="" width="48" height="48" />
+                            ) : (
+                                <span className={styles.avatarPlaceholder} aria-hidden="true" />
+                            )}
+                            <span className={styles.avatarChoiceLabel}>Discord</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.avatarChoice}${
+                                session.user.avatarSource === 'minecraft' ? ` ${styles.avatarChoiceActive}` : ''
+                            }`}
+                            onClick={() => chooseAvatar('minecraft')}
+                            disabled={savingAvatar || !session.user.minecraftAvatarUrl}
+                            aria-pressed={session.user.avatarSource === 'minecraft'}
+                        >
+                            {session.user.minecraftAvatarUrl ? (
+                                <img
+                                    className={styles.avatarPixel}
+                                    src={session.user.minecraftAvatarUrl}
+                                    alt=""
+                                    width="48"
+                                    height="48"
+                                />
+                            ) : (
+                                <span className={styles.avatarPlaceholder} aria-hidden="true" />
+                            )}
+                            <span className={styles.avatarChoiceLabel}>Minecraft</span>
+                        </button>
+                        {(session.user.uploadedAvatars || []).map((avatar) => {
+                            const source = `upload:${avatar.id}`;
+                            const active = session.user.avatarSource === source;
+                            return (
+                                <div key={avatar.id} className={styles.avatarChoiceWrap}>
+                                    <button
+                                        type="button"
+                                        className={`${styles.avatarChoice}${
+                                            active ? ` ${styles.avatarChoiceActive}` : ''
+                                        }`}
+                                        onClick={() => chooseAvatar(source)}
+                                        disabled={savingAvatar}
+                                        aria-pressed={active}
+                                    >
+                                        <img src={avatar.url} alt="" width="48" height="48" />
+                                        <span className={styles.avatarChoiceLabel}>{t('account.uploadedAvatar')}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.avatarRemove}
+                                        onClick={() => removeAvatar(avatar.id)}
+                                        disabled={savingAvatar}
+                                        aria-label={t('account.removeAvatar')}
+                                        title={t('account.removeAvatar')}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            );
+                        })}
+                        {(session.user.uploadedAvatars || []).length < MAX_UPLOADED_AVATARS && (
+                            <label className={styles.avatarChoice}>
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/gif,image/webp"
+                                    className={styles.avatarFileInput}
+                                    onChange={uploadAvatarFile}
+                                    disabled={savingAvatar}
+                                />
+                                <span className={styles.avatarUploadPlus} aria-hidden="true">
+                                    +
+                                </span>
+                                <span className={styles.avatarChoiceLabel}>{t('account.uploadAvatar')}</span>
+                            </label>
+                        )}
+                    </div>
+                    <p className={styles.muted}>{t('account.uploadAvatarHint')}</p>
+                    {!session.user.minecraftAvatarUrl && <p className={styles.muted}>{t('account.linkAvatarHint')}</p>}
+                    {avatarError && <p className={styles.error}>{avatarError}</p>}
+                </section>
+            )}
+
+            {session.user && (
+                <section className={`${styles.card} ${styles.dangerCard}`}>
+                    <h2 className={styles.cardTitle}>{t('account.dangerZone')}</h2>
+                    <p className={styles.muted}>{t('account.deleteDescription')}</p>
+                    {deleteError && <p className={styles.error}>{deleteError}</p>}
+                    {!confirmDelete ? (
+                        <button
+                            type="button"
+                            className={styles.deleteButton}
+                            onClick={() => setConfirmDelete(true)}
+                            disabled={deleting}
+                        >
+                            {t('account.deleteProfile')}
+                        </button>
+                    ) : (
+                        <div className={styles.confirmRow}>
+                            <button
+                                type="button"
+                                className={styles.deleteButton}
+                                onClick={deleteProfile}
+                                disabled={deleting}
+                            >
+                                {deleting ? t('account.deleting') : t('account.confirmDeleteProfile')}
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.cancelButton}
+                                onClick={() => setConfirmDelete(false)}
+                                disabled={deleting}
+                            >
+                                {t('common.cancel')}
+                            </button>
+                        </div>
+                    )}
+                </section>
+            )}
+        </main>
+    );
+}

@@ -14,11 +14,14 @@ const languageNames = {
     fr: 'Français',
 };
 
-function LanguageSelector({ className } = {}) {
+function LanguageSelector({ className, compact } = {}) {
     const options = Object.keys(SupportedLanguages).map((lang) => {
         return { value: lang, label: languageNames[lang] };
     });
     const { lang, setLang } = useLanguageContext();
+    // The control box is square-ish by default; `compact` sizes it to match
+    // neighbouring footer buttons (same 36px height as .link/.textLink).
+    const controlHeight = compact ? 36 : 44;
 
     function langSelected(lang) {
         setCookie('lang', lang.value);
@@ -49,7 +52,7 @@ function LanguageSelector({ className } = {}) {
                         ...theme.colors,
                         primary: 'var(--text-1)',
                         primary25: 'var(--surface-2)',
-                        neutral0: 'var(--glass-1)',
+                        neutral0: 'var(--glass-menu)',
                         neutral5: 'var(--glass-2)',
                         neutral10: 'var(--glass-2)',
                         neutral20: 'var(--control-border)',
@@ -60,9 +63,9 @@ function LanguageSelector({ className } = {}) {
                 })}
                 styles={{
                     container: (base) => ({ ...base, width: '100%' }),
-                    control: (base) => ({ ...base, minHeight: 44, height: 44 }),
-                    valueContainer: (base) => ({ ...base, minHeight: 44, paddingTop: 0, paddingBottom: 0 }),
-                    indicatorsContainer: (base) => ({ ...base, height: 44 }),
+                    control: (base) => ({ ...base, minHeight: controlHeight, height: controlHeight }),
+                    valueContainer: (base) => ({ ...base, minHeight: controlHeight, paddingTop: 0, paddingBottom: 0 }),
+                    indicatorsContainer: (base) => ({ ...base, height: controlHeight }),
                     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
                     menu: (base) => ({ ...base, zIndex: 9999 }),
                 }}

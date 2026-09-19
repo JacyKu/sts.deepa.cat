@@ -1,5 +1,6 @@
 import Enchants from './enchants';
 import LoreText from './loreText';
+import ItemHistoryPanel from './itemHistoryPanel';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
@@ -12,6 +13,8 @@ import { useLowResource } from '../lowResourceContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useItemFavourites } from './itemFavouritesContext';
+import { useInView } from '../inView';
+import { useTranslation } from '../useTranslation';
 
 function camelCase(str, upper) {
     if (!str) return '';
@@ -131,9 +134,10 @@ function doesNameContainNonASCII(name) {
     return false;
 }
 
-export default function MasterworkableItemTile(data) {
+function MasterworkableItemTile(data) {
     // This is an array
     const item = data.item;
+    const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
     const { enabled: maxMasterworkDefault } = useMaxMasterwork();
@@ -166,6 +170,7 @@ export default function MasterworkableItemTile(data) {
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(activeItem.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
+    const { ref, inView, minHeight } = useInView(null);
 
     // When the menu toggle flips, reset every tile to the newly applicable
     // default variant.
@@ -239,8 +244,14 @@ export default function MasterworkableItemTile(data) {
         }
     }, [activeItem, spriteMap, starsAnimated]);
 
+    if (!inView) {
+        return (
+            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
+        );
+    }
+
     return (
-        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"
@@ -248,8 +259,8 @@ export default function MasterworkableItemTile(data) {
                     onClick={() => toggleItem(data.name, item[0]?.type)}
                     aria-label={
                         listItems.includes(data.name)
-                            ? `Remove ${data.name} from build list`
-                            : `Add ${data.name} to build list`
+                            ? `${t('common.remove')} ${data.name} ${t('items.buildList.fromBuildList')}`
+                            : `${t('common.add')} ${data.name} ${t('items.buildList.toBuildList')}`
                     }
                 >
                     {listItems.includes(data.name) ? '✓' : '+'}
@@ -268,12 +279,16 @@ export default function MasterworkableItemTile(data) {
                     }
                     aria-label={
                         favouriteSet.has(data.name)
-                            ? `Remove ${data.name} from favourites`
+                            ? `${t('common.remove')} ${data.name} ${t('items.favourite.fromFavourites')}`
                             : authenticated
-                              ? `Add ${data.name} to favourites`
-                              : 'Log in to favourite'
+                              ? `${t('common.add')} ${data.name} ${t('items.favourite.toFavourites')}`
+                              : t('items.favourite.login')
                     }
-                    title={favouriteSet.has(data.name) ? 'Remove from favourites' : 'Add to favourites'}
+                    title={
+                        favouriteSet.has(data.name)
+                            ? `${t('common.remove')} ${t('items.favourite.fromFavourites')}`
+                            : `${t('common.add')} ${t('items.favourite.toFavourites')}`
+                    }
                 >
                     <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
                         <path
@@ -344,13 +359,13 @@ export default function MasterworkableItemTile(data) {
                 {` - ${activeItem['base_item']} `}
             </span>
             {activeItem['original_item'] ? (
-                <span className={styles.infoText}>{`Skin for ${activeItem['original_item']} `}</span>
+                <span className={styles.infoText}>{`${t('items.skinFor')} ${activeItem['original_item']} `}</span>
             ) : (
                 ''
             )}
             <span className={styles.infoText}>
                 <span onClick={spanClicked} id="mw-0" className={styles['starSpan']}>
-                    Masterwork
+                    {t('items.masterwork.label')}
                 </span>
                 :{' '}
                 <span>
@@ -385,14 +400,9 @@ export default function MasterworkableItemTile(data) {
             </span>
             {activeItem.undiscovered ? (
                 activeItem.undiscovered == undiscovered.UNDISCOVERED ? (
-                    <span className={styles['undiscovered']}>
-                        This item has not yet been discovered! Tag jkitter on discord with a screenshot of the item.
-                    </span>
+                    <span className={styles['undiscovered']}>{t('items.masterwork.undiscovered')}</span>
                 ) : activeItem.undiscovered == undiscovered.DOES_NOT_EXIST ? (
-                    <span className={styles['undiscovered']}>
-                        This item does not appear ingame with this level of masterwork, or this level of masterwork does
-                        not have the desired stat.
-                    </span>
+                    <span className={styles['undiscovered']}>{t('items.masterwork.doesNotExist')}</span>
                 ) : (
                     ''
                 )
@@ -414,7 +424,7 @@ export default function MasterworkableItemTile(data) {
                         ''
                     )}
                     {!hideObtainment && activeItem.extras?.poi ? (
-                        <p className={`${styles.infoText} m-0`}>{`Found in ${activeItem.extras.poi}`}</p>
+                        <p className={`${styles.infoText} m-0`}>{`${t('items.foundIn')} ${activeItem.extras.poi}`}</p>
                     ) : (
                         ''
                     )}
@@ -427,6 +437,12 @@ export default function MasterworkableItemTile(data) {
             ) : (
                 ''
             )}
+            <ItemHistoryPanel
+                records={data.historyByMasterwork ? data.historyByMasterwork[activeItem.masterwork] : null}
+                currentItem={activeItem}
+            />
         </div>
     );
 }
+
+export default React.memo(MasterworkableItemTile);

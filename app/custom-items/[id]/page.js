@@ -1,27 +1,28 @@
 import { Suspense } from 'react';
-import { getCustomItem } from '../../../lib/sts-builds';
+import { getCustomItem, getCustomItemFavouriteState } from '../../../lib/sts-builds';
 import { getDiscordUser } from '../../../lib/session';
 import CustomItemPage from '../../_src/components/customItems/customItemView';
+import CustomItemSkeleton from '../../_src/components/customItems/customItemSkeleton';
 
 export const metadata = {
     title: 'Custom Item',
-    description: 'A shared custom Monumenta item',
+    description: 'A Monumenta custom item shared on the site',
     keywords: 'Monumenta, Minecraft, MMORPG, Items, Custom Item',
     openGraph: {
         title: 'Custom Item',
-        description: 'A shared custom Monumenta item',
+        description: 'A Monumenta custom item shared on the site',
         images: [{ url: '/favicon/favicon.png' }],
     },
     twitter: {
         title: 'Custom Item',
-        description: 'A shared custom Monumenta item',
+        description: 'A Monumenta custom item shared on the site',
         images: ['/favicon/favicon.png'],
     },
 };
 
 export default function Page({ params }) {
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<CustomItemSkeleton />}>
             <CustomItemView params={params} />
         </Suspense>
     );
@@ -30,5 +31,10 @@ export default function Page({ params }) {
 async function CustomItemView({ params }) {
     const { id } = await params;
     const [item, user] = await Promise.all([getCustomItem(id), getDiscordUser()]);
-    return <CustomItemPage item={item} isOwner={Boolean(user && item && item.userId === user.id)} />;
+    // Share links are public: anyone with the link sees the item. Only the
+    // owner can manage it, and only logged-in visitors can copy it.
+    const isOwner = Boolean(user && item && item.userId === user.id);
+    const favourite = item ? getCustomItemFavouriteState(id, user ? user.id : null) : { favourite: false, count: 0 };
+    const itemWithLikes = item ? { ...item, favouriteCount: favourite.count, myFavourite: favourite.favourite } : null;
+    return <CustomItemPage item={itemWithLikes} isOwner={isOwner} loggedIn={Boolean(user)} />;
 }

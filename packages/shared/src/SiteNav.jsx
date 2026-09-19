@@ -3,17 +3,18 @@
 import React from 'react';
 import styles from './SiteNav.module.css';
 
-// The single top bar shared by the platform and STS apps. The deepa.cat brand
-// acts as the home button; app-specific nav links render via `center` and
+// The single top bar shared by the platform and STS apps. The brand acts as
+// the home button (the platform keeps the deepa.cat default; other apps pass
+// their own brand text/link); app-specific nav links render via `center` and
 // settings render via `children` on the right side.
-export default function SiteNav({ showBeta, center, children }) {
+export default function SiteNav({ showBeta, center, children, brand = 'deepa.cat', brandHref = 'https://deepa.cat' }) {
     const [betaOpen, setBetaOpen] = React.useState(false);
 
     return (
         <nav className={styles.nav}>
             <div className={styles.left}>
-                <a href="https://deepa.cat" className={styles.brand}>
-                    deepa.cat
+                <a href={brandHref} className={styles.brand}>
+                    {brand}
                 </a>
                 {showBeta && (
                     <button

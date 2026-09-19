@@ -21,21 +21,18 @@ class Percentage {
     }
 
     addP(percentage) {
-        // Add function with another percentage object
         this.perc = Number((this.perc + percentage.perc).toFixed(2));
         this.val = Number((this.val + percentage.val).toFixed(2));
         return this;
     }
 
     mulP(percentage) {
-        // Add function with another percentage object
         this.perc = Number((this.perc * percentage.val).toFixed(2));
         this.val = Number((this.val * percentage.val).toFixed(2));
         return this;
     }
 
     add(value, percent) {
-        // Add function with a standalone value
         if (this.isPercent(percent)) {
             this.perc = Number((this.perc + Number(value)).toFixed(2));
             // Re-Fix the value in order to fix potential precision errors.
@@ -50,7 +47,6 @@ class Percentage {
     }
 
     mul(value, percent) {
-        // Mul function with a standalone value
         if (this.isPercent(percent)) {
             this.perc = Number((this.perc * (Number(value) / 100)).toFixed(2));
             this.val = Number((this.val * (Number(value) / 100)).toFixed(2));
@@ -62,7 +58,6 @@ class Percentage {
     }
 
     preciseMul(value, percent) {
-        // Mul function with a standalone value
         if (this.isPercent(percent)) {
             this.perc = Number((this.perc * (Number(value) / 100)).toFixed(4));
             this.val = Number((this.val * (Number(value) / 100)).toFixed(4));

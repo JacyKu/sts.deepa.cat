@@ -1,6 +1,7 @@
 import styles from '../../styles/Items.module.css';
 import Enchants from './enchants';
 import LoreText from './loreText';
+import ItemHistoryPanel from './itemHistoryPanel';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -9,6 +10,8 @@ import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
+import { useInView } from '../inView';
+import { useTranslation } from '../useTranslation';
 
 const MAX_FISH_QUALITY = 5;
 
@@ -39,10 +42,10 @@ function getItemsheetClass(itemName) {
         .trim()}`;
 }
 
-function getFishQualityElement(fishQuality) {
+function getFishQualityElement(fishQuality, t) {
     return (
         <span>
-            <span>Fish Quality : </span>
+            <span>{`${t('items.fishQuality')} `}</span>
             <span className={styles[`fish${fishQuality}`]}>
                 {'★'.repeat(fishQuality) + '☆'.repeat(MAX_FISH_QUALITY - fishQuality)}
             </span>
@@ -50,8 +53,9 @@ function getFishQualityElement(fishQuality) {
     );
 }
 
-export default function ConsumableTile(data) {
+function ConsumableTile(data) {
     const item = data.item;
+    const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
     const { items: listItems, toggleItem } = useBuildList();
@@ -61,6 +65,7 @@ export default function ConsumableTile(data) {
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
+    const { ref, inView, minHeight } = useInView(null);
 
     React.useEffect(() => {
         let active = true;
@@ -93,8 +98,14 @@ export default function ConsumableTile(data) {
         setCssClass(`minecraft-${item['base_item'].replaceAll(' ', '-').replaceAll('_', '-').toLowerCase()}`);
     }, [item, spriteMap]);
 
+    if (!inView) {
+        return (
+            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
+        );
+    }
+
     return (
-        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"
@@ -102,8 +113,8 @@ export default function ConsumableTile(data) {
                     onClick={() => toggleItem(item.name, item.type)}
                     aria-label={
                         listItems.includes(item.name)
-                            ? `Remove ${item.name} from build list`
-                            : `Add ${item.name} to build list`
+                            ? `${t('common.remove')} ${item.name} ${t('items.buildList.fromBuildList')}`
+                            : `${t('common.add')} ${item.name} ${t('items.buildList.toBuildList')}`
                     }
                 >
                     {listItems.includes(item.name) ? '✓' : '+'}
@@ -125,19 +136,21 @@ export default function ConsumableTile(data) {
                     {item.name}
                 </a>
             </span>
-            {item.fish_quality ? getFishQualityElement(item.fish_quality) : ''}
+            {item.fish_quality ? getFishQualityElement(item.fish_quality, t) : ''}
             <span className={styles.infoText}>
                 <TranslatableText identifier={`items.type.${getItemType(item)}`}></TranslatableText>
                 {` - ${item['base_item']} `}
             </span>
             {item['original_item'] ? (
-                <span className={styles.infoText}>{`Skin for ${item['original_item']} `}</span>
+                <span className={styles.infoText}>{`${t('items.skinFor')} ${item['original_item']} `}</span>
             ) : (
                 ''
             )}
             <span>
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
-                <span className={styles[camelCase(item.tier)]}>{item.tier ? item.tier : 'Consumable'}</span>
+                <span className={styles[camelCase(item.tier)]}>
+                    {item.tier ? item.tier : t('items.type.consumable')}
+                </span>
             </span>
             <span className={styles[camelCase(item.location)]}>{item.location}</span>
             {formattedEffects}
@@ -145,10 +158,17 @@ export default function ConsumableTile(data) {
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (
                 <>
-                    {item.extras?.poi ? <p className={`${styles.infoText} m-0`}>{`Found in ${item.extras.poi}`}</p> : ''}
+                    {item.extras?.poi ? (
+                        <p className={`${styles.infoText} m-0`}>{`${t('items.foundIn')} ${item.extras.poi}`}</p>
+                    ) : (
+                        ''
+                    )}
                     {item.extras?.notes ? <p className={`${styles.infoText} m-0`}>{item.extras.notes}</p> : ''}
                 </>
             )}
+            <ItemHistoryPanel records={data.history} currentItem={item} />
         </div>
     );
 }
+
+export default React.memo(ConsumableTile);

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import TranslatableText from './translatableText';
 import styles from '../styles/Database.module.css';
+import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
@@ -12,6 +13,30 @@ import { useCardItemsFirst } from './items/cardItemsFirstContext';
 import { useLowResource } from './lowResourceContext';
 import Enchants from './items/enchants';
 import CharmFormatter from '../utils/items/charmFormatter';
+import { useInView } from './inView';
+import { useTranslation } from './useTranslation';
+
+let spriteClassNames = null;
+function collectSpriteClassNames() {
+    const names = new Set();
+    try {
+        for (const sheet of document.styleSheets) {
+            let rules;
+            try {
+                rules = sheet.cssRules;
+            } catch (e) {
+                continue;
+            }
+            if (!rules) continue;
+            for (const rule of rules) {
+                const text = rule && rule.selectorText;
+                if (!text) continue;
+                if (/^\.[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text)) names.add(text.slice(1));
+            }
+        }
+    } catch (e) {}
+    return names;
+}
 
 // Per-build-item detail lookup cache, shared across cards.
 const itemDetailCache = new Map();
@@ -34,12 +59,12 @@ function cleanDescription(desc) {
 
 // Replaces #{Common|Uncommon|...} templates in CZ/Depths ability descriptions
 // with the value for the Twisted level - rarity is gone, everything is Twisted.
-function formatCzDescription(desc) {
+function formatCzDescription(desc, t) {
     const KEYBINDS = {
-        'key.attack': 'Left Button',
-        'key.use': 'Right Button',
-        'key.swapOffhand': 'Swap',
-        'key.drop': 'Drop',
+        'key.attack': t('builder.keybinds.leftButton'),
+        'key.use': t('builder.keybinds.rightButton'),
+        'key.swapOffhand': t('builder.keybinds.swap'),
+        'key.drop': t('builder.keybinds.drop'),
     };
     return String(desc || '')
         .replace(/#\{([^}]+)\}/g, (match, group) => {
@@ -53,10 +78,10 @@ function formatCzDescription(desc) {
 function loadBuildDetails() {
     if (!buildDetailPromise) {
         buildDetailPromise = Promise.all([
-            fetch('/api/v1/skills')
+            fetch('/api/v2/skills')
                 .then((r) => (r.ok ? r.json() : null))
                 .catch(() => null),
-            fetch('/api/v1/cz')
+            fetch('/api/v2/cz')
                 .then((r) => (r.ok ? r.json() : null))
                 .catch(() => null),
         ]).then(([skills, cz]) => {
@@ -109,8 +134,15 @@ function loadBuildDetails() {
 // One build card in the public database / favourites / my-builds grids.
 // The optional children render inside the card (after the bottom row), so
 // pages like "My Builds" can embed management buttons in the card itself.
-export default function BuildCard({ build, user, base, onToggleFavourite, children }) {
-    const { itemsFirst, toggle: toggleCardLayout } = useCardItemsFirst();
+// `onAddCompare` (database page) shows the "add to comparison" picker
+// button below the layout-swap button; `compareActive` marks it selected.
+function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
+    const t = useTranslation();
+    const { itemsFirst: globalItemsFirst } = useCardItemsFirst();
+    // The card's swap button overrides the global setting for this card only;
+    // null follows the global default set on the settings page.
+    const [layoutOverride, setLayoutOverride] = React.useState(null);
+    const itemsFirst = layoutOverride === null ? globalItemsFirst : layoutOverride;
     const { lowRes } = useLowResource();
     const [favBusy, setFavBusy] = React.useState(false);
     const [expanded, setExpanded] = React.useState(false);
@@ -127,6 +159,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
     const [tip, setTip] = React.useState(null); // { left, top, s }
     const hoverTimer = React.useRef(null);
     const cardRef = React.useRef(null);
+    const { inView, minHeight } = useInView(cardRef);
 
     React.useEffect(() => {
         // Touch devices have no hover: the card expands on the first tap and
@@ -204,6 +237,20 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
             return;
         }
         setOpenItem(i);
+        // Custom items are not in the static items API; their stats come with
+        // the build annotation instead.
+        const custom = customByName.get(item.n);
+        if (custom) {
+            setDetail({
+                name: custom.name,
+                type: custom.type,
+                base_item: custom.baseItem,
+                stats: custom.stats,
+                statColors: custom.statColors,
+                isCustomItem: true,
+            });
+            return;
+        }
         const cacheKey = `${item.n}|${item.pw || ''}`;
         const cached = itemDetailCache.get(cacheKey);
         if (cached) {
@@ -215,7 +262,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
             query.set('type', 'charm');
             query.set('power', String(item.pw || ''));
         }
-        fetch(`/api/v1/items?${query}`)
+        fetch(`/api/v2/items?${query}`)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((data) => {
                 if (data.item) {
@@ -226,9 +273,13 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
             .catch(() => {});
     }
 
+    // Author avatars are usually a Discord CDN hash, but accounts that picked
+    // their Minecraft head as profile picture store a (relative) image URL.
     function avatarUrl(id, avatar) {
-        if (!id || !avatar) return null;
-        return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=32`;
+        if (!avatar) return null;
+        if (avatar.startsWith('http') || avatar.startsWith('/')) return avatar;
+        if (!id) return null;
+        return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=64`;
     }
 
     function toggleFavourite(event) {
@@ -239,7 +290,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         // this too (401). Without a session the button does nothing.
         if (!user) return;
         setFavBusy(true);
-        fetch(`/api/v1/builds/${build.id}/favourite`, {
+        fetch(`/api/v2/builds/${build.id}/favourite`, {
             method: build.myFavourite ? 'DELETE' : 'POST',
         })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
@@ -248,7 +299,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
             .finally(() => setFavBusy(false));
     }
 
-    const displayName = build.name || 'Unnamed build';
+    const displayName = build.name || t('builds.unnamed');
     const avatar = avatarUrl(build.authorId, build.authorAvatar);
 
     // Chip hover tooltips: full name + description for the class, spec and
@@ -262,7 +313,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         const info = czInfo(s);
         if (!info) return null;
         const raw = build.region === 'Darkest Depths' ? info.depths : info.zenith;
-        return formatCzDescription(raw);
+        return formatCzDescription(raw, t);
     };
 
     let skills = [];
@@ -312,36 +363,41 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         }
     }
 
+    // Custom items the build references (annotated by the builds API from the
+    // token's item hashes) and whether the author left notes. Builds saved
+    // before custom items were kept in items_json still get the missing ones
+    // merged into the item list here, so the card can show the custom item and
+    // its texture. The notes themselves open below the card on hover.
+    const customItems = Array.isArray(build.customItems) ? build.customItems : [];
+    const customByName = new Map(customItems.map((item) => [item.name, item]));
+    const hasNotes = typeof build.notes === 'string' && build.notes.trim().length > 0;
+    const missingCustom = customItems.filter((item) => item.slot && !items.some((entry) => entry.n === item.name));
+    if (missingCustom.length > 0) {
+        const SLOT_ORDER = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+        const bySlot = new Map(items.filter((entry) => entry.sl && !entry.c).map((entry) => [entry.sl, entry]));
+        for (const item of missingCustom) {
+            bySlot.set(item.slot, { n: item.name, b: item.baseItem || undefined, sl: item.slot });
+        }
+        const equipment = SLOT_ORDER.map((slot) => bySlot.get(slot)).filter(Boolean);
+        const rest = items.filter((entry) => entry.c || !entry.sl);
+        items = [...equipment, ...rest];
+    }
+
     // Sprite class resolution mirrors the items page: explicit map entry, else
     // a minecraft texture keyed by the base item. Charms fall back to their
     // class default texture on the charmsheet (tier/class/power based), like
     // charmTile does. Before the map has loaded, render a plain placeholder.
     const SLOT_LABELS = {
-        mainhand: 'Mainhand',
-        offhand: 'Offhand',
-        helmet: 'Helmet',
-        chestplate: 'Chestplate',
-        leggings: 'Leggings',
-        boots: 'Boots',
+        mainhand: 'items.type.mainhand',
+        offhand: 'items.type.offhand',
+        helmet: 'items.type.helmet',
+        chestplate: 'items.type.chestplate',
+        leggings: 'items.type.leggings',
+        boots: 'items.type.boots',
     };
     function doesStyleExist(className) {
-        try {
-            for (const sheet of document.styleSheets) {
-                let rules;
-                try {
-                    rules = sheet.cssRules;
-                } catch (e) {
-                    continue;
-                }
-                if (!rules) continue;
-                for (const rule of rules) {
-                    if (rule.selectorText === `.${className}`) return true;
-                }
-            }
-        } catch (e) {
-            return false;
-        }
-        return false;
+        if (spriteClassNames === null) spriteClassNames = collectSpriteClassNames();
+        return spriteClassNames.has(className);
     }
     function charmDefaultClass(item) {
         const tier = item.t || 'Base';
@@ -357,6 +413,12 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         return `monumenta-${image}`;
     }
     function itemSprite(item) {
+        // Custom items render their own texture when the referenced token is
+        // part of the spritesheet; otherwise they fall back like unknown items.
+        const custom = customByName.get(item.n);
+        if (custom && custom.textureToken && doesStyleExist(`monumenta-${custom.textureToken}`)) {
+            return `monumenta-items monumenta-${custom.textureToken}`;
+        }
         const mapped = getMappedSpriteClass(spriteMap, item.n);
         if (mapped && doesStyleExist(mapped)) return `monumenta-items ${mapped}`;
         if (spriteMap) {
@@ -373,20 +435,25 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         }
         return null;
     }
-    const itemStars = (item) => {
+    const itemStars = (item, isCustom) => {
         if (item.c) {
             return (Number(item.pw) || 0) > 0 ? (
                 <span className={styles.previewStars}>{'★'.repeat(Number(item.pw) || 0)}</span>
             ) : null;
         }
         if (item.sl && SLOT_LABELS[item.sl]) {
-            return <span className={styles.previewSlot}>{SLOT_LABELS[item.sl]}</span>;
+            return (
+                <span className={`${styles.previewSlot}${isCustom ? ` ${styles.customItem}` : ''}`}>
+                    {t(SLOT_LABELS[item.sl])}
+                </span>
+            );
         }
         return null;
     };
 
     function renderItemRow(item, i) {
         const cls = itemSprite(item);
+        const isCustom = customByName.has(item.n);
         return (
             <div key={i} className={styles.previewRowWrap}>
                 <div
@@ -399,14 +466,16 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                 >
                     <span className={styles.previewIcon}>
                         {lowRes ? (
-                            <span className={itemsStyles.lowResIcon} aria-hidden="true" />
+                            <span className={styles.previewLowRes} aria-hidden="true" />
                         ) : cls ? (
                             <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
                         ) : null}
                     </span>
                     <span className={styles.previewInfo}>
-                        <span className={styles.previewName}>{item.n}</span>
-                        {itemStars(item)}
+                        <span className={`${styles.previewName}${isCustom ? ` ${styles.customItem}` : ''}`}>
+                            {item.n}
+                        </span>
+                        {itemStars(item, isCustom)}
                     </span>
                 </div>
                 {openItem === i && detail && (
@@ -423,7 +492,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                                     <span className={styles.previewStars}>{'★'.repeat(Number(item.pw) || 0)}</span>
                                     {detail.class_name ? ` - ${detail.class_name}` : ''}
                                 </div>
-                                {CharmFormatter.formatCharm(detail.stats)}
+                                {CharmFormatter.formatCharm(detail.stats, detail.statColors)}
                             </>
                         ) : (
                             <Enchants item={detail} />
@@ -444,12 +513,12 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
     // skills to show). Small sprites with a slot-type abbreviation under
     // each (charm power stars for charms), and the item name on hover.
     const SLOT_ABBR = {
-        mainhand: 'MH',
-        offhand: 'OH',
-        helmet: 'Helm',
-        chestplate: 'Chest',
-        leggings: 'Legs',
-        boots: 'Boots',
+        mainhand: 'builds.slotAbbr.mainhand',
+        offhand: 'builds.slotAbbr.offhand',
+        helmet: 'builds.slotAbbr.helmet',
+        chestplate: 'builds.slotAbbr.chestplate',
+        leggings: 'builds.slotAbbr.leggings',
+        boots: 'builds.slotAbbr.boots',
     };
     function renderItemStrip() {
         // Charms always start on their own line: the card is just wide
@@ -459,6 +528,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         const charms = items.filter((item) => item.c);
         const renderIcon = (item, i) => {
             const cls = itemSprite(item);
+            const isCustom = customByName.has(item.n);
             return (
                 <span key={i} className={`${styles.itemStripWrap} ${itemsStyles.enchantTooltip}`}>
                     <span className={styles.itemStripIcon}>
@@ -468,11 +538,13 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                             <span className={`${styles.previewSprite} ${cls}`} aria-hidden="true" />
                         ) : null}
                     </span>
-                    <span className={styles.itemStripLabel}>
-                        {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && SLOT_ABBR[item.sl]}
+                    <span className={`${styles.itemStripLabel}${isCustom ? ` ${styles.customItem}` : ''}`}>
+                        {item.c ? '★'.repeat(Math.min(5, Number(item.pw) || 0)) : item.sl && t(SLOT_ABBR[item.sl])}
                     </span>
                     <span className={itemsStyles.enchantTooltipText}>
-                        <span style={{ fontWeight: 600 }}>{item.n}</span>
+                        <span className={isCustom ? styles.customItem : undefined} style={{ fontWeight: 600 }}>
+                            {item.n}
+                        </span>
                         {item.b && item.b !== item.n && (
                             <span style={{ display: 'block', marginTop: 3 }}>{item.b}</span>
                         )}
@@ -558,6 +630,20 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
     // hover panel; the "items first" toggle swaps them. A build with no
     // skills falls back to the item strip so the card isn't empty.
     const showItemStrip = itemsFirst || skills.length === 0;
+    // Whether the hover side extension has anything to show; the notes panel
+    // only stretches over it when it is actually open.
+    const sideHasContent = itemsFirst ? skills.length > 0 : items.length > 0;
+
+    if (!inView) {
+        return (
+            <Link
+                ref={cardRef}
+                href={base + build.url}
+                className={`${styles.card}${expanded ? ` ${styles.cardExpanded}` : ''}`}
+                style={{ minHeight }}
+            />
+        );
+    }
 
     return (
         <Link
@@ -577,7 +663,7 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                         type="button"
                         className={`${styles.favBtn}${build.myFavourite ? ` ${styles.favBtnOn}` : ''}`}
                         onClick={toggleFavourite}
-                        aria-label="Toggle favourite"
+                        aria-label={t('builds.toggleFavourite')}
                     >
                         <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
                             <svg viewBox="0 0 512 512" width="15" height="15" aria-hidden="true">
@@ -591,10 +677,10 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                             <span className={styles.favCount}>{build.favouriteCount || 0}</span>
                             <span className={itemsStyles.enchantTooltipText}>
                                 {build.myFavourite
-                                    ? 'Remove from favourites'
+                                    ? t('builds.removeFromFavourites')
                                     : user
-                                      ? 'Add to favourites'
-                                      : 'Log in to favourite'}
+                                      ? t('builds.addToFavourites')
+                                      : t('builds.loginToFavourite')}
                             </span>
                         </span>
                     </button>
@@ -604,19 +690,45 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            toggleCardLayout();
+                            setLayoutOverride(!itemsFirst);
                         }}
-                        aria-label="Swap card layout"
+                        aria-label={t('builds.swapCardLayout')}
                     >
                         <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
                                 <path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
                             </svg>
                             <span className={itemsStyles.enchantTooltipText}>
-                                {itemsFirst ? 'Show skills on card' : 'Show items on card'}
+                                {itemsFirst ? t('builds.showSkillsOnCard') : t('builds.showItemsOnCard')}
                             </span>
                         </span>
                     </button>
+                    {onAddCompare && (
+                        <button
+                            type="button"
+                            className={`${styles.compareLayoutBtn}${
+                                compareActive ? ` ${styles.compareLayoutBtnOn}` : ''
+                            }`}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onAddCompare(build);
+                            }}
+                            aria-label={t('compare.addToComparison')}
+                            title={compareActive ? t('compare.removeFromComparison') : t('compare.addToComparison')}
+                        >
+                            <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                                    <path d="M3 5h14v2H3zM3 9h10v2H3zM3 13h14v2H3zM3 17h10v2H3z" />
+                                    <path d="M19 6v12h2V6zM17 8h6v2h-6zM17 14h6v2h-6z" opacity="0" />
+                                    <path d="M19 5l3 3-3 3V9h-2a1 1 0 0 1 0-2h2V5zM19 19v-2h-2a1 1 0 0 1 0-2h2v-2l3 3-3 3z" />
+                                </svg>
+                                <span className={itemsStyles.enchantTooltipText}>
+                                    {compareActive ? t('compare.removeFromComparison') : t('compare.addToComparison')}
+                                </span>
+                            </span>
+                        </button>
+                    )}
                 </span>
             </div>
 
@@ -701,6 +813,28 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                         {build.tree}
                     </span>
                 )}
+                {customItems.length > 0 && (
+                    <span
+                        className={`${styles.cardIndicator} ${styles.cardIndicatorCustom} ${itemsStyles.enchantTooltip}`}
+                        style={chipTooltipStyle}
+                    >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2zm6.2 10l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9.9-2.4zM6 14l.9 2.4 2.4.9-2.4.9L6 20.6l-.9-2.4-2.4-.9 2.4-.9L6 14z" />
+                        </svg>
+                        <span className={itemsStyles.enchantTooltipText}>{t('builds.usesCustomItems')}</span>
+                    </span>
+                )}
+                {hasNotes && (
+                    <span
+                        className={`${styles.cardIndicator} ${styles.cardIndicatorNotes} ${itemsStyles.enchantTooltip}`}
+                        style={chipTooltipStyle}
+                    >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                            <path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V9h4.5L13 4.5zM7 12h10v2H7v-2zm0 4h10v2H7v-2z" />
+                        </svg>
+                        <span className={itemsStyles.enchantTooltipText}>{t('builds.hasNotes')}</span>
+                    </span>
+                )}
             </div>
 
             {!itemsFirst && skills.length > 0 && (
@@ -710,17 +844,19 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
             {showItemStrip && items.length > 0 && renderItemStrip()}
 
             <div className={styles.cardMeta}>
-                {build.ascension > 0 && <span className={styles.metaItem}>Ascension {build.ascension}</span>}
+                {build.ascension > 0 && (
+                    <span className={styles.metaItem}>
+                        {t('builds.ascension')} {build.ascension}
+                    </span>
+                )}
             </div>
 
             <div className={styles.cardBottom}>
-                <span className={styles.author} title={build.authorName || 'Anonymous'}>
-                    {avatar && <img className={styles.avatar} src={avatar} alt="" width={18} height={18} />}
+                <span className={styles.author} title={build.authorName || t('database.anonymous')}>
+                    {avatar && <img className={styles.avatar} src={avatar} alt="" width={24} height={24} />}
                     {build.authorName || <TranslatableText identifier="database.anonymous" />}
                 </span>
-                <span className={styles.date}>
-                    {new Date((build.updatedAt || build.createdAt) + 'Z').toLocaleDateString()}
-                </span>
+                <span className={styles.date}>{formatDateString(build.updatedAt || build.createdAt)}</span>
             </div>
 
             {children}
@@ -733,6 +869,13 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                 </div>
             )}
 
+            {isTouch && expanded && hasNotes && (
+                <div className={styles.mobileNotes}>
+                    <div className={styles.cardNotesLabel}>{t('builds.notes')}</div>
+                    <div className={styles.cardNotesBody}>{build.notes}</div>
+                </div>
+            )}
+
             {!isTouch && expanded && (itemsFirst ? skills.length > 0 : items.length > 0) && (
                 <div
                     className={`${styles.cardSide} ${side === 'left' ? styles.cardSideLeft : styles.cardSideRight}${sideOpen ? ` ${styles.cardSideOpen}` : ''}`}
@@ -740,6 +883,17 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
                     {(itemsFirst ? skills : items).map(
                         itemsFirst ? (s, i) => renderSkillChip(s, i, true) : renderItemRow
                     )}
+                </div>
+            )}
+
+            {!isTouch && expanded && hasNotes && (
+                <div
+                    className={`${styles.cardNotes} ${
+                        side === 'left' ? styles.cardNotesLeft : styles.cardNotesRight
+                    }${sideOpen ? ` ${styles.cardNotesOpen}` : ''}${sideHasContent ? ` ${styles.cardNotesWide}` : ''}`}
+                >
+                    <div className={styles.cardNotesLabel}>{t('builds.notes')}</div>
+                    <div className={styles.cardNotesBody}>{build.notes}</div>
                 </div>
             )}
 
@@ -758,3 +912,5 @@ export default function BuildCard({ build, user, base, onToggleFavourite, childr
         </Link>
     );
 }
+
+export default React.memo(BuildCard);

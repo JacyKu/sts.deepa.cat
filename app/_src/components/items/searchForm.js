@@ -3,8 +3,126 @@ import styles from '../../styles/SearchForm.module.css';
 import SelectWithTriggers from './selectWithTriggers';
 import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
+import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
+import { useTranslation } from '../useTranslation';
+
+let searchOptionsCache = null;
+function getSearchOptions(itemData) {
+    if (searchOptionsCache && searchOptionsCache.data === itemData) return searchOptionsCache.options;
+    let sortableStats = [];
+    let tiers = [];
+    let locations = [];
+    let pois = [];
+    let charmStats = [];
+    let baseItems = [];
+    let effects = [];
+    let charmPowers = [];
+    let itemNames = Object.keys(itemData).filter((item) => itemData[item].type != 'Charm');
+    let uniqueItemStats = {};
+    for (let itemName of itemNames) {
+        if (itemData[itemName].stats) {
+            Object.keys(itemData[itemName].stats).forEach((stat) => {
+                uniqueItemStats[stat] = 1;
+            });
+        }
+    }
+    Object.keys(uniqueItemStats).forEach((stat) => {
+        sortableStats.push(
+            stat
+                .split('_')
+                .map((part) => part[0].toUpperCase() + part.substring(1))
+                .join(' ')
+        );
+    });
+    let uniqueTiers = {};
+    Object.keys(itemData)
+        .map((item) => itemData[item].tier)
+        .filter((tierName) => tierName != undefined)
+        .forEach((tierName) => {
+            uniqueTiers[tierName] = 1;
+        });
+    // Remove the Charm tier since there is a checkbox for it.
+    delete uniqueTiers.Charm;
+    Object.keys(uniqueTiers).forEach((tierName) => tiers.push(tierName));
+    let charmNames = Object.keys(itemData).filter((item) => itemData[item].type == 'Charm');
+    let uniqueCharmAttributes = {};
+    for (let charmName of charmNames) {
+        Object.keys(itemData[charmName].stats).forEach((attribute) => {
+            uniqueCharmAttributes[attribute] = 1;
+        });
+    }
+    Object.keys(uniqueCharmAttributes).forEach((attribute) => {
+        charmStats.push(
+            attribute
+                .split('_')
+                .map((part) => part[0].toUpperCase() + part.substring(1))
+                .join(' ')
+                .replace(' Flat', '')
+                .replace(' Percent', ' %')
+        );
+    });
+    let uniqueEffects = {};
+    let consumableNames = Object.keys(itemData).filter((item) => itemData[item].type === 'Consumable');
+    for (let name of consumableNames) {
+        let item = itemData[name];
+        if (Array.isArray(item.effects)) {
+            item.effects.forEach((effect) => {
+                if (effect.EffectType) {
+                    uniqueEffects[effect.EffectType] = 1;
+                }
+            });
+        }
+    }
+    Object.keys(uniqueEffects).forEach((effect) => {
+        let formatted = effect.replace('damage', 'Damage');
+        formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
+        effects.push(formatted);
+    });
+    let uniqueLocations = {};
+    Object.keys(itemData)
+        .map((item) => itemData[item].location)
+        .filter((locationName) => locationName != undefined)
+        .forEach((locationName) => {
+            uniqueLocations[locationName] = 1;
+        });
+    Object.keys(uniqueLocations).forEach((locationName) => locations.push(locationName));
+    let uniquePowers = {};
+    Object.keys(itemData)
+        .filter((item) => itemData[item].type == 'Charm')
+        .forEach((item) => {
+            const power = itemData[item].power;
+            if (power !== undefined && power !== null) {
+                uniquePowers[power] = 1;
+            }
+        });
+    Object.keys(uniquePowers)
+        .sort((a, b) => a - b)
+        .forEach((power) => charmPowers.push(Number(power)));
+    let uniqueBaseItems = {};
+    Object.keys(itemData)
+        .map((item) => itemData[item].base_item)
+        .filter((baseItemName) => baseItemName != undefined)
+        .forEach((baseItemName) => {
+            uniqueBaseItems[baseItemName] = 1;
+        });
+    Object.keys(uniqueBaseItems).forEach((baseItemName) => baseItems.push(baseItemName));
+    let uniquePois = {};
+    Object.keys(extras)
+        .filter((extra) => extras[extra].poi != undefined)
+        .map((extra) => extras[extra].poi)
+        .forEach((poiName) => {
+            uniquePois[poiName] = 1;
+        });
+    Object.keys(uniquePois).forEach((poiName) => pois.push(poiName));
+    searchOptionsCache = {
+        data: itemData,
+        options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers },
+    };
+    return searchOptionsCache.options;
+}
 
 export default function SearchForm({ update, itemData }) {
+    const t = useTranslation();
     const [itemStatKey, setItemStatKey] = React.useState(getResetKey('search'));
     const [itemTypeKey, setItemTypeKey] = React.useState(getResetKey('itemType'));
     const [regionKey, setRegionKey] = React.useState(getResetKey('region'));
@@ -29,7 +147,7 @@ export default function SearchForm({ update, itemData }) {
     // pick the options up).
     React.useEffect(() => {
         let active = true;
-        fetch('/api/v1/skills')
+        fetch('/api/v2/skills')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (!active) return;
@@ -43,14 +161,14 @@ export default function SearchForm({ update, itemData }) {
                     for (const s of c.skills || []) {
                         if (s.name && !seen.has(s.name)) {
                             seen.add(s.name);
-                            list.push({ value: s.name, label: s.name });
+                            list.push({ value: s.name, label: s.displayName || s.name });
                         }
                     }
                     for (const sp of c.specs || []) {
                         for (const s of sp.specSkills || []) {
                             if (s.name && !seen.has(s.name)) {
                                 seen.add(s.name);
-                                list.push({ value: s.name, label: s.name });
+                                list.push({ value: s.name, label: s.displayName || s.name });
                             }
                         }
                     }
@@ -76,8 +194,9 @@ export default function SearchForm({ update, itemData }) {
     const searchContainer = React.useRef();
 
     // The search survives page switches: every submit snapshot is cached and
-    // restored on mount (until the user hits Reset).
-    const SEARCH_CACHE_KEY = 'sts.itemsSearch.v1';
+    // restored on mount (until the user hits Reset) - unless the "Cache
+    // searches" setting is off (Settings menu).
+    const SEARCH_CACHE_KEY = SEARCH_CACHE_DATA_KEY;
     const savedSearch = React.useRef(null);
     const [restored, setRestored] = React.useState(false);
 
@@ -86,9 +205,9 @@ export default function SearchForm({ update, itemData }) {
         'Chestplate',
         'Leggings',
         'Boots',
-        { value: 'ALL_MAINHANDS', label: 'All mainhands' },
-        { value: 'ALL_MELEE_MAINHANDS', label: 'All melee mainhands' },
-        { value: 'Mainhand', label: 'Misc mainhands' },
+        { value: 'ALL_MAINHANDS', label: t('items.searchForm.allMainhands') },
+        { value: 'ALL_MELEE_MAINHANDS', label: t('items.searchForm.allMeleeMainhands') },
+        { value: 'Mainhand', label: t('items.searchForm.miscMainhands') },
         'Mainhand Sword',
         'Mainhand Shield',
         'Axe',
@@ -101,8 +220,8 @@ export default function SearchForm({ update, itemData }) {
         'Wand',
         'Snowball',
         'Projectile',
-        { value: 'ALL_OFFHANDS', label: 'All offhands' },
-        { value: 'Offhand', label: 'Misc offhands' },
+        { value: 'ALL_OFFHANDS', label: t('items.searchForm.allOffhands') },
+        { value: 'Offhand', label: t('items.searchForm.miscOffhands') },
         'Offhand Sword',
         'Offhand Shield',
         'Alchemist Bag',
@@ -123,15 +242,11 @@ export default function SearchForm({ update, itemData }) {
         'Shaman',
         'Generalist',
     ];
-    let sortableStats = [];
-    let regions = ['Valley', 'Isles', 'Ring'];
-    let tiers = [];
-    let locations = [];
-    let pois = [];
-    let charmStats = [];
-    let baseItems = [];
-    let effects = [];
-    let charmPowers = [];
+    const regions = [
+        { value: 'Valley', label: t('builder.regions.valley') },
+        { value: 'Isles', label: t('builder.regions.isles') },
+        { value: 'Ring', label: t('builder.regions.ring') },
+    ];
     // The active Charm Class filter. Kept in state (updated by the class
     // select's onChange) because the form's hidden input updates after the
     // re-render, which would lag one selection behind. The DOM is only read
@@ -269,8 +384,8 @@ export default function SearchForm({ update, itemData }) {
                     name={`questIdSelect-${uniqueKey}`}
                     className={styles.questIdInput}
                     defaultValue={(defaultValue && defaultValue['questIdSelect']) || ''}
-                    placeholder="e.g. 154, Q154, q154i01"
-                    aria-label="Search by quest item ID"
+                    placeholder={t('items.searchForm.questIdPlaceholder')}
+                    aria-label={t('items.searchForm.questIdAria')}
                 />
             );
         }),
@@ -281,12 +396,12 @@ export default function SearchForm({ update, itemData }) {
                         key={`powerOp-${itemStatKey}`}
                         name={`charmPowerOperatorSelect-${uniqueKey}`}
                         sortableStats={[
-                            { value: '=', label: 'Equals' },
-                            { value: '>', label: 'More than' },
-                            { value: '>=', label: 'At least' },
-                            { value: '<', label: 'Less than' },
-                            { value: '<=', label: 'At most' },
-                            { value: '!=', label: 'Not equal' },
+                            { value: '=', label: t('items.searchForm.operatorEquals') },
+                            { value: '>', label: t('items.searchForm.operatorMoreThan') },
+                            { value: '>=', label: t('items.searchForm.operatorAtLeast') },
+                            { value: '<', label: t('items.searchForm.operatorLessThan') },
+                            { value: '<=', label: t('items.searchForm.operatorAtMost') },
+                            { value: '!=', label: t('items.searchForm.operatorNotEqual') },
                         ]}
                         default={defaultValue && defaultValue['charmPowerOperatorSelect']}
                     />
@@ -385,17 +500,19 @@ export default function SearchForm({ update, itemData }) {
                 }
                 if (category) rows.push({ category, values });
             }
-            localStorage.setItem(
-                SEARCH_CACHE_KEY,
-                JSON.stringify({
-                    rows,
-                    searchName: entries.searchName || '',
-                    searchLore: entries.searchLore || '',
-                    hideUnobtainable: entries.hideUnobtainable === 'on',
-                    hideNonGear: entries.hideNonGear === 'on',
-                    hideQuestItems: entries.hideQuestItems === 'on',
-                })
-            );
+            if (isSearchCacheEnabled()) {
+                localStorage.setItem(
+                    SEARCH_CACHE_KEY,
+                    JSON.stringify({
+                        rows,
+                        searchName: entries.searchName || '',
+                        searchLore: entries.searchLore || '',
+                        hideUnobtainable: entries.hideUnobtainable === 'on',
+                        hideNonGear: entries.hideNonGear === 'on',
+                        hideQuestItems: entries.hideQuestItems === 'on',
+                    })
+                );
+            }
         } catch (e) {}
     }
 
@@ -403,6 +520,7 @@ export default function SearchForm({ update, itemData }) {
     // (category + selected value), refill the text inputs / checkboxes and
     // re-apply the results through the parent.
     React.useEffect(() => {
+        if (!isSearchCacheEnabled()) return;
         let cache = null;
         try {
             cache = JSON.parse(localStorage.getItem(SEARCH_CACHE_KEY) || 'null');
@@ -468,7 +586,7 @@ export default function SearchForm({ update, itemData }) {
 
     function resetForm() {
         try {
-            localStorage.removeItem(SEARCH_CACHE_KEY);
+            if (isSearchCacheEnabled()) localStorage.removeItem(SEARCH_CACHE_KEY);
         } catch (e) {}
         savedSearch.current = null;
         setItemStatKey(getResetKey('search'));
@@ -489,21 +607,19 @@ export default function SearchForm({ update, itemData }) {
         event.preventDefault();
     }
 
-    generateSortableItemStats(itemData);
-    // generateRegions();
-    generateTiers(itemData);
-    generateSortableCharmStats(itemData);
-    generateLocations(itemData);
-    generatePOIs();
-    generateBaseItems(itemData);
-    generateEffects(itemData);
-    generateCharmPowers(itemData);
+    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } =
+        getSearchOptions(itemData);
 
     function addFilter() {
         setFilters((oldFilters) => [
             ...oldFilters,
             { activeCategory: null, selected: null, uniqueKey: new Date().getTime() },
         ]);
+    }
+
+    function getCategoryLabel(name) {
+        const category = categories.find((c) => c.name === name);
+        return category && category.translatableName ? t(category.translatableName) : name;
     }
 
     return (
@@ -526,7 +642,9 @@ export default function SearchForm({ update, itemData }) {
                             deleteCallback={deleteFilter}
                             regenKey={activeCharmClass}
                             defaultValue={
-                                f.activeCategory ? { value: f.activeCategory, label: f.activeCategory } : null
+                                f.activeCategory
+                                    ? { value: f.activeCategory, label: getCategoryLabel(f.activeCategory) }
+                                    : null
                             }
                             childDefault={f.selected || null}
                         />
@@ -538,8 +656,8 @@ export default function SearchForm({ update, itemData }) {
                 <input
                     className={styles.addFilterButton}
                     type="button"
-                    value="+ Add"
-                    aria-label="Add filter"
+                    value={`+ ${t('common.add')}`}
+                    aria-label={t('database.addFilter')}
                     onClick={addFilter}
                 />
             </div>
@@ -548,109 +666,48 @@ export default function SearchForm({ update, itemData }) {
                 type="text"
                 name="searchName"
                 className={styles.searchField}
-                placeholder="Search Name"
-                aria-label="Search by item name"
+                placeholder={t('items.searchForm.searchName')}
+                aria-label={t('items.searchForm.searchNameAria')}
                 autoFocus
             />
             <input
                 type="text"
                 name="searchLore"
                 className={styles.searchField}
-                placeholder="Search Lore"
-                aria-label="Search by lore text"
+                placeholder={t('items.searchForm.searchLore')}
+                aria-label={t('items.searchForm.searchLoreAria')}
             />
             <div className={styles.filterActions}>
-                <input className={styles.submitButton} type="submit" value="Search" />
-                <input className={styles.warningButton} type="reset" value="Reset" aria-label="Reset all filters" />
+                <input className={styles.submitButton} type="submit" value={t('common.search')} />
+                <input
+                    className={styles.warningButton}
+                    type="reset"
+                    value={t('common.reset')}
+                    aria-label={t('items.searchForm.resetAria')}
+                />
             </div>
             <div className={styles.toggleRow}>
                 <label className={styles.toggleLabel}>
-                    <input type="checkbox" name="hideUnobtainable" onChange={sendUpdate} /> Hide unobtainable
+                    <input type="checkbox" name="hideUnobtainable" onChange={sendUpdate} />{' '}
+                    {t('items.searchForm.hideUnobtainable')}
                 </label>
                 <label className={styles.toggleLabel}>
-                    <input type="checkbox" name="hideNonGear" onChange={sendUpdate} /> Hide non-gear items
+                    <input type="checkbox" name="hideNonGear" onChange={sendUpdate} />{' '}
+                    {t('items.searchForm.hideNonGear')}
                 </label>
                 <label className={styles.toggleLabel}>
-                    <input type="checkbox" name="hideQuestItems" onChange={sendUpdate} /> Hide quest items
+                    <input type="checkbox" name="hideQuestItems" onChange={sendUpdate} />{' '}
+                    {t('items.searchForm.hideQuestItems')}
                 </label>
             </div>
         </form>
     );
 
-    function generateSortableItemStats(itemData) {
-        sortableStats = [];
-        let itemNames = Object.keys(itemData).filter((item) => itemData[item].type != 'Charm');
-        let uniqueItemStats = {};
-        for (let itemName of itemNames) {
-            if (itemData[itemName].stats) {
-                Object.keys(itemData[itemName].stats).forEach((stat) => {
-                    uniqueItemStats[stat] = 1;
-                });
-            }
-        }
-        Object.keys(uniqueItemStats).forEach((stat) => {
-            sortableStats.push(
-                stat
-                    .split('_')
-                    .map((part) => part[0].toUpperCase() + part.substring(1))
-                    .join(' ')
-            );
-        });
-    }
-
-    /* function generateRegions() {
-        regions = [];
-        let uniqueRegions = {
-            Valley: 1,
-            Isles: 1,
-            Ring: 1
-        };
-        Object.keys(itemData).map(item => itemData[item].region).filter(regionName => regionName != undefined).forEach(regionName => {
-            uniqueRegions[regionName] = 1;
-        });
-        Object.keys(uniqueRegions).forEach(regionName => regions.push(regionName));
-    } */
-
-    function generateTiers(itemData) {
-        tiers = [];
-        let uniqueTiers = {};
-        Object.keys(itemData)
-            .map((item) => itemData[item].tier)
-            .filter((tierName) => tierName != undefined)
-            .forEach((tierName) => {
-                uniqueTiers[tierName] = 1;
-            });
-        // Remove the Charm tier since there is a checkbox for it.
-        delete uniqueTiers.Charm;
-        Object.keys(uniqueTiers).forEach((tierName) => tiers.push(tierName));
-    }
-
-    function generateSortableCharmStats(itemData) {
-        charmStats = [];
-        let charmNames = Object.keys(itemData).filter((item) => itemData[item].type == 'Charm');
-        let uniqueCharmAttributes = {};
-        for (let charmName of charmNames) {
-            Object.keys(itemData[charmName].stats).forEach((attribute) => {
-                uniqueCharmAttributes[attribute] = 1;
-            });
-        }
-        Object.keys(uniqueCharmAttributes).forEach((attribute) => {
-            charmStats.push(
-                attribute
-                    .split('_')
-                    .map((part) => part[0].toUpperCase() + part.substring(1))
-                    .join(' ')
-                    .replace(' Flat', '')
-                    .replace(' Percent', ' %')
-            );
-        });
-    }
-
     // Charm Skill options: fetch the skill list once (the fetch triggers a
     // re-render through setCharmSkills, so the filter selects pick it up).
     React.useEffect(() => {
         let active = true;
-        fetch('/api/v1/skills')
+        fetch('/api/v2/skills')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
                 if (!active) return;
@@ -679,81 +736,6 @@ export default function SearchForm({ update, itemData }) {
             active = false;
         };
     }, []);
-    function generateEffects(itemData) {
-        effects = [];
-        let uniqueEffects = {};
-        let consumableNames = Object.keys(itemData).filter((item) => itemData[item].type === 'Consumable');
-
-        for (let name of consumableNames) {
-            let item = itemData[name];
-            if (Array.isArray(item.effects)) {
-                item.effects.forEach((effect) => {
-                    if (effect.EffectType) {
-                        uniqueEffects[effect.EffectType] = 1;
-                    }
-                });
-            }
-        }
-
-        Object.keys(uniqueEffects).forEach((effect) => {
-            let formatted = effect.replace('damage', 'Damage');
-            formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
-
-            effects.push(formatted);
-        });
-    }
-
-    function generateLocations(itemData) {
-        locations = [];
-        let uniqueLocations = {};
-        Object.keys(itemData)
-            .map((item) => itemData[item].location)
-            .filter((locationName) => locationName != undefined)
-            .forEach((locationName) => {
-                uniqueLocations[locationName] = 1;
-            });
-        Object.keys(uniqueLocations).forEach((locationName) => locations.push(locationName));
-    }
-
-    function generateCharmPowers(itemData) {
-        charmPowers = [];
-        let uniquePowers = {};
-        Object.keys(itemData)
-            .filter((item) => itemData[item].type == 'Charm')
-            .forEach((item) => {
-                const power = itemData[item].power;
-                if (power !== undefined && power !== null) {
-                    uniquePowers[power] = 1;
-                }
-            });
-        Object.keys(uniquePowers)
-            .sort((a, b) => a - b)
-            .forEach((power) => charmPowers.push(Number(power)));
-    }
-
-    function generatePOIs() {
-        pois = [];
-        let uniquePois = {};
-        Object.keys(extras)
-            .filter((extra) => extras[extra].poi != undefined)
-            .map((extra) => extras[extra].poi)
-            .forEach((poiName) => {
-                uniquePois[poiName] = 1;
-            });
-        Object.keys(uniquePois).forEach((poiName) => pois.push(poiName));
-    }
-
-    function generateBaseItems(itemData) {
-        baseItems = [];
-        let uniqueBaseItems = {};
-        Object.keys(itemData)
-            .map((item) => itemData[item].base_item)
-            .filter((baseItemName) => baseItemName != undefined)
-            .forEach((baseItemName) => {
-                uniqueBaseItems[baseItemName] = 1;
-            });
-        Object.keys(uniqueBaseItems).forEach((baseItemName) => baseItems.push(baseItemName));
-    }
 }
 
 class SearchCategory {
@@ -768,6 +750,16 @@ class SearchCategory {
     }
 }
 
+const NOT_CATEGORY_KEYS = {
+    'Item Type': 'items.searchForm.itemType',
+    Tier: 'items.searchForm.tier',
+    Location: 'items.searchForm.location',
+    Region: 'items.searchForm.region',
+    'Base Item': 'items.searchForm.baseItem',
+    'Charm Class': 'items.searchForm.charmClass',
+    POI: 'items.searchForm.poi',
+};
+
 function NotFilterRow({
     uniqueKey,
     resetKey,
@@ -781,6 +773,7 @@ function NotFilterRow({
     defaultCategory,
     defaultValue,
 }) {
+    const t = useTranslation();
     const [category, setCategory] = React.useState(defaultCategory || 'Item Type');
     const notValues = {
         'Item Type': itemTypes,
@@ -791,12 +784,16 @@ function NotFilterRow({
         'Charm Class': charmClasses,
         POI: pois,
     };
+    const categoryOptions = Object.keys(notValues).map((name) => ({
+        value: name,
+        label: t(NOT_CATEGORY_KEYS[name]),
+    }));
     return (
         <div className={styles.powerFilterRow}>
             <SelectInput
                 key={`notCat-${resetKey}`}
                 name={`notCategorySelect-${uniqueKey}`}
-                sortableStats={Object.keys(notValues)}
+                sortableStats={categoryOptions}
                 default={defaultCategory}
                 onChange={(option) => setCategory(option.value)}
             />
@@ -804,6 +801,7 @@ function NotFilterRow({
                 key={`notVal-${category}-${resetKey}`}
                 name={`notValue-${uniqueKey}`}
                 sortableStats={notValues[category]}
+                baseTranslationString={category === 'Item Type' ? 'items.type' : undefined}
                 default={defaultValue}
             />
         </div>

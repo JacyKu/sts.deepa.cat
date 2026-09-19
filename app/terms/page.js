@@ -2,14 +2,24 @@ import LegalPage from '../_src/components/legalPage';
 
 export const metadata = {
     title: 'Terms of Service',
-    description: 'Terms of Service for deepa.cat',
+    description: 'Rules for using Spare the Sympathy',
+    openGraph: {
+        title: 'Terms of Service',
+        description: 'Rules for using Spare the Sympathy',
+        images: [{ url: '/favicon/favicon.png' }],
+    },
+    twitter: {
+        title: 'Terms of Service',
+        description: 'Rules for using Spare the Sympathy',
+        images: ['/favicon/favicon.png'],
+    },
 };
 
 export default function TermsOfServicePage() {
     return (
         <LegalPage
             title="Terms of Service"
-            meta="Last updated: August 27, 2026 | Applies to: https://deepa.cat"
+            meta="Last updated: September 15, 2026 | Applies to: https://deepa.cat"
             sections={[
                 {
                     heading: 'Acceptance of Terms',
@@ -26,9 +36,10 @@ export default function TermsOfServicePage() {
                     heading: 'Description of Service',
                     paragraphs: [
                         <>
-                            deepa.cat provides SaaS / Software services through our platform. The Service is provided on
-                            a Free basis. We reserve the right to modify, suspend, or discontinue the Service at any
-                            time with or without notice.
+                            deepa.cat provides a free Monumenta build planner, item database, public build database and
+                            custom item sharing, together with a Discord bot and an optional Minecraft mod for exporting
+                            builds and items from the game. The Service is provided on a Free basis. We reserve the
+                            right to modify, suspend, or discontinue the Service at any time with or without notice.
                         </>,
                     ],
                 },
@@ -71,6 +82,39 @@ export default function TermsOfServicePage() {
                     ],
                 },
                 {
+                    heading: 'Minecraft Mod',
+                    paragraphs: [
+                        <>
+                            The Service includes an optional Minecraft mod that exports builds and items from the game
+                            and uploads them to the site on your command.
+                        </>,
+                        <>
+                            You may only upload content you have the right to share. Uploads are tied to your linked
+                            Minecraft UUID and Discord account, count toward the Service&apos;s rate limits, and may be
+                            removed if they break these Terms.
+                        </>,
+                        <>
+                            You may not use the mod to attack, overload, or reverse-engineer the Service, to bypass rate
+                            limits, or to upload unlawful or infringing content.
+                        </>,
+                        <>
+                            The mod is provided &quot;as is&quot;, requires a compatible Minecraft/Monumenta version,
+                            and may be changed or discontinued at any time.
+                        </>,
+                    ],
+                },
+                {
+                    heading: 'Third-Party Services',
+                    paragraphs: [
+                        <>
+                            The Service relies on third parties: Discord (login and bot), Cloudflare (network delivery,
+                            security and database backups in R2 object storage), and Mojang&apos;s public API and
+                            mc-heads.net (Minecraft profile names and avatar images). Your use of those parts of the
+                            Service is also subject to their own terms and privacy policies.
+                        </>,
+                    ],
+                },
+                {
                     heading: 'Prohibited Uses',
                     paragraphs: [<>You agree not to use the Service:</>],
                     items: [
@@ -80,6 +124,8 @@ export default function TermsOfServicePage() {
                         <>To engage in any conduct that restricts or inhibits others&apos; use of the Service</>,
                         <>To attempt to gain unauthorized access to any part of the Service</>,
                         <>To use automated scripts to collect information from or interact with the Service</>,
+                        <>To upload content that is unlawful, infringing, or that you do not have the right to share</>,
+                        <>To abuse, overload, or attempt to bypass the rate limits of the site, bot, or mod APIs</>,
                         <>To upload or transmit viruses or other malicious code</>,
                     ],
                 },
