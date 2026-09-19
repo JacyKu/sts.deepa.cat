@@ -1,12 +1,14 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
 import ItemHistoryPanel from './itemHistoryPanel';
+import LoreText from './loreText';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { useLowResource } from '../lowResourceContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useHideObtainment } from './hideObtainmentContext';
+import { useHideLore } from './hideLoreContext';
 import { useItemFavourites } from './itemFavouritesContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 import { useInView } from '../inView';
@@ -88,6 +90,7 @@ function CharmTile(data) {
     const { ref, inView, minHeight } = useInView(null);
     const { lowRes } = useLowResource();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { hidden: hideLore } = useHideLore();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
@@ -228,6 +231,7 @@ function CharmTile(data) {
                 </span>
             </span>
             {item.location && <span className={styles[camelCase(item.location)]}>{item.location}</span>}
+            {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (
                 <>
                     {item.extras?.poi ? (
