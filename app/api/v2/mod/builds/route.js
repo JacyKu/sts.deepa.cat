@@ -3,11 +3,13 @@ import {
     getLinkByUuid,
     getBuild,
     saveBuild,
+    updateBuildState,
     BUILD_NAME_MAX,
     countRecentModSaves,
     countRecentBuilds,
     countRecentCustomItems,
     findBuildByState,
+    findEquivalentBuild,
     uniqueBuildName,
     mergeReferencedCustomItems,
     getStsUserProfile,
@@ -99,10 +101,26 @@ export async function POST(request) {
     const infusions = sanitizeInfusions(body?.infusions);
     const basicInfusions = body?.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {};
 
-    const state = { token: storedToken, infusions, revelation: false, basicInfusions };
-    // Re-saving an unchanged build keeps its existing row (and link): that is
-    // not a new upload, so it must not consume the save budgets below.
-    const existingId = findBuildByState(link ? link.discord_id : null, state);
+    const ownerId = link ? link.discord_id : null;
+    // If this loadout was already saved (from the site or an earlier export),
+    // reuse that build instead of creating a near-duplicate: the mod can't
+    // send site-only state (Revelation, global infusion levels) and its token
+    // stats differ, so the exact-state match below is not enough on its own.
+    const existingRow = findEquivalentBuild(ownerId, storedToken, name, itemData);
+    const existingState = existingRow?.parsedState || null;
+    const state = {
+        token: storedToken,
+        infusions,
+        // Site-only settings the mod doesn't send ride along on a re-export.
+        revelation: existingState ? Boolean(existingState.revelation) : false,
+        basicInfusions,
+        globalInfusions:
+            existingState && existingState.globalInfusions && typeof existingState.globalInfusions === 'object'
+                ? existingState.globalInfusions
+                : {},
+    };
+    // Exact-state fallback for a token that can't be fingerprinted.
+    const existingId = existingRow ? existingRow.id : findBuildByState(ownerId, state);
 
     if (link && !existingId) {
         // Linked: save to the Discord account, private.
@@ -181,27 +199,41 @@ export async function POST(request) {
         : itemData;
     const summary = computeBuildSummary(storedToken, summaryData, skillsData);
 
-    // Build names are unique per account (linked or not): re-saving the
-    // identical build keeps its own name, while a different build whose name
-    // the account already uses gets " (2)", " (3)", ... appended - the mod
-    // path behaves exactly like the site. Other accounts may share a name.
-    const ownerId = link ? link.discord_id : null;
-    const buildName = name ? uniqueBuildName(ownerId, name, existingId) : null;
+    // Build names are unique per account (linked or not): a re-export keeps
+    // the build's existing name, while a new build whose name the account
+    // already uses gets " (2)", " (3)", ... appended - the mod path behaves
+    // exactly like the site. Other accounts may share a name.
+    const buildName = existingRow
+        ? existingRow.name || (name ? uniqueBuildName(ownerId, name, existingRow.id) : null)
+        : name
+          ? uniqueBuildName(ownerId, name, existingId)
+          : null;
     let result;
-    try {
-        result = saveBuild({
+    if (existingRow) {
+        // Same build, same link: refresh the stored state (and the public
+        // filter columns when the row is public) instead of inserting a copy.
+        const updated = updateBuildState(existingRow.id, ownerId, null, {
             state,
-            userId: ownerId,
-            name: buildName,
-            notes: null,
-            summary,
-            source: 'mod',
+            name: buildName || undefined,
+            summary: existingRow.is_public === 1 ? summary : undefined,
         });
-    } catch (error) {
-        if (isDuplicateNameError(error)) {
-            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        result = updated ? { id: existingRow.id, isNew: false } : null;
+    } else {
+        try {
+            result = saveBuild({
+                state,
+                userId: ownerId,
+                name: buildName,
+                notes: null,
+                summary,
+                source: 'mod',
+            });
+        } catch (error) {
+            if (isDuplicateNameError(error)) {
+                return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+            }
+            throw error;
         }
-        throw error;
     }
     if (!result) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
