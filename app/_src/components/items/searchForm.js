@@ -4,6 +4,7 @@ import SelectWithTriggers from './selectWithTriggers';
 import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
+import { loadSkills } from '../../utils/siteDataClient';
 import { useTranslation } from '../useTranslation';
 
 let searchOptionsCache = null;
@@ -145,8 +146,7 @@ export default function SearchForm({ update, itemData }) {
     const [charmSkillsByClass, setCharmSkillsByClass] = React.useState({});
     React.useEffect(() => {
         let active = true;
-        fetch('/api/v2/skills')
-            .then((r) => (r.ok ? r.json() : null))
+        loadSkills()
             .then((d) => {
                 if (!active) return;
                 const byClass = {};

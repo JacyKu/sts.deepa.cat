@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
-import { getRawItems, getItemHistory } from '../../_src/utils/itemsData';
-import ApiChangesPage from '../../_src/components/items/apiChangesPage';
+import { getItemDataVersion, getHistoryVersion } from '../../_src/utils/itemsData';
+import { ApiChangesDataView } from '../../_src/components/siteDataViews';
 import ApiChangesSkeleton from '../../_src/components/items/apiChangesSkeleton';
 
 export const metadata = {
@@ -28,6 +28,6 @@ export default function Page() {
 }
 
 async function ChangesView() {
-    const [itemData, history] = await Promise.all([getRawItems(), getItemHistory()]);
-    return <ApiChangesPage itemData={itemData} history={history} />;
+    const [itemsVersion, historyVersion] = await Promise.all([getItemDataVersion(), getHistoryVersion()]);
+    return <ApiChangesDataView itemsVersion={itemsVersion} historyVersion={historyVersion} />;
 }

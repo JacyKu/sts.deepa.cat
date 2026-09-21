@@ -32,6 +32,7 @@ import {
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
+import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 
 // Whether the viewport is desktop-width (>= 992px). The experimental
@@ -1073,6 +1074,9 @@ export default function BuildForm({
         if (found) triggerRedX();
         // Header commits only update the ref: no state change, no re-render.
         buildNameRef.current = cleaned || 'Monumenta Builder';
+        // The draft must follow the name even though nothing re-rendered:
+        // otherwise reopening the build restores the cached older name.
+        scheduleDraftSave();
     }
 
     // Programmatic name changes (draft restore, reset) bump a signal so the
@@ -2225,8 +2229,7 @@ export default function BuildForm({
     }
 
     React.useEffect(() => {
-        fetch('/api/v2/skills')
-            .then((r) => (r.ok ? r.json() : null))
+        loadSkills()
             .then((d) => {
                 if (d && Array.isArray(d.classes)) setSkillsData(d);
             })
@@ -2234,8 +2237,7 @@ export default function BuildForm({
     }, []);
 
     React.useEffect(() => {
-        fetch('/api/v2/cz')
-            .then((r) => (r.ok ? r.json() : null))
+        loadCz()
             .then((d) => {
                 if (d && Array.isArray(d.trees)) setCzData(d);
             })
@@ -2706,30 +2708,52 @@ export default function BuildForm({
     // work is restored on /builder; a saved build's draft only restores on
     // that build's own page (see effectiveDraft above), so opening the plain
     // builder always starts something new.
+    const draftTimerRef = React.useRef(null);
+    const writeDraftRef = React.useRef(null);
+
+    function writeDraft() {
+        try {
+            // Skipped when the "Cache builds" setting is off.
+            if (!isBuildsCacheEnabled()) return;
+            window.localStorage.setItem(
+                DRAFT_KEY,
+                JSON.stringify({
+                    token: makeBuildString(),
+                    infusions: delveInfusions,
+                    basicInfusions,
+                    globalInfusions,
+                    revelation,
+                    name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
+                    notes: notesDraft.trim() ? notesDraft : null,
+                    buildId: activeBuildId || null,
+                    revision: buildRevision,
+                    savedAt: Date.now(),
+                })
+            );
+        } catch (e) {}
+    }
+
+    // Shared debounce: state changes save through the effect below, while the
+    // build name only lives in a ref (renaming must not re-render the form),
+    // so committing a name asks for a save explicitly - otherwise reopening
+    // the build restores the cached older name.
+    function scheduleDraftSave(delay = 500) {
+        if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = setTimeout(() => {
+            draftTimerRef.current = null;
+            const write = writeDraftRef.current;
+            if (write) write();
+        }, delay);
+    }
+
     React.useEffect(() => {
         if (!parentLoaded) return;
-        const timer = setTimeout(() => {
-            try {
-                // Skipped when the "Cache builds" setting is off.
-                if (!isBuildsCacheEnabled()) return;
-                window.localStorage.setItem(
-                    DRAFT_KEY,
-                    JSON.stringify({
-                        token: makeBuildString(),
-                        infusions: delveInfusions,
-                        basicInfusions,
-                        globalInfusions,
-                        revelation,
-                        name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
-                        notes: notesDraft.trim() ? notesDraft : null,
-                        buildId: activeBuildId || null,
-                        revision: buildRevision,
-                        savedAt: Date.now(),
-                    })
-                );
-            } catch (e) {}
-        }, 500);
-        return () => clearTimeout(timer);
+        // Keep the debounced writer pointed at the latest state.
+        writeDraftRef.current = writeDraft;
+        scheduleDraftSave();
+        return () => {
+            if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        };
     }, [
         parentLoaded,
         stats,

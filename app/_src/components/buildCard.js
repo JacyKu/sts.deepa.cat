@@ -9,6 +9,7 @@ import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
+import { loadSkills, loadCz } from '../utils/siteDataClient';
 import { useCardItemsFirst } from './items/cardItemsFirstContext';
 import { useLowResource } from './lowResourceContext';
 import Enchants from './items/enchants';
@@ -77,14 +78,8 @@ function formatCzDescription(desc, t) {
 
 function loadBuildDetails() {
     if (!buildDetailPromise) {
-        buildDetailPromise = Promise.all([
-            fetch('/api/v2/skills')
-                .then((r) => (r.ok ? r.json() : null))
-                .catch(() => null),
-            fetch('/api/v2/cz')
-                .then((r) => (r.ok ? r.json() : null))
-                .catch(() => null),
-        ]).then(([skills, cz]) => {
+        buildDetailPromise = Promise.all([loadSkills().catch(() => null), loadCz().catch(() => null)]).then(
+            ([skills, cz]) => {
             const skill = new Map();
             const klass = new Map();
             const spec = new Map();

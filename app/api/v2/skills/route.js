@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getSkillsData } from '../../../_src/utils/itemsData';
 
-export async function GET() {
+// Versioned by the caller (?v=<mtime>): immutable while the data is unchanged.
+// Unversioned callers (older clients) get a short cache instead of a stale one.
+export async function GET(request) {
     try {
         const skills = await getSkillsData();
-        return NextResponse.json(skills);
+        const versioned = new URL(request.url).searchParams.has('v');
+        return NextResponse.json(skills, {
+            headers: { 'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300' },
+        });
     } catch (e) {
         return NextResponse.json({ error: 'Unable to read skills.json' }, { status: 500 });
     }

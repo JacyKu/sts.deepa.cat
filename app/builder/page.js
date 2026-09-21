@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
 import { headers } from 'next/headers';
-import { getItemData, getSkillsData } from '../_src/utils/itemsData';
+import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription, getSetPreviewDescription } from '../_src/utils/buildPreview';
-import { mergeReferencedCustomItems, getPublicSkillSet } from '../../lib/sts-builds';
+import { referencedCustomItemExtras, getPublicSkillSet } from '../../lib/sts-builds';
 import { getBuildItemHashes } from '../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../lib/session';
-import BuilderPage from '../_src/components/builderPage';
+import { BuilderDataView } from '../_src/components/siteDataViews';
 import BuilderSkeleton from '../_src/components/builderSkeleton';
 
 const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
@@ -101,15 +101,25 @@ export default async function Page({ searchParams }) {
 }
 
 async function BuilderView({ build, setId }) {
-    const itemData = await getItemData();
     const user = await getDiscordUser();
     const hashes = getBuildItemHashes(build);
+    // Only the data versions and the (small) referenced custom items travel in
+    // the HTML; the item database is fetched client-side and cached.
+    const [itemsVersion, skillsVersion, czVersion, extraItems] = await Promise.all([
+        getItemDataVersion(),
+        getSkillsVersion(),
+        getCzVersion(),
+        getItemData().then((itemData) => referencedCustomItemExtras(itemData, user ? user.id : null, hashes)),
+    ]);
     const sharedSet = setId ? getPublicSkillSet(setId) : null;
     return (
-        <BuilderPage
+        <BuilderDataView
             build={build}
             sharedSet={sharedSet}
-            itemData={mergeReferencedCustomItems(itemData, user ? user.id : null, hashes)}
+            itemsVersion={itemsVersion}
+            skillsVersion={skillsVersion}
+            czVersion={czVersion}
+            extraItems={extraItems}
         />
     );
 }

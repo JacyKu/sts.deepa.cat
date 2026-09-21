@@ -161,3 +161,44 @@ export async function getItemHistory() {
     historyCacheKey = key;
     return historyCache;
 }
+
+// Content versions for the client-side data endpoints. The files are replaced
+// wholesale on data updates, so their mtimes identify the content: pages pass
+// the version into the (immutably cached) URLs, and the browser only fetches
+// the big files again once the data actually changes.
+export async function getItemDataVersion() {
+    const itemsPath = path.join(process.cwd(), 'public', 'items', 'items.json');
+    const extrasPath = path.join(process.cwd(), 'public', 'items', 'extras.json');
+    const [itemsStat, extrasStat] = await Promise.all([fs.stat(itemsPath), fs.stat(extrasPath)]);
+    return `${Math.floor(itemsStat.mtimeMs)}-${Math.floor(extrasStat.mtimeMs)}`;
+}
+
+export async function getHistoryVersion() {
+    const historyPath = path.join(process.cwd(), 'public', 'items', 'item-history.json');
+    try {
+        const stat = await fs.stat(historyPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
+}
+
+export async function getSkillsVersion() {
+    const skillsPath = path.join(process.cwd(), 'public', 'items', 'skills.json');
+    try {
+        const stat = await fs.stat(skillsPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
+}
+
+export async function getCzVersion() {
+    const czPath = path.join(process.cwd(), 'public', 'items', 'czAbilities.json');
+    try {
+        const stat = await fs.stat(czPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
+}
