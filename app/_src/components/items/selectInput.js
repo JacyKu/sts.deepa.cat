@@ -205,10 +205,16 @@ const SelectInput = (data) => {
     // Object defaults ({ value, label }) are accepted too - the builder's
     // class/spec selects pass them, and the option value is compared against
     // default.value (an object would never match a string option value).
+    const findOption = (value) =>
+        options.find((o) =>
+            typeof o === 'object' ? String(o.value) === String(value) : String(o) === String(value)
+        ) || null;
+    // Controlled mode: callers that pass `value` own the selection (the search
+    // filter rows do), so resetting is just a state change in the parent
+    // instead of remounting the select.
+    const controlled = data.value !== undefined;
     const defaultVal = data.default !== null && typeof data.default === 'object' ? data.default.value : data.default;
-    const defaultOption = defaultVal
-        ? options.find((o) => (typeof o === 'object' ? o.value === defaultVal : o === defaultVal)) || null
-        : options[0];
+    const defaultOption = defaultVal ? findOption(defaultVal) : options[0];
 
     const select = (
         <Select
@@ -216,7 +222,9 @@ const SelectInput = (data) => {
             instanceId={data.name}
             name={data.name}
             options={options}
-            defaultValue={defaultOption}
+            {...(controlled
+                ? { value: data.value === null ? null : findOption(data.value) }
+                : { defaultValue: defaultOption })}
             menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
             menuPosition="fixed"
             theme={SELECT_THEME}
