@@ -92,6 +92,7 @@ export async function BuildLinkPageView(id) {
             notes={row.notes}
             canEditNotes={isOwner || isCreator}
             buildId={id}
+            revision={row.revision || 1}
             canPublicise={isOwner || isCreator}
             isPublic={row.is_public === 1}
             isAnonymous={row.anonymous === 1}

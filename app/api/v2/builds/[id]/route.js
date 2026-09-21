@@ -67,6 +67,10 @@ export async function PATCH(request, { params }) {
                     body.state.basicInfusions && typeof body.state.basicInfusions === 'object'
                         ? body.state.basicInfusions
                         : {},
+                globalInfusions:
+                    body.state.globalInfusions && typeof body.state.globalInfusions === 'object'
+                        ? body.state.globalInfusions
+                        : {},
             },
         };
         if (body.name !== undefined && body.name !== null) {

@@ -332,6 +332,11 @@ const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspica
 
 const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor: '0', focus: '0', perspicacity: '0' };
 
+// The stats normal (basic) infusions feed, in display order, and the shared
+// budget for both entry paths (6 items x level IV).
+const BASIC_INFUSION_STAT_KEYS = ['tenacity', 'vitality', 'vigor', 'focus', 'perspicacity'];
+const BASIC_INFUSION_LEVEL_CAP = 24;
+
 const classes = ['Alchemist', 'Cleric', 'Mage', 'Rogue', 'Scout', 'Shaman', 'Warlock', 'Warrior'];
 
 // API skill scoreboardIds that feed the stat calculation (the rest of the
@@ -937,6 +942,7 @@ export default function BuildForm({
     notes,
     canEditNotes,
     buildId,
+    revision,
     canPublicise,
     isPublic,
     isAnonymous,
@@ -967,6 +973,10 @@ export default function BuildForm({
     // The DB row this build was opened from / saved to; edits update it in
     // place instead of spawning a new link.
     const [activeBuildId, setActiveBuildId] = React.useState(buildId || null);
+    // Revision of the saved row this page is based on. Drafts record it so a
+    // draft made against an older revision is ignored - opening a link always
+    // shows the latest saved build, never locally cached older edits.
+    const [buildRevision, setBuildRevision] = React.useState(Number(revision) || 1);
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const [notesDraft, setNotesDraft] = React.useState(notes || '');
     const [notesSaveState, setNotesSaveState] = React.useState(null); // 'saving' | 'saved' | 'error'
@@ -997,9 +1007,17 @@ export default function BuildForm({
     // Basic (normal) infusions: one per item, levels I-IV (Tenacity, Vitality,
     // Vigor, Focus, Perspicacity, Acumen - see data/basicInfusions.js).
     const [basicOpen, setBasicOpen] = React.useState(false);
-    const [basicInfusions, setBasicInfusions] = React.useState({}); // slot -> { name, level }    // Delve infusion points: one free-form input per slot, total capped at 24
-    // across all slots (6 slots x level IV). Picking an infusion defaults its
-    // points to 4 (level IV), clamped to the remaining budget.
+    const [basicInfusions, setBasicInfusions] = React.useState({}); // slot -> { name, level }
+    // Global (per-type) normal infusion levels: plain numbers like the
+    // original builder, added on top of the per-slot infusions. Both entry
+    // paths share the same 24-level budget (six items at level IV).
+    const [globalInfusions, setGlobalInfusions] = React.useState({
+        tenacity: 0,
+        vitality: 0,
+        vigor: 0,
+        focus: 0,
+        perspicacity: 0,
+    });
     // Delve infusion levels: one per slot, I-IV. Picking an infusion defaults
     // its level to IV. Six slots at level IV is the 24-point total the delve
     // budget allows, so a per-slot cap of 4 alone can never exceed it.
@@ -1080,12 +1098,35 @@ export default function BuildForm({
     // Which draft applies to this page:
     //  - plain /builder: only an unsaved build's draft, so opening the builder
     //    to start something new never loads the last saved build you had open;
-    //  - saved-build page: only that build's own draft.
+    //  - saved-build page: only that build's own draft, and only when the
+    //    draft was made against the row's current revision. A draft based on
+    //    an older revision loses to the saved build, so opening a shared link
+    //    (old ?v= links redirect to the latest revision) shows the latest.
     const effectiveDraft = React.useMemo(() => {
         if (!draft) return null;
-        if (build) return draft.buildId && draft.buildId === buildId ? draft : null;
+        if (build) {
+            return draft.buildId &&
+                draft.buildId === buildId &&
+                Number(draft.revision) === Number(buildRevision)
+                ? draft
+                : null;
+        }
         return draft.buildId ? null : draft;
-    }, [draft, build, buildId]);
+    }, [draft, build, buildId, buildRevision]);
+
+    // A draft for this build that does not match the row's current revision is
+    // stale (the build was updated elsewhere, or the link pointed at an older
+    // revision). Drop it from localStorage so no old edits linger; the
+    // autosave then stores the freshly loaded build instead.
+    React.useEffect(() => {
+        if (!draft || !build || draft.buildId !== buildId) return;
+        if (Number(draft.revision) !== Number(buildRevision)) {
+            try {
+                window.localStorage.removeItem(DRAFT_KEY);
+            } catch (e) {}
+            setDraft(null);
+        }
+    }, [draft, build, buildId, buildRevision]);
 
     // Drag-to-reorder of skill/ability lists. dragState drives styling; the
     // ref holds the in-flight drag so handlers never read stale state.
@@ -1430,42 +1471,49 @@ export default function BuildForm({
         );
     }
 
-    // Basic (normal) infusions: pick one per slot (each item can hold only
-    // one) with a level I-IV select. Newly picked infusions default to IV,
-    // mirroring the delve infusion behaviour.
+    // Basic (normal) infusions come in two flavours that share one budget:
+    //  - per-slot picks ({ slot: { name, level } }) with a level I-IV select;
+    //  - global per-type numbers (the original builder's boxes), which add
+    //    directly to the totals.
+    // Six items at level IV is the 24-level budget, so the two paths are
+    // clamped against each other (the global boxes give way first).
     function basicChanged(slot, option) {
         setTip(null);
-        const nextInfusions = option
-            ? { ...basicInfusions, [slot]: { name: option.value, level: BASIC_INFUSION_MAX_LEVEL } }
-            : withoutSlot(basicInfusions, slot);
-        setBasicInfusions(nextInfusions);
-        applyBasicInfusionTotals(nextInfusions);
-        // FormData is stale right after a Select change, so inject the new
-        // value manually (same pattern as delveChanged) and recalculate. The
-        // mirrored stat totals + item counts change here too (Understanding's
-        // amplifier depends on them), so they ride along.
-        let entries = Array.from(new FormData(formRef.current).entries());
-        for (let i = 0; i < entries.length; i++) {
-            if (entries[i][0] == `basicInfusion-${slot}`) entries[i][1] = option ? option.value : 'None';
+        if (!option) {
+            commitInfusionChange(withoutSlot(basicInfusions, slot), globalInfusions, slot);
+            return;
         }
-        const itemNames = Object.fromEntries(entries);
-        Object.assign(itemNames, basicInfusionTotals(nextInfusions));
-        itemNames.basicInfusionCounts = JSON.stringify(basicInfusionCounts(nextInfusions));
-        applyStatsUpdate(itemNames, itemData, setStats, update);
+        const usedWithout = usedInfusionLevels() - (basicInfusions[slot]?.level || 0);
+        let available = BASIC_INFUSION_LEVEL_CAP - usedWithout;
+        let nextGlobals = globalInfusions;
+        if (available < 1) {
+            nextGlobals = trimGlobalInfusions(1 - available, option.value.toLowerCase());
+            available = 1;
+        }
+        const level = Math.min(BASIC_INFUSION_MAX_LEVEL, available);
+        commitInfusionChange({ ...basicInfusions, [slot]: { name: option.value, level } }, nextGlobals, slot);
     }
 
     function changeBasicLevel(slot, raw) {
-        const level = Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(raw) || 1));
-        const next = { ...basicInfusions, [slot]: { ...basicInfusions[slot], level } };
-        setBasicInfusions(next);
-        applyBasicInfusionTotals(next);
-        // The mirrored totals (and therefore the stat calculation) change with
-        // the level; the hidden inputs only commit on the next render, so pass
-        // the fresh values straight to the recalculation.
-        recalcBuildStats({
-            ...basicInfusionTotals(next),
-            basicInfusionCounts: JSON.stringify(basicInfusionCounts(next)),
-        });
+        const wanted = Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(raw) || 1));
+        const usedWithout = usedInfusionLevels() - (basicInfusions[slot]?.level || 0);
+        let available = BASIC_INFUSION_LEVEL_CAP - usedWithout;
+        let nextGlobals = globalInfusions;
+        if (available < wanted) {
+            nextGlobals = trimGlobalInfusions(wanted - available, basicInfusions[slot]?.name?.toLowerCase());
+            available = wanted;
+        }
+        const level = Math.min(wanted, available);
+        commitInfusionChange({ ...basicInfusions, [slot]: { ...basicInfusions[slot], level } }, nextGlobals, slot);
+    }
+
+    // The global number boxes: setting one clamps to the budget left after
+    // the per-slot picks and the other boxes.
+    function changeGlobalInfusion(key, raw) {
+        const usedWithout = usedInfusionLevels() - (Number(globalInfusions[key]) || 0);
+        const max = Math.max(0, BASIC_INFUSION_LEVEL_CAP - usedWithout);
+        const value = Math.max(0, Math.min(max, Math.floor(Number(raw) || 0)));
+        commitInfusionChange(basicInfusions, { ...globalInfusions, [key]: value });
     }
 
     // Sum the infusion levels per type across all slots (the wiki allows one
@@ -1479,17 +1527,73 @@ export default function BuildForm({
         return next;
     }
 
-    function applyBasicInfusionTotals(infusions) {
-        setStatInputs((prev) => ({ ...prev, ...basicInfusionTotals(infusions) }));
-    }
-
-    // Base sums of the basic infusion levels, per type.
+    // Base sums of the per-slot basic infusion levels, per type.
     function basicInfusionTotals(infusions) {
         const totals = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
         for (const { name, level } of Object.values(infusions)) {
             if (totals[name.toLowerCase()] !== undefined) totals[name.toLowerCase()] += level;
         }
         return totals;
+    }
+
+    // Per-type totals including the global boxes: what the stat calculation
+    // and the saved token consume.
+    function combinedInfusionTotals(infusions = basicInfusions, globals = globalInfusions) {
+        const totals = basicInfusionTotals(infusions);
+        for (const key of BASIC_INFUSION_STAT_KEYS) {
+            totals[key] = (totals[key] || 0) + (Number(globals[key]) || 0);
+        }
+        return totals;
+    }
+
+    function usedInfusionLevels(infusions = basicInfusions, globals = globalInfusions) {
+        let used = 0;
+        for (const { level } of Object.values(infusions)) used += Number(level) || 0;
+        for (const key of BASIC_INFUSION_STAT_KEYS) used += Number(globals[key]) || 0;
+        return used;
+    }
+
+    // Frees `needed` levels by lowering the global boxes (the flexible part;
+    // per-slot picks are explicit item assignments). The type being edited
+    // gives way first.
+    function trimGlobals(globals, needed, preferredKey = null) {
+        let over = Math.max(0, Math.ceil(needed));
+        const next = { ...globals };
+        if (over === 0) return next;
+        const order = preferredKey
+            ? [preferredKey, ...BASIC_INFUSION_STAT_KEYS.filter((key) => key !== preferredKey)]
+            : BASIC_INFUSION_STAT_KEYS;
+        for (const key of order) {
+            if (over <= 0) break;
+            const value = Number(next[key]) || 0;
+            const take = Math.min(value, over);
+            if (take > 0) {
+                next[key] = value - take;
+                over -= take;
+            }
+        }
+        return next;
+    }
+
+    function trimGlobalInfusions(needed, preferredKey = null) {
+        return trimGlobals(globalInfusions, needed, preferredKey);
+    }
+
+    // Push per-slot + global levels into the form. The hidden inputs only
+    // commit on the next render, so the fresh values are passed straight to
+    // the recalculation (Understanding's amplifier counts per-slot picks).
+    function commitInfusionChange(nextInfusions, nextGlobals, changedSlot = null) {
+        setBasicInfusions(nextInfusions);
+        setGlobalInfusions(nextGlobals);
+        const totals = combinedInfusionTotals(nextInfusions, nextGlobals);
+        setStatInputs((prev) => ({ ...prev, ...totals }));
+        // FormData is stale right after a change, so inject the fresh values
+        // manually (same pattern as delveChanged) and recalculate.
+        const itemNames = Object.fromEntries(Array.from(new FormData(formRef.current).entries()));
+        if (changedSlot) itemNames[`basicInfusion-${changedSlot}`] = nextInfusions[changedSlot]?.name || 'None';
+        for (const key of BASIC_INFUSION_STAT_KEYS) itemNames[key] = String(totals[key] || 0);
+        itemNames.basicInfusionCounts = JSON.stringify(basicInfusionCounts(nextInfusions));
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     // How many items carry each basic infusion type. Understanding's amplifier
@@ -1917,6 +2021,7 @@ export default function BuildForm({
             token,
             infusions: delveInfusions,
             basicInfusions,
+            globalInfusions,
             revelation,
             name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
             notes: notesDraft.trim() ? notesDraft : null,
@@ -1940,7 +2045,7 @@ export default function BuildForm({
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    state: { token, infusions: delveInfusions, basicInfusions, revelation },
+                    state: { token, infusions: delveInfusions, basicInfusions, globalInfusions, revelation },
                     name: payload.name,
                     notes: payload.notes,
                     ...(loggedIn ? { publicise: publicState.isPublic, anonymous: publicState.anonymous } : {}),
@@ -1976,6 +2081,9 @@ export default function BuildForm({
                     if (result.savedToAccount) setOwnsBuild(true);
                     // The server may have appended " (2)" to a duplicate name.
                     if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
+                    // Track the new revision so the draft saved next belongs to
+                    // the row's current revision (older drafts are ignored).
+                    if (result.version) setBuildRevision(result.version);
                     // The server returns the build's revision (?v=), which
                     // only changes when the build is updated.
                     const link =
@@ -2032,6 +2140,7 @@ export default function BuildForm({
                 const link = window.location.origin + getStsBase() + d.url + (d.version ? `?v=${d.version}` : '');
                 // Remember the row so later edits update it instead of forking.
                 setActiveBuildId(d.id);
+                if (d.version) setBuildRevision(d.version);
                 if (d.savedToAccount) setOwnsBuild(true);
                 // The server may have appended " (2)" to a duplicate name.
                 if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
@@ -2341,8 +2450,10 @@ export default function BuildForm({
 
         // Saved builds carry the delve infusions + Revelation checkbox in
         // the DB (they are not part of the URL token); restore them here.
-        // Drafts carry them inline the same way.
-        const effSavedState = isLoadedBuild ? savedState : effDraft;
+        // Drafts carry them inline the same way, and a draft that applies to
+        // this page (same build + revision, see effectiveDraft) wins over the
+        // DB copy so unsaved infusion edits are not dropped.
+        const effSavedState = isLoadedBuild ? effDraft || savedState : effDraft;
         const loadedDelve = {};
         if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
             for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
@@ -2360,10 +2471,13 @@ export default function BuildForm({
         const loadedRevelation = Boolean(effSavedState && effSavedState.revelation);
         if (loadedRevelation) setRevelation(true);
 
-        // Basic (normal) infusions: restored per slot so their dropdowns show
-        // them (the token's stat inputs already carry the summed levels).
+        // Basic (normal) infusions: per-slot picks are restored so their
+        // dropdowns show them; the global boxes come from the saved state when
+        // present. Older builds only stored the token totals (which were the
+        // per-slot sums), and token-only links carry just the totals - both
+        // map onto the global boxes without double counting.
+        const loadedBasic = {};
         if (effSavedState && effSavedState.basicInfusions && typeof effSavedState.basicInfusions === 'object') {
-            const loadedBasic = {};
             for (const [slot, value] of Object.entries(effSavedState.basicInfusions)) {
                 if (!value || typeof value.name !== 'string') continue;
                 if (!BASIC_INFUSIONS.some((i) => i.name === value.name)) continue;
@@ -2377,6 +2491,27 @@ export default function BuildForm({
                 setBasicOpen(true);
             }
         }
+        const storedGlobals =
+            effSavedState && effSavedState.globalInfusions && typeof effSavedState.globalInfusions === 'object'
+                ? effSavedState.globalInfusions
+                : null;
+        let nextGlobals = {};
+        for (const key of BASIC_INFUSION_STAT_KEYS) {
+            // A saved state without the field predates the global boxes, so
+            // its token totals were the per-slot sums (globals start at 0).
+            const source = storedGlobals ? storedGlobals[key] : effSavedState ? 0 : statValues[key];
+            const value = Math.floor(Number(source) || 0);
+            nextGlobals[key] = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, value));
+        }
+        // Never load past the shared budget (hand-edited states or tokens).
+        const loadedUsed =
+            Object.values(loadedBasic).reduce((sum, v) => sum + v.level, 0) +
+            BASIC_INFUSION_STAT_KEYS.reduce((sum, key) => sum + nextGlobals[key], 0);
+        if (loadedUsed > BASIC_INFUSION_LEVEL_CAP) {
+            nextGlobals = trimGlobals(nextGlobals, loadedUsed - BASIC_INFUSION_LEVEL_CAP);
+        }
+        setGlobalInfusions(nextGlobals);
+        setStatInputs((prev) => ({ ...prev, ...combinedInfusionTotals(loadedBasic, nextGlobals) }));
 
         // A build renamed on the "My Builds" page stores its display name in
         // the DB; surface it in the header so re-saving keeps the new name.
@@ -2583,10 +2718,12 @@ export default function BuildForm({
                         token: makeBuildString(),
                         infusions: delveInfusions,
                         basicInfusions,
+                        globalInfusions,
                         revelation,
                         name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
                         notes: notesDraft.trim() ? notesDraft : null,
                         buildId: activeBuildId || null,
+                        revision: buildRevision,
                         savedAt: Date.now(),
                     })
                 );
@@ -2606,9 +2743,11 @@ export default function BuildForm({
         regionValue,
         delveInfusions,
         basicInfusions,
+        globalInfusions,
         revelation,
         notesDraft,
         activeBuildId,
+        buildRevision,
     ]);
 
     // Once the skills data is known (it loads async, after parentLoaded), drop
@@ -2670,6 +2809,8 @@ export default function BuildForm({
         setCharmSelectKey((k) => k + 1);
         setDelveInfusions({});
         setDelvePoints({});
+        setBasicInfusions({});
+        setGlobalInfusions({ tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 });
         setRevelation(false);
         setCzAbilities({});
         setCzSelectedTree(CZ_MAIN_TREES[0]);
@@ -3398,7 +3539,28 @@ export default function BuildForm({
                     currentHealth={itemsToDisplay.currentHealth}
                     healthFinal={itemsToDisplay.healthFinal}
                 />
-                {/* Basic infusion totals (levels summed across slots) live in
+                {/* Global normal infusion levels (the original builder's number
+                    boxes): they add to the per-slot infusions and share the
+                    24-level budget, which every box is clamped against. */}
+                <div className="d-flex flex-wrap justify-content-center align-items-start">
+                    {BASIC_INFUSION_STAT_KEYS.map((key) => (
+                        <div className="text-center mx-2" key={key}>
+                            <p className="mb-1" style={{ textTransform: 'capitalize' }}>
+                                {key}
+                            </p>
+                            <input
+                                type="number"
+                                min="0"
+                                max={BASIC_INFUSION_LEVEL_CAP}
+                                value={globalInfusions[key] || 0}
+                                onChange={(event) => changeGlobalInfusion(key, event.target.value)}
+                                className={styles.infusionLevelInput}
+                                aria-label={`${key} infusion level`}
+                            />
+                        </div>
+                    ))}
+                </div>
+                {/* Basic infusion totals (per-slot + global levels) live in
                     hidden inputs so the stat calculation (Stats reads
                     formData.tenacity/vitality/vigor/focus/perspicacity) and
                     the saved build token keep working without visible inputs. */}

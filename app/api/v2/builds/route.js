@@ -66,6 +66,7 @@ export async function POST(request) {
         infusions: body.infusions && typeof body.infusions === 'object' ? body.infusions : {},
         revelation: Boolean(body.revelation),
         basicInfusions: body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
+        globalInfusions: body.globalInfusions && typeof body.globalInfusions === 'object' ? body.globalInfusions : {},
     };
     // Re-saving an unchanged build keeps its existing row (and link). Resolve
     // that before the daily limit: nothing is created, so it must not consume
