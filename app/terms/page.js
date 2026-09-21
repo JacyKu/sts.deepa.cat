@@ -19,7 +19,7 @@ export default function TermsOfServicePage() {
     return (
         <LegalPage
             title="Terms of Service"
-            meta="Last updated: September 19, 2026 | Applies to: https://deepa.cat"
+            meta="Last updated: September 21, 2026 | Applies to: https://deepa.cat"
             sections={[
                 {
                     heading: 'Acceptance of Terms',
@@ -94,6 +94,11 @@ export default function TermsOfServicePage() {
                             removed if they break these Terms.
                         </>,
                         <>
+                            Linking a Minecraft profile creates a single-use code that expires after 15 minutes; the
+                            request&apos;s IP address and time are shown on the confirmation page, and the mod&apos;s
+                            upload token is stored only as a hash.
+                        </>,
+                        <>
                             You may not use the mod to attack, overload, or reverse-engineer the Service, to bypass rate
                             limits, or to upload unlawful or infringing content.
                         </>,
@@ -104,13 +109,31 @@ export default function TermsOfServicePage() {
                     ],
                 },
                 {
+                    heading: 'Data and Privacy',
+                    paragraphs: [
+                        <>
+                            Our <a href="/privacy">Privacy Policy</a> explains what we store and why. In short: we store
+                            your Discord profile data, the content you save, your Minecraft links, and (for security) IP
+                            addresses used for rate limits and Minecraft link confirmation. We do not sell your personal
+                            information and we do not share it with anyone except the service providers listed below and
+                            where the law requires it.
+                        </>,
+                        <>
+                            You are responsible for the content you upload and for keeping your account secure. You can
+                            delete your account at any time from the account page; moderation records are kept as
+                            described in the Privacy Policy.
+                        </>,
+                    ],
+                },
+                {
                     heading: 'Third-Party Services',
                     paragraphs: [
                         <>
                             The Service relies on third parties: Discord (login and bot), Cloudflare (network delivery,
                             security and database backups in R2 object storage), and Mojang&apos;s public API and
-                            mc-heads.net (Minecraft profile names and avatar images). Your use of those parts of the
-                            Service is also subject to their own terms and privacy policies.
+                            mc-heads.net (Minecraft profile names and avatar images). Cloudflare and our server also
+                            process IP addresses to deliver the Service and enforce rate limits. Your use of those parts
+                            of the Service is also subject to their own terms and privacy policies.
                         </>,
                     ],
                 },
@@ -136,8 +159,8 @@ export default function TermsOfServicePage() {
                             We may remove or hide any content that breaks these Terms, including public builds and
                             custom items, and we may restrict, suspend, or permanently ban accounts that break them.
                             This is done by the site&apos;s moderators and applies to the site, the Discord bot and the
-                            Minecraft mod alike: a sanctioned account cannot save, publicise, upload, or link while
-                            the sanction is active.
+                            Minecraft mod alike: a sanctioned account cannot save, publicise, upload, or link while the
+                            sanction is active.
                         </>,
                         <>
                             Sanctions can be temporary or permanent and are recorded with their reason and expiry. If
