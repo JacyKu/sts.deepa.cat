@@ -3830,6 +3830,7 @@ export default function BuildForm({
                                         name="class"
                                         floatingLabel={t('builder.misc.class')}
                                         noneOption={true}
+                                        widthToOptions
                                         sortableStats={classes}
                                         default={
                                             gameClass != 'none'

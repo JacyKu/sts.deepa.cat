@@ -216,6 +216,29 @@ const SelectInput = (data) => {
     const defaultVal = data.default !== null && typeof data.default === 'object' ? data.default.value : data.default;
     const defaultOption = defaultVal ? findOption(defaultVal) : options[0];
 
+    // widthToOptions: size the control - and the menu, which follows the
+    // control's width - to the widest option label instead of the current
+    // value, so longer entries (class names differ per language) are not
+    // clipped. The labels are measured with the control's own font via canvas,
+    // plus the value paddings, dropdown indicator and borders.
+    const SELECT_CHROME_WIDTH = 60;
+    const widthWrapperRef = React.useRef(null);
+    const [minWidth, setMinWidth] = React.useState(null);
+    React.useEffect(() => {
+        if (!data.widthToOptions) return;
+        const el = widthWrapperRef.current;
+        if (!el) return;
+        const style = window.getComputedStyle(el);
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        let widest = 0;
+        for (const option of options) {
+            const label = option && typeof option === 'object' ? option.label : option;
+            widest = Math.max(widest, ctx.measureText(String(label ?? '')).width);
+        }
+        setMinWidth(Math.ceil(widest) + SELECT_CHROME_WIDTH);
+    }, [data.widthToOptions, options]);
+
     const select = (
         <Select
             ref={data.reference}
@@ -235,11 +258,17 @@ const SelectInput = (data) => {
         />
     );
 
+    const wrapper = (
+        <div ref={widthWrapperRef} style={minWidth ? { minWidth: `${minWidth}px` } : undefined}>
+            {select}
+        </div>
+    );
+
     if (data.floatingLabel) {
-        return <FloatingLabel label={data.floatingLabel}>{select}</FloatingLabel>;
+        return <FloatingLabel label={data.floatingLabel}>{wrapper}</FloatingLabel>;
     }
 
-    return <div>{select}</div>;
+    return wrapper;
 };
 
 export default SelectInput;
