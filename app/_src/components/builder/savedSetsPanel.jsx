@@ -3,7 +3,8 @@
 // Saved skill & delve sets (Discord users only). Lives under the builder's
 // top row: a single panel that can
 //   1. copy the skill portion (class/spec/points/enhancements/CZ) out of any
-//      of the caller's own saved builds,
+//      build - the caller's own saved builds, or any public build in the
+//      build database (the two sources are switched between),
 //   2. save the current skill layout (or the current delve infusions) as a
 //      named set for later, and apply/delete saved sets,
 //   3. share a set as a public link (/builder?set=<id>) that anyone can open
@@ -40,6 +41,10 @@ export default function SavedSetsPanel({
     const [sets, setSets] = React.useState([]);
     const [myBuilds, setMyBuilds] = React.useState([]);
     const [buildQuery, setBuildQuery] = React.useState('');
+    const [copySource, setCopySource] = React.useState('mine'); // 'mine' | 'public'
+    const [publicQuery, setPublicQuery] = React.useState('');
+    const [publicBuilds, setPublicBuilds] = React.useState(null); // null = loading
+    const [publicBusy, setPublicBusy] = React.useState(false);
     const [busy, setBusy] = React.useState(false);
     const [names, setNames] = React.useState({ skills: '', delve: '' });
     const [feedback, setFeedback] = React.useState(null); // { ok, text }
@@ -64,6 +69,39 @@ export default function SavedSetsPanel({
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Signed-out visitors can still copy skills from the public database, so
+    // the picker falls back to that source (there are no own builds to list).
+    const activeSource = loggedIn === false ? 'public' : copySource;
+
+    // Public build picker: debounced search over the public database. An
+    // empty query loads the top builds, so the list is never empty-handed.
+    React.useEffect(() => {
+        if (activeSource !== 'public') return undefined;
+        let active = true;
+        setPublicBusy(true);
+        const timer = window.setTimeout(
+            () => {
+                const query = publicQuery.trim();
+                fetch(`/api/v2/builds/public?limit=12&sort=top&q=${encodeURIComponent(query)}`)
+                    .then((r) => (r.ok ? r.json() : { builds: [] }))
+                    .then((d) => {
+                        if (active) setPublicBuilds(Array.isArray(d.builds) ? d.builds : []);
+                    })
+                    .catch(() => {
+                        if (active) setPublicBuilds([]);
+                    })
+                    .finally(() => {
+                        if (active) setPublicBusy(false);
+                    });
+            },
+            publicQuery ? 300 : 0
+        );
+        return () => {
+            active = false;
+            window.clearTimeout(timer);
+        };
+    }, [activeSource, publicQuery]);
 
     function refresh() {
         fetch('/api/v2/skill-sets')
@@ -219,168 +257,256 @@ export default function SavedSetsPanel({
           )
         : myBuilds;
 
+    const publicBuildMeta = (b) => [humanClass(b.class), b.spec, b.region].filter(Boolean).join(' / ');
+
+    const copySourceSwitch = (
+        <div className={styles.setsSourceSwitch} role="tablist" aria-label={t('builder.sets.copyFromBuilds')}>
+            <button
+                type="button"
+                role="tab"
+                aria-selected={activeSource === 'mine'}
+                className={`${styles.setsSourceBtn}${activeSource === 'mine' ? ` ${styles.setsSourceBtnActive}` : ''}`}
+                onClick={() => setCopySource('mine')}
+            >
+                {t('builder.sets.sourceMine')}
+            </button>
+            <button
+                type="button"
+                role="tab"
+                aria-selected={activeSource === 'public'}
+                className={`${styles.setsSourceBtn}${
+                    activeSource === 'public' ? ` ${styles.setsSourceBtnActive}` : ''
+                }`}
+                onClick={() => setCopySource('public')}
+            >
+                {t('builder.sets.sourcePublic')}
+            </button>
+        </div>
+    );
+
+    const myBuildsBody =
+        myBuilds.length === 0 ? (
+            <p className={styles.setsEmpty}>{t('builder.sets.noSavedBuilds')}</p>
+        ) : (
+            <>
+                <div className={styles.setsSaveRow}>
+                    <input
+                        className={styles.setsInput}
+                        type="search"
+                        placeholder={t('builder.sets.searchYourBuilds')}
+                        value={buildQuery}
+                        onChange={(e) => setBuildQuery(e.target.value)}
+                        aria-label={t('builder.sets.searchYourBuilds')}
+                    />
+                </div>
+                {visibleBuilds.length === 0 ? (
+                    <div className={styles.setsBuildList}>
+                        <p className={styles.setsEmpty}>{t('builder.sets.noBuildsMatch')}</p>
+                    </div>
+                ) : (
+                    <div className={styles.setsBuildList}>
+                        <ul className={styles.setsList}>
+                            {visibleBuilds.map((b) => (
+                                <li key={b.id} className={styles.setsRow}>
+                                    <span className={styles.setsRowName}>
+                                        {b.name || t('builder.sets.unnamedBuild')}
+                                        {b.class ? (
+                                            <span className={styles.setsMeta}>
+                                                {humanClass(b.class)}
+                                                {b.spec ? ` / ${b.spec}` : ''}
+                                            </span>
+                                        ) : (
+                                            ''
+                                        )}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className={styles.setsBtn}
+                                        disabled={busy}
+                                        onClick={() => handleCopyBuild(b)}
+                                    >
+                                        {t('builder.sets.copySkills')}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </>
+        );
+
+    const publicBuildsBody = (
+        <>
+            <div className={styles.setsSaveRow}>
+                <input
+                    className={styles.setsInput}
+                    type="search"
+                    placeholder={t('builder.sets.searchPublicBuilds')}
+                    value={publicQuery}
+                    onChange={(e) => setPublicQuery(e.target.value)}
+                    aria-label={t('builder.sets.searchPublicBuilds')}
+                />
+            </div>
+            <div className={styles.setsBuildList} aria-busy={publicBusy}>
+                {publicBuilds === null ? (
+                    <p className={styles.setsEmpty}>{t('common.loading')}</p>
+                ) : publicBuilds.length === 0 ? (
+                    <p className={styles.setsEmpty}>{t('builder.sets.noPublicBuilds')}</p>
+                ) : (
+                    <ul className={styles.setsList}>
+                        {publicBuilds.map((b) => (
+                            <li key={b.id} className={styles.setsRow}>
+                                <span className={styles.setsRowName}>
+                                    {b.name || t('builder.sets.unnamedBuild')}
+                                    {publicBuildMeta(b) ? (
+                                        <span className={styles.setsMeta}>{publicBuildMeta(b)}</span>
+                                    ) : (
+                                        ''
+                                    )}
+                                </span>
+                                <button
+                                    type="button"
+                                    className={styles.setsBtn}
+                                    disabled={busy}
+                                    onClick={() => handleCopyBuild(b)}
+                                >
+                                    {t('builder.sets.copySkills')}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        </>
+    );
+
     return (
         <div className={styles.setsPanel}>
-            {loggedIn === false ? (
-                <p className={styles.setsHint}>{t('builder.sets.loginRequired')}</p>
-            ) : loggedIn === null ? (
+            {loggedIn === null ? (
                 <p className={styles.setsHint}>{t('common.loading')}</p>
             ) : (
                 <>
                     <div className={styles.setsColumns}>
                         <section className={styles.setsGroup}>
-                            <h3 className={styles.setsGroupTitle}>{t('builder.sets.copyFromBuilds')}</h3>
-                            {myBuilds.length === 0 ? (
-                                <p className={styles.setsEmpty}>{t('builder.sets.noSavedBuilds')}</p>
-                            ) : (
-                                <>
-                                    <div className={styles.setsSaveRow}>
-                                        <input
-                                            className={styles.setsInput}
-                                            type="search"
-                                            placeholder={t('builder.sets.searchYourBuilds')}
-                                            value={buildQuery}
-                                            onChange={(e) => setBuildQuery(e.target.value)}
-                                            aria-label={t('builder.sets.searchYourBuilds')}
-                                        />
-                                    </div>
-                                    {visibleBuilds.length === 0 ? (
-                                        <div className={styles.setsBuildList}>
-                                            <p className={styles.setsEmpty}>{t('builder.sets.noBuildsMatch')}</p>
+                            <h3 className={styles.setsGroupTitle}>
+                                {activeSource === 'public'
+                                    ? t('builder.sets.copyFromPublic')
+                                    : t('builder.sets.copyFromBuilds')}
+                            </h3>
+                            {loggedIn ? copySourceSwitch : null}
+                            {activeSource === 'public' ? publicBuildsBody : myBuildsBody}
+                        </section>
+
+                        {loggedIn ? (
+                            ['skills', 'delve'].map((kind) => {
+                                const list = kindGroups(kind);
+                                return (
+                                    <section key={kind} className={styles.setsGroup}>
+                                        <h3 className={styles.setsGroupTitle}>{KIND_LABELS[kind]}</h3>
+                                        <div className={styles.setsSaveRow}>
+                                            <input
+                                                className={styles.setsInput}
+                                                placeholder={t('builder.sets.setName')}
+                                                maxLength={40}
+                                                value={names[kind]}
+                                                onChange={(e) =>
+                                                    setNames((prev) => ({ ...prev, [kind]: e.target.value }))
+                                                }
+                                            />
+                                            <button
+                                                type="button"
+                                                className={styles.setsBtn}
+                                                disabled={busy}
+                                                onClick={() => handleSave(kind)}
+                                            >
+                                                {t('builder.sets.saveCurrent')}
+                                            </button>
                                         </div>
-                                    ) : (
-                                        <div className={styles.setsBuildList}>
+                                        {list.length === 0 ? (
+                                            <p className={styles.setsEmpty}>
+                                                {kind === 'skills'
+                                                    ? t('builder.sets.noSkillSets')
+                                                    : t('builder.sets.noInfusionSets')}
+                                            </p>
+                                        ) : (
                                             <ul className={styles.setsList}>
-                                                {visibleBuilds.map((b) => (
-                                                    <li key={b.id} className={styles.setsRow}>
+                                                {list.map((entry) => (
+                                                    <li key={entry.id} className={styles.setsRow}>
                                                         <span className={styles.setsRowName}>
-                                                            {b.name || t('builder.sets.unnamedBuild')}
-                                                            {b.class ? (
+                                                            {entry.name}
+                                                            {entry.kind === 'skills' && entry.className ? (
                                                                 <span className={styles.setsMeta}>
-                                                                    {humanClass(b.class)}
-                                                                    {b.spec ? ` / ${b.spec}` : ''}
+                                                                    {humanClass(entry.className)}
+                                                                    {entry.spec ? ` / ${entry.spec}` : ''}
                                                                 </span>
                                                             ) : (
                                                                 ''
                                                             )}
+                                                            {formatDate(entry.updatedAt)
+                                                                ? ` · ${formatDate(entry.updatedAt)}`
+                                                                : ''}
                                                         </span>
-                                                        <button
-                                                            type="button"
-                                                            className={styles.setsBtn}
-                                                            disabled={busy}
-                                                            onClick={() => handleCopyBuild(b)}
-                                                        >
-                                                            {t('builder.sets.copySkills')}
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </section>
-
-                        {['skills', 'delve'].map((kind) => {
-                            const list = kindGroups(kind);
-                            return (
-                                <section key={kind} className={styles.setsGroup}>
-                                    <h3 className={styles.setsGroupTitle}>{KIND_LABELS[kind]}</h3>
-                                    <div className={styles.setsSaveRow}>
-                                        <input
-                                            className={styles.setsInput}
-                                            placeholder={t('builder.sets.setName')}
-                                            maxLength={40}
-                                            value={names[kind]}
-                                            onChange={(e) => setNames((prev) => ({ ...prev, [kind]: e.target.value }))}
-                                        />
-                                        <button
-                                            type="button"
-                                            className={styles.setsBtn}
-                                            disabled={busy}
-                                            onClick={() => handleSave(kind)}
-                                        >
-                                            {t('builder.sets.saveCurrent')}
-                                        </button>
-                                    </div>
-                                    {list.length === 0 ? (
-                                        <p className={styles.setsEmpty}>
-                                            {kind === 'skills'
-                                                ? t('builder.sets.noSkillSets')
-                                                : t('builder.sets.noInfusionSets')}
-                                        </p>
-                                    ) : (
-                                        <ul className={styles.setsList}>
-                                            {list.map((entry) => (
-                                                <li key={entry.id} className={styles.setsRow}>
-                                                    <span className={styles.setsRowName}>
-                                                        {entry.name}
-                                                        {entry.kind === 'skills' && entry.className ? (
-                                                            <span className={styles.setsMeta}>
-                                                                {humanClass(entry.className)}
-                                                                {entry.spec ? ` / ${entry.spec}` : ''}
-                                                            </span>
-                                                        ) : (
-                                                            ''
-                                                        )}
-                                                        {formatDate(entry.updatedAt)
-                                                            ? ` · ${formatDate(entry.updatedAt)}`
-                                                            : ''}
-                                                    </span>
-                                                    <span className={styles.setsRowActions}>
-                                                        <button
-                                                            type="button"
-                                                            className={styles.setsBtn}
-                                                            disabled={busy}
-                                                            onClick={() => handleApply(entry)}
-                                                        >
-                                                            {t('common.apply')}
-                                                        </button>
-                                                        {entry.isPublic ? (
-                                                            <>
-                                                                <button
-                                                                    type="button"
-                                                                    className={styles.setsBtn}
-                                                                    disabled={busy}
-                                                                    onClick={() => copyShareLink(entry.id)}
-                                                                >
-                                                                    {t('common.copyLink')}
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    className={styles.setsBtn}
-                                                                    disabled={busy}
-                                                                    onClick={() => toggleShare(entry, false)}
-                                                                >
-                                                                    {t('builder.sets.unshare')}
-                                                                </button>
-                                                            </>
-                                                        ) : (
+                                                        <span className={styles.setsRowActions}>
                                                             <button
                                                                 type="button"
                                                                 className={styles.setsBtn}
                                                                 disabled={busy}
-                                                                onClick={() => toggleShare(entry, true)}
+                                                                onClick={() => handleApply(entry)}
                                                             >
-                                                                {t('builder.buttons.share')}
+                                                                {t('common.apply')}
                                                             </button>
-                                                        )}
-                                                        <button
-                                                            type="button"
-                                                            className={`${styles.setsBtn} ${styles.setsBtnDanger}`}
-                                                            disabled={busy}
-                                                            onClick={() => requestDelete(entry.id)}
-                                                        >
-                                                            {confirmDelete === entry.id ? t('builder.sets.sure') : '✕'}
-                                                        </button>
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </section>
-                            );
-                        })}
+                                                            {entry.isPublic ? (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.setsBtn}
+                                                                        disabled={busy}
+                                                                        onClick={() => copyShareLink(entry.id)}
+                                                                    >
+                                                                        {t('common.copyLink')}
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.setsBtn}
+                                                                        disabled={busy}
+                                                                        onClick={() => toggleShare(entry, false)}
+                                                                    >
+                                                                        {t('builder.sets.unshare')}
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    className={styles.setsBtn}
+                                                                    disabled={busy}
+                                                                    onClick={() => toggleShare(entry, true)}
+                                                                >
+                                                                    {t('builder.buttons.share')}
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                className={`${styles.setsBtn} ${styles.setsBtnDanger}`}
+                                                                disabled={busy}
+                                                                onClick={() => requestDelete(entry.id)}
+                                                            >
+                                                                {confirmDelete === entry.id
+                                                                    ? t('builder.sets.sure')
+                                                                    : '✕'}
+                                                            </button>
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </section>
+                                );
+                            })
+                        ) : (
+                            <section className={`${styles.setsGroup} ${styles.setsGroupWide}`}>
+                                <p className={styles.setsHint}>{t('builder.sets.loginRequired')}</p>
+                            </section>
+                        )}
                     </div>
                     {feedback && (
                         <p className={feedback.ok ? styles.setsFeedbackOk : styles.setsFeedbackErr}>{feedback.text}</p>

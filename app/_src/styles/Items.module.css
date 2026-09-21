@@ -2747,6 +2747,47 @@ div.builderStatCard {
     font-style: italic;
 }
 
+/* "My builds / Public database" source switch above the copy-from-builds
+   list (only rendered for signed-in users; signed-out visitors always see
+   the public database picker). */
+.setsSourceSwitch {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.setsSourceBtn {
+    flex: 1;
+    padding: 3px 8px;
+    border: 2px solid var(--control-border);
+    border-radius: 0;
+    background: var(--glass-1);
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.setsSourceBtn:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    color: var(--text-1);
+}
+
+.setsSourceBtnActive {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--surface-2);
+    color: var(--text-1);
+    font-weight: 700;
+}
+
+/* The logged-out hint takes the width of the two hidden set columns. */
+.setsGroupWide {
+    grid-column: span 2;
+}
+
 /* Fixed-height scroll area for the "copy from your builds" list: filtering
    it must not resize the dialog (which would re-center it and make the modal
    jump while searching). */
@@ -2875,5 +2916,9 @@ div.builderStatCard {
     .setsColumns {
         grid-template-columns: 1fr;
         gap: 12px;
+    }
+
+    .setsGroupWide {
+        grid-column: auto;
     }
 }

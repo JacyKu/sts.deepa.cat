@@ -29,6 +29,7 @@ import {
     normalizeBuildParam,
     getBuildTokenVersion,
 } from '../../utils/builder/buildUrlCodec';
+import { skillsPayloadFromToken } from '../../utils/builder/buildSkills';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
@@ -757,81 +758,6 @@ const CZ_MAIN_TREES = [
     'Prismatic',
 ];
 
-function safeDecodeComponent(value) {
-    try {
-        return decodeURIComponent(String(value || ''));
-    } catch (e) {
-        return '';
-    }
-}
-
-// Reads the skill portion (class, spec, class/spec skill points,
-// enhancements, CZ abilities) out of a build token, mirroring the URL-load
-// logic below. Returns null when the token has no class part.
-function decodeSkillsFromToken(token, itemData) {
-    if (!token) return null;
-    let decoded = null;
-    try {
-        decoded = decodeBuildParam(token, itemData);
-    } catch (e) {
-        return null;
-    }
-    if (!decoded) return null;
-    let parts = [];
-    try {
-        parts = decodeURI(decoded).split('&');
-    } catch (e) {
-        return null;
-    }
-    const find = (key) => {
-        const part = parts.find((p) => p.startsWith(`${key}=`));
-        return part ? part.slice(key.length + 1) : null;
-    };
-    const rawClass = find('cl');
-    if (!rawClass) return null;
-    const parsePoints = (raw) => {
-        const out = {};
-        safeDecodeComponent(raw)
-            .split(',')
-            .forEach((entry) => {
-                const [id, pts] = entry.split(':');
-                const points = Number(pts);
-                if (id && Number.isInteger(points) && points > 0) out[id] = points;
-            });
-        return out;
-    };
-    const parseSet = (raw) => {
-        const out = {};
-        safeDecodeComponent(raw)
-            .split(',')
-            .forEach((entry) => {
-                if (entry) out[entry] = true;
-            });
-        return out;
-    };
-    const parseCz = (raw) => {
-        const out = {};
-        safeDecodeComponent(raw)
-            .split(',')
-            .forEach((entry) => {
-                // Legacy "Name:rarity" suffixes are dropped - abilities are
-                // always Twisted.
-                const name = entry.split(':')[0];
-                if (name) out[name] = true;
-            });
-        return out;
-    };
-    const rawSpec = find('sp');
-    return {
-        cl: rawClass.toLowerCase(),
-        sp: rawSpec ? safeDecodeComponent(rawSpec) : null,
-        sk: parsePoints(find('sk')),
-        ssk: parsePoints(find('ssk')),
-        en: parseSet(find('en')),
-        cz: parseCz(find('cz')),
-    };
-}
-
 // Resource-pack icons: class/spec skills live in images/skills (unofficial
 // mod textures where available - those are transparent), CZ abilities in
 // images/cz. Both are keyed by the snake_case of the skill name.
@@ -1109,9 +1035,7 @@ export default function BuildForm({
     const effectiveDraft = React.useMemo(() => {
         if (!draft) return null;
         if (build) {
-            return draft.buildId &&
-                draft.buildId === buildId &&
-                Number(draft.revision) === Number(buildRevision)
+            return draft.buildId && draft.buildId === buildId && Number(draft.revision) === Number(buildRevision)
                 ? draft
                 : null;
         }
@@ -1317,10 +1241,23 @@ export default function BuildForm({
         return null;
     }
 
-    // "Copy skills" from one of the caller's saved builds: decode its token
-    // and reuse the same apply path.
+    // "Copy skills" from another build: the caller's own saved builds carry
+    // their token (decoded here), while public database builds are decoded by
+    // the server (the token never leaves it) and fetched by id.
     async function copyBuildSkills(build) {
-        const parsed = build && build.token ? decodeSkillsFromToken(build.token, itemData) : null;
+        if (!build) return t('builder.sets.couldNotReadBuild');
+        let parsed = build.token ? skillsPayloadFromToken(build.token, itemData) : null;
+        if (!parsed && build.id) {
+            try {
+                const res = await fetch(`/api/v2/builds/${encodeURIComponent(build.id)}/skills`);
+                if (res.ok) {
+                    const data = await res.json().catch(() => null);
+                    parsed = data && data.payload ? data.payload : null;
+                }
+            } catch (e) {
+                parsed = null;
+            }
+        }
         if (!parsed) return t('builder.sets.couldNotReadBuild');
         return applySkillPayload(parsed);
     }
