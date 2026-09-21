@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDiscordUser, resolveProfileAvatar } from '../../../../../lib/session';
 import { sanctionBlock } from '../../../../../lib/moderation';
 import { setAvatarSource, listLinksForDiscord } from '../../../../../lib/sts-builds';
+import { consumeRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
 
 // Saves the profile-picture preference: 'discord' (Discord avatar),
 // 'minecraft' (the cached head of the first linked Minecraft profile) or
@@ -15,6 +16,10 @@ export async function POST(request) {
     if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
+    }
+    const quota = consumeRateLimit(`avatar-source:${user.id}`, 30, 60 * 60 * 1000);
+    if (!quota.allowed) {
+        return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Too many picture changes, try again later.' });
     }
     const body = await request.json().catch(() => null);
     const source = body && body.source;

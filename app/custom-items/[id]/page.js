@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { getCustomItem, getCustomItemFavouriteState } from '../../../lib/sts-builds';
+import { getCustomItem, getCustomItemFavouriteState, publicAuthorAvatar } from '../../../lib/sts-builds';
 import { getDiscordUser } from '../../../lib/session';
 import CustomItemPage from '../../_src/components/customItems/customItemView';
 import CustomItemSkeleton from '../../_src/components/customItems/customItemSkeleton';
@@ -35,6 +35,17 @@ async function CustomItemView({ params }) {
     // owner can manage it, and only logged-in visitors can copy it.
     const isOwner = Boolean(user && item && item.userId === user.id);
     const favourite = item ? getCustomItemFavouriteState(id, user ? user.id : null) : { favourite: false, count: 0 };
-    const itemWithLikes = item ? { ...item, favouriteCount: favourite.count, myFavourite: favourite.favourite } : null;
+    // The Discord account id never reaches the client (or the RSC payload):
+    // the avatar is resolved server-side instead.
+    let itemWithLikes = null;
+    if (item) {
+        const { userId, ...publicItem } = item;
+        itemWithLikes = {
+            ...publicItem,
+            authorAvatar: publicAuthorAvatar(userId, publicItem.authorAvatar),
+            favouriteCount: favourite.count,
+            myFavourite: favourite.favourite,
+        };
+    }
     return <CustomItemPage item={itemWithLikes} isOwner={isOwner} loggedIn={Boolean(user)} />;
 }

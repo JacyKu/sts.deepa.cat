@@ -454,6 +454,10 @@ function recalcBuild(data, itemData) {
             (slot) => data[`delveInfusion-${slot}`] ?? null
         ),
         revelation: data.revelation ?? null,
+        // The delve/basic infusion toggles only decide whether the picks
+        // count, so they are part of the calculation's inputs too.
+        delveEnabled: data.delveEnabled ?? null,
+        infusionsEnabled: data.infusionsEnabled ?? null,
         stats: [
             data.tenacity ?? null,
             data.vitality ?? null,
@@ -894,7 +898,6 @@ export default function BuildForm({
     const [gameClass, setGameClass] = React.useState('none'); // "class" is a reserved word
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
-    const [classSelectKey, setClassSelectKey] = React.useState(0);
     const [saveState, setSaveState] = React.useState(null); // 'saving' | 'copied' | 'error' | 'duplicate'
     const [savedAnonymous, setSavedAnonymous] = React.useState(false);
     // The DB row this build was opened from / saved to; edits update it in
@@ -922,7 +925,6 @@ export default function BuildForm({
     const [regionSelectKey, setRegionSelectKey] = React.useState(0);
     const [enhancements, setEnhancements] = React.useState({}); // buff key -> true
     const [spec, setSpec] = React.useState(null); // specialization name
-    const [specSelectKey, setSpecSelectKey] = React.useState(0);
     const [specSkillPoints, setSpecSkillPoints] = React.useState({});
     const [czAbilities, setCzAbilities] = React.useState({}); // ability name -> selected (always Twisted)
     const [czData, setCzData] = React.useState(null);
@@ -1199,10 +1201,8 @@ export default function BuildForm({
         const en = payload.en && typeof payload.en === 'object' ? { ...payload.en } : {};
         const cz = payload.cz && typeof payload.cz === 'object' ? { ...payload.cz } : {};
         setGameClass(String(payload.cl).toLowerCase());
-        setClassSelectKey((k) => k + 1);
         const nextSpec = payload.sp ? String(payload.sp) : null;
         setSpec(nextSpec);
-        setSpecSelectKey((k) => k + 1);
         setSkillPoints(sk);
         setSpecSkillPoints(ssk);
         setEnhancements(en);
@@ -1237,6 +1237,9 @@ export default function BuildForm({
             if (!infusions[slot]) entries.push([`delveInfusion-${slot}`, 'None']);
         }
         if (payload.revelation) entries.push(['revelation', '1']);
+        // The snapshot is being applied, so the section counts even if its
+        // toggle was off (the toggle is re-enabled above when infusions exist).
+        if (Object.keys(infusions).length > 0) entries.push(['delveEnabled', '1']);
         applyStatsUpdate(Object.fromEntries(entries), itemData, setStats, update);
         return null;
     }
@@ -1655,7 +1658,6 @@ export default function BuildForm({
             nextSpec = null;
             nextSpecPoints = {};
             setSpec(null);
-            setSpecSelectKey((k) => k + 1);
             setSpecSkillPoints({});
         }
         if (nextRegion === 1) {
@@ -1834,7 +1836,6 @@ export default function BuildForm({
     function specChanged(newValue, actionMeta) {
         const specName = newValue ? newValue.value : null;
         setSpec(specName);
-        setSpecSelectKey((k) => k + 1);
         setSpecSkillPoints({});
         refreshClassBuffs(skillPoints, {}, enhancements);
         recalcBuildStats();
@@ -2273,7 +2274,6 @@ export default function BuildForm({
             const cls = classPart.split('cl=')[1];
             if (cls) {
                 setGameClass(cls.toLowerCase());
-                setClassSelectKey((k) => k + 1);
             }
         }
         let skPart = buildParts.find((str) => str.includes('sk='));
@@ -2295,7 +2295,6 @@ export default function BuildForm({
             const specName = decodeURIComponent(spPart.split('sp=')[1]);
             if (specName) {
                 setSpec(specName);
-                setSpecSelectKey((k) => k + 1);
             }
         }
         let sskPart = buildParts.find((str) => str.includes('ssk='));
@@ -2449,6 +2448,12 @@ export default function BuildForm({
         if (loadedUsed > BASIC_INFUSION_LEVEL_CAP) {
             nextGlobals = trimGlobals(nextGlobals, loadedUsed - BASIC_INFUSION_LEVEL_CAP);
         }
+        // The build carries basic infusions (per-slot picks, global boxes or
+        // token-only totals): open the section, and apply them even if the
+        // toggle happened to be off before the load.
+        const hasBasicInfusions =
+            Object.keys(loadedBasic).length > 0 || BASIC_INFUSION_STAT_KEYS.some((key) => Number(nextGlobals[key]) > 0);
+        if (hasBasicInfusions) setBasicOpen(true);
         setGlobalInfusions(nextGlobals);
         setStatInputs((prev) => ({ ...prev, ...combinedInfusionTotals(loadedBasic, nextGlobals) }));
 
@@ -2477,6 +2482,8 @@ export default function BuildForm({
                 ...itemNames,
                 ...statValues,
                 ...delveEntries,
+                ...(Object.keys(delveEntries).length > 0 ? { delveEnabled: '1' } : {}),
+                ...(hasBasicInfusions ? { infusionsEnabled: '1' } : {}),
                 ...(loadedRevelation ? { revelation: '1' } : {}),
             },
             itemData,
@@ -2488,7 +2495,6 @@ export default function BuildForm({
         const loadedRegion = Number(statValues.region) || 3;
         if (loadedRegion === 1) {
             setSpec(null);
-            setSpecSelectKey((k) => k + 1);
             setSpecSkillPoints({});
             setEnhancements({});
             setCharms([]);
@@ -2511,18 +2517,6 @@ export default function BuildForm({
             }
         }
     }, [parentLoaded, effectiveDraft]);
-
-    // The spec dropdown's options come from the async skills data, but a
-    // loaded build sets `spec` (and remounts the select via specSelectKey)
-    // as soon as its URL parses - which can happen before the skills fetch
-    // resolves. The remount then resolves the default value against empty
-    // options and the dropdown stays blank even though the spec skills
-    // render. Remount once the options actually exist so the loaded spec
-    // shows in the dropdown.
-    React.useEffect(() => {
-        if (skillsData && spec) setSpecSelectKey((k) => k + 1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [skillsData]);
 
     // A shared skill/infusion set opened from /builder?set=<id>: apply it
     // once, after the build/draft restore effect above has run. Skill sets
@@ -2756,10 +2750,8 @@ export default function BuildForm({
             itemRefs[ref].current.setValue({ value: 'None', label: 'None' });
         }
         setGameClass('none');
-        setClassSelectKey((k) => k + 1);
         setSkillPoints({});
         setSpec(null);
-        setSpecSelectKey((k) => k + 1);
         setSpecSkillPoints({});
         setEnhancements({});
         refreshClassBuffs({}, {}, {});
@@ -3105,7 +3097,6 @@ export default function BuildForm({
         setGameClass(newClass);
         setSkillPoints({});
         setSpec(null);
-        setSpecSelectKey((k) => k + 1);
         setSpecSkillPoints({});
         setEnhancements({});
         refreshClassBuffs({}, {}, {});
@@ -3487,7 +3478,7 @@ export default function BuildForm({
                     identifier="builder.misc.situationals"
                     className="text-center mb-1"
                 ></TranslatableText>
-                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, {
+                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveOpen ? delveInfusions : null, {
                     frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
                     frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
                 })}
@@ -3502,29 +3493,36 @@ export default function BuildForm({
                 />
                 {/* Global normal infusion levels (the original builder's number
                     boxes): they add to the per-slot infusions and share the
-                    24-level budget, which every box is clamped against. */}
-                <div className="d-flex flex-wrap justify-content-center align-items-start">
-                    {BASIC_INFUSION_STAT_KEYS.map((key) => (
-                        <div className="text-center mx-2" key={key}>
-                            <p className="mb-1" style={{ textTransform: 'capitalize' }}>
-                                {key}
-                            </p>
-                            <input
-                                type="number"
-                                min="0"
-                                max={BASIC_INFUSION_LEVEL_CAP}
-                                value={globalInfusions[key] || 0}
-                                onChange={(event) => changeGlobalInfusion(key, event.target.value)}
-                                className={styles.infusionLevelInput}
-                                aria-label={`${key} infusion level`}
-                            />
-                        </div>
-                    ))}
-                </div>
+                    24-level budget, which every box is clamped against. Hidden
+                    while the Infusions toggle is off, like the per-slot picks. */}
+                {basicOpen && (
+                    <div className="d-flex flex-wrap justify-content-center align-items-start">
+                        {BASIC_INFUSION_STAT_KEYS.map((key) => (
+                            <div className="text-center mx-2" key={key}>
+                                <p className="mb-1" style={{ textTransform: 'capitalize' }}>
+                                    {key}
+                                </p>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max={BASIC_INFUSION_LEVEL_CAP}
+                                    value={globalInfusions[key] || 0}
+                                    onChange={(event) => changeGlobalInfusion(key, event.target.value)}
+                                    className={styles.infusionLevelInput}
+                                    aria-label={`${key} infusion level`}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
                 {/* Basic infusion totals (per-slot + global levels) live in
                     hidden inputs so the stat calculation (Stats reads
                     formData.tenacity/vitality/vigor/focus/perspicacity) and
-                    the saved build token keep working without visible inputs. */}
+                    the saved build token keep working without visible inputs.
+                    The enabled flags let the toggles above turn the effects
+                    off without dropping the picks. */}
+                <input type="hidden" name="delveEnabled" value={delveOpen ? '1' : '0'} />
+                <input type="hidden" name="infusionsEnabled" value={basicOpen ? '1' : '0'} />
                 <input type="hidden" name="tenacity" value={statInputs.tenacity} />
                 <input type="hidden" name="vitality" value={statInputs.vitality} />
                 <input type="hidden" name="vigor" value={statInputs.vigor} />
@@ -3826,19 +3824,15 @@ export default function BuildForm({
                             ) : (
                                 <div>
                                     <SelectInput
-                                        key={`class-${classSelectKey}`}
                                         name="class"
                                         floatingLabel={t('builder.misc.class')}
                                         noneOption={true}
                                         widthToOptions
                                         sortableStats={classes}
-                                        default={
+                                        value={
                                             gameClass != 'none'
-                                                ? {
-                                                      value: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
-                                                      label: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
-                                                  }
-                                                : undefined
+                                                ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1)
+                                                : 'None'
                                         }
                                         onChange={classChanged}
                                     />
@@ -3849,12 +3843,11 @@ export default function BuildForm({
                             ) : (
                                 <div className="ms-3">
                                     <SelectInput
-                                        key={`spec-${specSelectKey}`}
                                         name="spec"
                                         floatingLabel={t('database.filters.spec')}
                                         noneOption={true}
                                         sortableStats={currentSpecOptions}
-                                        default={spec ? { value: spec, label: spec } : undefined}
+                                        value={spec || 'None'}
                                         onChange={specChanged}
                                     />
                                 </div>
@@ -3866,7 +3859,13 @@ export default function BuildForm({
                             <input
                                 type="checkbox"
                                 checked={delveOpen}
-                                onChange={(e) => setDelveOpen(e.target.checked)}
+                                onChange={(e) => {
+                                    setDelveOpen(e.target.checked);
+                                    // The toggle only decides whether the
+                                    // picks apply; the picks themselves stay
+                                    // in state and come back when re-ticked.
+                                    scheduleStatsRecalc();
+                                }}
                                 aria-label={t('builder.misc.delveInfusions')}
                             />
                             {t('builder.misc.delveInfusions')}
@@ -3875,7 +3874,10 @@ export default function BuildForm({
                             <input
                                 type="checkbox"
                                 checked={basicOpen}
-                                onChange={(e) => setBasicOpen(e.target.checked)}
+                                onChange={(e) => {
+                                    setBasicOpen(e.target.checked);
+                                    scheduleStatsRecalc();
+                                }}
                                 aria-label={t('builder.misc.infusions')}
                             />
                             {t('builder.misc.infusions')}

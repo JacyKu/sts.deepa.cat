@@ -7,6 +7,7 @@ import {
     updateCustomItem,
     hasCustomItemName,
     getCustomItemFavouriteState,
+    publicAuthorAvatar,
     BUILD_NAME_MAX,
 } from '../../../../../lib/sts-builds';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
@@ -30,7 +31,17 @@ export async function GET(_request, { params }) {
     }
     const user = await getDiscordUser();
     const state = getCustomItemFavouriteState(id, user ? user.id : null);
-    return NextResponse.json({ item: { ...item, favouriteCount: state.count, myFavourite: state.favourite } });
+    // Discord account ids stay server-side: the avatar is resolved to a full
+    // CDN URL here instead (same rule as the public listing).
+    const { userId, ...publicItem } = item;
+    return NextResponse.json({
+        item: {
+            ...publicItem,
+            authorAvatar: publicAuthorAvatar(userId, publicItem.authorAvatar),
+            favouriteCount: state.count,
+            myFavourite: state.favourite,
+        },
+    });
 }
 
 export async function PATCH(request, { params }) {
