@@ -340,9 +340,6 @@
 
 .cardSide {
     position: absolute;
-    /* The UI zoom (0.9) lays the card's 2px border out as ~1px, so the
-       extension meets the card's outer edge with a 1px overhang; using 2px
-       here made it 1px taller than the card at the top and bottom. */
     top: -1px;
     height: calc(100% + 2px);
     width: 0;
@@ -409,7 +406,7 @@
    underneath it as well. */
 .cardNotes {
     position: absolute;
-    top: calc(100% - 2px);
+    top: calc(100% + 1px);
     width: 0;
     max-height: 0;
     opacity: 0;
@@ -435,15 +432,15 @@
 }
 
 .cardNotesRight {
-    left: -2px;
+    left: -1px;
 }
 
 .cardNotesLeft {
-    right: -2px;
+    right: -1px;
 }
 
 .cardNotesOpen {
-    width: calc(100% + 4px);
+    width: calc(100% + 2px);
     max-height: 220px;
     opacity: 1;
     padding: 10px;
@@ -451,7 +448,7 @@
 }
 
 .cardNotesWide {
-    width: calc(100% + 340px);
+    width: calc(100% + 339px);
 }
 
 /* Round-corners mode: an expanded card and its extensions must read as one
@@ -661,9 +658,6 @@
     position: absolute;
     right: 0;
     top: calc(100% + 6px);
-    /* The translateY transform creates a stacking context, which would trap
-       the tooltip inside the button and let the card's side panel paint over
-       it; raising the button above the panel (z-index: auto) fixes that. */
     z-index: 30;
     display: inline-flex;
     align-items: center;
