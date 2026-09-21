@@ -10,6 +10,9 @@ export async function DELETE(_request, { params }) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    // Banned/suspended accounts may browse but not delete content either.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     const { id } = await params;
     const deleted = deleteSkillSet(id, user.id);
     if (!deleted) {

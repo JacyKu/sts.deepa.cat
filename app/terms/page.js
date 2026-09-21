@@ -19,7 +19,7 @@ export default function TermsOfServicePage() {
     return (
         <LegalPage
             title="Terms of Service"
-            meta="Last updated: September 15, 2026 | Applies to: https://deepa.cat"
+            meta="Last updated: September 19, 2026 | Applies to: https://deepa.cat"
             sections={[
                 {
                     heading: 'Acceptance of Terms',
@@ -127,6 +127,23 @@ export default function TermsOfServicePage() {
                         <>To upload content that is unlawful, infringing, or that you do not have the right to share</>,
                         <>To abuse, overload, or attempt to bypass the rate limits of the site, bot, or mod APIs</>,
                         <>To upload or transmit viruses or other malicious code</>,
+                    ],
+                },
+                {
+                    heading: 'Enforcement and Moderation',
+                    paragraphs: [
+                        <>
+                            We may remove or hide any content that breaks these Terms, including public builds and
+                            custom items, and we may restrict, suspend, or permanently ban accounts that break them.
+                            This is done by the site&apos;s moderators and applies to the site, the Discord bot and the
+                            Minecraft mod alike: a sanctioned account cannot save, publicise, upload, or link while
+                            the sanction is active.
+                        </>,
+                        <>
+                            Sanctions can be temporary or permanent and are recorded with their reason and expiry. If
+                            you believe a moderation decision was made in error, contact us at{' '}
+                            <a href="mailto:legal@deepa.cat">legal@deepa.cat</a>.
+                        </>,
                     ],
                 },
                 {

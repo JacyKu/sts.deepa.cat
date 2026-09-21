@@ -25,17 +25,17 @@ export async function GET(request, { params }) {
     const userId = searchParams.get('user_id') || '';
     if (row.is_public !== 1) {
         // Private build: only its owner may fetch it, and only via the bot
-        // (holding the shared secret) on the caller's own behalf.
-        if (!userId || String(row.user_id) !== String(userId)) {
+        // (holding the shared secret) on the caller's own behalf. Every
+        // failure returns the same 404 as an unknown build - otherwise a
+        // guessed user_id that matches the owner answers 401/503 and turns
+        // this endpoint into an ownership oracle.
+        const expected = process.env.STS_BOT_API_KEY;
+        const auth = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+        if (!expected || !auth || !timingSafeEqualStr(auth, expected)) {
             return NextResponse.json({ error: 'build is not public' }, { status: 404 });
         }
-        const expected = process.env.STS_BOT_API_KEY;
-        if (!expected) {
-            return NextResponse.json({ error: 'not configured' }, { status: 503 });
-        }
-        const auth = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-        if (!auth || !timingSafeEqualStr(auth, expected)) {
-            return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+        if (!userId || String(row.user_id) !== String(userId)) {
+            return NextResponse.json({ error: 'build is not public' }, { status: 404 });
         }
     }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listPublicBuilds, customItemsForBuilds } from '../../../../../lib/sts-builds';
+import { listPublicBuilds, customItemsForBuilds, publicAuthorAvatar } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
 import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 
@@ -45,8 +45,9 @@ export async function GET(request) {
         skillsJson: b.skills_json,
         itemsJson: b.items_json,
         authorName: b.anonymous === 1 ? null : b.author_name,
-        authorAvatar: b.anonymous === 1 ? null : b.author_avatar,
-        authorId: b.anonymous === 1 ? null : b.user_id,
+        // No authorId: anonymous accounts must not be correlatable and the
+        // avatar hash is resolved to a full URL here.
+        authorAvatar: b.anonymous === 1 ? null : publicAuthorAvatar(b.user_id, b.author_avatar),
         favouriteCount: b.fav_count,
         myFavourite: Boolean(b.my_fav),
         updatedAt: b.updated_at,

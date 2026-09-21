@@ -1077,6 +1077,16 @@ export default function BuildForm({
         } catch (e) {}
     }, []);
 
+    // Which draft applies to this page:
+    //  - plain /builder: only an unsaved build's draft, so opening the builder
+    //    to start something new never loads the last saved build you had open;
+    //  - saved-build page: only that build's own draft.
+    const effectiveDraft = React.useMemo(() => {
+        if (!draft) return null;
+        if (build) return draft.buildId && draft.buildId === buildId ? draft : null;
+        return draft.buildId ? null : draft;
+    }, [draft, build, buildId]);
+
     // Drag-to-reorder of skill/ability lists. dragState drives styling; the
     // ref holds the in-flight drag so handlers never read stale state.
     // dragTarget tracks which row the pointer is over (drop highlight).
@@ -2160,11 +2170,10 @@ export default function BuildForm({
     React.useEffect(() => {
         if (!parentLoaded) return;
         // Source of truth for this page: the URL build (saved build), or the
-        // session draft when there is none - unless the draft belongs to a
-        // different saved build. A matching draft wins over the DB row: it may
-        // hold edits the user hasn't saved yet.
+        // session draft that belongs here (see effectiveDraft). A matching
+        // draft wins over the URL: it may hold edits the user hasn't saved yet.
         const isLoadedBuild = Boolean(build);
-        const effDraft = draft && (!isLoadedBuild || draft.buildId === buildId) ? draft : null;
+        const effDraft = effectiveDraft;
         const loadToken = effDraft ? effDraft.token : build;
         if (!loadToken) return;
         const decoded = decodeBuildParam(loadToken, itemData);
@@ -2427,7 +2436,7 @@ export default function BuildForm({
                 setCzAbilities(cleaned);
             }
         }
-    }, [parentLoaded, draft]);
+    }, [parentLoaded, effectiveDraft]);
 
     // The spec dropdown's options come from the async skills data, but a
     // loaded build sets `spec` (and remounts the select via specSelectKey)
@@ -2469,7 +2478,7 @@ export default function BuildForm({
         // refs: the restore effect's setValue() is an async react-select
         // state update that hasn't flushed yet when this effect runs.
         const isLoadedBuild = Boolean(build);
-        const effDraft = draft && (!isLoadedBuild || draft.buildId === buildId) ? draft : null;
+        const effDraft = effectiveDraft;
         const loadToken = effDraft ? effDraft.token : build;
         const itemNames = {
             mainhand: 'None',
@@ -2558,9 +2567,10 @@ export default function BuildForm({
     }, [parentLoaded, maxMasterworkDefault]);
 
     // Autosave the working state as a session draft (debounced) so an
-    // accidental reload or a switch to another page doesn't lose it. The load
-    // effect restores it on /builder, or on /b/<id> when it belongs to that
-    // build (unsaved edits to an opened build survive a reload too).
+    // accidental reload or a switch to another page doesn't lose it. Unsaved
+    // work is restored on /builder; a saved build's draft only restores on
+    // that build's own page (see effectiveDraft above), so opening the plain
+    // builder always starts something new.
     React.useEffect(() => {
         if (!parentLoaded) return;
         const timer = setTimeout(() => {

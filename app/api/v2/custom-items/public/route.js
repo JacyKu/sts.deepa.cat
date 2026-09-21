@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listPublicCustomItems } from '../../../../../lib/sts-builds';
+import { listPublicCustomItems, publicAuthorAvatar } from '../../../../../lib/sts-builds';
 import { ITEM_TYPE_TOKEN_GROUPS } from '../../../../_src/utils/customItemTypes';
 
 // Public custom items database listing:
@@ -22,5 +22,11 @@ export async function GET(request) {
         page: searchParams.get('page') || '1',
         limit: searchParams.get('limit') || '24',
     });
-    return NextResponse.json({ items: result.items, hasMore: result.hasMore, total: result.total });
+    // Discord account ids stay server-side: the avatar hash is resolved to a
+    // full CDN URL for the listing instead.
+    const items = result.items.map(({ userId, ...item }) => ({
+        ...item,
+        authorAvatar: publicAuthorAvatar(userId, item.authorAvatar),
+    }));
+    return NextResponse.json({ items, hasMore: result.hasMore, total: result.total });
 }

@@ -5,6 +5,7 @@ import { getBuildItemHashes } from '../utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
 import { getItemData, getSkillsData } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
+import { sanitizeBuildTokenForDisplay } from '../utils/builder/buildTokenGuard';
 import BuilderPage from './builderPage';
 import { stsBaseForHost } from '../utils/base';
 
@@ -70,6 +71,11 @@ export async function BuildLinkPageView(id) {
         user ? user.id : null,
         getBuildItemHashes(row.token)
     );
+    const skillsData = await getSkillsData();
+    // Rows saved before token validation existed can carry junk (unknown
+    // charms crash the builder, invalid classes/skills/names pollute it), so
+    // the builder only ever sees the sanitized token.
+    const displayToken = sanitizeBuildTokenForDisplay(row.token, itemData, skillsData);
     // The build opens in place; saves update the DB row, they don't rewrite URLs.
     const isOwner = Boolean(user && row.user_id && user.id === row.user_id);
     // Anonymous rows are editable + publicisable by whoever holds their
@@ -79,7 +85,7 @@ export async function BuildLinkPageView(id) {
     const isCreator = Boolean(user && !row.user_id && creatorToken);
     return (
         <BuilderPage
-            build={row.token}
+            build={displayToken}
             itemData={itemData}
             savedState={row.parsedState}
             savedName={row.name}

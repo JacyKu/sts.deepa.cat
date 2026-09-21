@@ -11,6 +11,7 @@ import DatabaseSkeleton from './databaseSkeleton';
 import FloatingLabel from './items/floatingLabel';
 import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
+import { isSearchCacheEnabled, BUILDS_FILTERS_CACHE_KEY } from '../utils/cachePrefs';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
@@ -94,6 +95,54 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
     const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]);
     const [searchName, setSearchName] = React.useState('');
     const [sort, setSort] = React.useState('top');
+
+    // The applied filters survive page switches (behind the "Cache searches"
+    // setting, like the database and items pages).
+    const suppressCacheSaveRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!isSearchCacheEnabled()) return;
+        try {
+            const raw = window.localStorage.getItem(BUILDS_FILTERS_CACHE_KEY);
+            if (!raw) return;
+            const cache = JSON.parse(raw);
+            if (cache && typeof cache.searchName === 'string' && cache.searchName) setSearchName(cache.searchName);
+            if (cache && (cache.sort === 'top' || cache.sort === 'new')) setSort(cache.sort);
+            if (cache && Array.isArray(cache.rows) && cache.rows.length > 0) {
+                const now = Date.now();
+                setRows(
+                    cache.rows.map((row, i) => ({
+                        key: now + i,
+                        category: row.category || null,
+                        value: row.value ?? null,
+                        slot: row.slot || null,
+                    }))
+                );
+            }
+        } catch (e) {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Persist filter edits (debounced) so they are there on the next visit.
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            if (suppressCacheSaveRef.current) {
+                suppressCacheSaveRef.current = false;
+                return;
+            }
+            if (!isSearchCacheEnabled()) return;
+            try {
+                window.localStorage.setItem(
+                    BUILDS_FILTERS_CACHE_KEY,
+                    JSON.stringify({
+                        rows: rows.map(({ key, ...rest }) => rest),
+                        searchName,
+                        sort,
+                    })
+                );
+            } catch (e) {}
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [rows, searchName, sort]);
 
     const slotOptions = React.useMemo(() => buildSlotOptions(t), [t]);
     // The Skill filter narrows to the selected Class filter's skills (base +
@@ -243,6 +292,12 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
         setRows([{ key: Date.now(), category: null, value: null }]);
         setSearchName('');
         setSort('top');
+        // Reset means "nothing applied": drop the cached search and skip the
+        // save that the state change above would otherwise schedule.
+        suppressCacheSaveRef.current = true;
+        try {
+            window.localStorage.removeItem(BUILDS_FILTERS_CACHE_KEY);
+        } catch (e) {}
     }
 
     function startRename(build) {

@@ -23,6 +23,7 @@ export async function GET(_request, { params }) {
     return new NextResponse(avatar.buffer, {
         headers: {
             'Content-Type': avatar.contentType,
+            'X-Content-Type-Options': 'nosniff',
             'Content-Length': String(avatar.buffer.length),
             'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
         },

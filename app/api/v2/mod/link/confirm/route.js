@@ -23,9 +23,22 @@ export async function POST(request) {
     if (!code || !getPendingLink(code)) {
         return NextResponse.json({ error: 'expired' }, { status: 410 });
     }
-    const result = confirmPendingLink(code, user.id);
+    const result = confirmPendingLink(code, user.id, { replace: body?.replace === true });
     if (result.error === 'linked-elsewhere') {
         return NextResponse.json({ error: 'linked-elsewhere' }, { status: 409 });
+    }
+    if (result.error === 'replace-required') {
+        // A different game device requested this link. Rebinding would kick
+        // the current one, so the player has to approve the replacement.
+        return NextResponse.json(
+            {
+                error: 'replace-required',
+                uuid: result.uuid,
+                requestedFrom: result.requestedFrom,
+                requestedAt: result.requestedAt,
+            },
+            { status: 409 }
+        );
     }
     if (!result.ok) {
         return NextResponse.json({ error: 'expired' }, { status: 410 });

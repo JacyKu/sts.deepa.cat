@@ -72,6 +72,16 @@ export function getLinkPreviewData(build, itemData, skillsData) {
         const charmPreview = parseCharmPreview(charmValue, itemData);
 
         const nameValue = params.get('name') || null;
+        // Token names are client-supplied and can be arbitrarily long in
+        // hand-made/legacy tokens; display names are capped like stored ones.
+        let displayName = null;
+        if (nameValue) {
+            try {
+                displayName = decodeURIComponent(nameValue).slice(0, 50);
+            } catch (e) {
+                displayName = nameValue.slice(0, 50);
+            }
+        }
 
         const className = params.get('cl') || null;
         // The binary token omits stats at their defaults, so a Ring build has
@@ -151,7 +161,7 @@ export function getLinkPreviewData(build, itemData, skillsData) {
         }
 
         return {
-            name: nameValue ? decodeURIComponent(nameValue) : null,
+            name: displayName,
             items,
             charms: charmPreview,
             className,

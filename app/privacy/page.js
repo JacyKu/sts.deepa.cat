@@ -19,7 +19,7 @@ export default function PrivacyPolicyPage() {
     return (
         <LegalPage
             title="Privacy Policy"
-            meta="Last updated: September 15, 2026 | Applies to: https://deepa.cat"
+            meta="Last updated: September 19, 2026 | Applies to: https://deepa.cat"
             sections={[
                 {
                     heading: 'Introduction',
@@ -59,6 +59,11 @@ export default function PrivacyPolicyPage() {
                             in with Discord, and your Minecraft username and avatar from Mojang&apos;s public API and
                             mc-heads.net when you link a profile.
                         </>,
+                        <>
+                            <strong>Moderation records:</strong> When your account is moderated, we store the
+                            sanction applied (for example a suspension or a ban), the reason, when it expires, the
+                            moderator who applied it, and when it was issued.
+                        </>,
                     ],
                 },
                 {
@@ -70,6 +75,10 @@ export default function PrivacyPolicyPage() {
                             database, custom items, Discord bot and Minecraft mod)
                         </>,
                         <>Link your Minecraft profile to your Discord account when you ask us to</>,
+                        <>
+                            Enforce our Terms of Service and keep the Service and its users safe - for example hiding
+                            public content that breaks the Terms or applying suspensions and bans
+                        </>,
                         <>Keep regular backups of the database so the Service can be restored after failures</>,
                         <>Comply with legal obligations</>,
                     ],
@@ -129,6 +138,10 @@ export default function PrivacyPolicyPage() {
                             Database backups (which include the data above) are kept for a limited period - currently up
                             to 30 days - and are then deleted automatically. Backups are stored on our server and in
                             Cloudflare R2 object storage.
+                        </>,
+                        <>
+                            Moderation records (the sanction, its reason and the moderator who applied it) are kept
+                            after account deletion, so deleting an account cannot remove an active sanction.
                         </>,
                     ],
                 },

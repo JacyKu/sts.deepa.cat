@@ -10,7 +10,8 @@ import {
     isDuplicateNameError,
     preferredAuthorAvatar,
 } from '../../../../lib/sts-builds';
-import { decodeBuildParam, getBuildTokenVersion, getBuildItemHashes } from '../../../_src/utils/builder/buildUrlCodec';
+import { getBuildTokenVersion, getBuildItemHashes } from '../../../_src/utils/builder/buildUrlCodec';
+import { sanitizeBuildTokenForStorage } from '../../../_src/utils/builder/buildTokenGuard';
 import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
 import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
@@ -31,12 +32,6 @@ export async function POST(request) {
     if (!token || typeof token !== 'string' || token.length > 2048) {
         return NextResponse.json({ error: 'invalid token' }, { status: 400 });
     }
-
-    const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
-    if (!decodeBuildParam(token, itemData)) {
-        return NextResponse.json({ error: 'invalid build' }, { status: 400 });
-    }
-
     // Signed-out saves are just link snapshots (unowned rows): no account is
     // needed and no ownership token is handed out. Anything that *posts*
     // (publicise, anonymous or not) requires the account, so anonymously
@@ -45,52 +40,69 @@ export async function POST(request) {
     // Banned/suspended accounts may browse but not save anything.
     const blocked = sanctionBlock(user);
     if (blocked) return blocked;
+
+    const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
+    // Custom items referenced by the token are resolved first so validation,
+    // the profanity gate and the summary all see the same item set.
+    const ownerId = user ? user.id : null;
+    const summaryData = mergeReferencedCustomItems(itemData, ownerId, getBuildItemHashes(token));
+    // The codec passes unknown strings through as "legacy" best effort, so
+    // every value is checked before it reaches the database: unknown items and
+    // charms, invalid classes/specs/skills and out-of-range stats are dropped
+    // (or the save is refused for tampered binary tokens).
+    const sanitized = sanitizeBuildTokenForStorage(token, summaryData, skillsData);
+    if (!sanitized.ok) {
+        return NextResponse.json({ error: 'invalid build' }, { status: 400 });
+    }
+    const storedToken = sanitized.token;
     // Publicising at save time must pass the same profanity gate as the
     // publicise endpoint: never surface a build with blocked words.
-    if (user && body.publicise && hasProfanity({ name: body.name, notes: body.notes, token, itemData })) {
+    if (user && body.publicise && hasProfanity({ name: body.name, notes: body.notes, token: storedToken, itemData: summaryData })) {
         return NextResponse.json({ error: 'profanity' }, { status: 400 });
     }
 
     const state = {
-        token,
+        token: storedToken,
         infusions: body.infusions && typeof body.infusions === 'object' ? body.infusions : {},
         revelation: Boolean(body.revelation),
         basicInfusions: body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
     };
-    // Build names are unique per account: re-saving the identical build keeps
-    // its name, while a different build whose name the account already uses
-    // gets " (2)", " (3)", ... appended automatically. Other accounts may use
-    // the same name.
-    const ownerId = user ? user.id : null;
-    const sameStateId = body.name ? findBuildByState(ownerId, state) : null;
-    const buildName = body.name ? uniqueBuildName(ownerId, body.name, sameStateId) : null;
+    // Re-saving an unchanged build keeps its existing row (and link). Resolve
+    // that before the daily limit: nothing is created, so it must not consume
+    // the quota. Build names are unique per account: re-saving the identical
+    // build keeps its name, while a different build whose name the account
+    // already uses gets " (2)", " (3)", ... appended automatically. Other
+    // accounts may use the same name.
+    const existingId = findBuildByState(ownerId, state);
+    const buildName = body.name ? uniqueBuildName(ownerId, body.name, existingId) : null;
 
     // Daily upload limit: accounts are counted from the database (site and mod
     // saves share the budget); signed-out saves are counted per IP in memory.
-    const limits = readRateLimits();
-    if (user) {
-        if (limits.buildsPerDay > 0 && countRecentBuilds(user.id) >= limits.buildsPerDay) {
-            return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
-        }
-    } else {
-        const quota = consumeRateLimit(
-            `anon-build:${getClientIp(request)}`,
-            limits.anonymousBuildsPerDay,
-            dayWindowMs()
-        );
-        if (!quota.allowed) {
-            return rateLimitResponse({
-                resetAt: quota.resetAt,
-                hint: 'Daily build limit reached. Try again tomorrow.',
-            });
+    if (!existingId) {
+        const limits = readRateLimits();
+        if (user) {
+            if (limits.buildsPerDay > 0 && countRecentBuilds(user.id) >= limits.buildsPerDay) {
+                return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
+            }
+        } else {
+            const quota = consumeRateLimit(
+                `anon-build:${getClientIp(request)}`,
+                limits.anonymousBuildsPerDay,
+                dayWindowMs()
+            );
+            if (!quota.allowed) {
+                return rateLimitResponse({
+                    resetAt: quota.resetAt,
+                    hint: 'Daily build limit reached. Try again tomorrow.',
+                });
+            }
         }
     }
 
-    // Custom items are not part of the static item data; merge the ones this
-    // build references so the saved summary keeps them (otherwise they are
-    // dropped from items_json and never show on build cards).
-    const summaryData = user ? mergeReferencedCustomItems(itemData, user.id, getBuildItemHashes(token)) : itemData;
-    const summary = computeBuildSummary(token, summaryData, skillsData);
+    // Custom items are not part of the static item data; the summary was built
+    // from the merged item set above so referenced custom items stay on the
+    // build card.
+    const summary = computeBuildSummary(storedToken, summaryData, skillsData);
     let result;
     try {
         result = saveBuild({
@@ -123,7 +135,7 @@ export async function POST(request) {
             summary,
         });
     }
-    const tokenVersion = getBuildTokenVersion(token) ?? '';
+    const tokenVersion = getBuildTokenVersion(storedToken);
     const savedRow = getBuild(result.id);
     return NextResponse.json({
         id: result.id,
@@ -135,6 +147,6 @@ export async function POST(request) {
         // The build's revision is the ?v= cache-buster for the copied link:
         // it only changes when the build is updated.
         version: savedRow ? savedRow.revision || 1 : null,
-        url: `/b/v${tokenVersion}/${result.id}`,
+        url: tokenVersion ? `/b/v${tokenVersion}/${result.id}` : `/b/${result.id}`,
     });
 }
