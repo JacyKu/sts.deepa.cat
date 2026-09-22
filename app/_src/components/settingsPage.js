@@ -11,6 +11,7 @@ import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './
 import DateFormatToggle from './dateFormatToggle';
 import { HEADER_TITLE_MAX, HEADER_TITLE_KEY, saveHeaderTitle } from './headerTitle';
 import { getInfusionInputMode, setInfusionInputMode, DEFAULT_INFUSION_INPUT_MODE } from '../utils/infusionPrefs';
+import { getDateFormat, setDateFormat } from '../utils/dateFormat';
 import {
     applyThemeState,
     readThemeState,
@@ -159,6 +160,7 @@ export default function SettingsPage() {
     const [font, setFont] = React.useState('ubuntu');
     const [headerTitle, setHeaderTitle] = React.useState('');
     const [infusionInput, setInfusionInput] = React.useState(DEFAULT_INFUSION_INPUT_MODE);
+    const [dateFormat, setDateFormatState] = React.useState('');
 
     React.useEffect(() => {
         setThemeState(readThemeState());
@@ -175,6 +177,10 @@ export default function SettingsPage() {
 
     React.useEffect(() => {
         setInfusionInput(getInfusionInputMode());
+    }, []);
+
+    React.useEffect(() => {
+        setDateFormatState(getDateFormat());
     }, []);
 
     React.useEffect(() => {
@@ -358,6 +364,13 @@ export default function SettingsPage() {
     function setInfusionInputValue(mode) {
         setInfusionInput(mode);
         setInfusionInputMode(mode);
+    }
+
+    // Date display: both toggles write the same setting, so they can never be
+    // on at the same time (both off = the browser's locale format).
+    function changeDateFormat(value) {
+        setDateFormatState(value);
+        setDateFormat(value);
     }
 
     // Derived look state. Computed before any guard so the font pill's
@@ -768,6 +781,13 @@ export default function SettingsPage() {
                         />
                         {t('settings.turnOffAnimations')}
                     </label>
+                    <DateFormatToggle
+                        className={styles.themeToggleRow}
+                        checked={dateFormat === 'us'}
+                        onChange={(on) => changeDateFormat(on ? 'us' : '')}
+                        labelKey="settings.dateFormat.american"
+                        hintKey="settings.dateFormat.americanHint"
+                    />
                 </div>
             </section>
 
@@ -797,8 +817,15 @@ export default function SettingsPage() {
                         <CacheSearchToggle className={styles.bareToggle} />
                         <CacheBuildsToggle className={styles.bareToggle} />
                         <CacheCustomItemsToggle className={styles.bareToggle} />
-                        <DateFormatToggle className={styles.bareToggle} />
                         <CardItemsFirstToggle className={styles.bareToggle} />
+                        <DateFormatToggle
+                            chip
+                            className={styles.bareToggle}
+                            checked={dateFormat === 'iso'}
+                            onChange={(on) => changeDateFormat(on ? 'iso' : '')}
+                            labelKey="settings.dateFormat.iso"
+                            hintKey="settings.dateFormat.isoHint"
+                        />
                     </div>
                 </div>
             </section>
