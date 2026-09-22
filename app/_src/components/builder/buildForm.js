@@ -514,6 +514,19 @@ function applyStatsUpdate(itemNames, itemData, setStats, update) {
     }, 120);
 }
 
+// The immediate variant, used when restoring a build/draft: that work runs in a
+// layout effect (before the first paint of the real builder), so the debounce
+// above would let the stat cards paint empty and then grow a frame later.
+function applyStatsUpdateNow(itemNames, itemData, setStats, update) {
+    if (statsRecalcPending.timer) {
+        clearTimeout(statsRecalcPending.timer);
+        statsRecalcPending.timer = null;
+    }
+    const tempStats = recalcBuild(itemNames, itemData);
+    setStats(tempStats);
+    update(tempStats);
+}
+
 // Base-name -> masterwork variants, built once per itemData object. Scanning
 // the full item list (several thousand entries) for every equipped slot on
 // every render was one of the most expensive things the builder did.
@@ -2213,7 +2226,13 @@ export default function BuildForm({
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
-    React.useEffect(() => {
+    // Restoring the build (or the empty build's base stats) runs in a layout
+    // effect and applies its stats immediately: both the stat cards and the
+    // item slots are laid out from this state, so anything that lands after the
+    // first paint grows the page a frame later and shifts everything below it -
+    // the builder's largest CLS source. BuilderPage flips parentLoaded in a
+    // layout effect too, so this still runs before the browser paints.
+    React.useLayoutEffect(() => {
         if (!parentLoaded) return;
         // Source of truth for this page: the URL build (saved build), or the
         // session draft that belongs here (see effectiveDraft). A matching
@@ -2221,7 +2240,18 @@ export default function BuildForm({
         const isLoadedBuild = Boolean(build);
         const effDraft = effectiveDraft;
         const loadToken = effDraft ? effDraft.token : build;
-        if (!loadToken) return;
+        if (!loadToken) {
+            // Fresh builder (no build link, no draft): compute the empty build's
+            // base stats right away so the stat cards are populated before any
+            // edit instead of showing empty cards.
+            applyStatsUpdateNow(
+                Object.fromEntries(new FormData(formRef.current).entries()),
+                itemData,
+                setStats,
+                update
+            );
+            return;
+        }
         const decoded = decodeBuildParam(loadToken, itemData);
         if (!decoded) return;
         let buildParts = decodeURI(decoded).split('&');
@@ -2463,7 +2493,7 @@ export default function BuildForm({
             delveEntries[`delveInfusion-${slot}`] = infusion;
         }
 
-        applyStatsUpdate(
+        applyStatsUpdateNow(
             {
                 ...itemNames,
                 ...statValues,
@@ -2747,7 +2777,6 @@ export default function BuildForm({
         setDelveInfusions({});
         setDelvePoints({});
         setBasicInfusions({});
-        setGlobalInfusions({ tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 });
         setRevelation(false);
         setCzAbilities({});
         setCzSelectedTree(CZ_MAIN_TREES[0]);

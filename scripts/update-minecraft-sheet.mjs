@@ -93,10 +93,10 @@ function parseExistingCss(css) {
 
 async function main() {
     const cssPath = path.join(OUT_DIR, '_minecraft.css');
-    const pngPath = path.join(OUT_DIR, 'minecraft.png');
+    const sheetPath = path.join(OUT_DIR, 'minecraft.webp');
     const existingCss = await fs.readFile(cssPath, 'utf8');
     const existingKeys = parseExistingCss(existingCss);
-    const existingMeta = await sharp(pngPath).metadata();
+    const existingMeta = await sharp(sheetPath).metadata();
     const sheetWidth = Math.floor(existingMeta.width / TILE) * TILE;
     const startY = existingMeta.height;
 
@@ -150,7 +150,7 @@ async function main() {
         newRules.push(`.minecraft-${key} {\n\tbackground-position: -${x}px -${y}px;\n}`);
     });
 
-    const baseImg = await sharp(pngPath).toBuffer();
+    const baseImg = await sharp(sheetPath).toBuffer();
     const newSheet = await sharp({
         create: {
             width: sheetWidth,
@@ -160,16 +160,16 @@ async function main() {
         },
     })
         .composite([{ input: baseImg, left: 0, top: 0 }, ...composites])
-        .png()
+        .webp({ lossless: true, effort: 6 })
         .toBuffer();
 
     await Promise.all([
-        fs.writeFile(pngPath, newSheet),
+        fs.writeFile(sheetPath, newSheet),
         fs.writeFile(cssPath, existingCss.replace(/\s*$/, '\n') + newRules.join('\n') + '\n'),
     ]);
 
     console.log(
-        `[minecraft-sheet] wrote minecraft.png (${(newSheet.length / 1024) | 0} KB) and _minecraft.css (+${newRules.length} rules)`
+        `[minecraft-sheet] wrote minecraft.webp (${(newSheet.length / 1024) | 0} KB) and _minecraft.css (+${newRules.length} rules)`
     );
 }
 

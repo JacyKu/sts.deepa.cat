@@ -11,7 +11,6 @@ import { useHideObtainment } from './hideObtainmentContext';
 import { useHideLore } from './hideLoreContext';
 import { useItemFavourites } from './itemFavouritesContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
-import { useInView } from '../inView';
 import { useTranslation } from '../useTranslation';
 
 function camelCase(str) {
@@ -88,7 +87,6 @@ function CharmTile(data) {
     const [cssClass, setCssClass] = React.useState(getCharmSheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
     const [spriteMap, setSpriteMap] = React.useState(null);
-    const { ref, inView, minHeight } = useInView(null);
     const { lowRes } = useLowResource();
     const { hidden: hideObtainment } = useHideObtainment();
     const { hidden: hideLore } = useHideLore();
@@ -135,14 +133,8 @@ function CharmTile(data) {
         }
     }, [item.name, item.tier, item.class_name, item.power, spriteMap]);
 
-    if (!inView) {
-        return (
-            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
-        );
-    }
-
     return (
-        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"

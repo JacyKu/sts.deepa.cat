@@ -112,9 +112,9 @@ async function getSpriteInfo() {
     const [mapRaw, cssRaw, sheet, mcCssRaw, mcSheet] = await Promise.all([
         fs.readFile(path.join(base, 'itemsheet-map.json'), 'utf8'),
         fs.readFile(path.join(base, '_itemsheet.css'), 'utf8'),
-        fs.readFile(path.join(base, 'itemsheet.png')),
+        fs.readFile(path.join(base, 'itemsheet.webp')),
         fs.readFile(path.join(base, '_minecraft.css'), 'utf8'),
-        fs.readFile(path.join(base, 'minecraft.png')),
+        fs.readFile(path.join(base, 'minecraft.webp')),
     ]);
 
     const map = JSON.parse(mapRaw);

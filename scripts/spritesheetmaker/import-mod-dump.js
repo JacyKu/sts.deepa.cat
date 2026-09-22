@@ -470,7 +470,7 @@ async function main() {
 
     let stylesFile =
         `.${CLASS_PREFIX}-items {\n` +
-        `\tbackground-image: url("./${SHEET_NAME}.png");\n` +
+        `\tbackground-image: url("./${SHEET_NAME}.webp");\n` +
         '\tbackground-repeat: no-repeat;\n' +
         '\tdisplay: inline-block;\n' +
         '\tvertical-align: middle;\n' +
@@ -485,7 +485,7 @@ async function main() {
         // the capture produced a single frame (the base .monumenta-items rule
         // points at the main sheet).
         if (sheet === 'anim' && hasAnimSheet) {
-            stylesFile += `\tbackground-image: url("./${SHEET_NAME}-anim.png");\n`;
+            stylesFile += `\tbackground-image: url("./${SHEET_NAME}-anim.webp");\n`;
         }
         stylesFile += '}\n\n';
     }
@@ -503,7 +503,7 @@ async function main() {
         let rule = `.${CLASS_PREFIX}-${token} {\n`;
         rule += `\tbackground-position: ${position};\n`;
         if (animated && hasAnimSheet) {
-            rule += `\tbackground-image: url("./${SHEET_NAME}-anim.png");\n`;
+            rule += `\tbackground-image: url("./${SHEET_NAME}-anim.webp");\n`;
         }
         if (Number.isInteger(special.w) && special.w > 0) {
             rule += `\twidth: ${special.w}px;\n`;
@@ -553,9 +553,21 @@ async function main() {
         process.exit(1);
     }
 
-    await fs.copyFile(stsSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}.png`));
+    // Lossless WebP: pixel-identical to the dumped PNGs and roughly a third
+    // of the bytes over the wire.
+    await sharp(stsSheetPath).webp({ lossless: true, effort: 6 }).toFile(path.join(OUTPUT_DIR, `${SHEET_NAME}.webp`));
     if (hasAnimSheet) {
-        await fs.copyFile(stsAnimSheetPath, path.join(OUTPUT_DIR, `${SHEET_NAME}-anim.png`));
+        await sharp(stsAnimSheetPath)
+            .webp({ lossless: true, effort: 6 })
+            .toFile(path.join(OUTPUT_DIR, `${SHEET_NAME}-anim.webp`));
+    }
+    // Drop stale PNG copies from before the WebP switch.
+    for (const name of [`${SHEET_NAME}.png`, `${SHEET_NAME}-anim.png`]) {
+        try {
+            await fs.rm(path.join(OUTPUT_DIR, name));
+        } catch (error) {
+            // not there - nothing to clean up
+        }
     }
     const scaledByToken = new Map();
     const seenTokens = new Set();
@@ -614,7 +626,7 @@ async function main() {
     console.log(`[spritesheet-import] Scaled up ${scaledByToken.size} under-filled cells`);
     console.log(`[spritesheet-import] Prerendered ${gifCount} animated GIFs into textures/`);
     console.log(
-        `[spritesheet-import] Wrote itemsheet.png, _itemsheet.css, itemsheet-map.json${hasAnimSheet ? ', itemsheet-anim.png' : ''}`
+        `[spritesheet-import] Wrote itemsheet.webp, _itemsheet.css, itemsheet-map.json${hasAnimSheet ? ', itemsheet-anim.webp' : ''}`
     );
 }
 

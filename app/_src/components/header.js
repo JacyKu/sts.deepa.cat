@@ -141,7 +141,14 @@ export function AccountChip({ session }) {
 
     return (
         <div className={styles.accountChip}>
-            {!checked ? null : !user ? (
+            {!checked ? (
+                // The session resolves after the first paint; reserving the
+                // chip's 38px slot keeps the header controls (and everything
+                // laid out against them) from shifting when it does. The login
+                // icon and the signed-in avatar are both 38x38, so this matches
+                // either outcome.
+                <span className={styles.accountPlaceholder} aria-hidden="true" />
+            ) : !user ? (
                 <a
                     className={styles.accountIcon}
                     href={`/api/auth/discord/login?next=${encodeURIComponent(window.location.pathname)}`}
