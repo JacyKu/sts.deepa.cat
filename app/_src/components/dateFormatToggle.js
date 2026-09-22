@@ -5,16 +5,15 @@
 // exclusive: both write the same setting, so switching one on switches the
 // other off. With both off, dates follow the browser's locale.
 import React from 'react';
-import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { useTranslation } from './useTranslation';
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
-export default function DateFormatToggle({ checked, onChange, labelKey, hintKey, className, chip = false } = {}) {
+export default function DateFormatToggle({ checked, onChange, labelKey, hintKey, className } = {}) {
     const t = useTranslation();
     return (
-        <label className={`${chip ? `${searchStyles.toggleLabel} ` : ''}${className || ''}`}>
+        <label className={className || ''}>
             <input
                 type="checkbox"
                 checked={Boolean(checked)}

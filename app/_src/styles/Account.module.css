@@ -791,16 +791,5 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.35rem;
-}
-
-/* These toggles draw themselves as bordered chips (SearchForm's toggleLabel);
-   strip that so they match the borderless checkbox rows used by the other
-   settings (Round corners etc). */
-.bareToggle,
-.bareToggle:hover {
-    background: none !important;
-    border: none !important;
-    padding: 0 !important;
-    font-size: 0.85rem;
+    gap: 0.5rem;
 }

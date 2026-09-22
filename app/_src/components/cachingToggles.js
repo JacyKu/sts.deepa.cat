@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { useTranslation } from './useTranslation';
 import {
@@ -19,7 +18,7 @@ function CacheToggle({ label, hint, readPref, writePref, className } = {}) {
     const [enabled, setEnabled] = React.useState(true);
     React.useEffect(() => setEnabled(readPref()), [readPref]);
     return (
-        <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
+        <label className={className || ''}>
             <input
                 type="checkbox"
                 checked={enabled}

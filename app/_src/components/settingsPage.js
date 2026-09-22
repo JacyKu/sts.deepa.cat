@@ -730,7 +730,7 @@ export default function SettingsPage() {
                             />
                         </div>
                     </label>
-                    <BuilderLayoutToggle className={styles.bareToggle} />
+                    <BuilderLayoutToggle className={styles.themeToggleRow} />
                 </div>
             </section>
 
@@ -814,13 +814,12 @@ export default function SettingsPage() {
                         </div>
                     </label>
                     <div className={styles.siteToggleRow}>
-                        <CacheSearchToggle className={styles.bareToggle} />
-                        <CacheBuildsToggle className={styles.bareToggle} />
-                        <CacheCustomItemsToggle className={styles.bareToggle} />
-                        <CardItemsFirstToggle className={styles.bareToggle} />
+                        <CacheSearchToggle className={styles.themeToggleRow} />
+                        <CacheBuildsToggle className={styles.themeToggleRow} />
+                        <CacheCustomItemsToggle className={styles.themeToggleRow} />
+                        <CardItemsFirstToggle className={styles.themeToggleRow} />
                         <DateFormatToggle
-                            chip
-                            className={styles.bareToggle}
+                            className={styles.themeToggleRow}
                             checked={dateFormat === 'iso'}
                             onChange={(on) => changeDateFormat(on ? 'iso' : '')}
                             labelKey="settings.dateFormat.iso"
