@@ -164,10 +164,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     const session = useSessionState();
     const user = session.user;
     const authChecked = session.checked;
-    const [base, setBase] = React.useState('/sts');
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
+    const base = getStsBase();
 
     const [items, setItems] = React.useState(null);
     const [searchName, setSearchName] = React.useState('');

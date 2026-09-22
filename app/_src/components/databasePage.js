@@ -34,7 +34,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
     const { lang } = useLanguageContext();
     const t = (id) => translate(lang, id);
 
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [user, setUser] = React.useState(null);
     const [authChecked, setAuthChecked] = React.useState(false);
 
@@ -149,7 +149,6 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
     const loadSeq = React.useRef(0);
 
     React.useEffect(() => {
-        setBase(getStsBase());
         fetch('/api/auth/session')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {

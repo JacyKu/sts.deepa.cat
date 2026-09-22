@@ -30,7 +30,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function CustomItemsDatabase() {
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]);
     const [searchName, setSearchName] = React.useState('');
     const [sort, setSort] = React.useState('top');
@@ -68,10 +68,6 @@ export default function CustomItemsDatabase() {
         () => SORT_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) })),
         [t]
     );
-
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
 
     // Debounced refetch when filters change (same as the builds database).
     React.useEffect(() => {

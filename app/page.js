@@ -9,11 +9,10 @@ import { useTranslation } from './_src/components/useTranslation';
 
 export default function Home() {
     const t = useTranslation();
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [itemCount, setItemCount] = React.useState(null);
 
     React.useEffect(() => {
-        setBase(getStsBase());
         fetch('/api/v2/spritesheetCoverage')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {

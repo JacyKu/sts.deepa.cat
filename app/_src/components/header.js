@@ -126,13 +126,9 @@ export function AccountChip({ session }) {
     const user = session?.user ?? null;
     const checked = session?.checked ?? false;
     const setUser = session?.setUser;
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [open, setOpen] = React.useState(false);
     const menuPortal = useMenuPortal(open);
-
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
 
     function logout() {
         fetch('/api/auth/logout', { method: 'POST' })
@@ -295,12 +291,9 @@ export function HeaderSelect({ options, value, onChange, instanceId, className, 
 // settings button at once).
 export function HeaderNav() {
     const t = useTranslation();
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [open, setOpen] = React.useState(false);
     const menuPortal = useMenuPortal(open, { fullWidthOnMobile: true });
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
 
     const links = [
         { href: base + '/items', translation: 'index.pages.items.title' },

@@ -29,10 +29,7 @@ function Tabs({ active, tabs, className = '', label }) {
 
 export default function DatabaseTabs({ active, tabs, className }) {
     const t = useTranslation();
-    const [base, setBase] = React.useState('/sts');
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
+    const base = getStsBase();
     return (
         <Tabs
             active={active}
@@ -54,10 +51,7 @@ export default function DatabaseTabs({ active, tabs, className }) {
 
 export function MyPagesTabs({ active, className }) {
     const t = useTranslation();
-    const [base, setBase] = React.useState('/sts');
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
+    const base = getStsBase();
     return (
         <Tabs
             active={active}

@@ -6,6 +6,18 @@ const MINUTE_MS = 60 * 1000;
 export function proxy(request) {
     const { pathname } = request.nextUrl;
 
+    // Legacy /sts prefix: the app lives at the route root now, but old links
+    // and stale client bundles still request sts.deepa.cat/sts/... (including
+    // RSC prefetches). Redirect to the same route without the prefix, keeping
+    // the query so prefetches still get their payload.
+    if (pathname === '/sts' || pathname.startsWith('/sts/')) {
+        // The query is preserved (minus the internal ?_rsc, which Next strips
+        // on both sides; the RSC payload is driven by the RSC header).
+        const url = request.nextUrl.clone();
+        url.pathname = pathname.slice('/sts'.length) || '/';
+        return NextResponse.redirect(url);
+    }
+
     // Per-IP API rate limit: generous bucket for reads, a much smaller one
     // for writes. Per-account daily upload limits are enforced inside the
     // routes (they need the session / linked UUID).

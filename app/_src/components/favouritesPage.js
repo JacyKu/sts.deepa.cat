@@ -19,7 +19,7 @@ export default function FavouritesPage() {
     const { lang } = useLanguageContext();
     const t = (id) => translate(lang, id);
 
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [authChecked, setAuthChecked] = React.useState(false);
     const [user, setUser] = React.useState(null);
     const [builds, setBuilds] = React.useState([]);
@@ -60,7 +60,6 @@ export default function FavouritesPage() {
     const [baseLoaded, setBaseLoaded] = React.useState(false);
 
     React.useEffect(() => {
-        setBase(getStsBase());
         setBaseLoaded(true);
         fetch('/api/auth/session')
             .then((r) => (r.ok ? r.json() : null))

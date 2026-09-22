@@ -21,10 +21,7 @@ function duplicateName(base, attempt) {
 // copy with the viewer's account.
 export default function CustomItemView({ item, isOwner, loggedIn }) {
     const t = useTranslation();
-    const [base, setBase] = React.useState('/sts');
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
+    const base = getStsBase();
 
     // null = idle | 'saving' | 'copied' | 'error'
     const [copyState, setCopyState] = React.useState(null);

@@ -83,7 +83,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
     const [editingId, setEditingId] = React.useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
     const [error, setError] = React.useState(null);
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [selectMode, setSelectMode] = React.useState(false);
     const [selectedIds, setSelectedIds] = React.useState(() => new Set());
     const [bulkBusy, setBulkBusy] = React.useState(false);
@@ -184,7 +184,6 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
     const sortOptions = React.useMemo(() => buildSortOptions(t), [t]);
 
     React.useEffect(() => {
-        setBase(getStsBase());
         fetch('/api/auth/session')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
