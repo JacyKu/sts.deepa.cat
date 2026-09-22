@@ -173,6 +173,22 @@
     word-break: break-word;
 }
 
+/* Item update progress/result from the update script's stdout+stderr. */
+.output {
+    margin: 0;
+    padding: 0.6rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    color: var(--text-2);
+    font-family: monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    max-height: 320px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .rowActions {
     display: flex;
     gap: 0.4rem;

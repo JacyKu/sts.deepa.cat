@@ -5,7 +5,7 @@ import styles from '../styles/Moderation.module.css';
 import { useTranslation } from './useTranslation';
 import { formatDateString } from '../utils/dateFormat';
 
-const TABS = ['users', 'builds', 'notifications'];
+const TABS = ['users', 'builds', 'items', 'notifications'];
 const NOTIFICATION_TYPES = ['info', 'warning', 'error'];
 
 function displayName(row) {
@@ -15,7 +15,9 @@ function displayName(row) {
 function SanctionBadge({ sanction, t }) {
     if (!sanction) return <span className={`${styles.badge} ${styles.badgeOk}`}>{t('moderation.sanction.none')}</span>;
     const banned = sanction.kind === 'ban';
-    const until = sanction.expires_at ? formatDateString(sanction.expires_at, { spaceToT: true, includeTime: true }) : null;
+    const until = sanction.expires_at
+        ? formatDateString(sanction.expires_at, { spaceToT: true, includeTime: true })
+        : null;
     return (
         <span className={`${styles.badge} ${banned ? styles.badgeBan : styles.badgeSuspend}`}>
             {banned ? t('moderation.sanction.banned') : t('moderation.sanction.suspended')}
@@ -39,12 +41,15 @@ function UsersPanel({ t, moderatorId }) {
     const [until, setUntil] = React.useState('');
     const [busy, setBusy] = React.useState(false);
 
-    const load = React.useCallback((q) => {
-        fetch(`/api/v2/moderation/users?q=${encodeURIComponent(q)}`)
-            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
-            .then((d) => setUsers(d.users || []))
-            .catch(() => setError(t('moderation.error')));
-    }, [t]);
+    const load = React.useCallback(
+        (q) => {
+            fetch(`/api/v2/moderation/users?q=${encodeURIComponent(q)}`)
+                .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+                .then((d) => setUsers(d.users || []))
+                .catch(() => setError(t('moderation.error')));
+        },
+        [t]
+    );
 
     React.useEffect(() => {
         load('');
@@ -189,7 +194,9 @@ function UsersPanel({ t, moderatorId }) {
                                             disabled={busy}
                                             onClick={() => applySanction(row.id)}
                                         >
-                                            {mode === 'ban' ? t('moderation.actions.ban') : t('moderation.actions.suspend')}
+                                            {mode === 'ban'
+                                                ? t('moderation.actions.ban')
+                                                : t('moderation.actions.suspend')}
                                         </button>
                                         <button
                                             type="button"
@@ -252,12 +259,15 @@ function BuildsPanel({ t }) {
     const [busy, setBusy] = React.useState(false);
     const [confirmId, setConfirmId] = React.useState(null);
 
-    const load = React.useCallback((q) => {
-        fetch(`/api/v2/moderation/builds?q=${encodeURIComponent(q)}`)
-            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
-            .then((d) => setBuilds(d.builds || []))
-            .catch(() => setError(t('moderation.error')));
-    }, [t]);
+    const load = React.useCallback(
+        (q) => {
+            fetch(`/api/v2/moderation/builds?q=${encodeURIComponent(q)}`)
+                .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+                .then((d) => setBuilds(d.builds || []))
+                .catch(() => setError(t('moderation.error')));
+        },
+        [t]
+    );
 
     React.useEffect(() => {
         load('');
@@ -330,7 +340,9 @@ function BuildsPanel({ t }) {
                             <div className={styles.rowMain}>
                                 <span className={styles.rowTitle}>
                                     {row.name || t('moderation.builds.unnamed')}{' '}
-                                    <span className={`${styles.badge} ${row.is_public === 1 ? styles.badgePublic : ''}`}>
+                                    <span
+                                        className={`${styles.badge} ${row.is_public === 1 ? styles.badgePublic : ''}`}
+                                    >
                                         {row.is_public === 1
                                             ? t('moderation.builds.public')
                                             : t('moderation.builds.private')}
@@ -375,6 +387,89 @@ function BuildsPanel({ t }) {
                         </li>
                     ))}
                 </ul>
+            )}
+        </section>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Items
+// ---------------------------------------------------------------------------
+
+function ItemsPanel({ t }) {
+    const [status, setStatus] = React.useState(null);
+    const [error, setError] = React.useState(null);
+    const [busy, setBusy] = React.useState(false);
+
+    const load = React.useCallback(() => {
+        fetch('/api/v2/moderation/items')
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => setStatus(d.status))
+            .catch(() => setError(t('moderation.error')));
+    }, [t]);
+
+    React.useEffect(() => {
+        load();
+    }, [load]);
+
+    const running = Boolean(status?.running);
+    React.useEffect(() => {
+        if (!running) return undefined;
+        const timer = setInterval(load, 3000);
+        return () => clearInterval(timer);
+    }, [running, load]);
+
+    async function update() {
+        setBusy(true);
+        setError(null);
+        try {
+            const response = await fetch('/api/v2/moderation/items', { method: 'POST' });
+            const data = await response.json().catch(() => null);
+            if (data?.status) setStatus(data.status);
+            else if (!response.ok) throw new Error('HTTP ' + response.status);
+        } catch (e) {
+            setError(t('moderation.error'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    const result =
+        status?.ok === true
+            ? t('moderation.items.result.ok')
+            : status?.ok === false
+              ? t('moderation.items.result.failed')
+              : null;
+    const finishedAt = status?.finishedAt
+        ? formatDateString(status.finishedAt, { includeTime: true, utc: true })
+        : null;
+
+    return (
+        <section className={styles.panel}>
+            <p className={styles.muted}>{t('moderation.items.description')}</p>
+            <div className={styles.formActions}>
+                <button type="button" className={styles.button} onClick={update} disabled={busy || running}>
+                    {running || busy ? t('moderation.items.running') : t('moderation.items.update')}
+                </button>
+                {result && (
+                    <span className={`${styles.badge} ${status.ok ? styles.badgeOk : styles.badgeBan}`}>{result}</span>
+                )}
+                {finishedAt && !running && (
+                    <span className={styles.rowMeta}>
+                        {t('moderation.items.finished')} {finishedAt} UTC
+                    </span>
+                )}
+            </div>
+            {error && <p className={styles.error}>{error}</p>}
+            {status === null ? (
+                <p className={styles.muted}>{t('moderation.loading')}</p>
+            ) : running || status.output?.length ? (
+                <div className={styles.field}>
+                    <span>{running ? t('moderation.items.running') : t('moderation.items.output')}</span>
+                    {status.output?.length ? <pre className={styles.output}>{status.output.join('\n')}</pre> : null}
+                </div>
+            ) : (
+                <p className={styles.muted}>{t('moderation.items.idle')}</p>
             )}
         </section>
     );
@@ -501,10 +596,13 @@ export default function ModerationPage({ moderator, moderatorId }) {
     return (
         <main className={styles.page}>
             <h1 className={styles.title}>
-                {t('moderation.title')}{' '}
-                <span className={styles.experimentalBadge}>{t('moderation.experimental')}</span>
+                {t('moderation.title')} <span className={styles.experimentalBadge}>{t('moderation.experimental')}</span>
             </h1>
-            {moderator ? <p className={styles.muted}>{t('moderation.signedInAs')} {moderator}</p> : null}
+            {moderator ? (
+                <p className={styles.muted}>
+                    {t('moderation.signedInAs')} {moderator}
+                </p>
+            ) : null}
             <nav className={styles.tabs} aria-label={t('moderation.title')}>
                 {TABS.map((key) => (
                     <button
@@ -520,6 +618,7 @@ export default function ModerationPage({ moderator, moderatorId }) {
             </nav>
             {tab === 'users' && <UsersPanel t={t} moderatorId={moderatorId} />}
             {tab === 'builds' && <BuildsPanel t={t} />}
+            {tab === 'items' && <ItemsPanel t={t} />}
             {tab === 'notifications' && <NotificationsPanel t={t} />}
         </main>
     );
