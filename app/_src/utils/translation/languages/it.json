@@ -417,6 +417,7 @@
     "builder.stats.projectile.classProjectileDamagePercent": "Danno Proiettile di Classe",
     "builder.status.copiedLink": "Link copiato negli appunti.",
     "builder.status.editingSaved": "Stai modificando un build salvato - \"Copy/Save\" aggiorna questo build sul posto.",
+    "builder.status.viewingSaved": "Stai visualizzando un build salvato - \"Copy/Save\" copia il suo link.",
     "builder.status.notSavedToAccount": "Salvato, ma non sul tuo account!",
     "builder.status.notSavedToAccountHint": "Non vedrai questo build nella tua pagina \"I miei build\". Accedi con Discord per conservarlo lì - il link funziona comunque per tutti.",
     "builder.status.savedBuild": "Build salvato!",

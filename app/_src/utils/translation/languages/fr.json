@@ -535,6 +535,7 @@
     "builder.skills.tooManySpecPoints": "Plus de 4 points de spécialisation !",
     "builder.status.copiedLink": "Lien copié dans le presse-papiers.",
     "builder.status.editingSaved": "Modification d'un build enregistré - \"Copy/Save\" met à jour ce build sur place.",
+    "builder.status.viewingSaved": "Consultation d'un build enregistré - « Copy/Save » copie son lien.",
     "builder.status.notSavedToAccount": "Enregistré, mais pas sur votre compte !",
     "builder.status.notSavedToAccountHint": "Vous ne verrez pas ce build sur votre page \"Mes builds\". Connectez-vous avec Discord pour le garder - le lien fonctionne toujours pour tout le monde.",
     "builder.status.savedBuild": "Build enregistré !",

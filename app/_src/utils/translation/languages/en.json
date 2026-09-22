@@ -546,6 +546,7 @@
     "builder.skills.tooManySpecPoints": "More than 4 specialization points!",
     "builder.status.copiedLink": "Copied link to clipboard.",
     "builder.status.editingSaved": "Editing a saved build - \"Copy/Save\" updates this build in place.",
+    "builder.status.viewingSaved": "Viewing a saved build - \"Copy/Save\" copies its link.",
     "builder.status.notSavedToAccount": "Saved, but not to your account!",
     "builder.status.notSavedToAccountHint": "You won't see this build on your \"My Builds\" page. Log in with Discord to keep it there - the link still works for anyone.",
     "builder.status.savedBuild": "Saved build!",

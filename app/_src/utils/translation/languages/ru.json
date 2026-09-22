@@ -535,6 +535,7 @@
     "builder.skills.tooManySpecPoints": "Больше 4 очков специализации!",
     "builder.status.copiedLink": "Ссылка скопирована в буфер обмена.",
     "builder.status.editingSaved": "Редактирование сохранённой сборки — «Copy/Save» обновляет эту сборку на месте.",
+    "builder.status.viewingSaved": "Просмотр сохранённой сборки — «Copy/Save» копирует её ссылку.",
     "builder.status.notSavedToAccount": "Сохранено, но не в вашем аккаунте!",
     "builder.status.notSavedToAccountHint": "Вы не увидите эту сборку на странице «Мои сборки». Войдите через Discord, чтобы она там сохранилась — ссылка всё равно работает для всех.",
     "builder.status.savedBuild": "Сборка сохранена!",

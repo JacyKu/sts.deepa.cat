@@ -535,6 +535,7 @@
     "builder.skills.tooManySpecPoints": "Több mint 4 specializációs pont!",
     "builder.status.copiedLink": "Link a vágólapra másolva.",
     "builder.status.editingSaved": "Egy mentett build szerkesztése - a \"Copy/Save\" helyben frissíti ezt a buildet.",
+    "builder.status.viewingSaved": "Egy mentett build megtekintése - a \"Copy/Save\" a linkjét másolja.",
     "builder.status.notSavedToAccount": "Elmentve, de nem a fiókodba!",
     "builder.status.notSavedToAccountHint": "Ez a build nem fog megjelenni az \"Építményeim\" oldaladon. Jelentkezz be Discorddal, hogy ott maradjon - a link továbbra is működik mindenki számára.",
     "builder.status.savedBuild": "Build elmentve!",

@@ -535,6 +535,7 @@
     "builder.skills.tooManySpecPoints": "超過 4 點專精點數！",
     "builder.status.copiedLink": "已將連結複製到剪貼簿。",
     "builder.status.editingSaved": "正在編輯已儲存的配裝——「Copy/Save」會就地更新此配裝。",
+    "builder.status.viewingSaved": "正在檢視已儲存的配裝——「Copy/Save」會複製其連結。",
     "builder.status.notSavedToAccount": "已儲存，但未儲存至你的帳號！",
     "builder.status.notSavedToAccountHint": "你不會在自己的「我的配裝」頁面看到此配裝。使用 Discord 登入即可將其保存在那裡——該連結對任何人都仍然有效。",
     "builder.status.savedBuild": "配裝已儲存！",

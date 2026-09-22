@@ -1959,6 +1959,22 @@ export default function BuildForm({
     function saveBuildToServer(forking = false) {
         const token = makeBuildString();
         const tokenVersion = getBuildTokenVersion(token) ?? '';
+        // Someone else's saved build: sharing it must share the build as it
+        // is. Saving would fork a copy onto the account, and the embed would
+        // credit whoever shared it instead of the build's original author.
+        // Saving the current edits as a copy is what "Save as new copy" does.
+        if (activeBuildId && !forking && !ownsBuild) {
+            const storedVersion = getBuildTokenVersion(build) ?? tokenVersion;
+            const link =
+                window.location.origin + getStsBase() + `/b/v${storedVersion}/${activeBuildId}` + `?v=${buildRevision}`;
+            setSaveState('copied');
+            setSavedAnonymous(false);
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(link).catch(() => {});
+            }
+            setTimeout(() => setSaveState(null), 4000);
+            return Promise.resolve(link);
+        }
         const payload = {
             token,
             infusions: delveInfusions,
@@ -1977,9 +1993,8 @@ export default function BuildForm({
         let profanityHit = false;
         let duplicateHit = false;
 
-        // Only account-owned builds are updated in place. A signed-out save
-        // (or one that belongs to someone else) always takes the POST path and
-        // produces a fresh snapshot link instead.
+        // The account's own build is updated in place; an explicit fork (or an
+        // unsaved build) POSTs a fresh snapshot link instead.
         if (activeBuildId && !forking && loggedIn) {
             setSaveState('saving');
             setSavedAnonymous(false);
@@ -4409,7 +4424,9 @@ export default function BuildForm({
                 </div>
             </div>
             <p className={styles.saveStatus} role="status">
-                {activeBuildId ? t('builder.status.editingSaved') : t('builder.status.unsaved')}
+                {activeBuildId
+                    ? t(ownsBuild ? 'builder.status.editingSaved' : 'builder.status.viewingSaved')
+                    : t('builder.status.unsaved')}
             </p>
             {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
