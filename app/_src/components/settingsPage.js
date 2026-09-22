@@ -10,6 +10,7 @@ import CardItemsFirstToggle from './cardItemsFirstToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
 import DateFormatToggle from './dateFormatToggle';
 import { HEADER_TITLE_MAX, HEADER_TITLE_KEY, saveHeaderTitle } from './headerTitle';
+import { getInfusionInputMode, setInfusionInputMode, DEFAULT_INFUSION_INPUT_MODE } from '../utils/infusionPrefs';
 import {
     applyThemeState,
     readThemeState,
@@ -157,6 +158,7 @@ export default function SettingsPage() {
     const [themeState, setThemeState] = React.useState(null);
     const [font, setFont] = React.useState('ubuntu');
     const [headerTitle, setHeaderTitle] = React.useState('');
+    const [infusionInput, setInfusionInput] = React.useState(DEFAULT_INFUSION_INPUT_MODE);
 
     React.useEffect(() => {
         setThemeState(readThemeState());
@@ -169,6 +171,10 @@ export default function SettingsPage() {
         } catch (e) {
             // ignore
         }
+    }, []);
+
+    React.useEffect(() => {
+        setInfusionInput(getInfusionInputMode());
     }, []);
 
     React.useEffect(() => {
@@ -339,6 +345,20 @@ export default function SettingsPage() {
         ...COLORBLIND_MODES.map((mode) => ({ value: mode, label: t(COLORBLIND_LABELS[mode]) })),
     ];
     const currentCb = cbOptions.find((option) => option.value === colorblind) || cbOptions[0];
+
+    // Infusion input style: per item, number totals, or both.
+    const infusionOptions = [
+        { value: 'item', label: t('settings.infusionInputs.item') },
+        { value: 'total', label: t('settings.infusionInputs.total') },
+        { value: 'both', label: t('settings.infusionInputs.both') },
+    ];
+    const currentInfusionOption =
+        infusionOptions.find((option) => option.value === infusionInput) || infusionOptions[2];
+
+    function setInfusionInputValue(mode) {
+        setInfusionInput(mode);
+        setInfusionInputMode(mode);
+    }
 
     // Derived look state. Computed before any guard so the font pill's
     // styles can be memoized from the round setting.
@@ -753,12 +773,33 @@ export default function SettingsPage() {
 
             <section className={styles.card}>
                 <h2 className={styles.cardTitle}>{t('settings.site')}</h2>
-                <div className={styles.siteToggleRow}>
-                    <CacheSearchToggle className={styles.bareToggle} />
-                    <CacheBuildsToggle className={styles.bareToggle} />
-                    <CacheCustomItemsToggle className={styles.bareToggle} />
-                    <DateFormatToggle className={styles.bareToggle} />
-                    <CardItemsFirstToggle className={styles.bareToggle} />
+                <div className={styles.siteOptions}>
+                    <label className={styles.fontRow}>
+                        <span className={styles.fontLabel} title={t('settings.infusionInputs.hint')}>
+                            {t('settings.infusionInputs.label')}
+                        </span>
+                        <div className={styles.fontSelect}>
+                            <Select
+                                instanceId="infusionInputs"
+                                name="infusionInputs"
+                                options={infusionOptions}
+                                value={currentInfusionOption}
+                                onChange={(option) => setInfusionInputValue(option.value)}
+                                isSearchable={false}
+                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                menuPosition="fixed"
+                                theme={fontSelectTheme}
+                                styles={fontSelectStyles}
+                            />
+                        </div>
+                    </label>
+                    <div className={styles.siteToggleRow}>
+                        <CacheSearchToggle className={styles.bareToggle} />
+                        <CacheBuildsToggle className={styles.bareToggle} />
+                        <CacheCustomItemsToggle className={styles.bareToggle} />
+                        <DateFormatToggle className={styles.bareToggle} />
+                        <CardItemsFirstToggle className={styles.bareToggle} />
+                    </div>
                 </div>
             </section>
         </main>

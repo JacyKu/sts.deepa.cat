@@ -33,6 +33,7 @@ import { skillsPayloadFromToken } from '../../utils/builder/buildSkills';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
+import { getInfusionInputMode } from '../../utils/infusionPrefs';
 import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 
@@ -937,16 +938,10 @@ export default function BuildForm({
     // Vigor, Focus, Perspicacity, Acumen - see data/basicInfusions.js).
     const [basicOpen, setBasicOpen] = React.useState(false);
     const [basicInfusions, setBasicInfusions] = React.useState({}); // slot -> { name, level }
-    // Global (per-type) normal infusion levels: plain numbers like the
-    // original builder, added on top of the per-slot infusions. Both entry
-    // paths share the same 24-level budget (six items at level IV).
-    const [globalInfusions, setGlobalInfusions] = React.useState({
-        tenacity: 0,
-        vitality: 0,
-        vigor: 0,
-        focus: 0,
-        perspicacity: 0,
-    });
+    // Which normal-infusion inputs to show (Settings -> Infusion inputs):
+    // 'item' = per-slot pickers only, 'total' = the number boxes only,
+    // 'both' = both. Read in an effect so the first render matches the server.
+    const [infusionInputMode, setInfusionInputMode] = React.useState('both');
     // Delve infusion levels: one per slot, I-IV. Picking an infusion defaults
     // its level to IV. Six slots at level IV is the 24-point total the delve
     // budget allows, so a per-slot cap of 4 alone can never exceed it.
@@ -1025,6 +1020,10 @@ export default function BuildForm({
             const raw = window.localStorage.getItem(DRAFT_KEY);
             if (raw) setDraft(JSON.parse(raw));
         } catch (e) {}
+    }, []);
+
+    React.useEffect(() => {
+        setInfusionInputMode(getInfusionInputMode());
     }, []);
 
     // Which draft applies to this page:
@@ -1415,49 +1414,74 @@ export default function BuildForm({
         );
     }
 
-    // Basic (normal) infusions come in two flavours that share one budget:
-    //  - per-slot picks ({ slot: { name, level } }) with a level I-IV select;
-    //  - global per-type numbers (the original builder's boxes), which add
-    //    directly to the totals.
-    // Six items at level IV is the 24-level budget, so the two paths are
-    // clamped against each other (the global boxes give way first).
+    // Basic (normal) infusions are per-slot picks ({ slot: { name, level } }),
+    // one infusion per item at level I-IV. Six items at level IV is the
+    // 24-level cap, so the items alone bound the totals.
     function basicChanged(slot, option) {
         setTip(null);
         if (!option) {
-            commitInfusionChange(withoutSlot(basicInfusions, slot), globalInfusions, slot);
+            commitInfusionChange(withoutSlot(basicInfusions, slot));
             return;
         }
-        const usedWithout = usedInfusionLevels() - (basicInfusions[slot]?.level || 0);
-        let available = BASIC_INFUSION_LEVEL_CAP - usedWithout;
-        let nextGlobals = globalInfusions;
-        if (available < 1) {
-            nextGlobals = trimGlobalInfusions(1 - available, option.value.toLowerCase());
-            available = 1;
-        }
-        const level = Math.min(BASIC_INFUSION_MAX_LEVEL, available);
-        commitInfusionChange({ ...basicInfusions, [slot]: { name: option.value, level } }, nextGlobals, slot);
+        commitInfusionChange({
+            ...basicInfusions,
+            [slot]: { name: option.value, level: BASIC_INFUSION_MAX_LEVEL },
+        });
     }
 
     function changeBasicLevel(slot, raw) {
         const wanted = Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(raw) || 1));
-        const usedWithout = usedInfusionLevels() - (basicInfusions[slot]?.level || 0);
-        let available = BASIC_INFUSION_LEVEL_CAP - usedWithout;
-        let nextGlobals = globalInfusions;
-        if (available < wanted) {
-            nextGlobals = trimGlobalInfusions(wanted - available, basicInfusions[slot]?.name?.toLowerCase());
-            available = wanted;
-        }
-        const level = Math.min(wanted, available);
-        commitInfusionChange({ ...basicInfusions, [slot]: { ...basicInfusions[slot], level } }, nextGlobals, slot);
+        commitInfusionChange({ ...basicInfusions, [slot]: { ...basicInfusions[slot], level: wanted } });
     }
 
-    // The global number boxes: setting one clamps to the budget left after
-    // the per-slot picks and the other boxes.
-    function changeGlobalInfusion(key, raw) {
-        const usedWithout = usedInfusionLevels() - (Number(globalInfusions[key]) || 0);
-        const max = Math.max(0, BASIC_INFUSION_LEVEL_CAP - usedWithout);
-        const value = Math.max(0, Math.min(max, Math.floor(Number(raw) || 0)));
-        commitInfusionChange(basicInfusions, { ...globalInfusions, [key]: value });
+    // Puts `levels` of one infusion type on the best available items: the
+    // type's own items first, then empty equipped slots. One infusion per
+    // item, level IV max, spread as evenly as possible over the fewest items
+    // that can hold it (leaving the rest free for the other types). Levels
+    // that do not fit on any item are dropped - every level the builder shows
+    // is on an item. Returns the new pick map and how many levels were placed.
+    function placeInfusionLevels(infusions, key, levels, itemNames) {
+        const name = BASIC_INFUSIONS.find((i) => i.name.toLowerCase() === key)?.name;
+        const next = { ...infusions };
+        if (!name) return { infusions: next, placed: 0 };
+        const hasItem = (slot) => Boolean(itemNames && itemNames[slot] && itemNames[slot] !== 'None');
+        const same = [];
+        const free = [];
+        for (const slot of EQUIP_SLOTS) {
+            const cur = next[slot];
+            if (!hasItem(slot)) continue;
+            if (!cur) free.push(slot);
+            else if (cur.name.toLowerCase() === key) same.push(slot);
+        }
+        const candidates = [...same, ...free];
+        const wanted = Math.min(Math.max(0, Math.floor(levels)), candidates.length * BASIC_INFUSION_MAX_LEVEL);
+        const count = Math.ceil(wanted / BASIC_INFUSION_MAX_LEVEL);
+        const base = count > 0 ? Math.floor(wanted / count) : 0;
+        const remainder = count > 0 ? wanted - base * count : 0;
+        let placed = 0;
+        candidates.forEach((slot, index) => {
+            if (index >= count) {
+                // The type no longer needs this item; drop its previous pick.
+                if (next[slot]) delete next[slot];
+                return;
+            }
+            const level = base + (index < remainder ? 1 : 0);
+            next[slot] = { name, level };
+            placed += level;
+        });
+        return { infusions: next, placed };
+    }
+
+    // "Both" and "Number total" modes: the number box is the per-type total.
+    // Editing it places that many levels on the items (see
+    // placeInfusionLevels) and the box shows the placed sum, so the stats
+    // never include a level no item carries. A value the items cannot hold is
+    // clamped, so impossible combos - e.g. five levels of all six infusions -
+    // cannot be entered. Editing a picker updates the boxes the other way.
+    function changeSyncedInfusion(key, raw) {
+        const wanted = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(raw) || 0)));
+        const { infusions } = placeInfusionLevels(basicInfusions, key, wanted, stats.itemNames);
+        commitInfusionChange(infusions);
     }
 
     // Sum the infusion levels per type across all slots (the wiki allows one
@@ -1471,8 +1495,9 @@ export default function BuildForm({
         return next;
     }
 
-    // Base sums of the per-slot basic infusion levels, per type.
-    function basicInfusionTotals(infusions) {
+    // Per-type sums of the per-slot basic infusion levels: what the stat
+    // calculation and the saved token consume.
+    function basicInfusionTotals(infusions = basicInfusions) {
         const totals = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
         for (const { name, level } of Object.values(infusions)) {
             if (totals[name.toLowerCase()] !== undefined) totals[name.toLowerCase()] += level;
@@ -1480,61 +1505,19 @@ export default function BuildForm({
         return totals;
     }
 
-    // Per-type totals including the global boxes: what the stat calculation
-    // and the saved token consume.
-    function combinedInfusionTotals(infusions = basicInfusions, globals = globalInfusions) {
-        const totals = basicInfusionTotals(infusions);
-        for (const key of BASIC_INFUSION_STAT_KEYS) {
-            totals[key] = (totals[key] || 0) + (Number(globals[key]) || 0);
-        }
-        return totals;
-    }
-
-    function usedInfusionLevels(infusions = basicInfusions, globals = globalInfusions) {
-        let used = 0;
-        for (const { level } of Object.values(infusions)) used += Number(level) || 0;
-        for (const key of BASIC_INFUSION_STAT_KEYS) used += Number(globals[key]) || 0;
-        return used;
-    }
-
-    // Frees `needed` levels by lowering the global boxes (the flexible part;
-    // per-slot picks are explicit item assignments). The type being edited
-    // gives way first.
-    function trimGlobals(globals, needed, preferredKey = null) {
-        let over = Math.max(0, Math.ceil(needed));
-        const next = { ...globals };
-        if (over === 0) return next;
-        const order = preferredKey
-            ? [preferredKey, ...BASIC_INFUSION_STAT_KEYS.filter((key) => key !== preferredKey)]
-            : BASIC_INFUSION_STAT_KEYS;
-        for (const key of order) {
-            if (over <= 0) break;
-            const value = Number(next[key]) || 0;
-            const take = Math.min(value, over);
-            if (take > 0) {
-                next[key] = value - take;
-                over -= take;
-            }
-        }
-        return next;
-    }
-
-    function trimGlobalInfusions(needed, preferredKey = null) {
-        return trimGlobals(globalInfusions, needed, preferredKey);
-    }
-
-    // Push per-slot + global levels into the form. The hidden inputs only
-    // commit on the next render, so the fresh values are passed straight to
-    // the recalculation (Understanding's amplifier counts per-slot picks).
-    function commitInfusionChange(nextInfusions, nextGlobals, changedSlot = null) {
+    // Push the per-slot picks into the form. The hidden inputs only commit on
+    // the next render, so the fresh values are passed straight to the
+    // recalculation (Understanding's amplifier counts per-slot picks).
+    function commitInfusionChange(nextInfusions) {
         setBasicInfusions(nextInfusions);
-        setGlobalInfusions(nextGlobals);
-        const totals = combinedInfusionTotals(nextInfusions, nextGlobals);
+        const totals = basicInfusionTotals(nextInfusions);
         setStatInputs((prev) => ({ ...prev, ...totals }));
         // FormData is stale right after a change, so inject the fresh values
         // manually (same pattern as delveChanged) and recalculate.
         const itemNames = Object.fromEntries(Array.from(new FormData(formRef.current).entries()));
-        if (changedSlot) itemNames[`basicInfusion-${changedSlot}`] = nextInfusions[changedSlot]?.name || 'None';
+        for (const slot of EQUIP_SLOTS) {
+            itemNames[`basicInfusion-${slot}`] = nextInfusions[slot]?.name || 'None';
+        }
         for (const key of BASIC_INFUSION_STAT_KEYS) itemNames[key] = String(totals[key] || 0);
         itemNames.basicInfusionCounts = JSON.stringify(basicInfusionCounts(nextInfusions));
         applyStatsUpdate(itemNames, itemData, setStats, update);
@@ -1979,7 +1962,6 @@ export default function BuildForm({
             token,
             infusions: delveInfusions,
             basicInfusions,
-            globalInfusions,
             revelation,
             name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
             notes: notesDraft.trim() ? notesDraft : null,
@@ -2002,7 +1984,7 @@ export default function BuildForm({
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    state: { token, infusions: delveInfusions, basicInfusions, globalInfusions, revelation },
+                    state: { token, infusions: delveInfusions, basicInfusions, revelation },
                     name: payload.name,
                     notes: payload.notes,
                     ...(loggedIn ? { publicise: publicState.isPublic, anonymous: publicState.anonymous } : {}),
@@ -2425,11 +2407,12 @@ export default function BuildForm({
         if (loadedRevelation) setRevelation(true);
 
         // Basic (normal) infusions: per-slot picks are restored so their
-        // dropdowns show them; the global boxes come from the saved state when
-        // present. Older builds only stored the token totals (which were the
-        // per-slot sums), and token-only links carry just the totals - both
-        // map onto the global boxes without double counting.
-        const loadedBasic = {};
+        // dropdowns show them. Builds saved before the number boxes were tied
+        // to the items, and token-only links (which carry just the per-type
+        // totals), can have levels that no item carries: those are placed onto
+        // the free items here, so nothing raises the stats unseen. Levels that
+        // do not fit on any item are dropped.
+        let loadedBasic = {};
         if (effSavedState && effSavedState.basicInfusions && typeof effSavedState.basicInfusions === 'object') {
             for (const [slot, value] of Object.entries(effSavedState.basicInfusions)) {
                 if (!value || typeof value.name !== 'string') continue;
@@ -2439,38 +2422,26 @@ export default function BuildForm({
                     level: Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(value.level) || 1)),
                 };
             }
-            if (Object.keys(loadedBasic).length > 0) {
-                setBasicInfusions(loadedBasic);
-                setBasicOpen(true);
-            }
         }
         const storedGlobals =
             effSavedState && effSavedState.globalInfusions && typeof effSavedState.globalInfusions === 'object'
                 ? effSavedState.globalInfusions
                 : null;
-        let nextGlobals = {};
         for (const key of BASIC_INFUSION_STAT_KEYS) {
             // A saved state without the field predates the global boxes, so
-            // its token totals were the per-slot sums (globals start at 0).
+            // its token totals were the per-slot sums (nothing extra to place).
             const source = storedGlobals ? storedGlobals[key] : effSavedState ? 0 : statValues[key];
-            const value = Math.floor(Number(source) || 0);
-            nextGlobals[key] = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, value));
+            const value = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(source) || 0)));
+            if (value > 0) loadedBasic = placeInfusionLevels(loadedBasic, key, value, itemNames).infusions;
         }
-        // Never load past the shared budget (hand-edited states or tokens).
-        const loadedUsed =
-            Object.values(loadedBasic).reduce((sum, v) => sum + v.level, 0) +
-            BASIC_INFUSION_STAT_KEYS.reduce((sum, key) => sum + nextGlobals[key], 0);
-        if (loadedUsed > BASIC_INFUSION_LEVEL_CAP) {
-            nextGlobals = trimGlobals(nextGlobals, loadedUsed - BASIC_INFUSION_LEVEL_CAP);
+        // The build carries basic infusions: open the section, and apply them
+        // even if the toggle happened to be off before the load.
+        const hasBasicInfusions = Object.keys(loadedBasic).length > 0;
+        if (hasBasicInfusions) {
+            setBasicInfusions(loadedBasic);
+            setBasicOpen(true);
         }
-        // The build carries basic infusions (per-slot picks, global boxes or
-        // token-only totals): open the section, and apply them even if the
-        // toggle happened to be off before the load.
-        const hasBasicInfusions =
-            Object.keys(loadedBasic).length > 0 || BASIC_INFUSION_STAT_KEYS.some((key) => Number(nextGlobals[key]) > 0);
-        if (hasBasicInfusions) setBasicOpen(true);
-        setGlobalInfusions(nextGlobals);
-        setStatInputs((prev) => ({ ...prev, ...combinedInfusionTotals(loadedBasic, nextGlobals) }));
+        setStatInputs((prev) => ({ ...prev, ...basicInfusionTotals(loadedBasic) }));
 
         // A build renamed on the "My Builds" page stores its display name in
         // the DB; surface it in the header so re-saving keeps the new name.
@@ -2667,7 +2638,6 @@ export default function BuildForm({
                     token: makeBuildString(),
                     infusions: delveInfusions,
                     basicInfusions,
-                    globalInfusions,
                     revelation,
                     name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
                     notes: notesDraft.trim() ? notesDraft : null,
@@ -2713,7 +2683,6 @@ export default function BuildForm({
         regionValue,
         delveInfusions,
         basicInfusions,
-        globalInfusions,
         revelation,
         notesDraft,
         activeBuildId,
@@ -3296,7 +3265,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('mainhand')}
-                {basicOpen && basicSlotSelects('mainhand')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('mainhand')}
                 {splitLayout && renderEquippedTile('mainhand')}
             </div>
             <div className={slotCellClass}>
@@ -3310,7 +3279,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('offhand')}
-                {basicOpen && basicSlotSelects('offhand')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('offhand')}
                 {splitLayout && renderEquippedTile('offhand')}
             </div>
             <div className={slotCellClass}>
@@ -3324,7 +3293,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('helmet')}
-                {basicOpen && basicSlotSelects('helmet')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('helmet')}
                 {splitLayout && renderEquippedTile('helmet')}
             </div>
             <div className={slotCellClass}>
@@ -3338,7 +3307,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('chestplate')}
-                {basicOpen && basicSlotSelects('chestplate')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('chestplate')}
                 {splitLayout && renderEquippedTile('chestplate')}
             </div>
             <div className={slotCellClass}>
@@ -3352,7 +3321,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('leggings')}
-                {basicOpen && basicSlotSelects('leggings')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('leggings')}
                 {splitLayout && renderEquippedTile('leggings')}
             </div>
             <div className={slotCellClass}>
@@ -3366,7 +3335,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('boots')}
-                {basicOpen && basicSlotSelects('boots')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('boots')}
                 {splitLayout && renderEquippedTile('boots')}
             </div>
         </div>
@@ -3486,6 +3455,9 @@ export default function BuildForm({
     // The sections that follow the stats in the default flow: situational
     // stat toggles, the health slider and the notes. In the New Layout they
     // render centered below the two columns, together with the charms.
+    // Per-type totals for the number boxes (always the items' sums).
+    const infusionTotals = basicInfusionTotals();
+
     const tailSections = (
         <>
             <div className="row justify-content-center pt-1 mb-1 g-1">
@@ -3506,11 +3478,13 @@ export default function BuildForm({
                     currentHealth={itemsToDisplay.currentHealth}
                     healthFinal={itemsToDisplay.healthFinal}
                 />
-                {/* Global normal infusion levels (the original builder's number
-                    boxes): they add to the per-slot infusions and share the
-                    24-level budget, which every box is clamped against. Hidden
-                    while the Infusions toggle is off, like the per-slot picks. */}
-                {basicOpen && (
+                {/* Normal infusion number boxes: one per infusion type, each
+                    showing the levels the items carry. Editing one spreads the
+                    value over the items (see changeSyncedInfusion) and clamps
+                    to what they can hold. Hidden while the Infusions toggle is
+                    off, like the picks themselves, and when Settings ->
+                    Infusion inputs is set to per-item. */}
+                {basicOpen && infusionInputMode !== 'item' && (
                     <div className="d-flex flex-wrap justify-content-center align-items-start">
                         {BASIC_INFUSION_STAT_KEYS.map((key) => (
                             <div className="text-center mx-2" key={key}>
@@ -3521,8 +3495,8 @@ export default function BuildForm({
                                     type="number"
                                     min="0"
                                     max={BASIC_INFUSION_LEVEL_CAP}
-                                    value={globalInfusions[key] || 0}
-                                    onChange={(event) => changeGlobalInfusion(key, event.target.value)}
+                                    value={infusionTotals[key] || 0}
+                                    onChange={(event) => changeSyncedInfusion(key, event.target.value)}
                                     className={styles.infusionLevelInput}
                                     aria-label={`${key} infusion level`}
                                 />
