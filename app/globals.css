@@ -466,7 +466,7 @@ html input[role='combobox'] {
     border-color: var(--control-border-focus) !important;
 }
 
-/* No square corners: every element gets a small radius. The exact radius is
+/* No square corners: every element gets the same radius. The exact radius is
    user-adjustable (Settings -> Round corners -> Corner radius) via
    --round-radius, defaulting to the 8px the rounded look shipped with. */
 html[data-round='true'] * {
@@ -479,8 +479,10 @@ html[data-round='true'] svg {
     border-radius: 0 !important;
 }
 
-/* Native checkboxes ignore border-radius; draw them rounded instead. */
-html[data-round='true'] input[type='checkbox'] {
+/* Native checkboxes ignore border-radius and the theme colours, so they are
+   drawn from scratch in every mode: square when Round corners is off, picking
+   up --round-radius from the rule above when it is on. */
+input[type='checkbox'] {
     -webkit-appearance: none;
     appearance: none;
     width: 16px;
@@ -492,11 +494,11 @@ html[data-round='true'] input[type='checkbox'] {
     vertical-align: middle;
 }
 
-html[data-round='true'] input[type='checkbox']:checked {
+input[type='checkbox']:checked {
     background-color: var(--text-1);
 }
 
-html[data-round='true'] input[type='checkbox']:checked::after {
+input[type='checkbox']:checked::after {
     content: '';
     display: block;
     width: 4px;
@@ -505,18 +507,6 @@ html[data-round='true'] input[type='checkbox']:checked::after {
     border: solid var(--bg-0);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
-}
-
-/* Larger surfaces keep a slightly softer radius (4px more than the base). */
-html[data-round='true'] [class*='itemTile'],
-html[data-round='true'] [class*='card'],
-html[data-round='true'] [class*='menuPanel'],
-html[data-round='true'] [class*='skillsSection'],
-html[data-round='true'] [class*='statCard'],
-html[data-round='true'] [class*='charmCardWrap'],
-html[data-round='true'] [class*='builderSide'],
-html[data-round='true'] [class*='betaDialog'] {
-    border-radius: calc(var(--round-radius, 8px) + 4px) !important;
 }
 
 @font-face {

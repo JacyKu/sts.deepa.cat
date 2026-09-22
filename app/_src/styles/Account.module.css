@@ -498,7 +498,6 @@
 .themeToggleRow input {
     margin: 0;
     cursor: pointer;
-    accent-color: var(--accent, #9c59d1);
 }
 
 /* Corner-radius slider, shown only while "Round corners" is on. */

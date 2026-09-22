@@ -269,10 +269,6 @@
     cursor: pointer;
 }
 
-.checkbox input {
-    accent-color: var(--accent, #9c59d1);
-}
-
 .grid {
     width: 100%;
     max-width: 1160px;
@@ -457,46 +453,46 @@
    seams show between the card, the side extension and the notes panel.
    `!important` is needed to beat the global `html[data-round] *` rules. */
 :global(html[data-round='true']) .cardExpanded:has(.cardSideRight) {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 calc(var(--round-radius, 8px) + 4px) !important;
+    border-radius: var(--round-radius, 8px) 0 0 var(--round-radius, 8px) !important;
     border-right-color: transparent !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardSideLeft) {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 !important;
+    border-radius: 0 var(--round-radius, 8px) var(--round-radius, 8px) 0 !important;
     border-left-color: transparent !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardNotes) {
-    border-radius: calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+    border-radius: var(--round-radius, 8px) var(--round-radius, 8px) 0 0 !important;
     border-bottom-color: transparent !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardSideRight):has(.cardNotes) {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 0 !important;
+    border-radius: var(--round-radius, 8px) 0 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardSideLeft):has(.cardNotes) {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+    border-radius: 0 var(--round-radius, 8px) 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardSideRight {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 !important;
+    border-radius: 0 var(--round-radius, 8px) var(--round-radius, 8px) 0 !important;
 }
 
 :global(html[data-round='true']) .cardSideLeft {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 calc(var(--round-radius, 8px) + 4px) !important;
+    border-radius: var(--round-radius, 8px) 0 0 var(--round-radius, 8px) !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideRight {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+    border-radius: 0 var(--round-radius, 8px) 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideLeft {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 0 !important;
+    border-radius: var(--round-radius, 8px) 0 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardNotes {
-    border-radius: 0 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) !important;
+    border-radius: 0 0 var(--round-radius, 8px) var(--round-radius, 8px) !important;
 }
 
 .cardNotesLabel {
