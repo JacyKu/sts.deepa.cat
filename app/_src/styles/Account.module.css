@@ -480,8 +480,10 @@
     height: 64px;
     border: 1px solid var(--glass-border);
     /* Per-card layered backgrounds come from inline CSS vars so each
-       swatch can mimic its theme's real look. */
+       swatch can mimic its theme's real look. Sized to the border box so the
+       gradient cannot repeat a sliver along the right edge. */
     background: var(--swatch-bg, #111);
+    background-origin: border-box;
     position: relative;
 }
 
@@ -588,8 +590,11 @@
     width: 44px;
     height: 16px;
     border: 1px solid var(--glass-border);
-    /* Stripe preview comes from an inline --chip-bg gradient. */
+    /* Stripe preview comes from an inline --chip-bg gradient. Size it to the
+       border box: the default padding-box origin leaves a 1px repeat sliver of
+       the first colour along the right edge. */
     background: var(--chip-bg, #888);
+    background-origin: border-box;
 }
 
 .glassToggles {

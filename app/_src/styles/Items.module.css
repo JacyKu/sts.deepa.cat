@@ -2046,12 +2046,15 @@ div.builderStatCard {
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
+    /* Size the fill to the border box: the default padding-box origin leaves a
+       1px repeat sliver of the fill colour along the right edge. */
     background: linear-gradient(
         to right,
         var(--slider-color, var(--accent, #9c59d1)) 0%,
         var(--slider-color, var(--accent, #9c59d1)) var(--slider-pct, 50%),
         var(--glass-2) var(--slider-pct, 50%)
     );
+    background-origin: border-box;
     border: 1px solid var(--control-border);
 }
 

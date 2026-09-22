@@ -206,6 +206,41 @@ export default function SettingsPage() {
         fontFamily: FONT_STACKS[value],
     }));
 
+    // The font pill sizes itself to the widest option label (each entry renders
+    // in its own font, and names differ per language) plus the control's
+    // paddings, dropdown arrow and borders. The menu follows the control width.
+    const FONT_SELECT_CHROME = 56;
+    const fontWidthKey = fontOptions.map((option) => `${option.label}|${option.fontFamily}`).join('~');
+    const [fontSelectWidth, setFontSelectWidth] = React.useState(null);
+    React.useEffect(() => {
+        let cancelled = false;
+        const rootSize = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+        // Menu entries render at 0.85rem; the dyslexia entry is scaled down
+        // (0.8em) so its long name fits the picker.
+        const fontSize = (option) => 0.85 * (option.value === 'dyslexia' ? 0.8 : 1) * rootSize;
+        const measure = () => {
+            if (cancelled) return;
+            const ctx = document.createElement('canvas').getContext('2d');
+            let widest = 0;
+            for (const option of fontOptions) {
+                ctx.font = `400 ${fontSize(option)}px ${option.fontFamily}`;
+                widest = Math.max(widest, ctx.measureText(option.label).width);
+            }
+            setFontSelectWidth(Math.ceil(widest) + FONT_SELECT_CHROME);
+        };
+        // Wait for the option fonts, or the measurement falls back to a system
+        // font and the widest entry gets clipped.
+        const loads = document.fonts
+            ? fontOptions.map((option) =>
+                  document.fonts.load(`400 ${fontSize(option)}px ${option.fontFamily.split(',')[0].trim()}`)
+              )
+            : [];
+        Promise.all(loads).then(measure).catch(measure);
+        return () => {
+            cancelled = true;
+        };
+    }, [fontWidthKey]);
+
     function updateState(changes) {
         if (!themeState) return;
         const next = { ...themeState, ...changes };
@@ -697,7 +732,10 @@ export default function SettingsPage() {
                     </label>
                     <label className={styles.fontRow}>
                         <span className={styles.fontLabel}>{t('settings.font')}</span>
-                        <div className={styles.fontSelect}>
+                        <div
+                            className={styles.fontSelect}
+                            style={fontSelectWidth ? { width: `${fontSelectWidth}px` } : undefined}
+                        >
                             <Select
                                 instanceId="font"
                                 name="font"
