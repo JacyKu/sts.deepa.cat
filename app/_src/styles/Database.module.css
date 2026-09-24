@@ -336,8 +336,8 @@
 
 .cardSide {
     position: absolute;
-    top: -1px;
-    height: calc(100% + 2px);
+    top: -2px;
+    height: calc(100% + 4px);
     width: 0;
     opacity: 0;
     display: flex;
@@ -402,7 +402,7 @@
    underneath it as well. */
 .cardNotes {
     position: absolute;
-    top: calc(100% + 1px);
+    top: calc(100% + 2px);
     width: 0;
     max-height: 0;
     opacity: 0;
@@ -427,16 +427,27 @@
     border-color: var(--accent-line, var(--control-border-hover));
 }
 
+/* The notes panel attaches below the card, so the borders that would sit in
+   the middle of the combined surface - the card's and the side panel's lower
+   edges - are hidden while it is open. */
+.cardExpanded:has(.cardNotes) {
+    border-bottom-color: transparent;
+}
+
+.cardExpanded:has(.cardNotes) .cardSide {
+    border-bottom-color: transparent;
+}
+
 .cardNotesRight {
-    left: -1px;
+    left: -2px;
 }
 
 .cardNotesLeft {
-    right: -1px;
+    right: -2px;
 }
 
 .cardNotesOpen {
-    width: calc(100% + 2px);
+    width: calc(100% + 4px);
     max-height: 220px;
     opacity: 1;
     padding: 10px;
@@ -444,7 +455,38 @@
 }
 
 .cardNotesWide {
-    width: calc(100% + 339px);
+    width: calc(100% + 340px);
+}
+
+/* The side panel and the notes panel line up with the card's border box. With
+   the site zoom (0.9 - see globals.css) an exact 2px overlay rounds to one
+   pixel outside the card, so zoomed browsers use the 1px values that measure
+   flush there; browsers without zoom use the exact 2px box above. */
+@supports (zoom: 1) {
+    .cardSide {
+        top: -1px;
+        height: calc(100% + 2px);
+    }
+
+    .cardNotes {
+        top: calc(100% + 1px);
+    }
+
+    .cardNotesRight {
+        left: -1px;
+    }
+
+    .cardNotesLeft {
+        right: -1px;
+    }
+
+    .cardNotesOpen {
+        width: calc(100% + 2px);
+    }
+
+    .cardNotesWide {
+        width: calc(100% + 339px);
+    }
 }
 
 /* Round-corners mode: an expanded card and its extensions must read as one
