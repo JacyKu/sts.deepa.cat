@@ -31,15 +31,18 @@ export default function Page({ params }) {
 async function CustomItemView({ params }) {
     const { id } = await params;
     const [item, user] = await Promise.all([getCustomItem(id), getDiscordUser()]);
-    // Share links are public: anyone with the link sees the item. Only the
-    // owner can manage it, and only logged-in visitors can copy it.
+    // Public items are share links anyone can view. Private items are only
+    // visible to their owner - for everyone else they look missing.
     const isOwner = Boolean(user && item && item.userId === user.id);
-    const favourite = item ? getCustomItemFavouriteState(id, user ? user.id : null) : { favourite: false, count: 0 };
+    const visibleItem = item && (item.isPublic || isOwner) ? item : null;
+    const favourite = visibleItem
+        ? getCustomItemFavouriteState(id, user ? user.id : null)
+        : { favourite: false, count: 0 };
     // The Discord account id never reaches the client (or the RSC payload):
     // the avatar is resolved server-side instead.
     let itemWithLikes = null;
-    if (item) {
-        const { userId, ...publicItem } = item;
+    if (visibleItem) {
+        const { userId, ...publicItem } = visibleItem;
         itemWithLikes = {
             ...publicItem,
             authorAvatar: publicAuthorAvatar(userId, publicItem.authorAvatar),

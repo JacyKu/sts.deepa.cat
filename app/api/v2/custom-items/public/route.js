@@ -4,8 +4,8 @@ import { ITEM_TYPE_TOKEN_GROUPS } from '../../../../_src/utils/customItemTypes';
 
 // Public custom items database listing:
 // /api/v2/custom-items/public?q=&type=&sort=&page=&limit=
-// No auth required - custom items are shareable, so the database is the
-// browseable view of the same share links. `type` may also be an "All ..."
+// No auth required - public items are shareable, so the database is the
+// browseable view of the same share links; private items are excluded. `type` may also be an "All ..."
 // token (ALL_MAINHANDS / ALL_MELEE_MAINHANDS / ALL_OFFHANDS), which is
 // expanded to its concrete types before querying - same semantics as the
 // items search's Item Type filter. `sort` is 'top' (most favourited) or

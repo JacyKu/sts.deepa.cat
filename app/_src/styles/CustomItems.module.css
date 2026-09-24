@@ -631,6 +631,13 @@
     color: var(--text-2);
 }
 
+/* Privacy marker on cards: only private items get a badge (public is the
+   normal state, so it is not called out). */
+.tagPrivate {
+    border-color: var(--negative, #ce2d27);
+    color: var(--negative, #ce2d27);
+}
+
 .cardBody {
     display: flex;
     flex-direction: column;
@@ -721,6 +728,13 @@
 .rowBtn:disabled {
     opacity: 0.6;
     cursor: default;
+}
+
+/* Visibility toggle: accent while the item is public (clicking privatises),
+   like the builds page's public button. */
+.rowBtnPublic {
+    border-color: var(--accent, #9c59d1);
+    color: var(--accent, #9c59d1);
 }
 
 /* Destructive action: red outline that fills in on hover. */
