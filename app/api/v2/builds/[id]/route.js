@@ -52,7 +52,13 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ error: 'invalid token' }, { status: 400 });
         }
         const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
-        const summaryData = mergeReferencedCustomItems(itemData, user ? user.id : null, getBuildItemHashes(token));
+        // Referenced custom items only resolve for signed-in savers (see the
+        // create route): signed-out edits cannot keep them.
+        const summaryData = mergeReferencedCustomItems(
+            itemData,
+            user ? user.id : null,
+            user ? getBuildItemHashes(token) : null
+        );
         const sanitized = sanitizeBuildTokenForStorage(token, summaryData, skillsData);
         if (!sanitized.ok) {
             return NextResponse.json({ error: 'invalid build' }, { status: 400 });

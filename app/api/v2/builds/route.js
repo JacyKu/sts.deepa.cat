@@ -43,9 +43,11 @@ export async function POST(request) {
 
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     // Custom items referenced by the token are resolved first so validation,
-    // the profanity gate and the summary all see the same item set.
+    // the profanity gate and the summary all see the same item set. Only
+    // signed-in savers resolve them: signed-out saves may *view* a build's
+    // custom items, but cannot keep them in a build of their own.
     const ownerId = user ? user.id : null;
-    const summaryData = mergeReferencedCustomItems(itemData, ownerId, getBuildItemHashes(token));
+    const summaryData = mergeReferencedCustomItems(itemData, ownerId, user ? getBuildItemHashes(token) : null);
     // The codec passes unknown strings through as "legacy" best effort, so
     // every value is checked before it reaches the database: unknown items and
     // charms, invalid classes/specs/skills and out-of-range stats are dropped
@@ -57,7 +59,11 @@ export async function POST(request) {
     const storedToken = sanitized.token;
     // Publicising at save time must pass the same profanity gate as the
     // publicise endpoint: never surface a build with blocked words.
-    if (user && body.publicise && hasProfanity({ name: body.name, notes: body.notes, token: storedToken, itemData: summaryData })) {
+    if (
+        user &&
+        body.publicise &&
+        hasProfanity({ name: body.name, notes: body.notes, token: storedToken, itemData: summaryData })
+    ) {
         return NextResponse.json({ error: 'profanity' }, { status: 400 });
     }
 

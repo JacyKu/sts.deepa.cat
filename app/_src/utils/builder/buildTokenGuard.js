@@ -14,7 +14,7 @@
 //
 // Display path: stored rows may already contain junk, so the same sanitizer
 // runs when a build is opened and the builder receives the sanitized token.
-import { decodeBuildParam } from './buildUrlCodec';
+import { decodeBuildParam, getBuildItemSlots, fnv1a32 } from './buildUrlCodec';
 import czAbilitiesData from '../../../../public/items/czAbilities.json';
 
 const BINARY_PREFIX = 'v1_';
@@ -200,13 +200,52 @@ function sanitizedLegacyFor(token, itemData, skillsData) {
     return { decoded, legacy: result.legacy };
 }
 
+// Binary tokens store item *hashes*, so an item the item data cannot resolve
+// (an unknown item, or another player's custom item for a signed-out saver)
+// simply decodes to "None" - the legacy-string comparison cannot see that
+// loss. Compare the stored hashes with the decoded names instead.
+function binaryItemsResolved(token, decoded) {
+    const slots = getBuildItemSlots(token);
+    if (!slots || slots.length === 0) return true;
+    let params;
+    try {
+        params = new URLSearchParams(decoded);
+    } catch (e) {
+        return false;
+    }
+    const hashBySlot = new Map(slots.map((s) => [s.slot, s.hash]));
+    for (const [slot, short] of [
+        ['mainhand', 'm'],
+        ['offhand', 'o'],
+        ['helmet', 'h'],
+        ['chestplate', 'c'],
+        ['leggings', 'l'],
+        ['boots', 'b'],
+    ]) {
+        const stored = hashBySlot.get(slot) || 0;
+        const value = params.get(short) || 'None';
+        const expected = value === 'None' ? 0 : fnv1a32(value);
+        if (expected !== stored) return false;
+    }
+    return true;
+}
+
 // Token to store: legacy payloads are normalized to their sanitized form,
 // binary payloads are kept only when they are already clean.
 export function sanitizeBuildTokenForStorage(token, itemData, skillsData) {
     if (typeof token !== 'string' || !token || token.length > 2048) return { ok: false, token: null };
     const result = sanitizedLegacyFor(token, itemData, skillsData);
     if (!result) return { ok: false, token: null };
-    if (token.startsWith(BINARY_PREFIX) && result.legacy !== result.decoded) return { ok: false, token: null };
+    if (token.startsWith(BINARY_PREFIX)) {
+        const itemsResolved = binaryItemsResolved(token, result.decoded);
+        if (result.legacy === result.decoded && itemsResolved) return { ok: true, token };
+        // Sanitizing changed values (not just unresolvable items): the binary
+        // token was not minted by the encoders, so refuse the save.
+        if (result.legacy !== result.decoded) return { ok: false, token: null };
+        // Only the items could not be resolved: store the sanitized legacy
+        // form so they are dropped instead of riding along as hashes.
+        return { ok: true, token: result.legacy };
+    }
     return { ok: true, token: result.legacy === result.decoded ? token : result.legacy };
 }
 

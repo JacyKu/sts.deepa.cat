@@ -421,10 +421,17 @@ function getRelevantItems(types, itemData, favourites = new Set()) {
         itemData
     );
     // Custom items may be keyed by id (when their name collides with an
-    // existing item); always show the item's name in the selector.
-    items = items.map((item) =>
-        typeof item === 'object' || !itemData[item].isCustomItem ? item : { value: item, label: itemData[item].name }
-    );
+    // existing item); always show the item's name in the selector. Items a
+    // signed-out viewer only sees because a shared build uses them stay
+    // visible in the build but are disabled in the picker.
+    items = items.map((item) => {
+        const key = typeof item === 'object' ? item.value : item;
+        const label = typeof item === 'object' ? item.label : itemData[key].name;
+        if (itemData[key] && itemData[key].displayOnly) {
+            return { value: key, label, isDisabled: true };
+        }
+        return typeof item === 'object' || !itemData[key].isCustomItem ? item : { value: key, label };
+    });
     // Pin the user's favourited items to the top of the selector (stable
     // sort keeps the original order within each group). Masterwork groups
     // and custom items are {value, label} objects whose label is the item name.
