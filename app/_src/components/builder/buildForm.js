@@ -338,6 +338,10 @@ const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor
 // The stats normal (basic) infusions feed, in display order, and the shared
 // budget for both entry paths (6 items x level IV).
 const BASIC_INFUSION_STAT_KEYS = ['tenacity', 'vitality', 'vigor', 'focus', 'perspicacity'];
+// Number boxes above the multipliers: every normal infusion type, Acumen
+// included. Acumen feeds no stat, but it shares the 24-level item budget, so
+// it is entered and distributed like the others.
+const BASIC_INFUSION_BOX_KEYS = BASIC_INFUSIONS.map((infusion) => infusion.name.toLowerCase());
 const BASIC_INFUSION_LEVEL_CAP = 24;
 
 const classes = ['Alchemist', 'Cleric', 'Mage', 'Rogue', 'Scout', 'Shaman', 'Warlock', 'Warrior'];
@@ -1447,54 +1451,125 @@ export default function BuildForm({
         commitInfusionChange({ ...basicInfusions, [slot]: { ...basicInfusions[slot], level: wanted } });
     }
 
-    // Puts `levels` of one infusion type on the best available items: the
-    // type's own items first, then empty equipped slots. One infusion per
-    // item, level IV max, spread as evenly as possible over the fewest items
-    // that can hold it (leaving the rest free for the other types). Levels
-    // that do not fit on any item are dropped - every level the builder shows
-    // is on an item. Returns the new pick map and how many levels were placed.
-    function placeInfusionLevels(infusions, key, levels, itemNames) {
-        const name = BASIC_INFUSIONS.find((i) => i.name.toLowerCase() === key)?.name;
-        const next = { ...infusions };
-        if (!name) return { infusions: next, placed: 0 };
-        const hasItem = (slot) => Boolean(itemNames && itemNames[slot] && itemNames[slot] !== 'None');
-        const same = [];
-        const free = [];
-        for (const slot of EQUIP_SLOTS) {
-            const cur = next[slot];
-            if (!hasItem(slot)) continue;
-            if (!cur) free.push(slot);
-            else if (cur.name.toLowerCase() === key) same.push(slot);
-        }
-        const candidates = [...same, ...free];
-        const wanted = Math.min(Math.max(0, Math.floor(levels)), candidates.length * BASIC_INFUSION_MAX_LEVEL);
-        const count = Math.ceil(wanted / BASIC_INFUSION_MAX_LEVEL);
-        const base = count > 0 ? Math.floor(wanted / count) : 0;
-        const remainder = count > 0 ? wanted - base * count : 0;
-        let placed = 0;
-        candidates.forEach((slot, index) => {
-            if (index >= count) {
-                // The type no longer needs this item; drop its previous pick.
-                if (next[slot]) delete next[slot];
+    // Normal infusions are per-slot picks ({ slot: { name, level } }): one
+    // infusion per item, level I-IV. Six items at level IV is the 24-level
+    // cap. `wantedByKey` maps a type (lowercased name) to the levels it asks
+    // for; the resolver shares the items between every type that has levels,
+    // picking the assignment that keeps each type's share of what it asked for
+    // as large as possible, places the most levels, spreads the items evenly
+    // between the types, then keeps their existing items (earlier items
+    // first). Each type gets one item per level, so raising a total fills the
+    // next item instead of stacking on the last one. Five levels of all six
+    // types settle at four each on six items; levels no item can hold are
+    // dropped, so every level the builder shows is on an item.
+    function resolveBasicInfusions(wantedByKey, itemNames, picks = {}) {
+        const slots = EQUIP_SLOTS.filter((slot) => itemNames && itemNames[slot] && itemNames[slot] !== 'None');
+        const types = BASIC_INFUSIONS.map((infusion) => ({
+            name: infusion.name,
+            wanted: Math.max(
+                0,
+                Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(wantedByKey[infusion.name.toLowerCase()]) || 0))
+            ),
+        })).filter((type) => type.wanted > 0);
+        const next = {};
+        if (types.length === 0 || slots.length === 0) return next;
+
+        // At most six items and six types, so the best item -> type assignment
+        // is found by enumerating them all (7^6 candidates at worst).
+        const counts = new Array(types.length).fill(0);
+        // A type wants one item per level (a level I on every item as its
+        // total grows), so it never needs more items than it has levels.
+        const maxSlots = types.map((type) => Math.min(type.wanted, slots.length));
+        const assigned = new Array(slots.length).fill(-1);
+        let bestScore = null;
+        let bestAssigned = null;
+
+        const score = () => {
+            let minShare = Infinity;
+            let total = 0;
+            let spread = Infinity;
+            let retained = 0;
+            let earliest = 0;
+            for (let i = 0; i < types.length; i++) {
+                const placed = Math.min(types[i].wanted, counts[i] * BASIC_INFUSION_MAX_LEVEL);
+                minShare = Math.min(minShare, placed / types[i].wanted);
+                total += placed;
+                spread = Math.min(spread, counts[i]);
+            }
+            for (let i = 0; i < slots.length; i++) {
+                if (assigned[i] < 0) continue;
+                // Earlier items weigh more, so untouched types keep their
+                // spread and new placements fill from the first item.
+                const weight = slots.length - i;
+                earliest += weight;
+                if (picks[slots[i]]?.name === types[assigned[i]].name) retained += weight;
+            }
+            return [minShare, total, spread, retained, earliest];
+        };
+
+        const better = (candidate, current) => {
+            if (!current) return true;
+            for (let i = 0; i < candidate.length; i++) {
+                if (candidate[i] > current[i] + 1e-9) return true;
+                if (candidate[i] < current[i] - 1e-9) return false;
+            }
+            return false;
+        };
+
+        const walk = (index) => {
+            if (index === slots.length) {
+                const candidate = score();
+                if (better(candidate, bestScore)) {
+                    bestScore = candidate;
+                    bestAssigned = [...assigned];
+                }
                 return;
             }
-            const level = base + (index < remainder ? 1 : 0);
-            next[slot] = { name, level };
-            placed += level;
+            // Slots may stay unused when no type wants what they would add.
+            for (let type = -1; type < types.length; type++) {
+                if (type >= 0 && counts[type] >= maxSlots[type]) continue;
+                assigned[index] = type;
+                if (type >= 0) counts[type]++;
+                walk(index + 1);
+                if (type >= 0) counts[type]--;
+            }
+            assigned[index] = -1;
+        };
+        walk(0);
+
+        const slotsByType = types.map(() => []);
+        bestAssigned.forEach((type, index) => {
+            if (type >= 0) slotsByType[type].push(slots[index]);
         });
-        return { infusions: next, placed };
+        types.forEach((type, index) => {
+            const typeSlots = slotsByType[index];
+            const placed = Math.min(type.wanted, typeSlots.length * BASIC_INFUSION_MAX_LEVEL);
+            if (typeSlots.length === 0 || placed === 0) return;
+            // Items the type already carries come first, so rebalances move as
+            // few picks as possible.
+            typeSlots.sort((a, b) => (picks[b]?.name === type.name ? 1 : 0) - (picks[a]?.name === type.name ? 1 : 0));
+            // One level per item first, then a second level each, and so on:
+            // raising the total fills the next item instead of stacking.
+            const base = Math.floor(placed / typeSlots.length);
+            const remainder = placed - base * typeSlots.length;
+            typeSlots.forEach((slot, slotIndex) => {
+                next[slot] = { name: type.name, level: base + (slotIndex < remainder ? 1 : 0) };
+            });
+        });
+        return next;
     }
 
     // "Both" and "Number total" modes: the number box is the per-type total.
-    // Editing it places that many levels on the items (see
-    // placeInfusionLevels) and the box shows the placed sum, so the stats
-    // never include a level no item carries. A value the items cannot hold is
-    // clamped, so impossible combos - e.g. five levels of all six infusions -
-    // cannot be entered. Editing a picker updates the boxes the other way.
+    // Editing it re-shares the items between every type that has levels (see
+    // resolveBasicInfusions), so impossible combos cannot be entered - five
+    // levels of all six infusions end at level IV each on six items - and the
+    // box shows the placed sum, never a level no item carries. Editing a
+    // picker updates the boxes the other way.
     function changeSyncedInfusion(key, raw) {
         const wanted = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(raw) || 0)));
-        const { infusions } = placeInfusionLevels(basicInfusions, key, wanted, stats.itemNames);
-        commitInfusionChange(infusions);
+        const wantedByKey = basicInfusionTotals(basicInfusions);
+        wantedByKey[key] = wanted;
+        commitInfusionChange(resolveBasicInfusions(wantedByKey, stats.itemNames, basicInfusions));
     }
 
     // Sum the infusion levels per type across all slots (the wiki allows one
@@ -1509,11 +1584,14 @@ export default function BuildForm({
     }
 
     // Per-type sums of the per-slot basic infusion levels: what the stat
-    // calculation and the saved token consume.
+    // calculation and the saved token consume. Every infusion gets an entry
+    // (Acumen included) so rebalances never drop a type.
     function basicInfusionTotals(infusions = basicInfusions) {
-        const totals = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
+        const totals = {};
+        for (const infusion of BASIC_INFUSIONS) totals[infusion.name.toLowerCase()] = 0;
         for (const { name, level } of Object.values(infusions)) {
-            if (totals[name.toLowerCase()] !== undefined) totals[name.toLowerCase()] += level;
+            const key = name.toLowerCase();
+            if (totals[key] !== undefined) totals[key] += level;
         }
         return totals;
     }
@@ -1524,7 +1602,9 @@ export default function BuildForm({
     function commitInfusionChange(nextInfusions) {
         setBasicInfusions(nextInfusions);
         const totals = basicInfusionTotals(nextInfusions);
-        setStatInputs((prev) => ({ ...prev, ...totals }));
+        const statTotals = {};
+        for (const key of BASIC_INFUSION_STAT_KEYS) statTotals[key] = totals[key] || 0;
+        setStatInputs((prev) => ({ ...prev, ...statTotals }));
         // FormData is stale right after a change, so inject the fresh values
         // manually (same pattern as delveChanged) and recalculate.
         const itemNames = Object.fromEntries(Array.from(new FormData(formRef.current).entries()));
@@ -1540,9 +1620,11 @@ export default function BuildForm({
     // applies per item, so the stat calculation needs the counts (two items
     // with Vitality II are 2 x (0.2 * level) extra levels, not one).
     function basicInfusionCounts(infusions) {
-        const counts = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
+        const counts = {};
+        for (const infusion of BASIC_INFUSIONS) counts[infusion.name.toLowerCase()] = 0;
         for (const { name } of Object.values(infusions)) {
-            if (counts[name.toLowerCase()] !== undefined) counts[name.toLowerCase()] += 1;
+            const key = name.toLowerCase();
+            if (counts[key] !== undefined) counts[key] += 1;
         }
         return counts;
     }
@@ -2457,13 +2539,18 @@ export default function BuildForm({
             effSavedState && effSavedState.globalInfusions && typeof effSavedState.globalInfusions === 'object'
                 ? effSavedState.globalInfusions
                 : null;
+        const wantedBasic = basicInfusionTotals(loadedBasic);
         for (const key of BASIC_INFUSION_STAT_KEYS) {
             // A saved state without the field predates the global boxes, so
             // its token totals were the per-slot sums (nothing extra to place).
             const source = storedGlobals ? storedGlobals[key] : effSavedState ? 0 : statValues[key];
             const value = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(source) || 0)));
-            if (value > 0) loadedBasic = placeInfusionLevels(loadedBasic, key, value, itemNames).infusions;
+            if (value > 0) wantedBasic[key] = value;
         }
+        // Legacy total-only sources can have levels no item carried; the
+        // resolver shares the items between every type (and drops what cannot
+        // fit), so nothing raises the stats unseen.
+        loadedBasic = resolveBasicInfusions(wantedBasic, itemNames, loadedBasic);
         // The build carries basic infusions: open the section, and apply them
         // even if the toggle happened to be off before the load.
         const hasBasicInfusions = Object.keys(loadedBasic).length > 0;
@@ -2471,7 +2558,10 @@ export default function BuildForm({
             setBasicInfusions(loadedBasic);
             setBasicOpen(true);
         }
-        setStatInputs((prev) => ({ ...prev, ...basicInfusionTotals(loadedBasic) }));
+        const loadedTotals = basicInfusionTotals(loadedBasic);
+        const loadedStatInputs = {};
+        for (const key of BASIC_INFUSION_STAT_KEYS) loadedStatInputs[key] = loadedTotals[key] || 0;
+        setStatInputs((prev) => ({ ...prev, ...loadedStatInputs }));
 
         // A build renamed on the "My Builds" page stores its display name in
         // the DB; surface it in the header so re-saving keeps the new name.
@@ -3508,14 +3598,15 @@ export default function BuildForm({
                     healthFinal={itemsToDisplay.healthFinal}
                 />
                 {/* Normal infusion number boxes: one per infusion type, each
-                    showing the levels the items carry. Editing one spreads the
-                    value over the items (see changeSyncedInfusion) and clamps
-                    to what they can hold. Hidden while the Infusions toggle is
-                    off, like the picks themselves, and when Settings ->
-                    Infusion inputs is set to per-item. */}
+                    showing the levels the items carry. Editing one re-shares
+                    the items across every type that has levels (see
+                    changeSyncedInfusion), so a total the items cannot hold
+                    settles lower instead of raising the stats. Hidden while
+                    the Infusions toggle is off, like the picks themselves, and
+                    when Settings -> Infusion inputs is set to per-item. */}
                 {basicOpen && infusionInputMode !== 'item' && (
                     <div className="d-flex flex-wrap justify-content-center align-items-start">
-                        {BASIC_INFUSION_STAT_KEYS.map((key) => (
+                        {BASIC_INFUSION_BOX_KEYS.map((key) => (
                             <div className="text-center mx-2" key={key}>
                                 <p className="mb-1" style={{ textTransform: 'capitalize' }}>
                                     {key}

@@ -42,7 +42,6 @@
     border: 2px solid var(--glass-border, #444);
     box-shadow: var(--shadow-elevated);
     backdrop-filter: blur(10px);
-    overflow: hidden;
 }
 
 .groupHeader {
@@ -190,8 +189,10 @@
 }
 
 /* Unchanged stats in a full item stat listing: shown so the item's whole
-   stat block is readable, de-emphasised against the changed lines. */
-.sameLine {
+   stat block is readable, de-emphasised against the changed lines. The fade
+   sits on the text wrapper, not the line, so the stat's tooltip stays solid
+   (an ancestor opacity would fade the tooltip with it). */
+.sameLineText {
     opacity: 0.7;
 }
 
