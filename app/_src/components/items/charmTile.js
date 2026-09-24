@@ -1,6 +1,7 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
 import ItemHistoryPanel from './itemHistoryPanel';
+import TileAuthor from './tileAuthor';
 import LoreText from './loreText';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -236,6 +237,7 @@ function CharmTile(data) {
                 </>
             )}
             <ItemHistoryPanel records={data.history} currentItem={item} />
+            {data.authorName ? <TileAuthor name={data.authorName} avatar={data.authorAvatar} /> : null}
         </div>
     );
 }

@@ -462,7 +462,7 @@
 }
 
 .baseStats {
-    color: #00AA00;
+    color: #00aa00;
 }
 
 .positiveDefence {
@@ -513,7 +513,7 @@
 
 .curses,
 .negativeStat {
-    color: #FF5555;
+    color: #ff5555;
 }
 
 .enchantTooltip {
@@ -546,6 +546,33 @@
 
 .enchantTooltip:hover .enchantTooltipText {
     opacity: 1;
+}
+
+/* Author row on custom items database tiles: the regular item tiles are
+   authorless, so it only renders when the item carries one. margin-top: auto
+   keeps it pinned to the bottom of the flex-column tile. */
+.tileAuthor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 8px;
+    color: var(--text-2);
+    font-size: 0.85em;
+    min-width: 0;
+}
+
+.tileAuthorAvatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tileAuthorName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .white {

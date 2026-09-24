@@ -2,6 +2,7 @@ import styles from '../../styles/Items.module.css';
 import Enchants from './enchants';
 import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
+import TileAuthor from './tileAuthor';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -159,6 +160,7 @@ function ConsumableTile(data) {
                 </>
             )}
             <ItemHistoryPanel records={data.history} currentItem={item} />
+            {data.authorName ? <TileAuthor name={data.authorName} avatar={data.authorAvatar} /> : null}
         </div>
     );
 }

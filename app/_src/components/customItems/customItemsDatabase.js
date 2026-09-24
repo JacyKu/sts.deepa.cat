@@ -263,12 +263,41 @@ export default function CustomItemsDatabase() {
                                 isCustomItem: true,
                             };
                             let tile = null;
+                            // The tile components are normally authorless
+                            // (items page); the custom items database passes
+                            // the author so the card shows who made it.
+                            const authorName = item.authorName || null;
+                            const authorAvatar = item.authorAvatar || null;
                             if (item.type === 'Charm') {
-                                tile = <CharmTile key={item.id} name={item.name} item={tileItem}></CharmTile>;
+                                tile = (
+                                    <CharmTile
+                                        key={item.id}
+                                        name={item.name}
+                                        item={tileItem}
+                                        authorName={authorName}
+                                        authorAvatar={authorAvatar}
+                                    ></CharmTile>
+                                );
                             } else if (item.type === 'Consumable' && tileItem.effects) {
-                                tile = <ConsumableTile key={item.id} name={item.name} item={tileItem}></ConsumableTile>;
+                                tile = (
+                                    <ConsumableTile
+                                        key={item.id}
+                                        name={item.name}
+                                        item={tileItem}
+                                        authorName={authorName}
+                                        authorAvatar={authorAvatar}
+                                    ></ConsumableTile>
+                                );
                             } else {
-                                tile = <ItemTile key={item.id} name={item.name} item={tileItem}></ItemTile>;
+                                tile = (
+                                    <ItemTile
+                                        key={item.id}
+                                        name={item.name}
+                                        item={tileItem}
+                                        authorName={authorName}
+                                        authorAvatar={authorAvatar}
+                                    ></ItemTile>
+                                );
                             }
                             // The whole card is the link to the share view.
                             // The tile renders its own name anchor (wiki), so
