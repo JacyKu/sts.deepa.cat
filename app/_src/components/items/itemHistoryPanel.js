@@ -47,9 +47,11 @@ export default function ItemHistoryPanel({ records, currentItem }) {
     const [open, setOpen] = React.useState(false);
     if (!historyEnabled || !records || records.length === 0) return null;
 
-    // Records are newest-first in the file; render oldest-first so the newest
-    // state sits at the bottom (right above "current stats").
-    const sorted = [...records].sort((a, b) => String(a.at).localeCompare(String(b.at)));
+    // Records are newest-first in the file; keep that order so the most
+    // recent change is the first entry, with the current state marked above
+    // the list. Each row still diffs its archived state against the next newer
+    // state (or the current item).
+    const sorted = [...records].sort((a, b) => String(b.at).localeCompare(String(a.at)));
     const changeCount = sorted.length;
     const lastAt = records[0].at;
 
@@ -71,13 +73,13 @@ export default function ItemHistoryPanel({ records, currentItem }) {
             </button>
             {open && (
                 <div className={styles.timeline}>
-                    {sorted.map((record, i) => {
-                        const newerState = i < sorted.length - 1 ? sorted[i + 1].item : currentItem;
-                        return <VersionRow key={record.at + '-' + i} record={record} afterItem={newerState} />;
-                    })}
                     <div className={styles.currentRow}>
                         <span className={styles.currentBadge}>{t('items.history.currentStats')}</span>
                     </div>
+                    {sorted.map((record, i) => {
+                        const newerState = i === 0 ? currentItem : sorted[i - 1].item;
+                        return <VersionRow key={record.at + '-' + i} record={record} afterItem={newerState} />;
+                    })}
                 </div>
             )}
         </div>
