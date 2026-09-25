@@ -41,8 +41,15 @@ export async function POST(request, { params }) {
 }
 
 export async function DELETE(_request, { params }) {
-    const { error } = await requireModerator();
+    const { user: moderator, error } = await requireModerator();
     if (error) return error;
     const { id } = await params;
+    // A moderator who is sanctioned cannot reach this handler (requireModerator
+    // refuses sanctioned accounts), but block self-lift explicitly so the rule
+    // survives any future change to that guard: only a different moderator may
+    // lift your sanction.
+    if (id === moderator.id) {
+        return NextResponse.json({ error: 'cannot lift your own sanction' }, { status: 400 });
+    }
     return NextResponse.json({ ok: liftSanction(id) });
 }

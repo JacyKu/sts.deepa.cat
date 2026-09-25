@@ -21,14 +21,36 @@ function duplicateName(base, attempt) {
 // copy with the viewer's account.
 export default function CustomItemView({ item, isOwner, loggedIn }) {
     const t = useTranslation();
-    const [base, setBase] = React.useState('/sts');
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
+    const base = getStsBase();
 
     // null = idle | 'saving' | 'copied' | 'error'
     const [copyState, setCopyState] = React.useState(null);
     const copyBusyRef = React.useRef(false);
+    // Owner visibility switch: public items are open to everyone, private
+    // items are only visible here (to their owner).
+    const [isPublic, setIsPublic] = React.useState(item ? item.isPublic !== false : true);
+    const [publicBusy, setPublicBusy] = React.useState(false);
+    const [visibilityError, setVisibilityError] = React.useState(false);
+
+    async function togglePublic() {
+        if (publicBusy) return;
+        setPublicBusy(true);
+        setVisibilityError(false);
+        try {
+            const response = await fetch(`${base}/api/v2/custom-items/${item.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isPublic: !isPublic }),
+            });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const data = await response.json();
+            setIsPublic(data && data.item ? Boolean(data.item.isPublic) : !isPublic);
+        } catch (e) {
+            setVisibilityError(true);
+        } finally {
+            setPublicBusy(false);
+        }
+    }
 
     if (!item) {
         return (
@@ -97,18 +119,31 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                     </p>
                 )}
                 <CustomItemCard
-                    item={item}
+                    item={{ ...item, isPublic }}
                     authorFallback={t('customItems.card.aPlayer')}
                     heart={
-                        <CustomItemHeart
-                            itemId={item.id}
-                            favourite={item.myFavourite}
-                            count={item.favouriteCount}
-                            user={loggedIn ? true : null}
-                        />
+                        isPublic ? (
+                            <CustomItemHeart
+                                itemId={item.id}
+                                favourite={item.myFavourite}
+                                count={item.favouriteCount}
+                                user={loggedIn ? true : null}
+                            />
+                        ) : null
                     }
                     actions={
                         <div className={styles.cardActions}>
+                            {isOwner && (
+                                <button
+                                    type="button"
+                                    className={`${styles.rowBtn}${isPublic ? ` ${styles.rowBtnPublic}` : ''}`}
+                                    onClick={togglePublic}
+                                    disabled={publicBusy}
+                                    title={isPublic ? t('database.unpublish') : t('database.publicise')}
+                                >
+                                    {isPublic ? t('database.publicBadge') : t('database.publicise')}
+                                </button>
+                            )}
                             {!loggedIn ? (
                                 <a
                                     className={styles.rowBtn}
@@ -148,6 +183,7 @@ export default function CustomItemView({ item, isOwner, loggedIn }) {
                     }
                 />
                 {copyState === 'error' && <p className={styles.errorText}>{t('customItems.view.copyError')}</p>}
+                {visibilityError && <p className={styles.errorText}>{t('customItems.visibilityError')}</p>}
             </main>
         </div>
     );

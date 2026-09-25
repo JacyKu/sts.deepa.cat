@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Select from 'react-select';
+import { WindowedMenuList } from '../items/selectInput';
 import sf from '../../styles/SearchForm.module.css';
 import styles from '../../styles/Database.module.css';
 
@@ -159,6 +160,7 @@ export function FilterRow({
                         menuPosition="fixed"
                         theme={selectTheme}
                         styles={selectStyles}
+                        components={{ MenuList: WindowedMenuList }}
                     />
                     <div className={sf.selectorSelect}>
                         {cat && cat.type === 'select' && (
@@ -171,6 +173,7 @@ export function FilterRow({
                                 menuPosition="fixed"
                                 theme={selectTheme}
                                 styles={selectStyles}
+                                components={{ MenuList: WindowedMenuList }}
                             />
                         )}
                         {cat && cat.type === 'cascade' && (
@@ -183,6 +186,7 @@ export function FilterRow({
                                 menuPosition="fixed"
                                 theme={selectTheme}
                                 styles={selectStyles}
+                                components={{ MenuList: WindowedMenuList }}
                             />
                         )}
                         {cat && cat.type === 'text' && (
@@ -215,9 +219,11 @@ export function FilterRow({
                         menuPosition="fixed"
                         theme={selectTheme}
                         styles={selectStyles}
+                        components={{ MenuList: WindowedMenuList }}
                     />
                 </div>
             )}
         </>
     );
 }
+

@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
 import { headers } from 'next/headers';
-import { getItemData, getSkillsData } from '../../_src/utils/itemsData';
+import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../../_src/utils/buildPreview';
-import { mergeReferencedCustomItems } from '../../../lib/sts-builds';
+import { referencedCustomItemExtras } from '../../../lib/sts-builds';
 import { getBuildItemHashes } from '../../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
-import BuilderPage from '../../_src/components/builderPage';
+import { BuilderDataView } from '../../_src/components/siteDataViews';
 import BuilderSkeleton from '../../_src/components/builderSkeleton';
 
 const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
@@ -71,8 +71,21 @@ export default async function Page({ params }) {
 }
 
 async function BuilderView({ build }) {
-    const itemData = await getItemData();
     const user = await getDiscordUser();
     const hashes = getBuildItemHashes(build);
-    return <BuilderPage build={build} itemData={mergeReferencedCustomItems(itemData, user ? user.id : null, hashes)} />;
+    const [itemsVersion, skillsVersion, czVersion, extraItems] = await Promise.all([
+        getItemDataVersion(),
+        getSkillsVersion(),
+        getCzVersion(),
+        getItemData().then((itemData) => referencedCustomItemExtras(itemData, user ? user.id : null, hashes)),
+    ]);
+    return (
+        <BuilderDataView
+            build={build}
+            itemsVersion={itemsVersion}
+            skillsVersion={skillsVersion}
+            czVersion={czVersion}
+            extraItems={extraItems}
+        />
+    );
 }

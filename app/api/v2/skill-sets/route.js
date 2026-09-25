@@ -3,6 +3,7 @@ import { listSkillSetsByUser, saveSkillSet, SKILL_SET_KINDS, SKILL_SET_NAME_MAX 
 import { getDiscordUser } from '../../../../lib/session';
 import { sanctionBlock } from '../../../../lib/moderation';
 import { bodyTooLarge, tooLargeJson } from '../../../../lib/request-guards';
+import { limitRequest } from '../../../../lib/rate-limit';
 
 // Saved skill/delve sets are personal - Discord sign-in required (matches
 // the builds API). GET lists the caller's sets; POST creates one (reusing
@@ -37,6 +38,15 @@ export async function POST(request) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    const limited = limitRequest({
+        request,
+        user,
+        bucket: 'skill-set-save',
+        limit: 30,
+        windowMs: 60 * 1000,
+        hint: 'Too many set saves, slow down.',
+    });
+    if (limited) return limited;
     if (bodyTooLarge(request)) return tooLargeJson();
     let body;
     try {

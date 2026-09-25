@@ -4,65 +4,22 @@ import styles from '../../styles/SearchForm.module.css';
 import { useLanguageContext } from '../../components/languageContext';
 import SupportedLanguages from '../../utils/translation/languages';
 
+// One filter row of the items search form: the category dropdown plus the
+// value control it spawns. Fully controlled from the search form's state
+// (like the database's FilterRow), so resetting a row is a plain state change
+// instead of remounting selects or poking at the DOM.
 const SelectWithTriggers = (props) => {
-    const [firstChild, setFirstChild] = React.useState();
-    const [selectedCategory, setSelectedCategory] = React.useState();
     const { lang } = useLanguageContext();
-    const container = React.useRef();
-    const spawnedRef = React.useRef(false);
-    const opt = props.opts.map((o) => {
-        return {
-            value: o.name,
-            label: o.translatableName
+    const selected = props.selected || null;
+    const category = props.opts.find((o) => o.name === props.category) || null;
+    const options = props.opts.map((o) => ({
+        value: o.name,
+        label: o.translatableName
+            ? SupportedLanguages[lang][o.translatableName]
                 ? SupportedLanguages[lang][o.translatableName]
-                    ? SupportedLanguages[lang][o.translatableName]
-                    : o.name
-                : o.name,
-        };
-    });
-    const selectedDefault = props.defaultValue ? props.defaultValue : null;
-
-    function triggerSelection(event) {
-        let selectedValue = event.value;
-        setSelectedCategory(selectedValue);
-        let child = props.opts.find((o) => o.name == selectedValue).select(props.index);
-        setFirstChild(child);
-    }
-
-    // Rebuild the value select when an external dependency changes (e.g. the
-    // Charm Skill filter's options depend on the selected Charm Class), so
-    // the child re-renders with the fresh options. The current selection is
-    // carried over when it still exists.
-    React.useEffect(() => {
-        if (!selectedCategory) return;
-        if (!props.regenKey) return;
-        const category = props.opts.find((o) => o.name === selectedCategory);
-        if (!category) return;
-        let current = null;
-        const input = container.current?.querySelector('input');
-        if (input && input.name && input.value) {
-            const suffix = input.name.replace(`-${props.index}`, '');
-            if (suffix !== input.name) current = { [suffix]: input.value };
-        }
-        setFirstChild(category.select(props.index, current));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [props.regenKey]);
-
-    // Restored searches come in with the category + selected value already set:
-    // spawn the value select immediately (with its cached default) instead of
-    // waiting for the user to pick a category.
-    React.useEffect(() => {
-        if (spawnedRef.current) return;
-        spawnedRef.current = true;
-        if (!selectedDefault) return;
-        const category = props.opts.find((o) => o.name === selectedDefault.value);
-        if (!category) return;
-        setFirstChild(category.select(props.index, props.childDefault));
-    }, []);
-
-    const handleDeleteItem = React.useCallback(() => {
-        props.deleteCallback(props.index);
-    }, [props]);
+                : o.name
+            : o.name,
+    }));
 
     return (
         <div className={`${props.className || ''} ${styles.filterRow}`.trim()}>
@@ -72,9 +29,9 @@ const SelectWithTriggers = (props) => {
                     ref={props.reference}
                     instanceId={props.name}
                     name={props.name}
-                    defaultValue={selectedDefault}
-                    options={opt}
-                    onChange={triggerSelection}
+                    value={category ? { value: category.name, label: options.find((o) => o.value === category.name)?.label || category.name } : null}
+                    options={options}
+                    onChange={(option) => props.onCategoryChange(option ? option.value : null)}
                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                     menuPosition="fixed"
                     theme={(theme) => ({
@@ -103,8 +60,13 @@ const SelectWithTriggers = (props) => {
                     }}
                 />
 
-                <div ref={container} className={styles.selectorSelect}>
-                    {firstChild}
+                <div className={styles.selectorSelect}>
+                    {category &&
+                        category.select({
+                            uniqueKey: props.index,
+                            selected,
+                            onValueChange: props.onValueChange,
+                        })}
                 </div>
             </div>
 
@@ -112,7 +74,8 @@ const SelectWithTriggers = (props) => {
                 className={`${styles.deleteButton} ${styles.filterDelete}`}
                 type="button"
                 value="X"
-                onClick={handleDeleteItem}
+                onClick={() => props.deleteCallback(props.index)}
+                aria-label="Remove filter"
             />
         </div>
     );

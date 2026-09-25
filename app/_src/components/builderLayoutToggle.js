@@ -1,5 +1,4 @@
 import React from 'react';
-import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { useBuilderLayout } from './builderLayoutContext';
 import { useTranslation } from './useTranslation';
@@ -13,7 +12,7 @@ export default function BuilderLayoutToggle({ className } = {}) {
     const { newLayout, toggle } = useBuilderLayout();
     const t = useTranslation();
     return (
-        <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
+        <label className={className || ''}>
             <input
                 type="checkbox"
                 checked={newLayout}

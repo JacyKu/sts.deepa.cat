@@ -3,11 +3,13 @@ import {
     getLinkByUuid,
     getBuild,
     saveBuild,
+    updateBuildState,
     BUILD_NAME_MAX,
     countRecentModSaves,
     countRecentBuilds,
     countRecentCustomItems,
     findBuildByState,
+    findEquivalentBuild,
     uniqueBuildName,
     mergeReferencedCustomItems,
     getStsUserProfile,
@@ -15,11 +17,8 @@ import {
     verifyModToken,
 } from '../../../../../lib/sts-builds';
 import { createUploadedCustomItems, findUnknownItemNames } from '../../../../../lib/item-uploads';
-import {
-    decodeBuildParam,
-    getBuildTokenVersion,
-    getBuildItemHashes,
-} from '../../../../_src/utils/builder/buildUrlCodec';
+import { getBuildTokenVersion, getBuildItemHashes } from '../../../../_src/utils/builder/buildUrlCodec';
+import { sanitizeBuildTokenForStorage } from '../../../../_src/utils/builder/buildTokenGuard';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { computeBuildSummary } from '../../../../../lib/public-builds';
 import { getMinecraftProfile } from '../../../../../lib/minecraft-profile';
@@ -69,15 +68,21 @@ export async function POST(request) {
         if (blocked) return blocked;
     }
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
-    // Decode must produce a real build querystring: the codec passes unknown
-    // strings through as "legacy" best effort, which would let junk through.
-    const decoded = decodeBuildParam(token, itemData);
-    if (!decoded || typeof decoded !== 'string' || !decoded.includes('&') || !decoded.includes('m=')) {
+    // Decode with the mod author's existing custom items merged in, so a token
+    // referencing them survives validation intact.
+    const tokenData = mergeReferencedCustomItems(itemData, link ? link.discord_id : null, getBuildItemHashes(token));
+    // The codec passes unknown strings through as "legacy" best effort, which
+    // would let junk through: validate/drop unknown items, charms, classes,
+    // skills and out-of-range stats before the token is stored. Binary tokens
+    // (all the mod sends) are kept only when they are already clean.
+    const sanitized = sanitizeBuildTokenForStorage(token, tokenData, skillsData);
+    if (!sanitized.ok) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
     }
+    const storedToken = sanitized.token;
 
     const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim().slice(0, BUILD_NAME_MAX) : null;
-    const tokenVersion = getBuildTokenVersion(token) ?? '';
+    const tokenVersion = getBuildTokenVersion(storedToken);
 
     // Delve infusion preferences picked in the armoury ("Preferred Delve
     // Infusion" on each equipment icon). Only known slot names with short
@@ -96,7 +101,28 @@ export async function POST(request) {
     const infusions = sanitizeInfusions(body?.infusions);
     const basicInfusions = body?.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {};
 
-    if (link) {
+    const ownerId = link ? link.discord_id : null;
+    // If this loadout was already saved (from the site or an earlier export),
+    // reuse that build instead of creating a near-duplicate: the mod can't
+    // send site-only state (Revelation, global infusion levels) and its token
+    // stats differ, so the exact-state match below is not enough on its own.
+    const existingRow = findEquivalentBuild(ownerId, storedToken, name, itemData);
+    const existingState = existingRow?.parsedState || null;
+    const state = {
+        token: storedToken,
+        infusions,
+        // Site-only settings the mod doesn't send ride along on a re-export.
+        revelation: existingState ? Boolean(existingState.revelation) : false,
+        basicInfusions,
+        globalInfusions:
+            existingState && existingState.globalInfusions && typeof existingState.globalInfusions === 'object'
+                ? existingState.globalInfusions
+                : {},
+    };
+    // Exact-state fallback for a token that can't be fingerprinted.
+    const existingId = existingRow ? existingRow.id : findBuildByState(ownerId, state);
+
+    if (link && !existingId) {
         // Linked: save to the Discord account, private.
         const used = countRecentModSaves(link.discord_id, SAVE_BUDGET.minutes);
         if (used >= SAVE_BUDGET.per) {
@@ -107,23 +133,25 @@ export async function POST(request) {
     // Daily upload limit: linked accounts are counted from the database (site
     // and mod saves share the budget); unlinked UUIDs are counted in memory.
     const limits = readRateLimits();
-    if (link) {
-        if (limits.buildsPerDay > 0 && countRecentBuilds(link.discord_id) >= limits.buildsPerDay) {
-            return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
-        }
-    } else {
-        // Keyed on the caller's IP, not the body UUID: the UUID is
-        // client-supplied, so rotating it must not refresh the daily budget.
-        const quota = consumeRateLimit(
-            `anon-mod-build:${getClientIp(request)}`,
-            limits.anonymousBuildsPerDay,
-            dayWindowMs()
-        );
-        if (!quota.allowed) {
-            return rateLimitResponse({
-                resetAt: quota.resetAt,
-                hint: 'Daily build limit reached. Try again tomorrow.',
-            });
+    if (!existingId) {
+        if (link) {
+            if (limits.buildsPerDay > 0 && countRecentBuilds(link.discord_id) >= limits.buildsPerDay) {
+                return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
+            }
+        } else {
+            // Keyed on the caller's IP, not the body UUID: the UUID is
+            // client-supplied, so rotating it must not refresh the daily budget.
+            const quota = consumeRateLimit(
+                `anon-mod-build:${getClientIp(request)}`,
+                limits.anonymousBuildsPerDay,
+                dayWindowMs()
+            );
+            if (!quota.allowed) {
+                return rateLimitResponse({
+                    resetAt: quota.resetAt,
+                    hint: 'Daily build limit reached. Try again tomorrow.',
+                });
+            }
         }
     }
 
@@ -167,44 +195,45 @@ export async function POST(request) {
     // build references so the saved summary keeps them (otherwise they are
     // dropped from items_json and never show on build cards).
     const summaryData = link
-        ? mergeReferencedCustomItems(itemData, link.discord_id, getBuildItemHashes(token))
+        ? mergeReferencedCustomItems(itemData, link.discord_id, getBuildItemHashes(storedToken))
         : itemData;
-    const summary = computeBuildSummary(token, summaryData, skillsData);
+    const summary = computeBuildSummary(storedToken, summaryData, skillsData);
 
-    // Build names are unique per account (linked or not): re-saving the
-    // identical build keeps its own name, while a different build whose name
-    // the account already uses gets " (2)", " (3)", ... appended - the mod
-    // path behaves exactly like the site. Other accounts may share a name.
-    const ownerId = link ? link.discord_id : null;
-    const sameStateId = name
-        ? findBuildByState(ownerId, {
-              token,
-              infusions,
-              revelation: false,
-              basicInfusions,
-          })
-        : null;
-    const buildName = name ? uniqueBuildName(ownerId, name, sameStateId) : null;
+    // Build names are unique per account (linked or not): a re-export keeps
+    // the build's existing name, while a new build whose name the account
+    // already uses gets " (2)", " (3)", ... appended - the mod path behaves
+    // exactly like the site. Other accounts may share a name.
+    const buildName = existingRow
+        ? existingRow.name || (name ? uniqueBuildName(ownerId, name, existingRow.id) : null)
+        : name
+          ? uniqueBuildName(ownerId, name, existingId)
+          : null;
     let result;
-    try {
-        result = saveBuild({
-            state: {
-                token,
-                infusions,
-                revelation: false,
-                basicInfusions,
-            },
-            userId: ownerId,
-            name: buildName,
-            notes: null,
-            summary,
-            source: 'mod',
+    if (existingRow) {
+        // Same build, same link: refresh the stored state (and the public
+        // filter columns when the row is public) instead of inserting a copy.
+        const updated = updateBuildState(existingRow.id, ownerId, null, {
+            state,
+            name: buildName || undefined,
+            summary: existingRow.is_public === 1 ? summary : undefined,
         });
-    } catch (error) {
-        if (isDuplicateNameError(error)) {
-            return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+        result = updated ? { id: existingRow.id, isNew: false } : null;
+    } else {
+        try {
+            result = saveBuild({
+                state,
+                userId: ownerId,
+                name: buildName,
+                notes: null,
+                summary,
+                source: 'mod',
+            });
+        } catch (error) {
+            if (isDuplicateNameError(error)) {
+                return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+            }
+            throw error;
         }
-        throw error;
     }
     if (!result) {
         return NextResponse.json({ error: 'invalid build' }, { status: 400 });
@@ -220,7 +249,7 @@ export async function POST(request) {
         name: buildName,
         // The build's revision (?v=) for the link the mod shows back.
         version: savedRow ? savedRow.revision || 1 : null,
-        url: `/b/v${tokenVersion}/${result.id}`,
+        url: tokenVersion ? `/b/v${tokenVersion}/${result.id}` : `/b/${result.id}`,
         createdItems,
     });
 }

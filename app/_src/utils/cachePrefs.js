@@ -8,6 +8,9 @@ const BUILDS_FLAG_KEY = 'sts.cacheBuilds';
 const CUSTOM_ITEMS_FLAG_KEY = 'sts.cacheCustomItems';
 
 export const SEARCH_CACHE_DATA_KEY = 'sts.itemsSearch.v1';
+export const DATABASE_FILTERS_CACHE_KEY = 'sts.databaseFilters.v1';
+export const BUILDS_FILTERS_CACHE_KEY = 'sts.buildsFilters.v1';
+export const FAVOURITES_SEARCH_CACHE_KEY = 'sts.favouritesSearch.v1';
 export const DRAFT_DATA_KEY = 'sts.buildDraft.v1';
 export const ORDER_PREFIX = 'sts.order.';
 export const CUSTOM_ITEMS_CACHE_KEY = 'sts.customItems.v1';
@@ -29,7 +32,12 @@ export const isCustomItemsCacheEnabled = () => getFlag(CUSTOM_ITEMS_FLAG_KEY);
 export function setSearchCacheEnabled(enabled) {
     try {
         window.localStorage.setItem(SEARCH_FLAG_KEY, String(enabled));
-        if (!enabled) window.localStorage.removeItem(SEARCH_CACHE_DATA_KEY);
+        if (!enabled) {
+            window.localStorage.removeItem(SEARCH_CACHE_DATA_KEY);
+            window.localStorage.removeItem(DATABASE_FILTERS_CACHE_KEY);
+            window.localStorage.removeItem(BUILDS_FILTERS_CACHE_KEY);
+            window.localStorage.removeItem(FAVOURITES_SEARCH_CACHE_KEY);
+        }
     } catch (e) {
         // storage unavailable; nothing to do
     }

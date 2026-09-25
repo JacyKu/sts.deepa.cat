@@ -12,10 +12,11 @@ import { numericValue } from '../../utils/items/itemDiff';
 export default function DiffLine({ line }) {
     if (line.kind === 'same') {
         return (
-            <div className={`${styles.diffLine} ${styles.sameLine}`}>
+            <div className={styles.diffLine}>
                 <TranslatableEnchant
                     title={line.name}
                     className={itemsStyles[line.fresh.style]}
+                    contentClassName={styles.sameLineText}
                     style={line.fresh.color ? { color: line.fresh.color } : undefined}
                 >
                     {`${line.fresh.label} ${line.fresh.valueText}`.trim()}
@@ -65,11 +66,13 @@ export default function DiffLine({ line }) {
         return (
             <div className={styles.diffLine}>
                 <span
-                    className={`${itemsStyles[line.old.style]} ${styles.oldValue}`}
+                    className={itemsStyles[line.old.style]}
                     style={line.old.color ? { color: line.old.color } : undefined}
                 >
-                    <TranslatableEnchant title={line.name}>{line.old.label}</TranslatableEnchant>{' '}
-                    {line.old.valueText}
+                    <TranslatableEnchant title={line.name} contentClassName={styles.oldValue}>
+                        {line.old.label}
+                    </TranslatableEnchant>{' '}
+                    <span className={styles.oldValue}>{line.old.valueText}</span>
                 </span>
                 <span className={styles.arrow} aria-hidden="true">
                     →

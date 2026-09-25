@@ -30,7 +30,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function CustomItemsDatabase() {
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [rows, setRows] = React.useState([{ key: 0, category: null, value: null }]);
     const [searchName, setSearchName] = React.useState('');
     const [sort, setSort] = React.useState('top');
@@ -68,10 +68,6 @@ export default function CustomItemsDatabase() {
         () => SORT_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) })),
         [t]
     );
-
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
 
     // Debounced refetch when filters change (same as the builds database).
     React.useEffect(() => {
@@ -267,12 +263,41 @@ export default function CustomItemsDatabase() {
                                 isCustomItem: true,
                             };
                             let tile = null;
+                            // The tile components are normally authorless
+                            // (items page); the custom items database passes
+                            // the author so the card shows who made it.
+                            const authorName = item.authorName || null;
+                            const authorAvatar = item.authorAvatar || null;
                             if (item.type === 'Charm') {
-                                tile = <CharmTile key={item.id} name={item.name} item={tileItem}></CharmTile>;
+                                tile = (
+                                    <CharmTile
+                                        key={item.id}
+                                        name={item.name}
+                                        item={tileItem}
+                                        authorName={authorName}
+                                        authorAvatar={authorAvatar}
+                                    ></CharmTile>
+                                );
                             } else if (item.type === 'Consumable' && tileItem.effects) {
-                                tile = <ConsumableTile key={item.id} name={item.name} item={tileItem}></ConsumableTile>;
+                                tile = (
+                                    <ConsumableTile
+                                        key={item.id}
+                                        name={item.name}
+                                        item={tileItem}
+                                        authorName={authorName}
+                                        authorAvatar={authorAvatar}
+                                    ></ConsumableTile>
+                                );
                             } else {
-                                tile = <ItemTile key={item.id} name={item.name} item={tileItem}></ItemTile>;
+                                tile = (
+                                    <ItemTile
+                                        key={item.id}
+                                        name={item.name}
+                                        item={tileItem}
+                                        authorName={authorName}
+                                        authorAvatar={authorAvatar}
+                                    ></ItemTile>
+                                );
                             }
                             // The whole card is the link to the share view.
                             // The tile renders its own name anchor (wiki), so

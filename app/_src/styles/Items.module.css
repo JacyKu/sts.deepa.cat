@@ -462,7 +462,7 @@
 }
 
 .baseStats {
-    color: #00AA00;
+    color: #00aa00;
 }
 
 .positiveDefence {
@@ -513,7 +513,7 @@
 
 .curses,
 .negativeStat {
-    color: #FF5555;
+    color: #ff5555;
 }
 
 .enchantTooltip {
@@ -546,6 +546,33 @@
 
 .enchantTooltip:hover .enchantTooltipText {
     opacity: 1;
+}
+
+/* Author row on custom items database tiles: the regular item tiles are
+   authorless, so it only renders when the item carries one. margin-top: auto
+   keeps it pinned to the bottom of the flex-column tile. */
+.tileAuthor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 8px;
+    color: var(--text-2);
+    font-size: 0.85em;
+    min-width: 0;
+}
+
+.tileAuthorAvatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tileAuthorName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .white {
@@ -1301,8 +1328,6 @@
     height: 16px;
     margin: 0;
     cursor: pointer;
-    accent-color: #9c59d1;
-    border-radius: 0;
 }
 
 .skillEnhance:disabled {
@@ -2048,12 +2073,15 @@ div.builderStatCard {
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
+    /* Size the fill to the border box: the default padding-box origin leaves a
+       1px repeat sliver of the fill colour along the right edge. */
     background: linear-gradient(
         to right,
         var(--slider-color, var(--accent, #9c59d1)) 0%,
         var(--slider-color, var(--accent, #9c59d1)) var(--slider-pct, 50%),
         var(--glass-2) var(--slider-pct, 50%)
     );
+    background-origin: border-box;
     border: 1px solid var(--control-border);
 }
 
@@ -2130,6 +2158,37 @@ div.builderStatCard {
 
 .healthPercentInput::-webkit-outer-spin-button,
 .healthPercentInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Global normal infusion level boxes next to the health controls. */
+.infusionLevelInput {
+    width: 56px;
+    height: 24px;
+    padding: 0 4px;
+    text-align: center;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-1);
+    background: var(--glass-1);
+    border: 1px solid var(--control-border);
+    border-radius: 0;
+    -moz-appearance: textfield;
+}
+
+.infusionLevelInput:hover {
+    border-color: var(--control-border-hover);
+}
+
+.infusionLevelInput:focus {
+    outline: none;
+    border-color: var(--control-border-focus);
+    box-shadow: 0 0 0 1px var(--control-border-focus);
+}
+
+.infusionLevelInput::-webkit-outer-spin-button,
+.infusionLevelInput::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
@@ -2716,6 +2775,47 @@ div.builderStatCard {
     font-style: italic;
 }
 
+/* "My builds / Public database" source switch above the copy-from-builds
+   list (only rendered for signed-in users; signed-out visitors always see
+   the public database picker). */
+.setsSourceSwitch {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.setsSourceBtn {
+    flex: 1;
+    padding: 3px 8px;
+    border: 2px solid var(--control-border);
+    border-radius: 0;
+    background: var(--glass-1);
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+.setsSourceBtn:hover {
+    border-color: var(--accent-line, var(--control-border-hover));
+    color: var(--text-1);
+}
+
+.setsSourceBtnActive {
+    border-color: var(--accent-line, var(--control-border-hover));
+    background: var(--surface-2);
+    color: var(--text-1);
+    font-weight: 700;
+}
+
+/* The logged-out hint takes the width of the two hidden set columns. */
+.setsGroupWide {
+    grid-column: span 2;
+}
+
 /* Fixed-height scroll area for the "copy from your builds" list: filtering
    it must not resize the dialog (which would re-center it and make the modal
    jump while searching). */
@@ -2844,5 +2944,9 @@ div.builderStatCard {
     .setsColumns {
         grid-template-columns: 1fr;
         gap: 12px;
+    }
+
+    .setsGroupWide {
+        grid-column: auto;
     }
 }

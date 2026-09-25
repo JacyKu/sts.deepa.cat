@@ -1,7 +1,7 @@
 .container {
     width: 100%;
     max-width: 800px;
-    margin: 0 auto 20px;
+    margin: 20px auto;
     padding: 0 28px 24px;
     background: var(--glass-1);
     border: 1px solid var(--glass-border);

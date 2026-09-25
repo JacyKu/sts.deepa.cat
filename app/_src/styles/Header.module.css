@@ -43,6 +43,15 @@
     gap: 10px;
 }
 
+/* Invisible stand-in for the account chip while the session is loading: the
+   same 38x38 box the login icon and the signed-in avatar occupy, so the
+   header does not reflow when one of them appears. */
+.accountPlaceholder {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+}
+
 .accountBtn {
     display: inline-flex;
     align-items: center;

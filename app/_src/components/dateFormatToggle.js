@@ -1,34 +1,28 @@
 'use client';
 
-// "American date format": MM/DD/YYYY instead of the browser locale's format.
-// Off by default. Lives with the other localStorage-backed site toggles.
+// One date-format toggle. The two formats - American MM/DD/YYYY (under
+// Accessibility) and YYYY/MM/DD (under Site settings) - are mutually
+// exclusive: both write the same setting, so switching one on switches the
+// other off. With both off, dates follow the browser's locale.
 import React from 'react';
-import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
-import { isAmericanDateEnabled, setAmericanDateEnabled } from '../utils/dateFormat';
 import { useTranslation } from './useTranslation';
 
 const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 
-export default function DateFormatToggle({ className } = {}) {
+export default function DateFormatToggle({ checked, onChange, labelKey, hintKey, className } = {}) {
     const t = useTranslation();
-    const [enabled, setEnabled] = React.useState(false);
-    React.useEffect(() => setEnabled(isAmericanDateEnabled()), []);
     return (
-        <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
+        <label className={className || ''}>
             <input
                 type="checkbox"
-                checked={enabled}
-                onChange={() => {
-                    const next = !enabled;
-                    setEnabled(next);
-                    setAmericanDateEnabled(next);
-                }}
-                aria-label={t('settings.dateFormat.aria')}
+                checked={Boolean(checked)}
+                onChange={(event) => onChange(event.target.checked)}
+                aria-label={t(labelKey)}
             />
             <span className={itemsStyles.enchantTooltip} style={tooltipStyle}>
-                {t('settings.dateFormat.label')}
-                <span className={itemsStyles.enchantTooltipText}>{t('settings.dateFormat.hint')}</span>
+                {t(labelKey)}
+                <span className={itemsStyles.enchantTooltipText}>{t(hintKey)}</span>
             </span>
         </label>
     );

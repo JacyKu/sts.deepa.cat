@@ -83,6 +83,9 @@ export default function CustomItemCard({
             </div>
             <div className={styles.cardTags}>
                 <span className={styles.tag}>{item.type}</span>
+                {!item.isPublic && (
+                    <span className={`${styles.tag} ${styles.tagPrivate}`}>{t('customItems.card.privateBadge')}</span>
+                )}
             </div>
             <div className={styles.cardBody}>
                 <div className={styles.imageIcon}>

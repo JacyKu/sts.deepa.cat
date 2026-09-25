@@ -12,26 +12,34 @@ export default function LinkConfirmPage({ code, pending, user, profile }) {
     const t = useTranslation();
     const [state, setState] = React.useState('idle');
     const [error, setError] = React.useState(null);
+    const [replaceInfo, setReplaceInfo] = React.useState(null);
 
     const next = `/link/${code}`;
 
-    function confirm() {
+    function confirm(replace = false) {
         setState('working');
         setError(null);
         fetch('/api/v2/mod/link/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
+            body: JSON.stringify({ code, replace }),
         })
-            .then((r) => (r.ok ? r.json() : Promise.reject({ status: r.status })))
+            .then((r) => r.json().then((body) => (r.ok ? body : Promise.reject({ status: r.status, body }))))
             .then(() => setState('done'))
             .catch((e) => {
-                if (e.status === 409) {
+                if (e.status === 409 && e.body?.error === 'replace-required') {
+                    setReplaceInfo({
+                        requestedFrom: e.body.requestedFrom || null,
+                        requestedAt: e.body.requestedAt || null,
+                    });
+                    setState('confirm-replace');
+                } else if (e.status === 409) {
                     setError('auth.linkConfirm.alreadyLinked');
+                    setState('idle');
                 } else {
                     setError('auth.linkConfirm.invalid');
+                    setState('idle');
                 }
-                setState('idle');
             });
     }
 
@@ -43,6 +51,14 @@ export default function LinkConfirmPage({ code, pending, user, profile }) {
             </main>
         );
     }
+
+    const requestedAt = pending.created_at ? new Date(`${pending.created_at}Z`.replace(' ', 'T')) : null;
+    const requestedLabel =
+        pending.request_ip || requestedAt
+            ? [pending.request_ip, requestedAt && !Number.isNaN(requestedAt.getTime()) ? requestedAt.toLocaleString() : null]
+                  .filter(Boolean)
+                  .join(' · ')
+            : null;
 
     return (
         <main className={styles.page}>
@@ -60,6 +76,12 @@ export default function LinkConfirmPage({ code, pending, user, profile }) {
                     <div className={styles.row}>
                         <span className={styles.rowLabel}>{t('auth.linkConfirm.discordAccount')}</span>
                         <span className={styles.rowValue}>{user.globalName || user.username}</span>
+                    </div>
+                )}
+                {requestedLabel && (
+                    <div className={styles.row}>
+                        <span className={styles.rowLabel}>{t('auth.linkConfirm.requestedFrom')}</span>
+                        <span className={styles.rowValue}>{requestedLabel}</span>
                     </div>
                 )}
 
@@ -80,6 +102,21 @@ export default function LinkConfirmPage({ code, pending, user, profile }) {
                         </a>{' '}
                         {t('auth.linkConfirm.confirmOwnership')}
                     </p>
+                ) : state === 'confirm-replace' ? (
+                    <div>
+                        <p className={styles.error}>
+                            {t('auth.linkConfirm.replaceWarning')}
+                            {replaceInfo?.requestedFrom ? ` (${replaceInfo.requestedFrom})` : ''}
+                        </p>
+                        <button
+                            type="button"
+                            className={styles.confirmButton}
+                            onClick={() => confirm(true)}
+                            disabled={state === 'working'}
+                        >
+                            {t('auth.linkConfirm.replaceDevice')}
+                        </button>
+                    </div>
                 ) : (
                     <div>
                         {error && (
@@ -95,7 +132,7 @@ export default function LinkConfirmPage({ code, pending, user, profile }) {
                         <button
                             type="button"
                             className={styles.confirmButton}
-                            onClick={confirm}
+                            onClick={() => confirm(false)}
                             disabled={state === 'working'}
                         >
                             {state === 'working' ? t('auth.linkConfirm.linking') : t('auth.linkConfirm.confirm')}

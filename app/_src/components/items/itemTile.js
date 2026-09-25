@@ -1,6 +1,7 @@
 import Enchants from './enchants';
 import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
+import TileAuthor from './tileAuthor';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -12,7 +13,6 @@ import { useLowResource } from '../lowResourceContext';
 import { useBuildList } from './buildListContext';
 import { useBuildListEnabled } from './buildListEnabledContext';
 import { useItemFavourites } from './itemFavouritesContext';
-import { useInView } from '../inView';
 import { useTranslation } from '../useTranslation';
 
 function camelCase(str, upper) {
@@ -69,7 +69,6 @@ function ItemTile(data) {
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
     const [spriteMap, setSpriteMap] = React.useState(null);
-    const { ref, inView, minHeight } = useInView(null);
 
     // If the item name has accented characters, they are actually not present in the item's name property,
     // but they are present in the item's key. In that case, set the name to the key.
@@ -122,14 +121,8 @@ function ItemTile(data) {
         setCssClass(`minecraft-${getMinecraftTextureKey(item['base_item'])}`);
     }, [item, spriteMap]);
 
-    if (!inView) {
-        return (
-            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
-        );
-    }
-
     return (
-        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"
@@ -226,6 +219,7 @@ function ItemTile(data) {
                 </>
             )}
             <ItemHistoryPanel records={data.history} currentItem={item} />
+            {data.authorName ? <TileAuthor name={data.authorName} avatar={data.authorAvatar} /> : null}
         </div>
     );
 }

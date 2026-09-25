@@ -1,6 +1,7 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
 import ItemHistoryPanel from './itemHistoryPanel';
+import TileAuthor from './tileAuthor';
 import LoreText from './loreText';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -11,7 +12,6 @@ import { useHideObtainment } from './hideObtainmentContext';
 import { useHideLore } from './hideLoreContext';
 import { useItemFavourites } from './itemFavouritesContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
-import { useInView } from '../inView';
 import { useTranslation } from '../useTranslation';
 
 function camelCase(str) {
@@ -51,34 +51,35 @@ function getCharmSheetClass(charmName) {
     return `monumenta-${charmName.replaceAll(' ', '-').replaceAll('_', '-').replaceAll("'", '').trim()}`;
 }
 
-function doesStyleExist(className) {
-    let styleSheets;
+// The sprite CSS has thousands of classes, so walking every stylesheet for
+// each lookup added up fast when many charm tiles mounted at once (scrolling
+// the item grid). Collect the class names once and cache them.
+let spriteClassNames = null;
+function collectSpriteClassNames() {
+    const names = new Set();
     try {
-        styleSheets = document.styleSheets;
-    } catch (e) {
-        return false;
-    }
-
-    for (let i = 0; i < styleSheets.length; i++) {
-        let rules;
-        try {
-            rules = styleSheets[i].cssRules;
-        } catch (e) {
-            // Cross-origin stylesheets (e.g., CDN bootstrap) throw on cssRules.
-            continue;
-        }
-
-        if (!rules) {
-            continue;
-        }
-
-        for (let x = 0; x < rules.length; x++) {
-            if (rules[x].selectorText == `.${className}`) {
-                return true;
+        for (const sheet of document.styleSheets) {
+            let rules;
+            try {
+                rules = sheet.cssRules;
+            } catch (e) {
+                // Cross-origin stylesheets (e.g., CDN bootstrap) throw on cssRules.
+                continue;
+            }
+            if (!rules) continue;
+            for (const rule of rules) {
+                const text = rule && rule.selectorText;
+                if (!text) continue;
+                if (/^\.[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text)) names.add(text.slice(1));
             }
         }
-    }
-    return false;
+    } catch (e) {}
+    return names;
+}
+
+function doesStyleExist(className) {
+    if (spriteClassNames === null) spriteClassNames = collectSpriteClassNames();
+    return spriteClassNames.has(className);
 }
 
 function CharmTile(data) {
@@ -87,7 +88,6 @@ function CharmTile(data) {
     const [cssClass, setCssClass] = React.useState(getCharmSheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
     const [spriteMap, setSpriteMap] = React.useState(null);
-    const { ref, inView, minHeight } = useInView(null);
     const { lowRes } = useLowResource();
     const { hidden: hideObtainment } = useHideObtainment();
     const { hidden: hideLore } = useHideLore();
@@ -134,14 +134,8 @@ function CharmTile(data) {
         }
     }, [item.name, item.tier, item.class_name, item.power, spriteMap]);
 
-    if (!inView) {
-        return (
-            <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`} style={{ minHeight }} />
-        );
-    }
-
     return (
-        <div ref={ref} className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
+        <div className={`${styles.itemTile} ${data.hidden ? styles.hidden : ''}`}>
             {buildListEnabled && data.showListButton && (
                 <button
                     type="button"
@@ -243,6 +237,7 @@ function CharmTile(data) {
                 </>
             )}
             <ItemHistoryPanel records={data.history} currentItem={item} />
+            {data.authorName ? <TileAuthor name={data.authorName} avatar={data.authorAvatar} /> : null}
         </div>
     );
 }

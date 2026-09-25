@@ -126,13 +126,9 @@ export function AccountChip({ session }) {
     const user = session?.user ?? null;
     const checked = session?.checked ?? false;
     const setUser = session?.setUser;
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [open, setOpen] = React.useState(false);
     const menuPortal = useMenuPortal(open);
-
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
 
     function logout() {
         fetch('/api/auth/logout', { method: 'POST' })
@@ -145,7 +141,14 @@ export function AccountChip({ session }) {
 
     return (
         <div className={styles.accountChip}>
-            {!checked ? null : !user ? (
+            {!checked ? (
+                // The session resolves after the first paint; reserving the
+                // chip's 38px slot keeps the header controls (and everything
+                // laid out against them) from shifting when it does. The login
+                // icon and the signed-in avatar are both 38x38, so this matches
+                // either outcome.
+                <span className={styles.accountPlaceholder} aria-hidden="true" />
+            ) : !user ? (
                 <a
                     className={styles.accountIcon}
                     href={`/api/auth/discord/login?next=${encodeURIComponent(window.location.pathname)}`}
@@ -295,12 +298,9 @@ export function HeaderSelect({ options, value, onChange, instanceId, className, 
 // settings button at once).
 export function HeaderNav() {
     const t = useTranslation();
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [open, setOpen] = React.useState(false);
     const menuPortal = useMenuPortal(open, { fullWidthOnMobile: true });
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
 
     const links = [
         { href: base + '/items', translation: 'index.pages.items.title' },

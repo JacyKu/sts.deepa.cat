@@ -7,6 +7,7 @@ import {
     updateCustomItem,
     hasCustomItemName,
     getCustomItemFavouriteState,
+    publicAuthorAvatar,
     BUILD_NAME_MAX,
 } from '../../../../../lib/sts-builds';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
@@ -18,19 +19,30 @@ import {
 } from '../../../../../lib/custom-item-vocab';
 import { getItemData } from '../../../../_src/utils/itemsData';
 
-// Custom items are shareable: anyone with the item's link can view it (read
+// Custom items are shareable: a public item's link shows it to anyone (read
 // only - editing/deleting stays with the owner, and copying is done through
 // the authenticated list route, which stamps the copy with the viewer's own
-// account). 404 only when the item does not exist.
+// account). Private items are only visible to their owner; everyone else gets
+// the same 404 as a missing item.
 export async function GET(_request, { params }) {
     const { id } = await params;
     const item = getCustomItem(id);
-    if (!item) {
+    const user = await getDiscordUser();
+    if (!item || (!item.isPublic && (!user || user.id !== item.userId))) {
         return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
-    const user = await getDiscordUser();
     const state = getCustomItemFavouriteState(id, user ? user.id : null);
-    return NextResponse.json({ item: { ...item, favouriteCount: state.count, myFavourite: state.favourite } });
+    // Discord account ids stay server-side: the avatar is resolved to a full
+    // CDN URL here instead (same rule as the public listing).
+    const { userId, ...publicItem } = item;
+    return NextResponse.json({
+        item: {
+            ...publicItem,
+            authorAvatar: publicAuthorAvatar(userId, publicItem.authorAvatar),
+            favouriteCount: state.count,
+            myFavourite: state.favourite,
+        },
+    });
 }
 
 export async function PATCH(request, { params }) {
@@ -88,6 +100,10 @@ export async function PATCH(request, { params }) {
     }
     if (body && body.stats !== undefined) {
         update.stats = sanitizeItemStats(body.stats, vocab);
+    }
+    // Private/public switch (My Items card and the owner's share view).
+    if (body && body.isPublic !== undefined) {
+        update.isPublic = Boolean(body.isPublic);
     }
 
     const updated = updateCustomItem(id, user.id, update);

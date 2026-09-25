@@ -10,6 +10,7 @@ import DatabaseSkeleton from './databaseSkeleton';
 import DatabaseTabs from './databaseTabs';
 import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
+import { isSearchCacheEnabled, FAVOURITES_SEARCH_CACHE_KEY } from '../utils/cachePrefs';
 import { useLanguageContext } from './languageContext';
 import SupportedLanguages from '../utils/translation/languages';
 import { translate } from '../utils/translation/translate';
@@ -18,11 +19,40 @@ export default function FavouritesPage() {
     const { lang } = useLanguageContext();
     const t = (id) => translate(lang, id);
 
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [authChecked, setAuthChecked] = React.useState(false);
     const [user, setUser] = React.useState(null);
     const [builds, setBuilds] = React.useState([]);
     const [searchName, setSearchName] = React.useState('');
+
+    // The search text survives page switches (behind the "Cache searches"
+    // setting, like the other database pages).
+    const suppressCacheSaveRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!isSearchCacheEnabled()) return;
+        try {
+            const raw = window.localStorage.getItem(FAVOURITES_SEARCH_CACHE_KEY);
+            if (raw) {
+                const cache = JSON.parse(raw);
+                if (cache && typeof cache.searchName === 'string') setSearchName(cache.searchName);
+            }
+        } catch (e) {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            if (suppressCacheSaveRef.current) {
+                suppressCacheSaveRef.current = false;
+                return;
+            }
+            if (!isSearchCacheEnabled()) return;
+            try {
+                window.localStorage.setItem(FAVOURITES_SEARCH_CACHE_KEY, JSON.stringify({ searchName }));
+            } catch (e) {}
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchName]);
     const [page, setPage] = React.useState(1);
     const [hasMore, setHasMore] = React.useState(true);
     const [loaded, setLoaded] = React.useState(false);
@@ -30,7 +60,6 @@ export default function FavouritesPage() {
     const [baseLoaded, setBaseLoaded] = React.useState(false);
 
     React.useEffect(() => {
-        setBase(getStsBase());
         setBaseLoaded(true);
         fetch('/api/auth/session')
             .then((r) => (r.ok ? r.json() : null))
@@ -99,6 +128,12 @@ export default function FavouritesPage() {
 
     function resetSearch() {
         setSearchName('');
+        // Reset means "nothing applied": drop the cached search and skip the
+        // save that the state change above would otherwise schedule.
+        suppressCacheSaveRef.current = true;
+        try {
+            window.localStorage.removeItem(FAVOURITES_SEARCH_CACHE_KEY);
+        } catch (e) {}
     }
 
     function toggleFavourite(buildId) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addItemFavourite, removeItemFavourite } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
+import { limitRequest } from '../../../../../lib/rate-limit';
 
 // Toggle a single item favourite. Item names may contain spaces and other
 // characters that are awkward in URL segments, so the name travels in the
@@ -10,6 +11,15 @@ export async function POST(request) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    const limited = limitRequest({
+        request,
+        user,
+        bucket: 'favourite-item',
+        limit: 60,
+        windowMs: 60 * 1000,
+        hint: 'Too many favourite changes, slow down.',
+    });
+    if (limited) return limited;
     let name = null;
     try {
         name = String((await request.json()).name || '');
@@ -28,6 +38,15 @@ export async function DELETE(request) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    const limited = limitRequest({
+        request,
+        user,
+        bucket: 'favourite-item',
+        limit: 60,
+        windowMs: 60 * 1000,
+        hint: 'Too many favourite changes, slow down.',
+    });
+    if (limited) return limited;
     const name = new URL(request.url).searchParams.get('name');
     if (!name) {
         return NextResponse.json({ error: 'missing name' }, { status: 400 });

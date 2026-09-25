@@ -25,13 +25,16 @@ class CharmShortener {
     }
 
     static parseCharmData(charmData, itemData) {
-        if (charmData == 'None') {
+        if (typeof charmData !== 'string' || charmData == 'None') {
             return [];
         }
 
         let charms = charmData
             .split(',')
             .map((charmString) => charmString.split('-'))
+            // Hand-made/legacy tokens can carry malformed entries (no dashes,
+            // missing fields); skip them instead of crashing the builder.
+            .filter((charmParts) => charmParts.length >= 4 && charmParts[3])
             .map((charmParts) => ({
                 prefix: charmParts[0].replaceAll('_', ' '),
                 suffix: charmParts[1].replaceAll('_', ' '),
@@ -47,7 +50,7 @@ class CharmShortener {
                     itemData[name].name.substring(0, 3) == charm.prefix &&
                     itemData[name].name.includes(charm.suffix) &&
                     itemData[name].power == charm.power &&
-                    itemData[name].class_name[0] == charm.classLetter
+                    itemData[name].class_name?.[0] == charm.classLetter
             );
             if (foundCharm) {
                 foundCharms.push(foundCharm);

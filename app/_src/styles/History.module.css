@@ -42,7 +42,6 @@
     border: 2px solid var(--glass-border, #444);
     box-shadow: var(--shadow-elevated);
     backdrop-filter: blur(10px);
-    overflow: hidden;
 }
 
 .groupHeader {
@@ -190,8 +189,10 @@
 }
 
 /* Unchanged stats in a full item stat listing: shown so the item's whole
-   stat block is readable, de-emphasised against the changed lines. */
-.sameLine {
+   stat block is readable, de-emphasised against the changed lines. The fade
+   sits on the text wrapper, not the line, so the stat's tooltip stays solid
+   (an ancestor opacity would fade the tooltip with it). */
+.sameLineText {
     opacity: 0.7;
 }
 
@@ -568,4 +569,109 @@
 .skeletonLineShort {
     height: 12px;
     width: 25%;
+}
+
+/* Class changes page (app/classes/changes) ------------------------------ */
+
+/* Skill/spec chips carry a second line with the class (and spec) the entry
+   belongs to, so a chip reads like "Taboo / Alchemist - Harbinger". */
+.chipName {
+    display: block;
+}
+
+.chipMeta {
+    display: block;
+    margin-top: 1px;
+    font-size: 11px;
+    color: var(--text-2, #bbb);
+}
+
+/* The class diff rows reuse the API changes page's line primitives
+   (.diffLine / .changeMark / .oldValue / .arrow); this wrapper gives them a
+   slightly larger size, since class changes are mostly prose that is harder
+   to read at the dense item-stat size. */
+.classDiff .diffLine {
+    font-size: 14px;
+}
+
+/* One changed field with long text (descriptions): the label over the
+   changed lines, rendered as written (the API pads lines for in-game
+   alignment, so leading whitespace is preserved). */
+.fieldDiff {
+    margin: 4px 0 6px;
+}
+
+.fieldName {
+    display: block;
+    font-size: 13px;
+    color: var(--text-2, #bbb);
+    margin-bottom: 3px;
+}
+
+/* Unified text diff for long values (descriptions): a bordered panel showing
+   the whole text, unchanged lines dimmed, removed lines red-tinted and added
+   lines green-tinted - a git-style diff rather than a "+/-" line list. Capped
+   in height so a long description scrolls instead of stretching the card. */
+.textDiff {
+    border: 1px solid var(--glass-border, #444);
+    background: var(--glass-1, rgba(255, 255, 255, 0.03));
+    max-height: 340px;
+    overflow: auto;
+    padding: 4px 0;
+}
+
+.textDiffRow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 0 10px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.textDiffSign {
+    flex: 0 0 10px;
+    text-align: center;
+    font-family: monospace;
+    font-weight: 700;
+    user-select: none;
+}
+
+.textDiffText {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Unchanged context lines stay readable but de-emphasised. */
+.textDiffSame {
+    color: var(--text-2, #aaa);
+}
+
+.textDiffAdd {
+    background: rgba(74, 222, 74, 0.12);
+}
+
+.textDiffAdd .textDiffSign {
+    color: #4ade4a;
+}
+
+.textDiffAdd .textDiffText {
+    color: #cdf5cd;
+}
+
+.textDiffDel {
+    background: rgba(252, 84, 84, 0.12);
+}
+
+.textDiffDel .textDiffSign {
+    color: #fc5454;
+}
+
+.textDiffDel .textDiffText {
+    color: #f3b6b6;
+}
+
+.lineText {
+    white-space: pre-wrap;
+    word-break: break-word;
 }

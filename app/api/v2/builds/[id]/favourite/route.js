@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addFavourite, removeFavourite, getFavouriteState } from '../../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../../lib/session';
+import { limitRequest } from '../../../../../../lib/rate-limit';
 
 export async function GET(request, { params }) {
     const p = await params;
@@ -15,6 +16,15 @@ export async function POST(request, { params }) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    const limited = limitRequest({
+        request,
+        user,
+        bucket: 'favourite-build',
+        limit: 60,
+        windowMs: 60 * 1000,
+        hint: 'Too many favourite changes, slow down.',
+    });
+    if (limited) return limited;
     const result = addFavourite(p.id, user.id);
     if (!result) {
         return NextResponse.json({ error: 'build not found or not public' }, { status: 404 });
@@ -28,6 +38,15 @@ export async function DELETE(request, { params }) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    const limited = limitRequest({
+        request,
+        user,
+        bucket: 'favourite-build',
+        limit: 60,
+        windowMs: 60 * 1000,
+        hint: 'Too many favourite changes, slow down.',
+    });
+    if (limited) return limited;
     const result = removeFavourite(p.id, user.id);
     return NextResponse.json(result || { favourite: false, count: 0 });
 }

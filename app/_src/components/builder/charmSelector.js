@@ -107,10 +107,13 @@ export default function CharmSelector({
     specSkillNames,
     selectedClass,
 }) {
-    const inputRef = React.useRef();
     const t = useTranslation();
     const [warn, setWarn] = React.useState(null);
     const warnTimeoutRef = React.useRef();
+    // Picking a charm in the dropdown adds it right away (matching the item
+    // selectors, which have no separate add step); the picker falls back to
+    // "None" so the next charm can be picked immediately.
+    const [selectValue, setSelectValue] = React.useState('None');
 
     // Relevance rule: a charm is offered only if it is a Generalist charm, a
     // charm of the currently selected class, or one of its stats affects a
@@ -180,20 +183,28 @@ export default function CharmSelector({
         update(updatedEntries);
     }
 
-    function addEntry() {
-        let input = inputRef.current.getValue()[0].value;
-
-        let actualName = Object.keys(itemData).find((name) => name.toLowerCase() == input.toLowerCase());
-
-        if (!actualName || itemData[actualName].type != 'Charm') return;
+    function addEntry(actualName) {
+        const charm = actualName ? itemData[actualName] : null;
+        if (!charm || charm.type !== 'Charm') return;
         if (!isCharmRelevant(actualName)) return;
-        if (entries.some((name) => resolveCharmKey(itemData, name) === actualName)) return;
-        if (usedPower + (itemData[actualName].power || 0) > maxPower) return;
+        if (entries.some((name) => resolveCharmKey(itemData, name) === actualName)) {
+            showWarn(`"${charm.name}" ${t('builder.charms.couldNotAdd')} ${t('builder.charms.alreadyEquipped')}.`);
+            return;
+        }
+        // The 12 power budget is a hard cap: adding a charm that would push
+        // the total over it is refused with an explanation instead of being
+        // silently ignored.
+        if (usedPower + (charm.power || 0) > maxPower) {
+            showWarn(
+                `"${charm.name}" ${t('builder.charms.couldNotAdd')} ${t('builder.charms.powerLimit')} (${usedPower}/${maxPower}).`
+            );
+            return;
+        }
 
         // Locked charm stats (🔒) are exclusive: a charm that locks a stat
         // can't be combined with any other charm that carries that stat, in
         // either direction. Block the add and explain why.
-        const newStats = itemData[actualName].stats || {};
+        const newStats = charm.stats || {};
         const equipped = new Map(); // stat -> { name, locked }
         entries.forEach((name) => {
             const key = resolveCharmKey(itemData, name);
@@ -210,7 +221,7 @@ export default function CharmSelector({
             if (!other) continue;
             if (other.locked || obj.locked) {
                 showWarn(
-                    `"${itemData[actualName].name}" ${t('builder.charms.couldNotAdd')} ${t('builder.charms.lockedConflict')} "${other.name}" (${stat.replace(/_/g, ' ')}).`
+                    `"${charm.name}" ${t('builder.charms.couldNotAdd')} ${t('builder.charms.lockedConflict')} "${other.name}" (${stat.replace(/_/g, ' ')}).`
                 );
                 return;
             }
@@ -219,17 +230,23 @@ export default function CharmSelector({
         processUpdate([...entries, actualName]);
     }
 
+    function charmSelected(option) {
+        if (option && option.value && option.value !== 'None') addEntry(option.value);
+        setSelectValue('None');
+    }
+
     return (
         <div className={`${styles.listSelectorContainer} p-1`}>
             <p className={`${styles.name} m-0 mb-1`}>
                 <TranslatableText identifier={translatableName}></TranslatableText>
             </p>
             <div className={`${styles.listSelectorInputs} justify-content-center`}>
-                <span className={`${styles.entryInput} me-1`}>
+                <span className={styles.entryInput}>
                     <SelectInput
-                        reference={inputRef}
                         name="charm"
                         noneOption={true}
+                        value={selectValue}
+                        onChange={charmSelected}
                         sortableStats={charmOptions}
                         filterOption={charmFilterOption}
                         favouriteMatch={(option) => {
@@ -238,9 +255,6 @@ export default function CharmSelector({
                         }}
                     ></SelectInput>
                 </span>
-                <button className={styles.button} onClick={addEntry}>
-                    +
-                </button>
             </div>
             <div className={`${styles.powerStars} justify-content-center`}>
                 <span>{`${usedPower}/${maxPower} [`}</span>

@@ -10,6 +10,8 @@ import CardItemsFirstToggle from './cardItemsFirstToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
 import DateFormatToggle from './dateFormatToggle';
 import { HEADER_TITLE_MAX, HEADER_TITLE_KEY, saveHeaderTitle } from './headerTitle';
+import { getInfusionInputMode, setInfusionInputMode, DEFAULT_INFUSION_INPUT_MODE } from '../utils/infusionPrefs';
+import { getDateFormat, setDateFormat } from '../utils/dateFormat';
 import {
     applyThemeState,
     readThemeState,
@@ -157,6 +159,8 @@ export default function SettingsPage() {
     const [themeState, setThemeState] = React.useState(null);
     const [font, setFont] = React.useState('ubuntu');
     const [headerTitle, setHeaderTitle] = React.useState('');
+    const [infusionInput, setInfusionInput] = React.useState(DEFAULT_INFUSION_INPUT_MODE);
+    const [dateFormat, setDateFormatState] = React.useState('');
 
     React.useEffect(() => {
         setThemeState(readThemeState());
@@ -169,6 +173,14 @@ export default function SettingsPage() {
         } catch (e) {
             // ignore
         }
+    }, []);
+
+    React.useEffect(() => {
+        setInfusionInput(getInfusionInputMode());
+    }, []);
+
+    React.useEffect(() => {
+        setDateFormatState(getDateFormat());
     }, []);
 
     React.useEffect(() => {
@@ -193,6 +205,41 @@ export default function SettingsPage() {
         label: t(FONT_LABEL_KEYS[value]),
         fontFamily: FONT_STACKS[value],
     }));
+
+    // The font pill sizes itself to the widest option label (each entry renders
+    // in its own font, and names differ per language) plus the control's
+    // paddings, dropdown arrow and borders. The menu follows the control width.
+    const FONT_SELECT_CHROME = 56;
+    const fontWidthKey = fontOptions.map((option) => `${option.label}|${option.fontFamily}`).join('~');
+    const [fontSelectWidth, setFontSelectWidth] = React.useState(null);
+    React.useEffect(() => {
+        let cancelled = false;
+        const rootSize = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+        // Menu entries render at 0.85rem; the dyslexia entry is scaled down
+        // (0.8em) so its long name fits the picker.
+        const fontSize = (option) => 0.85 * (option.value === 'dyslexia' ? 0.8 : 1) * rootSize;
+        const measure = () => {
+            if (cancelled) return;
+            const ctx = document.createElement('canvas').getContext('2d');
+            let widest = 0;
+            for (const option of fontOptions) {
+                ctx.font = `400 ${fontSize(option)}px ${option.fontFamily}`;
+                widest = Math.max(widest, ctx.measureText(option.label).width);
+            }
+            setFontSelectWidth(Math.ceil(widest) + FONT_SELECT_CHROME);
+        };
+        // Wait for the option fonts, or the measurement falls back to a system
+        // font and the widest entry gets clipped.
+        const loads = document.fonts
+            ? fontOptions.map((option) =>
+                  document.fonts.load(`400 ${fontSize(option)}px ${option.fontFamily.split(',')[0].trim()}`)
+              )
+            : [];
+        Promise.all(loads).then(measure).catch(measure);
+        return () => {
+            cancelled = true;
+        };
+    }, [fontWidthKey]);
 
     function updateState(changes) {
         if (!themeState) return;
@@ -339,6 +386,27 @@ export default function SettingsPage() {
         ...COLORBLIND_MODES.map((mode) => ({ value: mode, label: t(COLORBLIND_LABELS[mode]) })),
     ];
     const currentCb = cbOptions.find((option) => option.value === colorblind) || cbOptions[0];
+
+    // Infusion input style: per item, number totals, or both.
+    const infusionOptions = [
+        { value: 'item', label: t('settings.infusionInputs.item') },
+        { value: 'total', label: t('settings.infusionInputs.total') },
+        { value: 'both', label: t('settings.infusionInputs.both') },
+    ];
+    const currentInfusionOption =
+        infusionOptions.find((option) => option.value === infusionInput) || infusionOptions[2];
+
+    function setInfusionInputValue(mode) {
+        setInfusionInput(mode);
+        setInfusionInputMode(mode);
+    }
+
+    // Date display: both toggles write the same setting, so they can never be
+    // on at the same time (both off = the browser's locale format).
+    function changeDateFormat(value) {
+        setDateFormatState(value);
+        setDateFormat(value);
+    }
 
     // Derived look state. Computed before any guard so the font pill's
     // styles can be memoized from the round setting.
@@ -664,7 +732,10 @@ export default function SettingsPage() {
                     </label>
                     <label className={styles.fontRow}>
                         <span className={styles.fontLabel}>{t('settings.font')}</span>
-                        <div className={styles.fontSelect}>
+                        <div
+                            className={styles.fontSelect}
+                            style={fontSelectWidth ? { width: `${fontSelectWidth}px` } : undefined}
+                        >
                             <Select
                                 instanceId="font"
                                 name="font"
@@ -697,7 +768,7 @@ export default function SettingsPage() {
                             />
                         </div>
                     </label>
-                    <BuilderLayoutToggle className={styles.bareToggle} />
+                    <BuilderLayoutToggle className={styles.themeToggleRow} />
                 </div>
             </section>
 
@@ -748,17 +819,51 @@ export default function SettingsPage() {
                         />
                         {t('settings.turnOffAnimations')}
                     </label>
+                    <DateFormatToggle
+                        className={styles.themeToggleRow}
+                        checked={dateFormat === 'us'}
+                        onChange={(on) => changeDateFormat(on ? 'us' : '')}
+                        labelKey="settings.dateFormat.american"
+                        hintKey="settings.dateFormat.americanHint"
+                    />
                 </div>
             </section>
 
             <section className={styles.card}>
                 <h2 className={styles.cardTitle}>{t('settings.site')}</h2>
-                <div className={styles.siteToggleRow}>
-                    <CacheSearchToggle className={styles.bareToggle} />
-                    <CacheBuildsToggle className={styles.bareToggle} />
-                    <CacheCustomItemsToggle className={styles.bareToggle} />
-                    <DateFormatToggle className={styles.bareToggle} />
-                    <CardItemsFirstToggle className={styles.bareToggle} />
+                <div className={styles.siteOptions}>
+                    <label className={styles.fontRow}>
+                        <span className={styles.fontLabel} title={t('settings.infusionInputs.hint')}>
+                            {t('settings.infusionInputs.label')}
+                        </span>
+                        <div className={styles.fontSelect}>
+                            <Select
+                                instanceId="infusionInputs"
+                                name="infusionInputs"
+                                options={infusionOptions}
+                                value={currentInfusionOption}
+                                onChange={(option) => setInfusionInputValue(option.value)}
+                                isSearchable={false}
+                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                menuPosition="fixed"
+                                theme={fontSelectTheme}
+                                styles={fontSelectStyles}
+                            />
+                        </div>
+                    </label>
+                    <div className={styles.siteToggleRow}>
+                        <CacheSearchToggle className={styles.themeToggleRow} />
+                        <CacheBuildsToggle className={styles.themeToggleRow} />
+                        <CacheCustomItemsToggle className={styles.themeToggleRow} />
+                        <CardItemsFirstToggle className={styles.themeToggleRow} />
+                        <DateFormatToggle
+                            className={styles.themeToggleRow}
+                            checked={dateFormat === 'iso'}
+                            onChange={(on) => changeDateFormat(on ? 'iso' : '')}
+                            labelKey="settings.dateFormat.iso"
+                            hintKey="settings.dateFormat.isoHint"
+                        />
+                    </div>
                 </div>
             </section>
         </main>

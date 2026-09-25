@@ -6,13 +6,15 @@ import {
     deleteBuild,
     setBuildPublic,
     uniqueBuildName,
+    mergeReferencedCustomItems,
     isDuplicateNameError,
     preferredAuthorAvatar,
 } from '../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../lib/public-builds';
 import { getDiscordUser, getAnonymousPreference, appUrl } from '../../../../../lib/session';
 import { sanctionBlock } from '../../../../../lib/moderation';
-import { decodeBuildParam, getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
+import { getBuildTokenVersion, getBuildItemHashes } from '../../../../_src/utils/builder/buildUrlCodec';
+import { sanitizeBuildTokenForStorage } from '../../../../_src/utils/builder/buildTokenGuard';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
 
@@ -50,17 +52,30 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ error: 'invalid token' }, { status: 400 });
         }
         const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
-        if (!decodeBuildParam(token, itemData)) {
+        // Referenced custom items only resolve for signed-in savers (see the
+        // create route): signed-out edits cannot keep them.
+        const summaryData = mergeReferencedCustomItems(
+            itemData,
+            user ? user.id : null,
+            user ? getBuildItemHashes(token) : null
+        );
+        const sanitized = sanitizeBuildTokenForStorage(token, summaryData, skillsData);
+        if (!sanitized.ok) {
             return NextResponse.json({ error: 'invalid build' }, { status: 400 });
         }
+        const storedToken = sanitized.token;
         const update = {
             state: {
-                token,
+                token: storedToken,
                 infusions: body.state.infusions && typeof body.state.infusions === 'object' ? body.state.infusions : {},
                 revelation: Boolean(body.state.revelation),
                 basicInfusions:
                     body.state.basicInfusions && typeof body.state.basicInfusions === 'object'
                         ? body.state.basicInfusions
+                        : {},
+                globalInfusions:
+                    body.state.globalInfusions && typeof body.state.globalInfusions === 'object'
+                        ? body.state.globalInfusions
                         : {},
             },
         };
@@ -72,7 +87,7 @@ export async function PATCH(request, { params }) {
         if (body.notes !== undefined && body.notes !== null) {
             update.notes = typeof body.notes === 'string' ? body.notes : '';
         }
-        const summary = computeBuildSummary(token, itemData, skillsData);
+        const summary = computeBuildSummary(storedToken, summaryData, skillsData);
         // Public builds refresh their denormalized filter columns on every
         // save so the database never shows stale data.
         const row = getBuild(p.id);
@@ -85,8 +100,8 @@ export async function PATCH(request, { params }) {
             hasProfanity({
                 name: update.name !== undefined ? update.name : row?.name,
                 notes: update.notes !== undefined ? update.notes : row?.notes,
-                token,
-                itemData,
+                token: storedToken,
+                itemData: summaryData,
             })
         ) {
             return NextResponse.json({ error: 'profanity' }, { status: 400 });
@@ -245,6 +260,9 @@ export async function DELETE(request, { params }) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    // Banned/suspended accounts may browse but not delete content either.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!deleteBuild(p.id, user.id)) {
         return NextResponse.json({ error: 'build not found or not yours' }, { status: 404 });
     }

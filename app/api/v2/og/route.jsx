@@ -60,11 +60,25 @@ async function getFaviconDataUrl() {
 // in the card image. Returns null when the fetch fails (e.g. deleted avatar).
 // The stored author avatar is either a Discord hash, an absolute URL
 // (Minecraft head) or a site-relative URL (uploaded picture). Build the URL
-// the embed can fetch: relative paths get the request origin.
+// the embed can fetch: relative paths get the configured public origin.
+//
+// The fetch target must never come from the request Host (SSRF: a forged Host
+// would make the server fetch an attacker-chosen host), so absolute URLs are
+// host-allowlisted and relative ones are pinned to STS_PUBLIC_BASE_URL.
+const ALLOWED_AVATAR_HOSTS = new Set(['cdn.discordapp.com', 'mc-heads.net']);
+
 function resolveAuthorAvatarUrl(userId, avatar, origin) {
     if (!avatar) return null;
-    if (avatar.startsWith('http')) return avatar;
-    if (avatar.startsWith('/')) return origin ? origin + avatar : null;
+    if (avatar.startsWith('http')) {
+        try {
+            const url = new URL(avatar);
+            if (url.protocol !== 'https:' || !ALLOWED_AVATAR_HOSTS.has(url.hostname)) return null;
+            return url.toString();
+        } catch (e) {
+            return null;
+        }
+    }
+    if (avatar.startsWith('/') && !avatar.startsWith('//')) return origin ? origin + avatar : null;
     return userId ? `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=128&format=png` : null;
 }
 
@@ -72,8 +86,11 @@ async function getAvatarDataUrl(url) {
     if (avatarCache.has(url)) return avatarCache.get(url);
     let dataUrl = null;
     try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) {
+        // Redirects are not followed: an allowlisted host could otherwise
+        // bounce the fetch to an arbitrary internal address.
+        const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(5000) });
+        const type = res.headers.get('content-type') || '';
+        if (res.ok && type.startsWith('image/')) {
             const buf = await sharp(await res.arrayBuffer())
                 .resize(64, 64)
                 .png()
@@ -95,9 +112,9 @@ async function getSpriteInfo() {
     const [mapRaw, cssRaw, sheet, mcCssRaw, mcSheet] = await Promise.all([
         fs.readFile(path.join(base, 'itemsheet-map.json'), 'utf8'),
         fs.readFile(path.join(base, '_itemsheet.css'), 'utf8'),
-        fs.readFile(path.join(base, 'itemsheet.png')),
+        fs.readFile(path.join(base, 'itemsheet.webp')),
         fs.readFile(path.join(base, '_minecraft.css'), 'utf8'),
-        fs.readFile(path.join(base, 'minecraft.png')),
+        fs.readFile(path.join(base, 'minecraft.webp')),
     ]);
 
     const map = JSON.parse(mapRaw);
@@ -541,8 +558,10 @@ export async function GET(request) {
     const setId = searchParams.get('set');
 
     // Shared skill/infusion sets (the /builder?set=<id> links) render with
-    // the same skill panel the build cards use.
-    const origin = new URL(request.url).origin;
+    // the same skill panel the build cards use. Site-relative avatars are
+    // fetched from the pinned public origin (never from the request Host).
+    const publicBase = process.env.STS_PUBLIC_BASE_URL ? process.env.STS_PUBLIC_BASE_URL.replace(/\/+$/, '') : null;
+    const origin = publicBase || null;
     if (setId) {
         return setCardResponse(setId, origin);
     }

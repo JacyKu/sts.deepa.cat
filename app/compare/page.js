@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
-import { getItemData } from '../_src/utils/itemsData';
-import ComparePage from '../_src/components/comparePage';
+import { getItemDataVersion } from '../_src/utils/itemsData';
+import { CompareDataView } from '../_src/components/siteDataViews';
 import CompareSkeleton from '../_src/components/compareSkeleton';
 
 export const metadata = {
@@ -21,10 +21,10 @@ export const metadata = {
 };
 
 export default async function Page() {
-    const itemData = await getItemData();
+    const itemsVersion = await getItemDataVersion();
     return (
         <Suspense fallback={<CompareSkeleton />}>
-            <ComparePage itemData={itemData} />
+            <CompareDataView itemsVersion={itemsVersion} />
         </Suspense>
     );
 }

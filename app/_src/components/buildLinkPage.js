@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation';
 import { headers, cookies } from 'next/headers';
-import { getBuild, mergeReferencedCustomItems } from '../../../lib/sts-builds';
+import { getBuild, mergeReferencedCustomItems, referencedCustomItemExtras } from '../../../lib/sts-builds';
 import { getBuildItemHashes } from '../utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
-import { getItemData, getSkillsData } from '../utils/itemsData';
+import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
-import BuilderPage from './builderPage';
+import { sanitizeBuildTokenForDisplay } from '../utils/builder/buildTokenGuard';
+import { BuilderDataView } from './siteDataViews';
 import { stsBaseForHost } from '../utils/base';
 
 export const dynamic = 'force-dynamic';
@@ -65,11 +66,22 @@ export async function BuildLinkPageView(id) {
     }
 
     const user = await getDiscordUser();
-    const itemData = mergeReferencedCustomItems(
-        await getItemData(),
-        user ? user.id : null,
-        getBuildItemHashes(row.token)
-    );
+    const hashes = getBuildItemHashes(row.token);
+    const baseItemData = await getItemData();
+    const mergedItemData = mergeReferencedCustomItems(baseItemData, user ? user.id : null, hashes);
+    const [skillsData, itemsVersion, skillsVersion, czVersion] = await Promise.all([
+        getSkillsData(),
+        getItemDataVersion(),
+        getSkillsVersion(),
+        getCzVersion(),
+    ]);
+    // Rows saved before token validation existed can carry junk (unknown
+    // charms crash the builder, invalid classes/skills/names pollute it), so
+    // the builder only ever sees the sanitized token.
+    const displayToken = sanitizeBuildTokenForDisplay(row.token, mergedItemData, skillsData);
+    // The item database itself is fetched client-side; only the custom items
+    // the build references ride along (usually none).
+    const extraItems = referencedCustomItemExtras(baseItemData, user ? user.id : null, hashes);
     // The build opens in place; saves update the DB row, they don't rewrite URLs.
     const isOwner = Boolean(user && row.user_id && user.id === row.user_id);
     // Anonymous rows are editable + publicisable by whoever holds their
@@ -78,17 +90,21 @@ export async function BuildLinkPageView(id) {
     const creatorToken = cookieStore.get(`sts-build-owner-${id}`)?.value || null;
     const isCreator = Boolean(user && !row.user_id && creatorToken);
     return (
-        <BuilderPage
-            build={row.token}
-            itemData={itemData}
+        <BuilderDataView
+            build={displayToken}
             savedState={row.parsedState}
             savedName={row.name}
             notes={row.notes}
             canEditNotes={isOwner || isCreator}
             buildId={id}
+            revision={row.revision || 1}
             canPublicise={isOwner || isCreator}
             isPublic={row.is_public === 1}
             isAnonymous={row.anonymous === 1}
+            itemsVersion={itemsVersion}
+            skillsVersion={skillsVersion}
+            czVersion={czVersion}
+            extraItems={extraItems}
         />
     );
 }

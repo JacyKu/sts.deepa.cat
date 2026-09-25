@@ -3,6 +3,7 @@ import { getDiscordUser, resolveProfileAvatar } from '../../../../../lib/session
 import { sanctionBlock } from '../../../../../lib/moderation';
 import { saveUserAvatar, setAvatarSource, MAX_UPLOADED_AVATARS } from '../../../../../lib/sts-builds';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
+import { consumeRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
 
 // Upload a custom profile picture (PNG, JPEG, GIF or WebP, up to 2 MB). The
 // image arrives as a data URL, is validated by its magic bytes (not just the
@@ -41,6 +42,10 @@ export async function POST(request) {
     if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
+    }
+    const quota = consumeRateLimit(`avatar-upload:${user.id}`, 10, 60 * 60 * 1000);
+    if (!quota.allowed) {
+        return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Too many picture uploads, try again later.' });
     }
     // A 2 MB image is ~2.8 MB as a base64 data URL; reject anything larger
     // before parsing it.

@@ -29,9 +29,12 @@ import {
     normalizeBuildParam,
     getBuildTokenVersion,
 } from '../../utils/builder/buildUrlCodec';
+import { skillsPayloadFromToken } from '../../utils/builder/buildSkills';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
+import { getInfusionInputMode } from '../../utils/infusionPrefs';
+import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 
 // Whether the viewport is desktop-width (>= 992px). The experimental
@@ -332,6 +335,15 @@ const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspica
 
 const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor: '0', focus: '0', perspicacity: '0' };
 
+// The stats normal (basic) infusions feed, in display order, and the shared
+// budget for both entry paths (6 items x level IV).
+const BASIC_INFUSION_STAT_KEYS = ['tenacity', 'vitality', 'vigor', 'focus', 'perspicacity'];
+// Number boxes above the multipliers: every normal infusion type, Acumen
+// included. Acumen feeds no stat, but it shares the 24-level item budget, so
+// it is entered and distributed like the others.
+const BASIC_INFUSION_BOX_KEYS = BASIC_INFUSIONS.map((infusion) => infusion.name.toLowerCase());
+const BASIC_INFUSION_LEVEL_CAP = 24;
+
 const classes = ['Alchemist', 'Cleric', 'Mage', 'Rogue', 'Scout', 'Shaman', 'Warlock', 'Warrior'];
 
 // API skill scoreboardIds that feed the stat calculation (the rest of the
@@ -409,10 +421,17 @@ function getRelevantItems(types, itemData, favourites = new Set()) {
         itemData
     );
     // Custom items may be keyed by id (when their name collides with an
-    // existing item); always show the item's name in the selector.
-    items = items.map((item) =>
-        typeof item === 'object' || !itemData[item].isCustomItem ? item : { value: item, label: itemData[item].name }
-    );
+    // existing item); always show the item's name in the selector. Items a
+    // signed-out viewer only sees because a shared build uses them stay
+    // visible in the build but are disabled in the picker.
+    items = items.map((item) => {
+        const key = typeof item === 'object' ? item.value : item;
+        const label = typeof item === 'object' ? item.label : itemData[key].name;
+        if (itemData[key] && itemData[key].displayOnly) {
+            return { value: key, label, isDisabled: true };
+        }
+        return typeof item === 'object' || !itemData[key].isCustomItem ? item : { value: key, label };
+    });
     // Pin the user's favourited items to the top of the selector (stable
     // sort keeps the original order within each group). Masterwork groups
     // and custom items are {value, label} objects whose label is the item name.
@@ -447,6 +466,10 @@ function recalcBuild(data, itemData) {
             (slot) => data[`delveInfusion-${slot}`] ?? null
         ),
         revelation: data.revelation ?? null,
+        // The delve/basic infusion toggles only decide whether the picks
+        // count, so they are part of the calculation's inputs too.
+        delveEnabled: data.delveEnabled ?? null,
+        infusionsEnabled: data.infusionsEnabled ?? null,
         stats: [
             data.tenacity ?? null,
             data.vitality ?? null,
@@ -502,10 +525,38 @@ function applyStatsUpdate(itemNames, itemData, setStats, update) {
     }, 120);
 }
 
+// The immediate variant, used when restoring a build/draft: that work runs in a
+// layout effect (before the first paint of the real builder), so the debounce
+// above would let the stat cards paint empty and then grow a frame later.
+function applyStatsUpdateNow(itemNames, itemData, setStats, update) {
+    if (statsRecalcPending.timer) {
+        clearTimeout(statsRecalcPending.timer);
+        statsRecalcPending.timer = null;
+    }
+    const tempStats = recalcBuild(itemNames, itemData);
+    setStats(tempStats);
+    update(tempStats);
+}
+
+// Base-name -> masterwork variants, built once per itemData object. Scanning
+// the full item list (several thousand entries) for every equipped slot on
+// every render was one of the most expensive things the builder did.
+let masterworkIndex = null;
+let masterworkIndexSource = null;
 function createMasterworkData(name, itemData) {
-    return Object.keys(itemData)
-        .filter((itemName) => itemData[itemName].name == name)
-        .map((itemName) => itemData[itemName]);
+    if (masterworkIndexSource !== itemData) {
+        const index = new Map();
+        for (const itemName of Object.keys(itemData)) {
+            const item = itemData[itemName];
+            if (!item || typeof item.name !== 'string') continue;
+            const list = index.get(item.name);
+            if (list) list.push(item);
+            else index.set(item.name, [item]);
+        }
+        masterworkIndex = index;
+        masterworkIndexSource = itemData;
+    }
+    return masterworkIndex.get(name) || [];
 }
 
 function removeMasterworkFromName(name) {
@@ -736,81 +787,6 @@ const CZ_MAIN_TREES = [
     'Prismatic',
 ];
 
-function safeDecodeComponent(value) {
-    try {
-        return decodeURIComponent(String(value || ''));
-    } catch (e) {
-        return '';
-    }
-}
-
-// Reads the skill portion (class, spec, class/spec skill points,
-// enhancements, CZ abilities) out of a build token, mirroring the URL-load
-// logic below. Returns null when the token has no class part.
-function decodeSkillsFromToken(token, itemData) {
-    if (!token) return null;
-    let decoded = null;
-    try {
-        decoded = decodeBuildParam(token, itemData);
-    } catch (e) {
-        return null;
-    }
-    if (!decoded) return null;
-    let parts = [];
-    try {
-        parts = decodeURI(decoded).split('&');
-    } catch (e) {
-        return null;
-    }
-    const find = (key) => {
-        const part = parts.find((p) => p.startsWith(`${key}=`));
-        return part ? part.slice(key.length + 1) : null;
-    };
-    const rawClass = find('cl');
-    if (!rawClass) return null;
-    const parsePoints = (raw) => {
-        const out = {};
-        safeDecodeComponent(raw)
-            .split(',')
-            .forEach((entry) => {
-                const [id, pts] = entry.split(':');
-                const points = Number(pts);
-                if (id && Number.isInteger(points) && points > 0) out[id] = points;
-            });
-        return out;
-    };
-    const parseSet = (raw) => {
-        const out = {};
-        safeDecodeComponent(raw)
-            .split(',')
-            .forEach((entry) => {
-                if (entry) out[entry] = true;
-            });
-        return out;
-    };
-    const parseCz = (raw) => {
-        const out = {};
-        safeDecodeComponent(raw)
-            .split(',')
-            .forEach((entry) => {
-                // Legacy "Name:rarity" suffixes are dropped - abilities are
-                // always Twisted.
-                const name = entry.split(':')[0];
-                if (name) out[name] = true;
-            });
-        return out;
-    };
-    const rawSpec = find('sp');
-    return {
-        cl: rawClass.toLowerCase(),
-        sp: rawSpec ? safeDecodeComponent(rawSpec) : null,
-        sk: parsePoints(find('sk')),
-        ssk: parsePoints(find('ssk')),
-        en: parseSet(find('en')),
-        cz: parseCz(find('cz')),
-    };
-}
-
 // Resource-pack icons: class/spec skills live in images/skills (unofficial
 // mod textures where available - those are transparent), CZ abilities in
 // images/cz. Both are keyed by the snake_case of the skill name.
@@ -822,6 +798,98 @@ const toSnakeName = (name) =>
 const skillIconSrc = (name) => `/images/skills/${toSnakeName(name)}.png`;
 const czIconSrc = (name) => `/images/cz/${toSnakeName(name)}.png`;
 
+// Current health slider + number box. This lives in its own component and
+// keeps both inputs uncontrolled: dragging the slider updates the native
+// input and its CSS variables directly, so the (very large) builder form only
+// re-renders - and the stats only recalculate - once the value is released.
+function HealthControls({ value, onSchedule, onCommit, currentHealth, healthFinal }) {
+    const t = useTranslation();
+    const sliderRef = React.useRef(null);
+    const numberRef = React.useRef(null);
+
+    const clamp = (raw) => {
+        const n = Number(raw);
+        return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 100));
+    };
+
+    // Parent-driven changes (restoring a build, reset, basic infusions) push
+    // the value down into the native inputs.
+    React.useEffect(() => {
+        const v = clamp(value);
+        for (const el of [sliderRef.current, numberRef.current]) {
+            if (el && el.value !== String(v)) el.value = String(v);
+        }
+        if (sliderRef.current) {
+            sliderRef.current.style.setProperty('--slider-color', `hsl(${(v / 100) * 120} 70% 45%)`);
+            sliderRef.current.style.setProperty('--slider-pct', `${v}%`);
+        }
+    }, [value]);
+
+    function handleInput(event) {
+        const v = clamp(event.target.value);
+        const el = sliderRef.current;
+        if (el) {
+            el.style.setProperty('--slider-color', `hsl(${(v / 100) * 120} 70% 45%)`);
+            el.style.setProperty('--slider-pct', `${v}%`);
+        }
+        onSchedule();
+    }
+
+    function commit(event) {
+        onCommit(String(clamp(event.target.value)));
+    }
+
+    function submitOnEnter(event) {
+        if (event.key === 'Enter') event.currentTarget.blur();
+    }
+
+    return (
+        <div className="text-center mx-2">
+            <div className={styles.enchantTooltip}>
+                <p className="mb-1">
+                    <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
+                </p>
+                <span className={styles.enchantTooltipText}>{t('builder.misc.maxHealthPercentTooltip')}</span>
+            </div>
+            <div className={styles.healthSliderRow}>
+                <input
+                    ref={sliderRef}
+                    type="range"
+                    name="health"
+                    min="0"
+                    max="100"
+                    step="1"
+                    defaultValue={clamp(value)}
+                    onChange={handleInput}
+                    onPointerUp={commit}
+                    onKeyUp={commit}
+                    onBlur={commit}
+                    className={styles.healthSlider}
+                />
+                <input
+                    ref={numberRef}
+                    type="number"
+                    name="health"
+                    min="0"
+                    max="100"
+                    step="1"
+                    defaultValue={clamp(value)}
+                    onChange={handleInput}
+                    onBlur={commit}
+                    onKeyDown={submitOnEnter}
+                    className={styles.healthPercentInput}
+                    aria-label={t('builder.misc.maxHealthPercentAria')}
+                />
+                <span className={styles.healthPoints}>
+                    {Number.isFinite(currentHealth) ? Math.round(currentHealth) : '–'}
+                    {' / '}
+                    {Number.isFinite(healthFinal) ? Math.round(healthFinal) : '–'}
+                </span>
+            </div>
+        </div>
+    );
+}
+
 export default function BuildForm({
     update,
     build,
@@ -830,6 +898,7 @@ export default function BuildForm({
     notes,
     canEditNotes,
     buildId,
+    revision,
     canPublicise,
     isPublic,
     isAnonymous,
@@ -854,12 +923,15 @@ export default function BuildForm({
     const [gameClass, setGameClass] = React.useState('none'); // "class" is a reserved word
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
-    const [classSelectKey, setClassSelectKey] = React.useState(0);
     const [saveState, setSaveState] = React.useState(null); // 'saving' | 'copied' | 'error' | 'duplicate'
     const [savedAnonymous, setSavedAnonymous] = React.useState(false);
     // The DB row this build was opened from / saved to; edits update it in
     // place instead of spawning a new link.
     const [activeBuildId, setActiveBuildId] = React.useState(buildId || null);
+    // Revision of the saved row this page is based on. Drafts record it so a
+    // draft made against an older revision is ignored - opening a link always
+    // shows the latest saved build, never locally cached older edits.
+    const [buildRevision, setBuildRevision] = React.useState(Number(revision) || 1);
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const [notesDraft, setNotesDraft] = React.useState(notes || '');
     const [notesSaveState, setNotesSaveState] = React.useState(null); // 'saving' | 'saved' | 'error'
@@ -878,7 +950,6 @@ export default function BuildForm({
     const [regionSelectKey, setRegionSelectKey] = React.useState(0);
     const [enhancements, setEnhancements] = React.useState({}); // buff key -> true
     const [spec, setSpec] = React.useState(null); // specialization name
-    const [specSelectKey, setSpecSelectKey] = React.useState(0);
     const [specSkillPoints, setSpecSkillPoints] = React.useState({});
     const [czAbilities, setCzAbilities] = React.useState({}); // ability name -> selected (always Twisted)
     const [czData, setCzData] = React.useState(null);
@@ -890,9 +961,11 @@ export default function BuildForm({
     // Basic (normal) infusions: one per item, levels I-IV (Tenacity, Vitality,
     // Vigor, Focus, Perspicacity, Acumen - see data/basicInfusions.js).
     const [basicOpen, setBasicOpen] = React.useState(false);
-    const [basicInfusions, setBasicInfusions] = React.useState({}); // slot -> { name, level }    // Delve infusion points: one free-form input per slot, total capped at 24
-    // across all slots (6 slots x level IV). Picking an infusion defaults its
-    // points to 4 (level IV), clamped to the remaining budget.
+    const [basicInfusions, setBasicInfusions] = React.useState({}); // slot -> { name, level }
+    // Which normal-infusion inputs to show (Settings -> Infusion inputs):
+    // 'item' = per-slot pickers only, 'total' = the number boxes only,
+    // 'both' = both. Read in an effect so the first render matches the server.
+    const [infusionInputMode, setInfusionInputMode] = React.useState('both');
     // Delve infusion levels: one per slot, I-IV. Picking an infusion defaults
     // its level to IV. Six slots at level IV is the 24-point total the delve
     // budget allows, so a per-slot cap of 4 alone can never exceed it.
@@ -948,6 +1021,9 @@ export default function BuildForm({
         if (found) triggerRedX();
         // Header commits only update the ref: no state change, no re-render.
         buildNameRef.current = cleaned || 'Monumenta Builder';
+        // The draft must follow the name even though nothing re-rendered:
+        // otherwise reopening the build restores the cached older name.
+        scheduleDraftSave();
     }
 
     // Programmatic name changes (draft restore, reset) bump a signal so the
@@ -969,6 +1045,41 @@ export default function BuildForm({
             if (raw) setDraft(JSON.parse(raw));
         } catch (e) {}
     }, []);
+
+    React.useEffect(() => {
+        setInfusionInputMode(getInfusionInputMode());
+    }, []);
+
+    // Which draft applies to this page:
+    //  - plain /builder: only an unsaved build's draft, so opening the builder
+    //    to start something new never loads the last saved build you had open;
+    //  - saved-build page: only that build's own draft, and only when the
+    //    draft was made against the row's current revision. A draft based on
+    //    an older revision loses to the saved build, so opening a shared link
+    //    (old ?v= links redirect to the latest revision) shows the latest.
+    const effectiveDraft = React.useMemo(() => {
+        if (!draft) return null;
+        if (build) {
+            return draft.buildId && draft.buildId === buildId && Number(draft.revision) === Number(buildRevision)
+                ? draft
+                : null;
+        }
+        return draft.buildId ? null : draft;
+    }, [draft, build, buildId, buildRevision]);
+
+    // A draft for this build that does not match the row's current revision is
+    // stale (the build was updated elsewhere, or the link pointed at an older
+    // revision). Drop it from localStorage so no old edits linger; the
+    // autosave then stores the freshly loaded build instead.
+    React.useEffect(() => {
+        if (!draft || !build || draft.buildId !== buildId) return;
+        if (Number(draft.revision) !== Number(buildRevision)) {
+            try {
+                window.localStorage.removeItem(DRAFT_KEY);
+            } catch (e) {}
+            setDraft(null);
+        }
+    }, [draft, build, buildId, buildRevision]);
 
     // Drag-to-reorder of skill/ability lists. dragState drives styling; the
     // ref holds the in-flight drag so handlers never read stale state.
@@ -1043,50 +1154,31 @@ export default function BuildForm({
         }
     }
 
-    function statInputChanged(name, event) {
-        const next = { ...statInputs, [name]: event.target.value };
-        setStatInputs(next);
-        // The recalc reads the form's DOM values, but the controlled inputs
-        // only reflect the new state after React commits (next render). The
-        // health slider shares its field name with the number box, and
-        // Object.fromEntries keeps the last duplicate - so without this
-        // override the stats would use the number input's stale value and
-        // never catch up on a single click.
-        scheduleStatsRecalc({ [name]: event.target.value });
-    }
-
-    // Typed values snap back into the 0-100 range (and to the default when
-    // the box is left empty), so the slider and the saved build stay valid.
-    function healthPercentBlur() {
-        const raw = Number(statInputs.health);
-        const value = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 100;
-        setStatInputs((prev) => ({ ...prev, health: String(value) }));
-        flushStatsRecalc();
+    // Called by HealthControls once the slider/number box is released or the
+    // field is left: mirror the settled value into state and rebuild now.
+    function commitHealthInput(value) {
+        setStatInputs((prev) => ({ ...prev, health: value }));
+        // Deferred so React has committed the clamped value to the DOM before
+        // the rebuild reads the form (typing 150 must calculate with 100).
+        setTimeout(() => flushStatsRecalc(), 0);
     }
 
     // The Stats rebuild is synchronous and heavy, so the health slider and the
-    // tenacity/vitality/... number inputs throttle it instead of firing one
-    // rebuild per keystroke/tick. Leading edge keeps the numbers alive while
-    // dragging; trailing edge settles the final value once input stops.
-    const STAT_RECALC_WINDOW = 120;
+    // tenacity/vitality/... number inputs only recompute once the user stops
+    // adjusting them. A trailing debounce keeps the CPU idle while the slider
+    // is being dragged; releasing it (or blurring the field) runs the rebuild
+    // a moment later.
+    const STAT_RECALC_WINDOW = 150;
     const statRecalcTimerRef = React.useRef(null);
-    const statLastRecalcRef = React.useRef(0);
 
-    function scheduleStatsRecalc(statOverrides) {
-        const elapsed = Date.now() - statLastRecalcRef.current;
-        if (elapsed >= STAT_RECALC_WINDOW) {
-            statLastRecalcRef.current = Date.now();
-            recalcBuildStats(statOverrides);
-        } else if (!statRecalcTimerRef.current) {
-            statRecalcTimerRef.current = setTimeout(() => {
-                statRecalcTimerRef.current = null;
-                statLastRecalcRef.current = Date.now();
-                // By the time the trailing edge fires, React has committed the
-                // new values to the DOM - re-reading the form is authoritative
-                // (the leading-edge override would be stale here).
-                recalcBuildStats();
-            }, STAT_RECALC_WINDOW - elapsed);
-        }
+    function scheduleStatsRecalc() {
+        if (statRecalcTimerRef.current) clearTimeout(statRecalcTimerRef.current);
+        statRecalcTimerRef.current = setTimeout(() => {
+            statRecalcTimerRef.current = null;
+            // By the time this fires React has committed the new values to the
+            // DOM, so re-reading the form is authoritative.
+            recalcBuildStats();
+        }, STAT_RECALC_WINDOW);
     }
 
     function flushStatsRecalc() {
@@ -1094,7 +1186,6 @@ export default function BuildForm({
             clearTimeout(statRecalcTimerRef.current);
             statRecalcTimerRef.current = null;
         }
-        statLastRecalcRef.current = Date.now();
         recalcBuildStats();
     }
 
@@ -1133,10 +1224,8 @@ export default function BuildForm({
         const en = payload.en && typeof payload.en === 'object' ? { ...payload.en } : {};
         const cz = payload.cz && typeof payload.cz === 'object' ? { ...payload.cz } : {};
         setGameClass(String(payload.cl).toLowerCase());
-        setClassSelectKey((k) => k + 1);
         const nextSpec = payload.sp ? String(payload.sp) : null;
         setSpec(nextSpec);
-        setSpecSelectKey((k) => k + 1);
         setSkillPoints(sk);
         setSpecSkillPoints(ssk);
         setEnhancements(en);
@@ -1171,14 +1260,30 @@ export default function BuildForm({
             if (!infusions[slot]) entries.push([`delveInfusion-${slot}`, 'None']);
         }
         if (payload.revelation) entries.push(['revelation', '1']);
+        // The snapshot is being applied, so the section counts even if its
+        // toggle was off (the toggle is re-enabled above when infusions exist).
+        if (Object.keys(infusions).length > 0) entries.push(['delveEnabled', '1']);
         applyStatsUpdate(Object.fromEntries(entries), itemData, setStats, update);
         return null;
     }
 
-    // "Copy skills" from one of the caller's saved builds: decode its token
-    // and reuse the same apply path.
+    // "Copy skills" from another build: the caller's own saved builds carry
+    // their token (decoded here), while public database builds are decoded by
+    // the server (the token never leaves it) and fetched by id.
     async function copyBuildSkills(build) {
-        const parsed = build && build.token ? decodeSkillsFromToken(build.token, itemData) : null;
+        if (!build) return t('builder.sets.couldNotReadBuild');
+        let parsed = build.token ? skillsPayloadFromToken(build.token, itemData) : null;
+        if (!parsed && build.id) {
+            try {
+                const res = await fetch(`/api/v2/builds/${encodeURIComponent(build.id)}/skills`);
+                if (res.ok) {
+                    const data = await res.json().catch(() => null);
+                    parsed = data && data.payload ? data.payload : null;
+                }
+            } catch (e) {
+                parsed = null;
+            }
+        }
         if (!parsed) return t('builder.sets.couldNotReadBuild');
         return applySkillPayload(parsed);
     }
@@ -1333,42 +1438,145 @@ export default function BuildForm({
         );
     }
 
-    // Basic (normal) infusions: pick one per slot (each item can hold only
-    // one) with a level I-IV select. Newly picked infusions default to IV,
-    // mirroring the delve infusion behaviour.
+    // Basic (normal) infusions are per-slot picks ({ slot: { name, level } }),
+    // one infusion per item at level I-IV. Six items at level IV is the
+    // 24-level cap, so the items alone bound the totals.
     function basicChanged(slot, option) {
         setTip(null);
-        const nextInfusions = option
-            ? { ...basicInfusions, [slot]: { name: option.value, level: BASIC_INFUSION_MAX_LEVEL } }
-            : withoutSlot(basicInfusions, slot);
-        setBasicInfusions(nextInfusions);
-        applyBasicInfusionTotals(nextInfusions);
-        // FormData is stale right after a Select change, so inject the new
-        // value manually (same pattern as delveChanged) and recalculate. The
-        // mirrored stat totals + item counts change here too (Understanding's
-        // amplifier depends on them), so they ride along.
-        let entries = Array.from(new FormData(formRef.current).entries());
-        for (let i = 0; i < entries.length; i++) {
-            if (entries[i][0] == `basicInfusion-${slot}`) entries[i][1] = option ? option.value : 'None';
+        if (!option) {
+            commitInfusionChange(withoutSlot(basicInfusions, slot));
+            return;
         }
-        const itemNames = Object.fromEntries(entries);
-        Object.assign(itemNames, basicInfusionTotals(nextInfusions));
-        itemNames.basicInfusionCounts = JSON.stringify(basicInfusionCounts(nextInfusions));
-        applyStatsUpdate(itemNames, itemData, setStats, update);
+        commitInfusionChange({
+            ...basicInfusions,
+            [slot]: { name: option.value, level: BASIC_INFUSION_MAX_LEVEL },
+        });
     }
 
     function changeBasicLevel(slot, raw) {
-        const level = Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(raw) || 1));
-        const next = { ...basicInfusions, [slot]: { ...basicInfusions[slot], level } };
-        setBasicInfusions(next);
-        applyBasicInfusionTotals(next);
-        // The mirrored totals (and therefore the stat calculation) change with
-        // the level; the hidden inputs only commit on the next render, so pass
-        // the fresh values straight to the recalculation.
-        recalcBuildStats({
-            ...basicInfusionTotals(next),
-            basicInfusionCounts: JSON.stringify(basicInfusionCounts(next)),
+        const wanted = Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(raw) || 1));
+        commitInfusionChange({ ...basicInfusions, [slot]: { ...basicInfusions[slot], level: wanted } });
+    }
+
+    // Normal infusions are per-slot picks ({ slot: { name, level } }): one
+    // infusion per item, level I-IV. Six items at level IV is the 24-level
+    // cap. `wantedByKey` maps a type (lowercased name) to the levels it asks
+    // for; the resolver shares the items between every type that has levels,
+    // picking the assignment that keeps each type's share of what it asked for
+    // as large as possible, places the most levels, spreads the items evenly
+    // between the types, then keeps their existing items (earlier items
+    // first). Each type gets one item per level, so raising a total fills the
+    // next item instead of stacking on the last one. Five levels of all six
+    // types settle at four each on six items; levels no item can hold are
+    // dropped, so every level the builder shows is on an item.
+    function resolveBasicInfusions(wantedByKey, itemNames, picks = {}) {
+        const slots = EQUIP_SLOTS.filter((slot) => itemNames && itemNames[slot] && itemNames[slot] !== 'None');
+        const types = BASIC_INFUSIONS.map((infusion) => ({
+            name: infusion.name,
+            wanted: Math.max(
+                0,
+                Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(wantedByKey[infusion.name.toLowerCase()]) || 0))
+            ),
+        })).filter((type) => type.wanted > 0);
+        const next = {};
+        if (types.length === 0 || slots.length === 0) return next;
+
+        // At most six items and six types, so the best item -> type assignment
+        // is found by enumerating them all (7^6 candidates at worst).
+        const counts = new Array(types.length).fill(0);
+        // A type wants one item per level (a level I on every item as its
+        // total grows), so it never needs more items than it has levels.
+        const maxSlots = types.map((type) => Math.min(type.wanted, slots.length));
+        const assigned = new Array(slots.length).fill(-1);
+        let bestScore = null;
+        let bestAssigned = null;
+
+        const score = () => {
+            let minShare = Infinity;
+            let total = 0;
+            let spread = Infinity;
+            let retained = 0;
+            let earliest = 0;
+            for (let i = 0; i < types.length; i++) {
+                const placed = Math.min(types[i].wanted, counts[i] * BASIC_INFUSION_MAX_LEVEL);
+                minShare = Math.min(minShare, placed / types[i].wanted);
+                total += placed;
+                spread = Math.min(spread, counts[i]);
+            }
+            for (let i = 0; i < slots.length; i++) {
+                if (assigned[i] < 0) continue;
+                // Earlier items weigh more, so untouched types keep their
+                // spread and new placements fill from the first item.
+                const weight = slots.length - i;
+                earliest += weight;
+                if (picks[slots[i]]?.name === types[assigned[i]].name) retained += weight;
+            }
+            return [minShare, total, spread, retained, earliest];
+        };
+
+        const better = (candidate, current) => {
+            if (!current) return true;
+            for (let i = 0; i < candidate.length; i++) {
+                if (candidate[i] > current[i] + 1e-9) return true;
+                if (candidate[i] < current[i] - 1e-9) return false;
+            }
+            return false;
+        };
+
+        const walk = (index) => {
+            if (index === slots.length) {
+                const candidate = score();
+                if (better(candidate, bestScore)) {
+                    bestScore = candidate;
+                    bestAssigned = [...assigned];
+                }
+                return;
+            }
+            // Slots may stay unused when no type wants what they would add.
+            for (let type = -1; type < types.length; type++) {
+                if (type >= 0 && counts[type] >= maxSlots[type]) continue;
+                assigned[index] = type;
+                if (type >= 0) counts[type]++;
+                walk(index + 1);
+                if (type >= 0) counts[type]--;
+            }
+            assigned[index] = -1;
+        };
+        walk(0);
+
+        const slotsByType = types.map(() => []);
+        bestAssigned.forEach((type, index) => {
+            if (type >= 0) slotsByType[type].push(slots[index]);
         });
+        types.forEach((type, index) => {
+            const typeSlots = slotsByType[index];
+            const placed = Math.min(type.wanted, typeSlots.length * BASIC_INFUSION_MAX_LEVEL);
+            if (typeSlots.length === 0 || placed === 0) return;
+            // Items the type already carries come first, so rebalances move as
+            // few picks as possible.
+            typeSlots.sort((a, b) => (picks[b]?.name === type.name ? 1 : 0) - (picks[a]?.name === type.name ? 1 : 0));
+            // One level per item first, then a second level each, and so on:
+            // raising the total fills the next item instead of stacking.
+            const base = Math.floor(placed / typeSlots.length);
+            const remainder = placed - base * typeSlots.length;
+            typeSlots.forEach((slot, slotIndex) => {
+                next[slot] = { name: type.name, level: base + (slotIndex < remainder ? 1 : 0) };
+            });
+        });
+        return next;
+    }
+
+    // "Both" and "Number total" modes: the number box is the per-type total.
+    // Editing it re-shares the items between every type that has levels (see
+    // resolveBasicInfusions), so impossible combos cannot be entered - five
+    // levels of all six infusions end at level IV each on six items - and the
+    // box shows the placed sum, never a level no item carries. Editing a
+    // picker updates the boxes the other way.
+    function changeSyncedInfusion(key, raw) {
+        const wanted = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(raw) || 0)));
+        const wantedByKey = basicInfusionTotals(basicInfusions);
+        wantedByKey[key] = wanted;
+        commitInfusionChange(resolveBasicInfusions(wantedByKey, stats.itemNames, basicInfusions));
     }
 
     // Sum the infusion levels per type across all slots (the wiki allows one
@@ -1382,26 +1590,48 @@ export default function BuildForm({
         return next;
     }
 
-    function applyBasicInfusionTotals(infusions) {
-        setStatInputs((prev) => ({ ...prev, ...basicInfusionTotals(infusions) }));
-    }
-
-    // Base sums of the basic infusion levels, per type.
-    function basicInfusionTotals(infusions) {
-        const totals = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
+    // Per-type sums of the per-slot basic infusion levels: what the stat
+    // calculation and the saved token consume. Every infusion gets an entry
+    // (Acumen included) so rebalances never drop a type.
+    function basicInfusionTotals(infusions = basicInfusions) {
+        const totals = {};
+        for (const infusion of BASIC_INFUSIONS) totals[infusion.name.toLowerCase()] = 0;
         for (const { name, level } of Object.values(infusions)) {
-            if (totals[name.toLowerCase()] !== undefined) totals[name.toLowerCase()] += level;
+            const key = name.toLowerCase();
+            if (totals[key] !== undefined) totals[key] += level;
         }
         return totals;
+    }
+
+    // Push the per-slot picks into the form. The hidden inputs only commit on
+    // the next render, so the fresh values are passed straight to the
+    // recalculation (Understanding's amplifier counts per-slot picks).
+    function commitInfusionChange(nextInfusions) {
+        setBasicInfusions(nextInfusions);
+        const totals = basicInfusionTotals(nextInfusions);
+        const statTotals = {};
+        for (const key of BASIC_INFUSION_STAT_KEYS) statTotals[key] = totals[key] || 0;
+        setStatInputs((prev) => ({ ...prev, ...statTotals }));
+        // FormData is stale right after a change, so inject the fresh values
+        // manually (same pattern as delveChanged) and recalculate.
+        const itemNames = Object.fromEntries(Array.from(new FormData(formRef.current).entries()));
+        for (const slot of EQUIP_SLOTS) {
+            itemNames[`basicInfusion-${slot}`] = nextInfusions[slot]?.name || 'None';
+        }
+        for (const key of BASIC_INFUSION_STAT_KEYS) itemNames[key] = String(totals[key] || 0);
+        itemNames.basicInfusionCounts = JSON.stringify(basicInfusionCounts(nextInfusions));
+        applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
     // How many items carry each basic infusion type. Understanding's amplifier
     // applies per item, so the stat calculation needs the counts (two items
     // with Vitality II are 2 x (0.2 * level) extra levels, not one).
     function basicInfusionCounts(infusions) {
-        const counts = { tenacity: 0, vitality: 0, vigor: 0, focus: 0, perspicacity: 0 };
+        const counts = {};
+        for (const infusion of BASIC_INFUSIONS) counts[infusion.name.toLowerCase()] = 0;
         for (const { name } of Object.values(infusions)) {
-            if (counts[name.toLowerCase()] !== undefined) counts[name.toLowerCase()] += 1;
+            const key = name.toLowerCase();
+            if (counts[key] !== undefined) counts[key] += 1;
         }
         return counts;
     }
@@ -1513,7 +1743,6 @@ export default function BuildForm({
             nextSpec = null;
             nextSpecPoints = {};
             setSpec(null);
-            setSpecSelectKey((k) => k + 1);
             setSpecSkillPoints({});
         }
         if (nextRegion === 1) {
@@ -1564,24 +1793,34 @@ export default function BuildForm({
         resetForm();
     }
 
-    const currentClassSkills = (() => {
+    // Memoized: returning a fresh [] on every render made every memo that
+    // depends on these lists (the charm selector's whole option list) rebuild
+    // on every keystroke/slider tick.
+    const currentClassSkills = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none') return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
         return cls ? cls.skills || [] : [];
-    })();
+    }, [skillsData, gameClass]);
 
-    const currentSpecOptions = (() => {
+    const currentSpecOptions = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none') return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
         return (cls?.specs || []).map((s) => ({ value: s.specName, label: s.specName }));
-    })();
+    }, [skillsData, gameClass]);
 
-    const currentSpecSkills = (() => {
+    const currentSpecSkills = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
         const specData = cls?.specs?.find((s) => s.specName == spec);
         return specData ? specData.specSkills || [] : [];
-    })();
+    }, [skillsData, gameClass, spec]);
+
+    // Stable name lists for the charm selector: it memoizes its option list
+    // against these props, so freshly mapped arrays on every render made it
+    // rebuild the whole charm list over and over.
+    const charmNameList = React.useMemo(() => charms.map((c) => c.name), [charms]);
+    const classSkillNameList = React.useMemo(() => currentClassSkills.map((s) => s.name), [currentClassSkills]);
+    const specSkillNameList = React.useMemo(() => currentSpecSkills.map((s) => s.name), [currentSpecSkills]);
 
     // Rebuild the class-ability buff flags from skill points, spec skill
     // points, and the enhancement checkboxes. The stat engine reads these.
@@ -1682,7 +1921,6 @@ export default function BuildForm({
     function specChanged(newValue, actionMeta) {
         const specName = newValue ? newValue.value : null;
         setSpec(specName);
-        setSpecSelectKey((k) => k + 1);
         setSpecSkillPoints({});
         refreshClassBuffs(skillPoints, {}, enhancements);
         recalcBuildStats();
@@ -1806,6 +2044,22 @@ export default function BuildForm({
     function saveBuildToServer(forking = false) {
         const token = makeBuildString();
         const tokenVersion = getBuildTokenVersion(token) ?? '';
+        // Someone else's saved build: sharing it must share the build as it
+        // is. Saving would fork a copy onto the account, and the embed would
+        // credit whoever shared it instead of the build's original author.
+        // Saving the current edits as a copy is what "Save as new copy" does.
+        if (activeBuildId && !forking && !ownsBuild) {
+            const storedVersion = getBuildTokenVersion(build) ?? tokenVersion;
+            const link =
+                window.location.origin + getStsBase() + `/b/v${storedVersion}/${activeBuildId}` + `?v=${buildRevision}`;
+            setSaveState('copied');
+            setSavedAnonymous(false);
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(link).catch(() => {});
+            }
+            setTimeout(() => setSaveState(null), 4000);
+            return Promise.resolve(link);
+        }
         const payload = {
             token,
             infusions: delveInfusions,
@@ -1823,9 +2077,8 @@ export default function BuildForm({
         let profanityHit = false;
         let duplicateHit = false;
 
-        // Only account-owned builds are updated in place. A signed-out save
-        // (or one that belongs to someone else) always takes the POST path and
-        // produces a fresh snapshot link instead.
+        // The account's own build is updated in place; an explicit fork (or an
+        // unsaved build) POSTs a fresh snapshot link instead.
         if (activeBuildId && !forking && loggedIn) {
             setSaveState('saving');
             setSavedAnonymous(false);
@@ -1869,6 +2122,9 @@ export default function BuildForm({
                     if (result.savedToAccount) setOwnsBuild(true);
                     // The server may have appended " (2)" to a duplicate name.
                     if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
+                    // Track the new revision so the draft saved next belongs to
+                    // the row's current revision (older drafts are ignored).
+                    if (result.version) setBuildRevision(result.version);
                     // The server returns the build's revision (?v=), which
                     // only changes when the build is updated.
                     const link =
@@ -1925,6 +2181,7 @@ export default function BuildForm({
                 const link = window.location.origin + getStsBase() + d.url + (d.version ? `?v=${d.version}` : '');
                 // Remember the row so later edits update it instead of forking.
                 setActiveBuildId(d.id);
+                if (d.version) setBuildRevision(d.version);
                 if (d.savedToAccount) setOwnsBuild(true);
                 // The server may have appended " (2)" to a duplicate name.
                 if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
@@ -2009,8 +2266,7 @@ export default function BuildForm({
     }
 
     React.useEffect(() => {
-        fetch('/api/v2/skills')
-            .then((r) => (r.ok ? r.json() : null))
+        loadSkills()
             .then((d) => {
                 if (d && Array.isArray(d.classes)) setSkillsData(d);
             })
@@ -2018,8 +2274,7 @@ export default function BuildForm({
     }, []);
 
     React.useEffect(() => {
-        fetch('/api/v2/cz')
-            .then((r) => (r.ok ? r.json() : null))
+        loadCz()
             .then((d) => {
                 if (d && Array.isArray(d.trees)) setCzData(d);
             })
@@ -2060,16 +2315,32 @@ export default function BuildForm({
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
-    React.useEffect(() => {
+    // Restoring the build (or the empty build's base stats) runs in a layout
+    // effect and applies its stats immediately: both the stat cards and the
+    // item slots are laid out from this state, so anything that lands after the
+    // first paint grows the page a frame later and shifts everything below it -
+    // the builder's largest CLS source. BuilderPage flips parentLoaded in a
+    // layout effect too, so this still runs before the browser paints.
+    React.useLayoutEffect(() => {
         if (!parentLoaded) return;
         // Source of truth for this page: the URL build (saved build), or the
-        // session draft when there is none - unless the draft belongs to a
-        // different saved build. A matching draft wins over the DB row: it may
-        // hold edits the user hasn't saved yet.
+        // session draft that belongs here (see effectiveDraft). A matching
+        // draft wins over the URL: it may hold edits the user hasn't saved yet.
         const isLoadedBuild = Boolean(build);
-        const effDraft = draft && (!isLoadedBuild || draft.buildId === buildId) ? draft : null;
+        const effDraft = effectiveDraft;
         const loadToken = effDraft ? effDraft.token : build;
-        if (!loadToken) return;
+        if (!loadToken) {
+            // Fresh builder (no build link, no draft): compute the empty build's
+            // base stats right away so the stat cards are populated before any
+            // edit instead of showing empty cards.
+            applyStatsUpdateNow(
+                Object.fromEntries(new FormData(formRef.current).entries()),
+                itemData,
+                setStats,
+                update
+            );
+            return;
+        }
         const decoded = decodeBuildParam(loadToken, itemData);
         if (!decoded) return;
         let buildParts = decodeURI(decoded).split('&');
@@ -2119,7 +2390,6 @@ export default function BuildForm({
             const cls = classPart.split('cl=')[1];
             if (cls) {
                 setGameClass(cls.toLowerCase());
-                setClassSelectKey((k) => k + 1);
             }
         }
         let skPart = buildParts.find((str) => str.includes('sk='));
@@ -2141,7 +2411,6 @@ export default function BuildForm({
             const specName = decodeURIComponent(spPart.split('sp=')[1]);
             if (specName) {
                 setSpec(specName);
-                setSpecSelectKey((k) => k + 1);
             }
         }
         let sskPart = buildParts.find((str) => str.includes('ssk='));
@@ -2235,8 +2504,10 @@ export default function BuildForm({
 
         // Saved builds carry the delve infusions + Revelation checkbox in
         // the DB (they are not part of the URL token); restore them here.
-        // Drafts carry them inline the same way.
-        const effSavedState = isLoadedBuild ? savedState : effDraft;
+        // Drafts carry them inline the same way, and a draft that applies to
+        // this page (same build + revision, see effectiveDraft) wins over the
+        // DB copy so unsaved infusion edits are not dropped.
+        const effSavedState = isLoadedBuild ? effDraft || savedState : effDraft;
         const loadedDelve = {};
         if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
             for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
@@ -2254,10 +2525,14 @@ export default function BuildForm({
         const loadedRevelation = Boolean(effSavedState && effSavedState.revelation);
         if (loadedRevelation) setRevelation(true);
 
-        // Basic (normal) infusions: restored per slot so their dropdowns show
-        // them (the token's stat inputs already carry the summed levels).
+        // Basic (normal) infusions: per-slot picks are restored so their
+        // dropdowns show them. Builds saved before the number boxes were tied
+        // to the items, and token-only links (which carry just the per-type
+        // totals), can have levels that no item carries: those are placed onto
+        // the free items here, so nothing raises the stats unseen. Levels that
+        // do not fit on any item are dropped.
+        let loadedBasic = {};
         if (effSavedState && effSavedState.basicInfusions && typeof effSavedState.basicInfusions === 'object') {
-            const loadedBasic = {};
             for (const [slot, value] of Object.entries(effSavedState.basicInfusions)) {
                 if (!value || typeof value.name !== 'string') continue;
                 if (!BASIC_INFUSIONS.some((i) => i.name === value.name)) continue;
@@ -2266,11 +2541,34 @@ export default function BuildForm({
                     level: Math.max(1, Math.min(BASIC_INFUSION_MAX_LEVEL, Number(value.level) || 1)),
                 };
             }
-            if (Object.keys(loadedBasic).length > 0) {
-                setBasicInfusions(loadedBasic);
-                setBasicOpen(true);
-            }
         }
+        const storedGlobals =
+            effSavedState && effSavedState.globalInfusions && typeof effSavedState.globalInfusions === 'object'
+                ? effSavedState.globalInfusions
+                : null;
+        const wantedBasic = basicInfusionTotals(loadedBasic);
+        for (const key of BASIC_INFUSION_STAT_KEYS) {
+            // A saved state without the field predates the global boxes, so
+            // its token totals were the per-slot sums (nothing extra to place).
+            const source = storedGlobals ? storedGlobals[key] : effSavedState ? 0 : statValues[key];
+            const value = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(source) || 0)));
+            if (value > 0) wantedBasic[key] = value;
+        }
+        // Legacy total-only sources can have levels no item carried; the
+        // resolver shares the items between every type (and drops what cannot
+        // fit), so nothing raises the stats unseen.
+        loadedBasic = resolveBasicInfusions(wantedBasic, itemNames, loadedBasic);
+        // The build carries basic infusions: open the section, and apply them
+        // even if the toggle happened to be off before the load.
+        const hasBasicInfusions = Object.keys(loadedBasic).length > 0;
+        if (hasBasicInfusions) {
+            setBasicInfusions(loadedBasic);
+            setBasicOpen(true);
+        }
+        const loadedTotals = basicInfusionTotals(loadedBasic);
+        const loadedStatInputs = {};
+        for (const key of BASIC_INFUSION_STAT_KEYS) loadedStatInputs[key] = loadedTotals[key] || 0;
+        setStatInputs((prev) => ({ ...prev, ...loadedStatInputs }));
 
         // A build renamed on the "My Builds" page stores its display name in
         // the DB; surface it in the header so re-saving keeps the new name.
@@ -2292,11 +2590,13 @@ export default function BuildForm({
             delveEntries[`delveInfusion-${slot}`] = infusion;
         }
 
-        applyStatsUpdate(
+        applyStatsUpdateNow(
             {
                 ...itemNames,
                 ...statValues,
                 ...delveEntries,
+                ...(Object.keys(delveEntries).length > 0 ? { delveEnabled: '1' } : {}),
+                ...(hasBasicInfusions ? { infusionsEnabled: '1' } : {}),
                 ...(loadedRevelation ? { revelation: '1' } : {}),
             },
             itemData,
@@ -2308,7 +2608,6 @@ export default function BuildForm({
         const loadedRegion = Number(statValues.region) || 3;
         if (loadedRegion === 1) {
             setSpec(null);
-            setSpecSelectKey((k) => k + 1);
             setSpecSkillPoints({});
             setEnhancements({});
             setCharms([]);
@@ -2330,19 +2629,7 @@ export default function BuildForm({
                 setCzAbilities(cleaned);
             }
         }
-    }, [parentLoaded, draft]);
-
-    // The spec dropdown's options come from the async skills data, but a
-    // loaded build sets `spec` (and remounts the select via specSelectKey)
-    // as soon as its URL parses - which can happen before the skills fetch
-    // resolves. The remount then resolves the default value against empty
-    // options and the dropdown stays blank even though the spec skills
-    // render. Remount once the options actually exist so the loaded spec
-    // shows in the dropdown.
-    React.useEffect(() => {
-        if (skillsData && spec) setSpecSelectKey((k) => k + 1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [skillsData]);
+    }, [parentLoaded, effectiveDraft]);
 
     // A shared skill/infusion set opened from /builder?set=<id>: apply it
     // once, after the build/draft restore effect above has run. Skill sets
@@ -2372,7 +2659,7 @@ export default function BuildForm({
         // refs: the restore effect's setValue() is an async react-select
         // state update that hasn't flushed yet when this effect runs.
         const isLoadedBuild = Boolean(build);
-        const effDraft = draft && (!isLoadedBuild || draft.buildId === buildId) ? draft : null;
+        const effDraft = effectiveDraft;
         const loadToken = effDraft ? effDraft.token : build;
         const itemNames = {
             mainhand: 'None',
@@ -2461,31 +2748,55 @@ export default function BuildForm({
     }, [parentLoaded, maxMasterworkDefault]);
 
     // Autosave the working state as a session draft (debounced) so an
-    // accidental reload or a switch to another page doesn't lose it. The load
-    // effect restores it on /builder, or on /b/<id> when it belongs to that
-    // build (unsaved edits to an opened build survive a reload too).
+    // accidental reload or a switch to another page doesn't lose it. Unsaved
+    // work is restored on /builder; a saved build's draft only restores on
+    // that build's own page (see effectiveDraft above), so opening the plain
+    // builder always starts something new.
+    const draftTimerRef = React.useRef(null);
+    const writeDraftRef = React.useRef(null);
+
+    function writeDraft() {
+        try {
+            // Skipped when the "Cache builds" setting is off.
+            if (!isBuildsCacheEnabled()) return;
+            window.localStorage.setItem(
+                DRAFT_KEY,
+                JSON.stringify({
+                    token: makeBuildString(),
+                    infusions: delveInfusions,
+                    basicInfusions,
+                    revelation,
+                    name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
+                    notes: notesDraft.trim() ? notesDraft : null,
+                    buildId: activeBuildId || null,
+                    revision: buildRevision,
+                    savedAt: Date.now(),
+                })
+            );
+        } catch (e) {}
+    }
+
+    // Shared debounce: state changes save through the effect below, while the
+    // build name only lives in a ref (renaming must not re-render the form),
+    // so committing a name asks for a save explicitly - otherwise reopening
+    // the build restores the cached older name.
+    function scheduleDraftSave(delay = 500) {
+        if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = setTimeout(() => {
+            draftTimerRef.current = null;
+            const write = writeDraftRef.current;
+            if (write) write();
+        }, delay);
+    }
+
     React.useEffect(() => {
         if (!parentLoaded) return;
-        const timer = setTimeout(() => {
-            try {
-                // Skipped when the "Cache builds" setting is off.
-                if (!isBuildsCacheEnabled()) return;
-                window.localStorage.setItem(
-                    DRAFT_KEY,
-                    JSON.stringify({
-                        token: makeBuildString(),
-                        infusions: delveInfusions,
-                        basicInfusions,
-                        revelation,
-                        name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
-                        notes: notesDraft.trim() ? notesDraft : null,
-                        buildId: activeBuildId || null,
-                        savedAt: Date.now(),
-                    })
-                );
-            } catch (e) {}
-        }, 500);
-        return () => clearTimeout(timer);
+        // Keep the debounced writer pointed at the latest state.
+        writeDraftRef.current = writeDraft;
+        scheduleDraftSave();
+        return () => {
+            if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        };
     }, [
         parentLoaded,
         stats,
@@ -2502,6 +2813,7 @@ export default function BuildForm({
         revelation,
         notesDraft,
         activeBuildId,
+        buildRevision,
     ]);
 
     // Once the skills data is known (it loads async, after parentLoaded), drop
@@ -2549,10 +2861,8 @@ export default function BuildForm({
             itemRefs[ref].current.setValue({ value: 'None', label: 'None' });
         }
         setGameClass('none');
-        setClassSelectKey((k) => k + 1);
         setSkillPoints({});
         setSpec(null);
-        setSpecSelectKey((k) => k + 1);
         setSpecSkillPoints({});
         setEnhancements({});
         refreshClassBuffs({}, {}, {});
@@ -2563,6 +2873,7 @@ export default function BuildForm({
         setCharmSelectKey((k) => k + 1);
         setDelveInfusions({});
         setDelvePoints({});
+        setBasicInfusions({});
         setRevelation(false);
         setCzAbilities({});
         setCzSelectedTree(CZ_MAIN_TREES[0]);
@@ -2896,7 +3207,6 @@ export default function BuildForm({
         setGameClass(newClass);
         setSkillPoints({});
         setSpec(null);
-        setSpecSelectKey((k) => k + 1);
         setSpecSkillPoints({});
         setEnhancements({});
         refreshClassBuffs({}, {}, {});
@@ -2913,10 +3223,6 @@ export default function BuildForm({
         { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
-    // Current health as a % of max health (0-100), clamped for the slider.
-    // Note: `|| 100` would snap a legit 0% back to 100, so check explicitly.
-    const rawHealthPercent = Number(statInputs.health);
-    const healthPercentInput = Math.max(0, Math.min(100, Number.isFinite(rawHealthPercent) ? rawHealthPercent : 100));
     const healthStats = [
         { type: 'healthFinal', name: 'builder.stats.health.healthFinal', percent: false },
         { type: 'currentHealth', name: 'builder.stats.health.currentHealth', percent: false },
@@ -3085,7 +3391,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('mainhand')}
-                {basicOpen && basicSlotSelects('mainhand')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('mainhand')}
                 {splitLayout && renderEquippedTile('mainhand')}
             </div>
             <div className={slotCellClass}>
@@ -3099,7 +3405,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('offhand')}
-                {basicOpen && basicSlotSelects('offhand')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('offhand')}
                 {splitLayout && renderEquippedTile('offhand')}
             </div>
             <div className={slotCellClass}>
@@ -3113,7 +3419,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('helmet')}
-                {basicOpen && basicSlotSelects('helmet')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('helmet')}
                 {splitLayout && renderEquippedTile('helmet')}
             </div>
             <div className={slotCellClass}>
@@ -3127,7 +3433,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('chestplate')}
-                {basicOpen && basicSlotSelects('chestplate')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('chestplate')}
                 {splitLayout && renderEquippedTile('chestplate')}
             </div>
             <div className={slotCellClass}>
@@ -3141,7 +3447,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('leggings')}
-                {basicOpen && basicSlotSelects('leggings')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('leggings')}
                 {splitLayout && renderEquippedTile('leggings')}
             </div>
             <div className={slotCellClass}>
@@ -3155,7 +3461,7 @@ export default function BuildForm({
                     onChange={itemChanged}
                 ></SelectInput>
                 {delveOpen && delveSlotSelects('boots')}
-                {basicOpen && basicSlotSelects('boots')}
+                {basicOpen && infusionInputMode !== 'total' && basicSlotSelects('boots')}
                 {splitLayout && renderEquippedTile('boots')}
             </div>
         </div>
@@ -3200,9 +3506,9 @@ export default function BuildForm({
                         translatableName={'builder.charms.select'}
                         itemData={itemData}
                         hideList
-                        charmNames={charms.map((c) => c.name)}
-                        classSkillNames={currentClassSkills.map((s) => s.name)}
-                        specSkillNames={currentSpecSkills.map((s) => s.name)}
+                        charmNames={charmNameList}
+                        classSkillNames={classSkillNameList}
+                        specSkillNames={specSkillNameList}
                         selectedClass={gameClass}
                     ></CharmSelector>
                 </div>
@@ -3275,6 +3581,9 @@ export default function BuildForm({
     // The sections that follow the stats in the default flow: situational
     // stat toggles, the health slider and the notes. In the New Layout they
     // render centered below the two columns, together with the charms.
+    // Per-type totals for the number boxes (always the items' sums).
+    const infusionTotals = basicInfusionTotals();
+
     const tailSections = (
         <>
             <div className="row justify-content-center pt-1 mb-1 g-1">
@@ -3282,59 +3591,54 @@ export default function BuildForm({
                     identifier="builder.misc.situationals"
                     className="text-center mb-1"
                 ></TranslatableText>
-                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, {
+                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveOpen ? delveInfusions : null, {
                     frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
                     frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
                 })}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
-                <div className="text-center mx-2">
-                    <div className={styles.enchantTooltip}>
-                        <p className="mb-1">
-                            <TranslatableText identifier="builder.misc.maxHealthPercent"></TranslatableText>
-                        </p>
-                        <span className={styles.enchantTooltipText}>{t('builder.misc.maxHealthPercentTooltip')}</span>
+                <HealthControls
+                    value={statInputs.health}
+                    onSchedule={scheduleStatsRecalc}
+                    onCommit={commitHealthInput}
+                    currentHealth={itemsToDisplay.currentHealth}
+                    healthFinal={itemsToDisplay.healthFinal}
+                />
+                {/* Normal infusion number boxes: one per infusion type, each
+                    showing the levels the items carry. Editing one re-shares
+                    the items across every type that has levels (see
+                    changeSyncedInfusion), so a total the items cannot hold
+                    settles lower instead of raising the stats. Hidden while
+                    the Infusions toggle is off, like the picks themselves, and
+                    when Settings -> Infusion inputs is set to per-item. */}
+                {basicOpen && infusionInputMode !== 'item' && (
+                    <div className="d-flex flex-wrap justify-content-center align-items-start">
+                        {BASIC_INFUSION_BOX_KEYS.map((key) => (
+                            <div className="text-center mx-2" key={key}>
+                                <p className="mb-1" style={{ textTransform: 'capitalize' }}>
+                                    {key}
+                                </p>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max={BASIC_INFUSION_LEVEL_CAP}
+                                    value={infusionTotals[key] || 0}
+                                    onChange={(event) => changeSyncedInfusion(key, event.target.value)}
+                                    className={styles.infusionLevelInput}
+                                    aria-label={`${key} infusion level`}
+                                />
+                            </div>
+                        ))}
                     </div>
-                    <div className={styles.healthSliderRow}>
-                        <input
-                            type="range"
-                            name="health"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={healthPercentInput}
-                            onChange={(e) => statInputChanged('health', e)}
-                            className={styles.healthSlider}
-                            style={{
-                                '--slider-color': `hsl(${(healthPercentInput / 100) * 120} 70% 45%)`,
-                                '--slider-pct': `${healthPercentInput}%`,
-                            }}
-                        />
-                        <input
-                            type="number"
-                            name="health"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={statInputs.health}
-                            onChange={(e) => statInputChanged('health', e)}
-                            onBlur={healthPercentBlur}
-                            className={styles.healthPercentInput}
-                            aria-label={t('builder.misc.maxHealthPercentAria')}
-                        />
-                        <span className={styles.healthPoints}>
-                            {Number.isFinite(itemsToDisplay.currentHealth)
-                                ? Math.round(itemsToDisplay.currentHealth)
-                                : '–'}
-                            {' / '}
-                            {Number.isFinite(itemsToDisplay.healthFinal) ? Math.round(itemsToDisplay.healthFinal) : '–'}
-                        </span>
-                    </div>
-                </div>
-                {/* Basic infusion totals (levels summed across slots) live in
+                )}
+                {/* Basic infusion totals (per-slot + global levels) live in
                     hidden inputs so the stat calculation (Stats reads
                     formData.tenacity/vitality/vigor/focus/perspicacity) and
-                    the saved build token keep working without visible inputs. */}
+                    the saved build token keep working without visible inputs.
+                    The enabled flags let the toggles above turn the effects
+                    off without dropping the picks. */}
+                <input type="hidden" name="delveEnabled" value={delveOpen ? '1' : '0'} />
+                <input type="hidden" name="infusionsEnabled" value={basicOpen ? '1' : '0'} />
                 <input type="hidden" name="tenacity" value={statInputs.tenacity} />
                 <input type="hidden" name="vitality" value={statInputs.vitality} />
                 <input type="hidden" name="vigor" value={statInputs.vigor} />
@@ -3636,18 +3940,15 @@ export default function BuildForm({
                             ) : (
                                 <div>
                                     <SelectInput
-                                        key={`class-${classSelectKey}`}
                                         name="class"
                                         floatingLabel={t('builder.misc.class')}
                                         noneOption={true}
+                                        widthToOptions
                                         sortableStats={classes}
-                                        default={
+                                        value={
                                             gameClass != 'none'
-                                                ? {
-                                                      value: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
-                                                      label: gameClass.charAt(0).toUpperCase() + gameClass.slice(1),
-                                                  }
-                                                : undefined
+                                                ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1)
+                                                : 'None'
                                         }
                                         onChange={classChanged}
                                     />
@@ -3658,12 +3959,11 @@ export default function BuildForm({
                             ) : (
                                 <div className="ms-3">
                                     <SelectInput
-                                        key={`spec-${specSelectKey}`}
                                         name="spec"
                                         floatingLabel={t('database.filters.spec')}
                                         noneOption={true}
                                         sortableStats={currentSpecOptions}
-                                        default={spec ? { value: spec, label: spec } : undefined}
+                                        value={spec || 'None'}
                                         onChange={specChanged}
                                     />
                                 </div>
@@ -3675,7 +3975,13 @@ export default function BuildForm({
                             <input
                                 type="checkbox"
                                 checked={delveOpen}
-                                onChange={(e) => setDelveOpen(e.target.checked)}
+                                onChange={(e) => {
+                                    setDelveOpen(e.target.checked);
+                                    // The toggle only decides whether the
+                                    // picks apply; the picks themselves stay
+                                    // in state and come back when re-ticked.
+                                    scheduleStatsRecalc();
+                                }}
                                 aria-label={t('builder.misc.delveInfusions')}
                             />
                             {t('builder.misc.delveInfusions')}
@@ -3684,7 +3990,10 @@ export default function BuildForm({
                             <input
                                 type="checkbox"
                                 checked={basicOpen}
-                                onChange={(e) => setBasicOpen(e.target.checked)}
+                                onChange={(e) => {
+                                    setBasicOpen(e.target.checked);
+                                    scheduleStatsRecalc();
+                                }}
                                 aria-label={t('builder.misc.infusions')}
                             />
                             {t('builder.misc.infusions')}
@@ -4216,7 +4525,9 @@ export default function BuildForm({
                 </div>
             </div>
             <p className={styles.saveStatus} role="status">
-                {activeBuildId ? t('builder.status.editingSaved') : t('builder.status.unsaved')}
+                {activeBuildId
+                    ? t(ownsBuild ? 'builder.status.editingSaved' : 'builder.status.viewingSaved')
+                    : t('builder.status.unsaved')}
             </p>
             {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>

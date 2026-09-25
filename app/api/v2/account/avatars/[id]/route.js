@@ -25,7 +25,7 @@ export async function GET(_request, { params }) {
 // Remove one of the account's uploaded pictures. If it was the active one,
 // the account falls back to its Discord avatar.
 export async function DELETE(_request, { params }) {
-    const p = await params;
+    const { id } = await params;
     const user = await getDiscordUser();
     // Banned/suspended accounts may browse but not change their pictures.
     const blocked = sanctionBlock(user);

@@ -407,7 +407,16 @@ function getRelevantItems(data, itemData, hideSkins) {
 
 export default function ItemsPage({ itemData, itemHistory }) {
     const { hidden: hideSkins } = useHideSkins();
-    const [relevantItems, setRelevantItems] = React.useState(() => getRelevantItems({}, itemData, false));
+    // The latest search form data (name/lore/filters/toggles). The visible list
+    // is derived from it; filtering the whole item database is the expensive
+    // part of a search, so it reads the deferred copy: the click/keystroke that
+    // changed a filter paints first and the list follows a frame later.
+    const [filterData, setFilterData] = React.useState({});
+    const deferredFilterData = React.useDeferredValue(filterData);
+    const relevantItems = React.useMemo(
+        () => getRelevantItems(deferredFilterData, itemData, hideSkins),
+        [deferredFilterData, itemData, hideSkins]
+    );
     const [itemsToShow, setItemsToShow] = React.useState(20);
     const itemsToLoad = 20;
 
@@ -422,25 +431,9 @@ export default function ItemsPage({ itemData, itemHistory }) {
         }
         return out;
     }, [itemHistory, itemData]);
-    // The latest search form data (name/lore/filters/toggles), so toggling
-    // "hide skinned items" re-applies the current search instead of resetting.
-    const filterDataRef = React.useRef({});
-
-    // Re-apply the list when the hide-skins toggle flips. The mount pass is
-    // skipped (the useState initializer - or the search restored by SearchForm
-    // right after mount - already set the list); every toggle after that
-    // recomputes with the current search filters.
-    const prevHideSkins = React.useRef(hideSkins);
-    React.useEffect(() => {
-        if (prevHideSkins.current === hideSkins) return;
-        prevHideSkins.current = hideSkins;
-        setRelevantItems(getRelevantItems(filterDataRef.current, itemData, hideSkins));
-        setItemsToShow(itemsToLoad);
-    }, [hideSkins, itemData]);
 
     function handleChange(data) {
-        filterDataRef.current = data;
-        setRelevantItems(getRelevantItems(data, itemData, hideSkins));
+        setFilterData(data);
         setItemsToShow(itemsToLoad);
     }
 
@@ -463,6 +456,9 @@ export default function ItemsPage({ itemData, itemHistory }) {
                 <div className={styles.historyLinkRow}>
                     <Link href="/items/changes" className={styles.historyLink}>
                         <TranslatableText identifier="items.changes.link"></TranslatableText>
+                    </Link>
+                    <Link href="/classes/changes" className={styles.historyLink}>
+                        <TranslatableText identifier="classes.changes.link"></TranslatableText>
                     </Link>
                 </div>
                 {relevantItems.length === 0 ? (

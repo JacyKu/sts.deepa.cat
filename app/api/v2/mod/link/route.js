@@ -22,7 +22,7 @@ export async function POST(request) {
     if (!/^[A-Za-z0-9_-]{32,128}$/.test(deviceToken)) {
         return NextResponse.json({ error: 'missing device token' }, { status: 400 });
     }
-    const code = createPendingLink(uuid, deviceToken);
+    const code = createPendingLink(uuid, deviceToken, getClientIp(request));
     if (!code) {
         return NextResponse.json({ error: 'invalid uuid' }, { status: 400 });
     }

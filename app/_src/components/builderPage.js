@@ -12,6 +12,7 @@ export default function BuilderPage({
     notes,
     canEditNotes,
     buildId,
+    revision,
     canPublicise,
     isPublic,
     isAnonymous,
@@ -27,7 +28,10 @@ export default function BuilderPage({
     }
     const [parentLoaded, setParentLoaded] = React.useState(false);
 
-    React.useEffect(() => {
+    // Flipped in a layout effect so BuildForm's restore effect (which also runs
+    // as a layout effect) can lay the build out before the first paint instead
+    // of growing the page a frame later.
+    React.useLayoutEffect(() => {
         setParentLoaded(true);
     }, []);
 
@@ -42,6 +46,7 @@ export default function BuilderPage({
                     notes={notes}
                     canEditNotes={canEditNotes}
                     buildId={buildId}
+                    revision={revision}
                     canPublicise={canPublicise}
                     isPublic={isPublic}
                     isAnonymous={isAnonymous}

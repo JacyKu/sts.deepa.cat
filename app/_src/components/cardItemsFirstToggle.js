@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import searchStyles from '../styles/SearchForm.module.css';
 import itemsStyles from '../styles/Items.module.css';
 import { useCardItemsFirst } from './items/cardItemsFirstContext';
 import { useTranslation } from './useTranslation';
@@ -15,7 +14,7 @@ export default function CardItemsFirstToggle({ className } = {}) {
     const { itemsFirst, setItemsFirst } = useCardItemsFirst();
     const t = useTranslation();
     return (
-        <label className={`${searchStyles.toggleLabel} ${className || ''}`}>
+        <label className={className || ''}>
             <input
                 type="checkbox"
                 checked={itemsFirst}

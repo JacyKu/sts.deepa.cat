@@ -21,12 +21,19 @@ const PINK_CHARM_STATS = new Set([
     'holy_javelin_stun_duration_flat',
     'steel_trap_tether_damage_flat',
     'steel_trap_tether_range_flat',
-    'sage\'s_insight_cooldown_rate_per_ability_reset_percent',
-    'sage\'s_insight_damage_modifier_per_stack_percent',
-    'sage\'s_insight_duration_flat',
+    "sage's_insight_cooldown_rate_per_ability_reset_percent",
+    "sage's_insight_damage_modifier_per_stack_percent",
+    "sage's_insight_duration_flat",
 ]);
 
 class CharmFormatter {
+    // Item data stores each charm stat as { value, locked }; custom items
+    // store a plain number. Normalise both so every charm renders either.
+    static asValue(valueObj) {
+        if (valueObj && typeof valueObj === 'object') return valueObj;
+        return { value: valueObj, locked: false };
+    }
+
     static camelCase(str) {
         if (!str) return '';
         return str
@@ -38,20 +45,20 @@ class CharmFormatter {
     }
 
     static toHumanReadable(stat, valueObj) {
-        let value = valueObj.value; // hack to fix locked charms
+        const { value, locked } = CharmFormatter.asValue(valueObj);
         let humanStr = stat
             .split('_')
             .filter((part) => part != 'm' && part != 'p' && part != 'bow' && part != 'tool')
             .map((part) => part[0].toUpperCase() + part.substring(1))
             .join(' ');
 
-        humanStr = `${valueObj.locked ? '🔒 ' : ''}${value > 0 ? '+' : ''}${value}${humanStr.includes(' Percent') ? '%' : ''} ${humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '')}`;
+        humanStr = `${locked ? '🔒 ' : ''}${value > 0 ? '+' : ''}${value}${humanStr.includes(' Percent') ? '%' : ''} ${humanStr.replace(' Percent', '').replace(' Base', '').replace(' Flat', '')}`;
 
         return humanStr;
     }
 
     static statStyle(stat, valueObj) {
-        let value = valueObj.value; // hack to fix locked charms
+        const { value } = CharmFormatter.asValue(valueObj);
         const goodWhenNegative =
             (stat.includes('cooldown') &&
                 !stat.includes('reduction') &&
@@ -78,12 +85,12 @@ class CharmFormatter {
     // effect summary can render them like the regular stat cards
     // (label + monospace value).
     static charmStatParts(stat, valueObj) {
+        const { value } = CharmFormatter.asValue(valueObj);
         let rawLabel = stat
             .split('_')
             .filter((part) => part != 'm' && part != 'p' && part != 'bow' && part != 'tool')
             .map((part) => part[0].toUpperCase() + part.substring(1))
             .join(' ');
-        let value = valueObj.value; // hack to fix locked charms
         return {
             label: rawLabel.replace(' Percent', '').replace(' Base', '').replace(' Flat', ''),
             value: `${value > 0 ? '+' : ''}${value}${rawLabel.includes(' Percent') ? '%' : ''}`,

@@ -1,21 +1,29 @@
-// Date display preference. Off by default: dates use the browser's locale
-// formatting (what every card currently shows). When on, dates render in the
-// American MM/DD/YYYY layout regardless of locale.
-export const AMERICAN_DATE_KEY = 'sts.americanDate';
+// Date display preference. Empty (the default) uses the browser's locale
+// formatting (what every card showed before this setting); 'us' renders
+// MM/DD/YYYY and 'iso' renders YYYY/MM/DD, regardless of locale.
+export const DATE_FORMAT_KEY = 'sts.dateFormat';
+export const DATE_FORMATS = ['us', 'iso'];
 
-export function isAmericanDateEnabled() {
-    if (typeof window === 'undefined') return false;
+// The setting started as a boolean "American date format" toggle.
+const LEGACY_AMERICAN_KEY = 'sts.americanDate';
+
+export function getDateFormat() {
+    if (typeof window === 'undefined') return '';
     try {
-        return window.localStorage.getItem(AMERICAN_DATE_KEY) === '1';
+        const stored = window.localStorage.getItem(DATE_FORMAT_KEY);
+        if (DATE_FORMATS.includes(stored)) return stored;
+        if (window.localStorage.getItem(LEGACY_AMERICAN_KEY) === '1') return 'us';
     } catch (e) {
-        return false;
+        return '';
     }
+    return '';
 }
 
-export function setAmericanDateEnabled(enabled) {
+export function setDateFormat(format) {
     try {
-        if (enabled) window.localStorage.setItem(AMERICAN_DATE_KEY, '1');
-        else window.localStorage.removeItem(AMERICAN_DATE_KEY);
+        if (DATE_FORMATS.includes(format)) window.localStorage.setItem(DATE_FORMAT_KEY, format);
+        else window.localStorage.removeItem(DATE_FORMAT_KEY);
+        window.localStorage.removeItem(LEGACY_AMERICAN_KEY);
     } catch (e) {
         // storage unavailable; nothing to do
     }
@@ -32,6 +40,22 @@ export function formatMonthString(raw) {
     return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
+// The date part in the chosen format; '' (the default) follows the locale.
+function formatDatePart(d, utc, zone) {
+    const format = getDateFormat();
+    if (format === 'us') {
+        return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', ...zone });
+    }
+    if (format === 'iso') {
+        const pad = (n) => String(n).padStart(2, '0');
+        const year = utc ? d.getUTCFullYear() : d.getFullYear();
+        const month = (utc ? d.getUTCMonth() : d.getMonth()) + 1;
+        const day = utc ? d.getUTCDate() : d.getDate();
+        return `${year}/${pad(month)}/${pad(day)}`;
+    }
+    return d.toLocaleDateString(undefined, zone);
+}
+
 // Formats one of the site's stored timestamps (SQLite "YYYY-MM-DD HH:MM:SS"
 // or ISO-ish strings, always treated as UTC) as a short date. Existing call
 // sites differ in whether they convert the space to a "T" before parsing,
@@ -46,9 +70,7 @@ export function formatDateString(raw, { spaceToT = false, includeTime = false, u
     const d = new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : value + 'Z');
     if (Number.isNaN(d.getTime())) return '';
     const zone = utc ? { timeZone: 'UTC' } : undefined;
-    const dateText = isAmericanDateEnabled()
-        ? d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', ...zone })
-        : d.toLocaleDateString(undefined, zone);
+    const dateText = formatDatePart(d, utc, zone);
     if (!includeTime) return dateText;
     const timeText = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', ...zone });
     return `${dateText} ${timeText}`;

@@ -62,6 +62,11 @@ class Stats {
 
         // Delve infusions, read from the hidden delveInfusion-<slot> form fields.
         // All are assumed at level IV; the Revelation checkbox raises them to level V.
+        // The builder's "Delve Infusions" toggle (delveEnabled) turns every
+        // delve effect off without dropping the picks; both flags default to
+        // on for consumers that don't carry them (saved builds, compare page).
+        const delveEnabled = formData.delveEnabled !== '0';
+        const infusionsEnabled = formData.infusionsEnabled !== '0';
         this.delveInfusions = {};
         types.forEach((type) => {
             const name = formData[`delveInfusion-${type}`];
@@ -72,6 +77,7 @@ class Stats {
         // An infusion's stat effect only counts while its situational checkbox
         // is ticked (mirrors the infusion's in-game condition).
         this.hasDelveInfusion = (name) =>
+            delveEnabled &&
             this.delveInfusionNames.includes(name) &&
             Boolean(this.enabledBoxes && this.enabledBoxes[name.toLowerCase()]);
 
@@ -114,17 +120,17 @@ class Stats {
             adaptability: { enabled: true, level: 0 },
         };
 
-        this.tenacity = formData.tenacity ? formData.tenacity : 0;
-        this.vitality = formData.vitality ? formData.vitality : 0;
-        this.vigor = formData.vigor ? formData.vigor : 0;
-        this.focus = formData.focus ? formData.focus : 0;
-        this.perspicacity = formData.perspicacity ? formData.perspicacity : 0;
+        this.tenacity = infusionsEnabled && formData.tenacity ? formData.tenacity : 0;
+        this.vitality = infusionsEnabled && formData.vitality ? formData.vitality : 0;
+        this.vigor = infusionsEnabled && formData.vigor ? formData.vigor : 0;
+        this.focus = infusionsEnabled && formData.focus ? formData.focus : 0;
+        this.perspicacity = infusionsEnabled && formData.perspicacity ? formData.perspicacity : 0;
 
         // Understanding (delve infusion): every non-Delve infusion each item
         // carries gains (0.2 * level) levels. The per-type item counts come
         // from the builder's basic infusion selections; like the other delve
         // infusions, the situational chip decides whether it is counted.
-        if (this.hasDelveInfusion('Understanding') && formData.basicInfusionCounts) {
+        if (infusionsEnabled && this.hasDelveInfusion('Understanding') && formData.basicInfusionCounts) {
             let counts = null;
             try {
                 counts = JSON.parse(formData.basicInfusionCounts);

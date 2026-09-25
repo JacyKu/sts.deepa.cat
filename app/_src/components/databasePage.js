@@ -15,6 +15,7 @@ import { translate } from '../utils/translation/translate';
 import sf from '../styles/SearchForm.module.css';
 import styles from '../styles/Database.module.css';
 import { getStsBase } from '../utils/base';
+import { isSearchCacheEnabled, DATABASE_FILTERS_CACHE_KEY } from '../utils/cachePrefs';
 import {
     FilterRow,
     buildFilterCategories,
@@ -33,7 +34,7 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
     const { lang } = useLanguageContext();
     const t = (id) => translate(lang, id);
 
-    const [base, setBase] = React.useState('/sts');
+    const base = getStsBase();
     const [user, setUser] = React.useState(null);
     const [authChecked, setAuthChecked] = React.useState(false);
 
@@ -41,6 +42,55 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
     const [searchName, setSearchName] = React.useState('');
     // Sort is a fixed control above the filter rows, not an addable filter.
     const [sort, setSort] = React.useState('top');
+
+    // The applied filters survive page switches (behind the "Cache searches"
+    // setting, like the items page search). Restore once after mount - the
+    // debounced load effect below then fetches the restored search.
+    const suppressCacheSaveRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!isSearchCacheEnabled()) return;
+        try {
+            const raw = window.localStorage.getItem(DATABASE_FILTERS_CACHE_KEY);
+            if (!raw) return;
+            const cache = JSON.parse(raw);
+            if (cache && typeof cache.searchName === 'string' && cache.searchName) setSearchName(cache.searchName);
+            if (cache && (cache.sort === 'top' || cache.sort === 'new')) setSort(cache.sort);
+            if (cache && Array.isArray(cache.rows) && cache.rows.length > 0) {
+                const now = Date.now();
+                setRows(
+                    cache.rows.map((row, i) => ({
+                        key: now + i,
+                        category: row.category || null,
+                        value: row.value ?? null,
+                        slot: row.slot || null,
+                    }))
+                );
+            }
+        } catch (e) {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Persist filter edits (debounced) so they are there on the next visit.
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            if (suppressCacheSaveRef.current) {
+                suppressCacheSaveRef.current = false;
+                return;
+            }
+            if (!isSearchCacheEnabled()) return;
+            try {
+                window.localStorage.setItem(
+                    DATABASE_FILTERS_CACHE_KEY,
+                    JSON.stringify({
+                        rows: rows.map(({ key, ...rest }) => rest),
+                        searchName,
+                        sort,
+                    })
+                );
+            } catch (e) {}
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [rows, searchName, sort]);
 
     const [builds, setBuilds] = React.useState([]);
     const [page, setPage] = React.useState(1);
@@ -99,7 +149,6 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
     const loadSeq = React.useRef(0);
 
     React.useEffect(() => {
-        setBase(getStsBase());
         fetch('/api/auth/session')
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => {
@@ -205,6 +254,12 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
         setSearchName('');
         setSort('top');
         setPage(1);
+        // Reset means "nothing applied": drop the cached search and skip the
+        // save that the state change above would otherwise schedule.
+        suppressCacheSaveRef.current = true;
+        try {
+            window.localStorage.removeItem(DATABASE_FILTERS_CACHE_KEY);
+        } catch (e) {}
     }
 
     const toggleFavourite = React.useCallback((buildId, favourite) => {

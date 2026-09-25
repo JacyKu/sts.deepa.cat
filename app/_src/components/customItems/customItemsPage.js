@@ -164,10 +164,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     const session = useSessionState();
     const user = session.user;
     const authChecked = session.checked;
-    const [base, setBase] = React.useState('/sts');
-    React.useEffect(() => {
-        setBase(getStsBase());
-    }, []);
+    const base = getStsBase();
 
     const [items, setItems] = React.useState(null);
     const [searchName, setSearchName] = React.useState('');
@@ -176,6 +173,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     const [copiedId, setCopiedId] = React.useState(null);
     const [addedId, setAddedId] = React.useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = React.useState(null); // item id awaiting 2nd click
+    const [publicBusyId, setPublicBusyId] = React.useState(null); // item id whose visibility is saving
     // "Stat sets" dialog - same system as the builder's skill sets modal:
     // copy the stat rows of any of your custom items into the form, or save
     // the form's current stats as a named set to apply later.
@@ -561,6 +559,34 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
         setTimeout(() => setConfirmDeleteId((cur) => (cur === item.id ? null : cur)), 2500);
     }
 
+    // Public/private switch: public items appear in the custom items database
+    // and their share link works for everyone; private items are only visible
+    // to their owner.
+    function togglePublic(item) {
+        if (publicBusyId) return;
+        setPublicBusyId(item.id);
+        setError(null);
+        fetch(`${base}/api/v2/custom-items/${item.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isPublic: !item.isPublic }),
+        })
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error('HTTP ' + response.status))))
+            .then((data) => {
+                const updated = data && data.item ? data.item : { ...item, isPublic: !item.isPublic };
+                // Update the list in place (and the cache) so the card's
+                // badge/button flip without refetching the whole list.
+                setItems((prev) => {
+                    if (!prev) return prev;
+                    const list = prev.map((cur) => (cur.id === item.id ? { ...cur, ...updated } : cur));
+                    if (user) writeCustomItemsCache(user.id, list);
+                    return list;
+                });
+            })
+            .catch(() => setError('visibility'))
+            .finally(() => setPublicBusyId(null));
+    }
+
     function copyShareLink(item) {
         const url = `${window.location.origin}${base}/custom-items/${item.id}`;
         navigator.clipboard
@@ -602,10 +628,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
             return;
         }
         applyStatRows(rows);
-        say(
-            true,
-            `${t('customItems.feedback.statsFrom')} "${item.name}" ${t('customItems.feedback.statsIntoForm')}.`
-        );
+        say(true, `${t('customItems.feedback.statsFrom')} "${item.name}" ${t('customItems.feedback.statsIntoForm')}.`);
     }
 
     function say(ok, text) {
@@ -1069,6 +1092,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
 
                 {error === 'load' && <p className={styles.errorText}>{t('customItems.loadError')}</p>}
                 {error === 'delete' && <p className={styles.errorText}>{t('customItems.deleteError')}</p>}
+                {error === 'visibility' && <p className={styles.errorText}>{t('customItems.visibilityError')}</p>}
 
                 {statSetsOpen && (
                     <div className={itemsStyles.setsModalBackdrop} onClick={() => setStatSetsOpen(false)}>
@@ -1115,9 +1139,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                                     <span className={itemsStyles.setsRowName}>
                                                         {entry.name}
                                                         <span className={itemsStyles.setsMeta}>
-                                                            {[entry.type, entry.tier]
-                                                                .filter(Boolean)
-                                                                .join(' · ')}
+                                                            {[entry.type, entry.tier].filter(Boolean).join(' · ')}
                                                             {statCount > 0
                                                                 ? ` · ${statCount} ${t('customItems.statSets.stats')}`
                                                                 : ` · ${t('customItems.statSets.noStats')}`}
@@ -1320,6 +1342,23 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                         }
                                         actions={
                                             <div className={styles.cardActions}>
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.rowBtn}${
+                                                        item.isPublic ? ` ${styles.rowBtnPublic}` : ''
+                                                    }`}
+                                                    onClick={stop(() => togglePublic(item))}
+                                                    disabled={publicBusyId === item.id}
+                                                    title={
+                                                        item.isPublic
+                                                            ? t('database.unpublish')
+                                                            : t('database.publicise')
+                                                    }
+                                                >
+                                                    {item.isPublic
+                                                        ? t('database.publicBadge')
+                                                        : t('database.publicise')}
+                                                </button>
                                                 <button
                                                     type="button"
                                                     className={styles.rowBtn}

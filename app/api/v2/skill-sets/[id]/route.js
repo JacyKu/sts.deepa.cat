@@ -2,14 +2,27 @@ import { NextResponse } from 'next/server';
 import { deleteSkillSet, setSkillSetPublic } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
 import { sanctionBlock } from '../../../../../lib/moderation';
+import { limitRequest } from '../../../../../lib/rate-limit';
 
 // Deletes one of the caller's saved skill/delve sets. Only the owner can
 // delete; nobody can read or write someone else's sets.
-export async function DELETE(_request, { params }) {
+export async function DELETE(request, { params }) {
     const user = await getDiscordUser();
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    // Banned/suspended accounts may browse but not delete content either.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
+    const limited = limitRequest({
+        request,
+        user,
+        bucket: 'skill-set-change',
+        limit: 60,
+        windowMs: 60 * 1000,
+        hint: 'Too many set changes, slow down.',
+    });
+    if (limited) return limited;
     const { id } = await params;
     const deleted = deleteSkillSet(id, user.id);
     if (!deleted) {
@@ -28,6 +41,15 @@ export async function POST(request, { params }) {
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
+    const limited = limitRequest({
+        request,
+        user,
+        bucket: 'skill-set-change',
+        limit: 60,
+        windowMs: 60 * 1000,
+        hint: 'Too many set changes, slow down.',
+    });
+    if (limited) return limited;
     let body;
     try {
         body = await request.json();

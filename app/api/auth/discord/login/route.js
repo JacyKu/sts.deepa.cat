@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { discordLoginUrl, discordRedirectUri, safeRedirectPath } from '../../../../../lib/session';
+import { consumeRateLimit, getClientIp, rateLimitResponse } from '../../../../../lib/rate-limit';
 
 export async function GET(request) {
+    const quota = consumeRateLimit(`oauth-login:${getClientIp(request)}`, 30, 5 * 60 * 1000);
+    if (!quota.allowed) {
+        return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Too many login attempts, try again later.' });
+    }
     const nextPath = safeRedirectPath(new URL(request.url).searchParams.get('next'));
     const state = crypto.randomBytes(16).toString('hex');
 

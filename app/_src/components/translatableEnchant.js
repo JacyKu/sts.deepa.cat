@@ -22,18 +22,21 @@ function formatTitle(str) {
         .replace(/[\s+-]/g, '');
 }
 
-export default function TranslatableEnchant({ title, className, style, children }) {
+export default function TranslatableEnchant({ title, className, contentClassName, style, children }) {
     const { lang } = useLanguageContext();
     const key = `items.enchant.${formatTitle(title)}`;
     const description = SupportedLanguages[lang][key];
     const tooltipClass = description ? styles.enchantTooltip : '';
+    // The optional content wrapper lets callers de-emphasise the text (e.g.
+    // unchanged diff lines) without fading the tooltip along with it.
+    const content = contentClassName ? <span className={contentClassName}>{children}</span> : children;
     return (
         <span
             className={[tooltipClass, className].filter(Boolean).join(' ') || ''}
             style={style}
             key={`${lang}-${key}`}
         >
-            {children}
+            {content}
             {description ? <span className={styles.enchantTooltipText}>{description}</span> : ''}
         </span>
     );

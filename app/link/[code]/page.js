@@ -31,5 +31,9 @@ export default async function Page({ params }) {
             ? { name: lookup.name, avatarUrl: minecraftAvatarUrl(pending.uuid) }
             : { name: null, avatarUrl: minecraftAvatarUrl(pending.uuid) };
     }
-    return <LinkConfirmPage code={String(code)} pending={pending} user={user} profile={profile} />;
+    // Only what the page renders: the device-token hash stays server-side.
+    const safePending = pending
+        ? { uuid: pending.uuid, request_ip: pending.request_ip || null, created_at: pending.created_at || null }
+        : null;
+    return <LinkConfirmPage code={String(code)} pending={safePending} user={user} profile={profile} />;
 }

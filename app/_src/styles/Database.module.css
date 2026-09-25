@@ -269,16 +269,12 @@
     cursor: pointer;
 }
 
-.checkbox input {
-    accent-color: var(--accent, #9c59d1);
-}
-
 .grid {
     width: 100%;
     max-width: 1160px;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-evenly;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 380px);
+    justify-content: center;
     gap: 10px;
     margin-top: 28px;
 }
@@ -340,11 +336,8 @@
 
 .cardSide {
     position: absolute;
-    /* The UI zoom (0.9) lays the card's 2px border out as ~1px, so the
-       extension meets the card's outer edge with a 1px overhang; using 2px
-       here made it 1px taller than the card at the top and bottom. */
-    top: -1px;
-    height: calc(100% + 2px);
+    top: -2px;
+    height: calc(100% + 4px);
     width: 0;
     opacity: 0;
     display: flex;
@@ -409,7 +402,7 @@
    underneath it as well. */
 .cardNotes {
     position: absolute;
-    top: calc(100% - 2px);
+    top: calc(100% + 2px);
     width: 0;
     max-height: 0;
     opacity: 0;
@@ -434,6 +427,17 @@
     border-color: var(--accent-line, var(--control-border-hover));
 }
 
+/* The notes panel attaches below the card, so the borders that would sit in
+   the middle of the combined surface - the card's and the side panel's lower
+   edges - are hidden while it is open. */
+.cardExpanded:has(.cardNotes) {
+    border-bottom-color: transparent;
+}
+
+.cardExpanded:has(.cardNotes) .cardSide {
+    border-bottom-color: transparent;
+}
+
 .cardNotesRight {
     left: -2px;
 }
@@ -454,52 +458,83 @@
     width: calc(100% + 340px);
 }
 
+/* The side panel and the notes panel line up with the card's border box. With
+   the site zoom (0.9 - see globals.css) an exact 2px overlay rounds to one
+   pixel outside the card, so zoomed browsers use the 1px values that measure
+   flush there; browsers without zoom use the exact 2px box above. */
+@supports (zoom: 1) {
+    .cardSide {
+        top: -1px;
+        height: calc(100% + 2px);
+    }
+
+    .cardNotes {
+        top: calc(100% + 1px);
+    }
+
+    .cardNotesRight {
+        left: -1px;
+    }
+
+    .cardNotesLeft {
+        right: -1px;
+    }
+
+    .cardNotesOpen {
+        width: calc(100% + 2px);
+    }
+
+    .cardNotesWide {
+        width: calc(100% + 339px);
+    }
+}
+
 /* Round-corners mode: an expanded card and its extensions must read as one
    surface. The corners where the panels attach are squared off (only the outer
    corners stay rounded) and the borders that meet inside are hidden, so no
    seams show between the card, the side extension and the notes panel.
    `!important` is needed to beat the global `html[data-round] *` rules. */
 :global(html[data-round='true']) .cardExpanded:has(.cardSideRight) {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 calc(var(--round-radius, 8px) + 4px) !important;
+    border-radius: var(--round-radius, 8px) 0 0 var(--round-radius, 8px) !important;
     border-right-color: transparent !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardSideLeft) {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 !important;
+    border-radius: 0 var(--round-radius, 8px) var(--round-radius, 8px) 0 !important;
     border-left-color: transparent !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardNotes) {
-    border-radius: calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+    border-radius: var(--round-radius, 8px) var(--round-radius, 8px) 0 0 !important;
     border-bottom-color: transparent !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardSideRight):has(.cardNotes) {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 0 !important;
+    border-radius: var(--round-radius, 8px) 0 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardSideLeft):has(.cardNotes) {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+    border-radius: 0 var(--round-radius, 8px) 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardSideRight {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) 0 !important;
+    border-radius: 0 var(--round-radius, 8px) var(--round-radius, 8px) 0 !important;
 }
 
 :global(html[data-round='true']) .cardSideLeft {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 calc(var(--round-radius, 8px) + 4px) !important;
+    border-radius: var(--round-radius, 8px) 0 0 var(--round-radius, 8px) !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideRight {
-    border-radius: 0 calc(var(--round-radius, 8px) + 4px) 0 0 !important;
+    border-radius: 0 var(--round-radius, 8px) 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardExpanded:has(.cardNotes) .cardSideLeft {
-    border-radius: calc(var(--round-radius, 8px) + 4px) 0 0 0 !important;
+    border-radius: var(--round-radius, 8px) 0 0 0 !important;
 }
 
 :global(html[data-round='true']) .cardNotes {
-    border-radius: 0 0 calc(var(--round-radius, 8px) + 4px) calc(var(--round-radius, 8px) + 4px) !important;
+    border-radius: 0 0 var(--round-radius, 8px) var(--round-radius, 8px) !important;
 }
 
 .cardNotesLabel {
@@ -661,9 +696,6 @@
     position: absolute;
     right: 0;
     top: calc(100% + 6px);
-    /* The translateY transform creates a stacking context, which would trap
-       the tooltip inside the button and let the card's side panel paint over
-       it; raising the button above the panel (z-index: auto) fixes that. */
     z-index: 30;
     display: inline-flex;
     align-items: center;

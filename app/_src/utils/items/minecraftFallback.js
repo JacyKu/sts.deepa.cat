@@ -1,5 +1,5 @@
 // Maps a base item to its texture key on the vanilla Minecraft fallback sheet
-// (minecraft.png / _minecraft.css). Most base items use their own texture
+// (minecraft.webp / _minecraft.css). Most base items use their own texture
 // (lowercased, underscores -> dashes); a few use a shared or block texture.
 const BASE_ITEM_ALIASES = {
     'Allay Spawn Egg': 'spawn-egg',

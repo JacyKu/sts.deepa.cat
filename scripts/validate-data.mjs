@@ -17,10 +17,29 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STRIP_PITCH = 66; // SPRITE_SIZE (64) + 2px gap used by the sheet packer
 
-function pngSize(file) {
+// Sheet dimensions from the file header (WebP or PNG), so the check works
+// whichever format the data currently ships in.
+function imageSize(file) {
     const buf = fs.readFileSync(file);
+    if (buf.length >= 30 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') {
+        const chunk = buf.toString('ascii', 12, 16);
+        if (chunk === 'VP8X') {
+            return {
+                width: 1 + (buf[24] | (buf[25] << 8) | (buf[26] << 16)),
+                height: 1 + (buf[27] | (buf[28] << 8) | (buf[29] << 16)),
+            };
+        }
+        if (chunk === 'VP8 ') {
+            return { width: buf.readUInt16LE(26) & 0x3fff, height: buf.readUInt16LE(28) & 0x3fff };
+        }
+        if (chunk === 'VP8L') {
+            const bits = buf.readUInt32LE(21);
+            return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+        }
+        throw new Error(`${file} has an unsupported WebP chunk ${chunk}`);
+    }
     if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) {
-        throw new Error(`${file} is not a PNG`);
+        throw new Error(`${file} is not a PNG or WebP`);
     }
     return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
 }
@@ -43,7 +62,7 @@ function readCss(css) {
             y: Math.abs(Number(pos[2])),
             anim: Boolean(anim),
             steps: anim && anim[2] ? Number(anim[2]) : null,
-            sheet: /background-image:\s*url\(["']?\.\/itemsheet-anim\.png/.test(body) ? 'anim' : 'main',
+            sheet: /background-image:\s*url\(["']?\.\/itemsheet-anim\.webp/.test(body) ? 'anim' : 'main',
         };
         const existing = rules.get(token);
         if (!existing) {
@@ -76,8 +95,8 @@ export function validateData(publicDir) {
     const map = JSON.parse(fs.readFileSync(path.join(sheetDir, 'itemsheet-map.json'), 'utf8'));
     const css = fs.readFileSync(path.join(sheetDir, '_itemsheet.css'), 'utf8');
     const sheets = {
-        main: pngSize(path.join(sheetDir, 'itemsheet.png')),
-        anim: pngSize(path.join(sheetDir, 'itemsheet-anim.png')),
+        main: imageSize(path.join(sheetDir, 'itemsheet.webp')),
+        anim: imageSize(path.join(sheetDir, 'itemsheet-anim.webp')),
     };
     const { rules, keyframes } = readCss(css);
 

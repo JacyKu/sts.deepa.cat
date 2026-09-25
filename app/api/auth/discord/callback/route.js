@@ -8,8 +8,13 @@ import {
     safeRedirectPath,
 } from '../../../../../lib/session';
 import { ensureStsUser } from '../../../../../lib/sts-builds';
+import { consumeRateLimit, getClientIp, rateLimitResponse } from '../../../../../lib/rate-limit';
 
 export async function GET(request) {
+    const quota = consumeRateLimit(`oauth-callback:${getClientIp(request)}`, 30, 5 * 60 * 1000);
+    if (!quota.allowed) {
+        return rateLimitResponse({ resetAt: quota.resetAt, hint: 'Too many login attempts, try again later.' });
+    }
     const url = new URL(request.url);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');

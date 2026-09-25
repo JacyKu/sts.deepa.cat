@@ -11,6 +11,8 @@ let czCache = null;
 let czCacheKey = null;
 let historyCache = null;
 let historyCacheKey = null;
+let classHistoryCache = null;
+let classHistoryCacheKey = null;
 
 async function readJson(segments) {
     const filePath = path.join(process.cwd(), 'public', ...segments);
@@ -160,4 +162,75 @@ export async function getItemHistory() {
     historyCache = await readJson(['items', 'item-history.json']);
     historyCacheKey = key;
     return historyCache;
+}
+
+// Class/skill/spec change archive (public/items/class-history.json), written
+// by scripts/update-classes.mjs (and by the weekly item update, which also
+// refreshes class data). Returns null until the first run records something.
+export async function getClassHistory() {
+    const historyPath = path.join(process.cwd(), 'public', 'items', 'class-history.json');
+    let stat;
+    try {
+        stat = await fs.stat(historyPath);
+    } catch (err) {
+        return null; // no history recorded yet
+    }
+    const key = stat.mtimeMs;
+
+    if (classHistoryCache && classHistoryCacheKey === key) return classHistoryCache;
+
+    classHistoryCache = await readJson(['items', 'class-history.json']);
+    classHistoryCacheKey = key;
+    return classHistoryCache;
+}
+
+// Content versions for the client-side data endpoints. The files are replaced
+// wholesale on data updates, so their mtimes identify the content: pages pass
+// the version into the (immutably cached) URLs, and the browser only fetches
+// the big files again once the data actually changes.
+export async function getItemDataVersion() {
+    const itemsPath = path.join(process.cwd(), 'public', 'items', 'items.json');
+    const extrasPath = path.join(process.cwd(), 'public', 'items', 'extras.json');
+    const [itemsStat, extrasStat] = await Promise.all([fs.stat(itemsPath), fs.stat(extrasPath)]);
+    return `${Math.floor(itemsStat.mtimeMs)}-${Math.floor(extrasStat.mtimeMs)}`;
+}
+
+export async function getHistoryVersion() {
+    const historyPath = path.join(process.cwd(), 'public', 'items', 'item-history.json');
+    try {
+        const stat = await fs.stat(historyPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
+}
+
+export async function getClassHistoryVersion() {
+    const historyPath = path.join(process.cwd(), 'public', 'items', 'class-history.json');
+    try {
+        const stat = await fs.stat(historyPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
+}
+
+export async function getSkillsVersion() {
+    const skillsPath = path.join(process.cwd(), 'public', 'items', 'skills.json');
+    try {
+        const stat = await fs.stat(skillsPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
+}
+
+export async function getCzVersion() {
+    const czPath = path.join(process.cwd(), 'public', 'items', 'czAbilities.json');
+    try {
+        const stat = await fs.stat(czPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
 }
