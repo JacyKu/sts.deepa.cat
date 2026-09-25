@@ -457,6 +457,9 @@ export default function ItemsPage({ itemData, itemHistory }) {
                     <Link href="/items/changes" className={styles.historyLink}>
                         <TranslatableText identifier="items.changes.link"></TranslatableText>
                     </Link>
+                    <Link href="/classes/changes" className={styles.historyLink}>
+                        <TranslatableText identifier="classes.changes.link"></TranslatableText>
+                    </Link>
                 </div>
                 {relevantItems.length === 0 ? (
                     <div className={styles.emptyState}>

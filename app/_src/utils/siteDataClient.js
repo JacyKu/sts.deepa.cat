@@ -43,6 +43,11 @@ export function loadItemHistory(version) {
     return loadJson(`/api/v2/items/history?v=${encodeURIComponent(version)}`).then((data) => data.history);
 }
 
+export function loadClassHistory(version) {
+    if (!version || version === 'none') return Promise.resolve(null);
+    return loadJson(`/api/v2/classes/history?v=${encodeURIComponent(version)}`).then((data) => data.history);
+}
+
 export function loadSkills() {
     return loadJson(`/api/v2/skills?v=${encodeURIComponent(versions.skills || '')}`);
 }
@@ -76,5 +81,33 @@ export function useSiteData({ itemDataVersion, historyVersion = null, raw = fals
             active = false;
         };
     }, [itemDataVersion, historyVersion, raw]);
+    return state;
+}
+
+// Class changes page data: the live class/skill data (the "after" state of
+// the newest run and the names of added entries) plus the recorded archive.
+// The skills version must already be set through setSiteDataVersions, like
+// the builder data view does.
+export function useClassChangesData({ skillsVersion, classHistoryVersion }) {
+    const [state, setState] = React.useState({ classData: null, history: null, error: null });
+    React.useEffect(() => {
+        let active = true;
+        Promise.all([loadSkills(), loadClassHistory(classHistoryVersion)])
+            .then(([classData, history]) => {
+                if (active) setState({ classData, history, error: null });
+            })
+            .catch((error) => {
+                if (active) {
+                    setState({
+                        classData: null,
+                        history: null,
+                        error: String(error && error.message ? error.message : error),
+                    });
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [skillsVersion, classHistoryVersion]);
     return state;
 }

@@ -12,10 +12,12 @@ import BuilderPage from './builderPage';
 import BuilderSkeleton from './builderSkeleton';
 import ApiChangesPage from './items/apiChangesPage';
 import ApiChangesSkeleton from './items/apiChangesSkeleton';
+import ClassChangesPage from './classes/classChangesPage';
+import ClassChangesSkeleton from './classes/classChangesSkeleton';
 import ComparePage from './comparePage';
 import CompareSkeleton from './compareSkeleton';
 import DataLoadError from './dataLoadError';
-import { setSiteDataVersions, useSiteData } from '../utils/siteDataClient';
+import { setSiteDataVersions, useSiteData, useClassChangesData } from '../utils/siteDataClient';
 
 function mergeExtras(itemData, extraItems) {
     if (!extraItems || Object.keys(extraItems).length === 0) return itemData;
@@ -49,6 +51,14 @@ export function ApiChangesDataView({ itemsVersion, historyVersion }) {
     if (error) return <DataLoadError message={error} />;
     if (!itemData) return <ApiChangesSkeleton />;
     return <ApiChangesPage itemData={itemData} history={history} />;
+}
+
+export function ClassChangesDataView({ skillsVersion, classHistoryVersion }) {
+    setSiteDataVersions({ skills: skillsVersion });
+    const { classData, history, error } = useClassChangesData({ skillsVersion, classHistoryVersion });
+    if (error) return <DataLoadError message={error} />;
+    if (!classData) return <ClassChangesSkeleton />;
+    return <ClassChangesPage classData={classData} history={history} />;
 }
 
 export function CompareDataView({ itemsVersion }) {

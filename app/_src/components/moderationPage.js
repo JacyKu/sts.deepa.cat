@@ -5,7 +5,7 @@ import styles from '../styles/Moderation.module.css';
 import { useTranslation } from './useTranslation';
 import { formatDateString } from '../utils/dateFormat';
 
-const TABS = ['users', 'builds', 'items', 'notifications'];
+const TABS = ['users', 'builds', 'items', 'classes', 'notifications'];
 const NOTIFICATION_TYPES = ['info', 'warning', 'error'];
 
 function displayName(row) {
@@ -393,20 +393,23 @@ function BuildsPanel({ t }) {
 }
 
 // ---------------------------------------------------------------------------
-// Items
+// Data updates (items, classes)
 // ---------------------------------------------------------------------------
 
-function ItemsPanel({ t }) {
+// Shared panel for the on-demand data refresh runs: the endpoint returns the
+// same status shape (running / ok / output / finishedAt) for items and
+// classes, only the copy differs.
+function UpdatePanel({ t, endpoint, descriptionKey, updateKey }) {
     const [status, setStatus] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [busy, setBusy] = React.useState(false);
 
     const load = React.useCallback(() => {
-        fetch('/api/v2/moderation/items')
+        fetch(endpoint)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((d) => setStatus(d.status))
             .catch(() => setError(t('moderation.error')));
-    }, [t]);
+    }, [t, endpoint]);
 
     React.useEffect(() => {
         load();
@@ -423,7 +426,7 @@ function ItemsPanel({ t }) {
         setBusy(true);
         setError(null);
         try {
-            const response = await fetch('/api/v2/moderation/items', { method: 'POST' });
+            const response = await fetch(endpoint, { method: 'POST' });
             const data = await response.json().catch(() => null);
             if (data?.status) setStatus(data.status);
             else if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -446,10 +449,10 @@ function ItemsPanel({ t }) {
 
     return (
         <section className={styles.panel}>
-            <p className={styles.muted}>{t('moderation.items.description')}</p>
+            <p className={styles.muted}>{t(descriptionKey)}</p>
             <div className={styles.formActions}>
                 <button type="button" className={styles.button} onClick={update} disabled={busy || running}>
-                    {running || busy ? t('moderation.items.running') : t('moderation.items.update')}
+                    {running || busy ? t('moderation.items.running') : t(updateKey)}
                 </button>
                 {result && (
                     <span className={`${styles.badge} ${status.ok ? styles.badgeOk : styles.badgeBan}`}>{result}</span>
@@ -472,6 +475,28 @@ function ItemsPanel({ t }) {
                 <p className={styles.muted}>{t('moderation.items.idle')}</p>
             )}
         </section>
+    );
+}
+
+function ItemsPanel({ t }) {
+    return (
+        <UpdatePanel
+            t={t}
+            endpoint="/api/v2/moderation/items"
+            descriptionKey="moderation.items.description"
+            updateKey="moderation.items.update"
+        />
+    );
+}
+
+function ClassesPanel({ t }) {
+    return (
+        <UpdatePanel
+            t={t}
+            endpoint="/api/v2/moderation/classes"
+            descriptionKey="moderation.classes.description"
+            updateKey="moderation.classes.update"
+        />
     );
 }
 
@@ -619,6 +644,7 @@ export default function ModerationPage({ moderator, moderatorId }) {
             {tab === 'users' && <UsersPanel t={t} moderatorId={moderatorId} />}
             {tab === 'builds' && <BuildsPanel t={t} />}
             {tab === 'items' && <ItemsPanel t={t} />}
+            {tab === 'classes' && <ClassesPanel t={t} />}
             {tab === 'notifications' && <NotificationsPanel t={t} />}
         </main>
     );

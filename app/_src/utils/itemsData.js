@@ -11,6 +11,8 @@ let czCache = null;
 let czCacheKey = null;
 let historyCache = null;
 let historyCacheKey = null;
+let classHistoryCache = null;
+let classHistoryCacheKey = null;
 
 async function readJson(segments) {
     const filePath = path.join(process.cwd(), 'public', ...segments);
@@ -162,6 +164,26 @@ export async function getItemHistory() {
     return historyCache;
 }
 
+// Class/skill/spec change archive (public/items/class-history.json), written
+// by scripts/update-classes.mjs (and by the weekly item update, which also
+// refreshes class data). Returns null until the first run records something.
+export async function getClassHistory() {
+    const historyPath = path.join(process.cwd(), 'public', 'items', 'class-history.json');
+    let stat;
+    try {
+        stat = await fs.stat(historyPath);
+    } catch (err) {
+        return null; // no history recorded yet
+    }
+    const key = stat.mtimeMs;
+
+    if (classHistoryCache && classHistoryCacheKey === key) return classHistoryCache;
+
+    classHistoryCache = await readJson(['items', 'class-history.json']);
+    classHistoryCacheKey = key;
+    return classHistoryCache;
+}
+
 // Content versions for the client-side data endpoints. The files are replaced
 // wholesale on data updates, so their mtimes identify the content: pages pass
 // the version into the (immutably cached) URLs, and the browser only fetches
@@ -175,6 +197,16 @@ export async function getItemDataVersion() {
 
 export async function getHistoryVersion() {
     const historyPath = path.join(process.cwd(), 'public', 'items', 'item-history.json');
+    try {
+        const stat = await fs.stat(historyPath);
+        return String(Math.floor(stat.mtimeMs));
+    } catch (err) {
+        return 'none';
+    }
+}
+
+export async function getClassHistoryVersion() {
+    const historyPath = path.join(process.cwd(), 'public', 'items', 'class-history.json');
     try {
         const stat = await fs.stat(historyPath);
         return String(Math.floor(stat.mtimeMs));

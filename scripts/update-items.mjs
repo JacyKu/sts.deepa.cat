@@ -2,12 +2,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mergeHistory } from './item-history.mjs';
+import { updateClassData } from './class-history.mjs';
 import { extractStatColors } from './stat-colors.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
 const HISTORY_TARGET = path.join(__dirname, '..', 'public', 'items', 'item-history.json');
-const SKILLS_TARGET = path.join(__dirname, '..', 'public', 'items', 'skills.json');
 // Timestamped copies of the outgoing history are kept here before every
 // rewrite, so an accidental loss (deleted file, bad write) can be recovered.
 const BACKUPS_DIR = path.join(__dirname, '..', 'public', 'items', 'backups');
@@ -169,37 +169,17 @@ async function main() {
     await fs.rename(tmp, TARGET);
     console.log(`\nWrote ${path.relative(process.cwd(), TARGET)}`);
 
-    console.log('\nFetching skills data...');
+    // The weekly run also refreshes the class data so class changes are
+    // archived without a separate trigger (the moderation page's Classes
+    // panel / update:classes run the same update on demand).
+    console.log('\nFetching class data...');
     try {
-        await updateSkills();
+        await updateClassData({ log: console });
     } catch (err) {
-        console.warn(`  skills update failed (items still updated): ${err.message}`);
+        console.warn(`  class update failed (items still updated): ${err.message}`);
     }
 
     console.log('Restart the dev server (or wait for a reload) for the change to take effect.');
-}
-
-async function updateSkills() {
-    const res = await fetch('https://api.playmonumenta.com/skills');
-    if (!res.ok) throw new Error(`skills API: HTTP ${res.status}`);
-    const raw = await res.text();
-    const data = JSON.parse(raw);
-
-    if (!data || !Array.isArray(data.classes) || data.classes.length < 8) {
-        throw new Error('skills payload missing classes array');
-    }
-    for (const cls of data.classes) {
-        if (!cls.className || !Array.isArray(cls.skills)) {
-            throw new Error('skills payload has an unexpected class shape');
-        }
-    }
-
-    const tmp = SKILLS_TARGET + '.tmp';
-    await fs.writeFile(tmp, raw);
-    await fs.rename(tmp, SKILLS_TARGET);
-    console.log(
-        `Wrote ${path.relative(process.cwd(), SKILLS_TARGET)} (${(Buffer.byteLength(raw) / 1048576).toFixed(1)} MB)`
-    );
 }
 
 main().catch((err) => {
