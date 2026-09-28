@@ -17,6 +17,7 @@ import { computeBuildSummary, hasProfanity } from '../../../../lib/public-builds
 import { getDiscordUser, getAnonymousPreference } from '../../../../lib/session';
 import { sanctionBlock } from '../../../../lib/moderation';
 import { bodyTooLarge, tooLargeJson } from '../../../../lib/request-guards';
+import { warmEmbedImage } from '../../../../lib/embed-warm';
 import {
     consumeRateLimit,
     dayWindowMs,
@@ -144,6 +145,8 @@ export async function POST(request) {
     }
     const tokenVersion = getBuildTokenVersion(storedToken);
     const savedRow = getBuild(result.id);
+    // Pre-render the embed card so the first Discord crawl is instant.
+    warmEmbedImage(result.id, savedRow ? savedRow.revision || 1 : null);
     return NextResponse.json({
         id: result.id,
         isNew: result.isNew,

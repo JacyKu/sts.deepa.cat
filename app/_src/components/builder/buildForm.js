@@ -2212,6 +2212,16 @@ export default function BuildForm({
                         getStsBase() +
                         `/b/v${tokenVersion}/${activeBuildId}` +
                         (result.version ? `?v=${result.version}` : '');
+                    // Reflect the new revision in the address bar too, so a
+                    // reload or a link copied from it serves the updated embed
+                    // instead of the cached one.
+                    window.history.replaceState(
+                        null,
+                        '',
+                        getStsBase() +
+                            `/b/v${tokenVersion}/${activeBuildId}` +
+                            (result.version ? `?v=${result.version}` : '')
+                    );
                     setSaveState('copied');
                     setSavedAnonymous(false);
                     if (navigator.clipboard) {
@@ -2271,7 +2281,9 @@ export default function BuildForm({
                 // Move the address bar onto the build itself: a reload (or
                 // sharing the tab) keeps you on the saved build. replaceState,
                 // not pushState, so Back doesn't return to the blank builder.
-                window.history.replaceState(null, '', getStsBase() + d.url);
+                // The revision (?v=) rides along so the embed serves the fresh
+                // image instead of a cached older one.
+                window.history.replaceState(null, '', getStsBase() + d.url + (d.version ? `?v=${d.version}` : ''));
                 setSaveState('copied');
                 if (d.savedToAccount) {
                     setSavedAnonymous(false);
@@ -2341,7 +2353,19 @@ export default function BuildForm({
             body: JSON.stringify({ notes: notesDraft }),
         })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
-            .then(() => {
+            .then((data) => {
+                // A notes edit bumps the revision: keep the address bar (and the
+                // next copied link) on the new one.
+                if (data && data.version) {
+                    setBuildRevision(data.version);
+                    window.history.replaceState(
+                        null,
+                        '',
+                        getStsBase() +
+                            `/b/v${getBuildTokenVersion(makeBuildString()) ?? ''}/${activeBuildId}` +
+                            `?v=${data.version}`
+                    );
+                }
                 setNotesSaveState('saved');
                 setTimeout(() => setNotesSaveState(null), 2500);
             })

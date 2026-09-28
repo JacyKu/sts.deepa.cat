@@ -1,8 +1,9 @@
 import { ImageResponse } from 'next/og';
 import fs from 'fs/promises';
 import path from 'path';
+import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { getItemData, getSkillsData } from '../../../_src/utils/itemsData';
+import { getItemData, getSkillsData, getItemDataVersion, getSkillsVersion } from '../../../_src/utils/itemsData';
 import { getLinkPreviewData, getEffectiveBuildName, getSetPreviewData } from '../../../_src/utils/buildPreview';
 import { getMinecraftTextureKey } from '../../../_src/utils/items/minecraftFallback';
 import { getBuild, getPublicSkillSet } from '../../../../lib/sts-builds';
@@ -41,6 +42,35 @@ let faviconCache = null;
 // Discord CDN avatars fetched for the embed author bar, keyed by URL so
 // repeated fetches (Discord re-fetches og images with each preview) stay cheap.
 const avatarCache = new Map();
+
+// Rendered cards, keyed by build id + revision (or the token / set version)
+// plus the item-data version. Discord re-fetches the image for every preview
+// of a message, and the save routes pre-render a build's card right after it
+// is saved, so the common request is served from memory instead of paying for
+// a fresh satori/sharp render. A plain Map doubles as an LRU: re-inserting a
+// hit moves it to the end, and the oldest entry is evicted past the limit.
+const CARD_CACHE_LIMIT = 150;
+const cardCache = new Map();
+
+async function respondCached(key, immutable, render) {
+    const headers = {
+        'Content-Type': 'image/png',
+        'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=300',
+    };
+    const cached = cardCache.get(key);
+    if (cached) {
+        cardCache.delete(key);
+        cardCache.set(key, cached);
+        headers['Content-Length'] = String(cached.byteLength);
+        return new Response(cached, { headers });
+    }
+    const response = await render();
+    const body = await response.arrayBuffer();
+    cardCache.set(key, body);
+    if (cardCache.size > CARD_CACHE_LIMIT) cardCache.delete(cardCache.keys().next().value);
+    headers['Content-Length'] = String(body.byteLength);
+    return new Response(body, { headers });
+}
 
 async function getFaviconDataUrl() {
     if (faviconCache) return faviconCache;
@@ -564,7 +594,9 @@ export async function GET(request) {
     const publicBase = process.env.STS_PUBLIC_BASE_URL ? process.env.STS_PUBLIC_BASE_URL.replace(/\/+$/, '') : null;
     const origin = publicBase || null;
     if (setId) {
-        return setCardResponse(setId, origin);
+        // Sets carry the data version in their embed URL (?v=) like builds do.
+        const version = searchParams.get('v') || '0';
+        return respondCached(`set:${setId}:${version}`, searchParams.has('v'), () => setCardResponse(setId, origin));
     }
 
     // Saved builds can be rendered by DB id: the token alone can't carry the
@@ -573,167 +605,172 @@ export async function GET(request) {
     // The build author (name + Discord avatar) for the embed, from the author
     // snapshot taken at publicise time. Hidden entirely for anonymous posts.
     let author = null;
-    const token = (() => {
-        if (build) return build;
-        if (buildId) {
-            const row = getBuild(buildId);
-            if (!row) return null;
+    // Cache identity: a raw token is content-addressed (immutable), a DB build
+    // is identified by its revision.
+    let cacheKey = null;
+    let cacheImmutable = false;
+    let token = null;
+    if (build) {
+        token = build;
+        cacheKey = `token:${createHash('sha1').update(build).digest('hex')}`;
+        cacheImmutable = true;
+    } else if (buildId) {
+        const row = getBuild(buildId);
+        if (row) {
+            token = row.token;
             savedState = row.parsedState;
+            cacheKey = `id:${row.id}:${row.revision || 1}`;
+            cacheImmutable = true;
             if (row.is_public === 1 && row.anonymous !== 1 && row.author_name) {
                 author = { name: row.author_name };
                 if (row.user_id && row.author_avatar) {
                     author.avatarUrl = resolveAuthorAvatarUrl(row.user_id, row.author_avatar, origin);
                 }
             }
-            return row.token;
         }
-        return null;
-    })();
-
-    const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
-    const data = token ? getLinkPreviewData(token, itemData, skillsData) : null;
-    const fontStyle = { fontFamily: 'sans-serif' };
-
-    // No (or invalid) build: render a simple base-site card with the favicon.
-    if (!data) {
-        return baseCardResponse();
     }
 
-    const title = getEffectiveBuildName(data, null) || 'Monumenta Builder';
-    const className = data.className || null;
-    const spec = data.spec || null;
-    const region = data.region;
-    const regionDisplay = data.regionLabel || ([1, 2, 3].includes(region) ? `R${region}` : null);
-    const totalSkillPoints = (data.skills || []).reduce((sum, s) => sum + (Number(s.points) || 0), 0);
-    const totalSpecPoints = (data.specSkills || []).reduce((sum, s) => sum + (Number(s.points) || 0), 0);
-    const hasCz = (data.czAbilities || []).length > 0;
-    // Class skills don't exist inside Celestial Zenith / Darkest Depths.
-    const hasBuildInfo = (className || spec || totalSkillPoints > 0 || totalSpecPoints > 0) && !hasCz;
-    const hasInfusions = Object.values((savedState && savedState.infusions) || {}).some((v) => v && v !== 'None');
+    // The same build renders differently after a weekly item update (sprites,
+    // stats), so the data versions are part of the cache key too. Two file
+    // stats, cheap enough to do even on a cache hit.
+    const [itemsVersion, skillsVersion] = await Promise.all([getItemDataVersion(), getSkillsVersion()]);
+    const dataVersion = `${itemsVersion}:${skillsVersion}`;
 
-    const spriteInfo = await getSpriteInfo();
-    const avatarDataUrl = author?.avatarUrl ? await getAvatarDataUrl(author.avatarUrl) : null;
-    const itemLines = data
-        ? await Promise.all(
-              Object.entries(SLOT_LABELS).map(async ([slot, label]) => {
-                  const key = data.items[slot];
-                  if (key === 'None')
-                      return { label, name: null, key: null, img: null, ex: false, tier: null, masterwork: 0 };
-                  const item = itemData[key];
-                  const rawName = item?.name || key;
-                  const ex = Boolean(rawName?.startsWith('EX '));
-                  const name = ex ? rawName.replace(/^EX\s+/, '') : rawName;
-                  const img = await itemSpriteDataUrl(spriteInfo, key, rawName, item?.base_item);
-                  return {
-                      label,
-                      name,
-                      key,
-                      img,
-                      ex,
-                      tier: item?.tier || null,
-                      masterwork: item && item.masterwork != null ? item.masterwork : null,
-                  };
-              })
-          )
-        : null;
-    // Valley (1) and Isles (2) - including Darkest Depths - have no charms.
-    // Never show the charms panel (or reserve its space) for those regions.
-    const charmNames = region > 2 ? data?.charms.items || [] : [];
-    const hasCharms = charmNames.length > 0;
-    const hasAnyItem = (itemLines || []).some((l) => l.name);
-    const hasAnyExtra =
-        hasBuildInfo ||
-        data.ascension > 0 ||
-        hasCz ||
-        (data.skills || []).length > 0 ||
-        (data.specSkills || []).length > 0 ||
-        hasInfusions;
-    // Scale the item textures up when the card would otherwise have empty
-    // space: no charms panel -> 72px, and when nothing else is on the card
-    // (no skills/infusions/cz/info) -> 96px.
-    const textureSize = !hasCharms && hasAnyItem ? (hasAnyExtra ? 72 : 96) : 56;
+    // No build at all: a simple base-site card with the favicon.
+    if (!token || !cacheKey) {
+        return respondCached('base', false, () => baseCardResponse());
+    }
 
-    return new ImageResponse(
-        <div
-            style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                background: '#0e0e14',
-                color: TEXT,
-                padding: '28px 40px',
-                boxSizing: 'border-box',
-                ...fontStyle,
-            }}
-        >
-            <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{title}</div>
+    // Everything below only runs on a cache miss: the weekly data updates are
+    // rare and the save routes pre-render the current revision, so the common
+    // crawl is served straight from the cache.
+    return respondCached(`${cacheKey}:${dataVersion}`, cacheImmutable, async () => {
+        const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
+        const data = getLinkPreviewData(token, itemData, skillsData);
+        // Invalid token: the base-site card.
+        if (!data) return baseCardResponse();
 
-            {hasBuildInfo && (
-                <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {regionDisplay && <InfoItem label="REGION" value={regionDisplay} />}
-                    {className && <InfoItem label="CLASS" value={className} />}
-                    {spec && <InfoItem label="SPEC" value={spec} />}
-                    {totalSkillPoints > 0 && <InfoItem label="SKILL POINTS" value={String(totalSkillPoints)} />}
-                    {totalSpecPoints > 0 && <InfoItem label="SPEC POINTS" value={String(totalSpecPoints)} />}
-                </div>
-            )}
+        const fontStyle = { fontFamily: 'sans-serif' };
 
-            {data.ascension > 0 && (
-                <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <InfoItem label="ASCENSION" value={String(data.ascension)} />
-                </div>
-            )}
+        const title = getEffectiveBuildName(data, null) || 'Monumenta Builder';
+        const className = data.className || null;
+        const spec = data.spec || null;
+        const region = data.region;
+        const regionDisplay = data.regionLabel || ([1, 2, 3].includes(region) ? `R${region}` : null);
+        const totalSkillPoints = (data.skills || []).reduce((sum, s) => sum + (Number(s.points) || 0), 0);
+        const totalSpecPoints = (data.specSkills || []).reduce((sum, s) => sum + (Number(s.points) || 0), 0);
+        const hasCz = (data.czAbilities || []).length > 0;
+        // Class skills don't exist inside Celestial Zenith / Darkest Depths.
+        const hasBuildInfo = (className || spec || totalSkillPoints > 0 || totalSpecPoints > 0) && !hasCz;
+        const hasInfusions = Object.values((savedState && savedState.infusions) || {}).some((v) => v && v !== 'None');
 
-            {!hasCz && <SkillPanel data={data} />}
+        const spriteInfo = await getSpriteInfo();
+        const avatarDataUrl = author?.avatarUrl ? await getAvatarDataUrl(author.avatarUrl) : null;
+        const itemLines = data
+            ? await Promise.all(
+                  Object.entries(SLOT_LABELS).map(async ([slot, label]) => {
+                      const key = data.items[slot];
+                      if (key === 'None')
+                          return { label, name: null, key: null, img: null, ex: false, tier: null, masterwork: 0 };
+                      const item = itemData[key];
+                      const rawName = item?.name || key;
+                      const ex = Boolean(rawName?.startsWith('EX '));
+                      const name = ex ? rawName.replace(/^EX\s+/, '') : rawName;
+                      const img = await itemSpriteDataUrl(spriteInfo, key, rawName, item?.base_item);
+                      return {
+                          label,
+                          name,
+                          key,
+                          img,
+                          ex,
+                          tier: item?.tier || null,
+                          masterwork: item && item.masterwork != null ? item.masterwork : null,
+                      };
+                  })
+              )
+            : null;
+        // Valley (1) and Isles (2) - including Darkest Depths - have no charms.
+        // Never show the charms panel (or reserve its space) for those regions.
+        const charmNames = region > 2 ? data?.charms.items || [] : [];
+        const hasCharms = charmNames.length > 0;
+        const hasAnyItem = (itemLines || []).some((l) => l.name);
+        const hasAnyExtra =
+            hasBuildInfo ||
+            data.ascension > 0 ||
+            hasCz ||
+            (data.skills || []).length > 0 ||
+            (data.specSkills || []).length > 0 ||
+            hasInfusions;
+        // Scale the item textures up when the card would otherwise have empty
+        // space: no charms panel -> 72px, and when nothing else is on the card
+        // (no skills/infusions/cz/info) -> 96px.
+        const textureSize = !hasCharms && hasAnyItem ? (hasAnyExtra ? 72 : 96) : 56;
 
-            <InfusionPanel infusions={savedState && savedState.infusions} />
+        return new ImageResponse(
+            <div
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: '#0e0e14',
+                    color: TEXT,
+                    padding: '28px 40px',
+                    boxSizing: 'border-box',
+                    ...fontStyle,
+                }}
+            >
+                <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{title}</div>
 
-            {hasCz && data.czAbilities.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
-                    <div style={{ fontSize: 12, letterSpacing: 2, color: DIM, fontWeight: 700 }}>
-                        {region === 2 ? 'DARKEST DEPTHS' : 'CELESTIAL ZENITH'}
+                {hasBuildInfo && (
+                    <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {regionDisplay && <InfoItem label="REGION" value={regionDisplay} />}
+                        {className && <InfoItem label="CLASS" value={className} />}
+                        {spec && <InfoItem label="SPEC" value={spec} />}
+                        {totalSkillPoints > 0 && <InfoItem label="SKILL POINTS" value={String(totalSkillPoints)} />}
+                        {totalSpecPoints > 0 && <InfoItem label="SPEC POINTS" value={String(totalSpecPoints)} />}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {data.czAbilities.map((name) => (
-                            <div
-                                key={name}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    border: `2px solid ${CZ_COLOR}`,
-                                    background: PANEL,
-                                    padding: '3px 8px',
-                                }}
-                            >
-                                <span style={{ fontSize: 13, color: TEXT, fontWeight: 700 }}>{name}</span>
-                            </div>
-                        ))}
+                )}
+
+                {data.ascension > 0 && (
+                    <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <InfoItem label="ASCENSION" value={String(data.ascension)} />
                     </div>
-                </div>
-            )}
+                )}
 
-            <div style={{ display: 'flex', gap: 18, marginTop: 'auto', paddingTop: 10 }}>
-                <div
-                    style={{
-                        flex: 1,
-                        border: `2px solid ${BORDER}`,
-                        background: PANEL,
-                        padding: 14,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                    }}
-                >
-                    <div style={{ fontSize: 13, letterSpacing: 2, color: DIM, fontWeight: 700 }}>EQUIPMENT</div>
-                    <EquipmentGrid itemLines={itemLines} size={textureSize} />
-                </div>
+                {!hasCz && <SkillPanel data={data} />}
 
-                {charmNames.length > 0 && (
+                <InfusionPanel infusions={savedState && savedState.infusions} />
+
+                {hasCz && data.czAbilities.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
+                        <div style={{ fontSize: 12, letterSpacing: 2, color: DIM, fontWeight: 700 }}>
+                            {region === 2 ? 'DARKEST DEPTHS' : 'CELESTIAL ZENITH'}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {data.czAbilities.map((name) => (
+                                <div
+                                    key={name}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        border: `2px solid ${CZ_COLOR}`,
+                                        background: PANEL,
+                                        padding: '3px 8px',
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13, color: TEXT, fontWeight: 700 }}>{name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 18, marginTop: 'auto', paddingTop: 10 }}>
                     <div
                         style={{
-                            width: 330,
+                            flex: 1,
                             border: `2px solid ${BORDER}`,
                             background: PANEL,
                             padding: 14,
@@ -742,86 +779,110 @@ export async function GET(request) {
                             gap: 8,
                         }}
                     >
+                        <div style={{ fontSize: 13, letterSpacing: 2, color: DIM, fontWeight: 700 }}>EQUIPMENT</div>
+                        <EquipmentGrid itemLines={itemLines} size={textureSize} />
+                    </div>
+
+                    {charmNames.length > 0 && (
                         <div
                             style={{
+                                width: 330,
+                                border: `2px solid ${BORDER}`,
+                                background: PANEL,
+                                padding: 14,
                                 display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                fontSize: 14,
-                                letterSpacing: 2,
-                                color: DIM,
-                                fontWeight: 700,
+                                flexDirection: 'column',
+                                gap: 8,
                             }}
                         >
-                            <span>{`CHARMS ${String(data.charms.totalPower)}/12`}</span>
-                            <svg width={12} height={12} viewBox="0 0 576 512">
-                                <path d={STAR_PATH} fill={STAR} />
-                            </svg>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            {charmNames.map((c, i) => (
-                                <div
-                                    key={i}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        marginBottom: 3,
-                                    }}
-                                >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontSize: 14,
+                                    letterSpacing: 2,
+                                    color: DIM,
+                                    fontWeight: 700,
+                                }}
+                            >
+                                <span>{`CHARMS ${String(data.charms.totalPower)}/12`}</span>
+                                <svg width={12} height={12} viewBox="0 0 576 512">
+                                    <path d={STAR_PATH} fill={STAR} />
+                                </svg>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                {charmNames.map((c, i) => (
                                     <div
+                                        key={i}
                                         style={{
-                                            fontSize: 13,
-                                            color: TEXT,
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            flex: 1,
-                                            minWidth: 0,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            marginBottom: 3,
                                         }}
                                     >
-                                        {c.name}
-                                    </div>
-                                    {c.power != null && (
-                                        <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: 2 }}>
-                                            <Stars filled={c.power} max={c.power} size={9} />
-                                            <div style={{ color: DIM, fontSize: 11, marginLeft: 4 }}>
-                                                {String(c.power)}
-                                            </div>
+                                        <div
+                                            style={{
+                                                fontSize: 13,
+                                                color: TEXT,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                flex: 1,
+                                                minWidth: 0,
+                                            }}
+                                        >
+                                            {c.name}
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                        {c.power != null && (
+                                            <div
+                                                style={{
+                                                    display: 'flex',
+                                                    flexShrink: 0,
+                                                    alignItems: 'center',
+                                                    gap: 2,
+                                                }}
+                                            >
+                                                <Stars filled={c.power} max={c.power} size={9} />
+                                                <div style={{ color: DIM, fontSize: 11, marginLeft: 4 }}>
+                                                    {String(c.power)}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {author && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginTop: 12,
+                            paddingTop: 10,
+                            borderTop: `1px solid ${BORDER}`,
+                        }}
+                    >
+                        {avatarDataUrl && (
+                            <img
+                                src={avatarDataUrl}
+                                width={26}
+                                height={26}
+                                style={{ borderRadius: 999, objectFit: 'cover' }}
+                            />
+                        )}
+                        <div style={{ fontSize: 14, color: MUTED, fontWeight: 600 }}>{author.name}</div>
+                        <div style={{ fontSize: 10, letterSpacing: 2, color: DIM, fontWeight: 700, marginLeft: 4 }}>
+                            BUILD AUTHOR
                         </div>
                     </div>
                 )}
-            </div>
-
-            {author && (
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        marginTop: 12,
-                        paddingTop: 10,
-                        borderTop: `1px solid ${BORDER}`,
-                    }}
-                >
-                    {avatarDataUrl && (
-                        <img
-                            src={avatarDataUrl}
-                            width={26}
-                            height={26}
-                            style={{ borderRadius: 999, objectFit: 'cover' }}
-                        />
-                    )}
-                    <div style={{ fontSize: 14, color: MUTED, fontWeight: 600 }}>{author.name}</div>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: DIM, fontWeight: 700, marginLeft: 4 }}>
-                        BUILD AUTHOR
-                    </div>
-                </div>
-            )}
-        </div>,
-        { width: 1200, height: 630 }
-    );
+            </div>,
+            { width: 1200, height: 630 }
+        );
+    });
 }

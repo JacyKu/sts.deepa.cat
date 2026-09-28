@@ -31,6 +31,7 @@ import {
 } from '../../../../../lib/rate-limit';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
 import { sanctionBlockForId } from '../../../../../lib/moderation';
+import { warmEmbedImage } from '../../../../../lib/embed-warm';
 
 // Save a build from the STS mod. The mod sends the v1_ build token it
 // generated, optionally with the player's Minecraft UUID:
@@ -240,6 +241,9 @@ export async function POST(request) {
     }
 
     const savedRow = getBuild(result.id);
+    // Pre-render the embed card for the new revision so the first Discord
+    // crawl is a cache hit.
+    warmEmbedImage(result.id, savedRow ? savedRow.revision || 1 : null);
     return NextResponse.json({
         linked: Boolean(link),
         saved: true,
