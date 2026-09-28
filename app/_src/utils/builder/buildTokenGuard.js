@@ -8,14 +8,16 @@
 // crash the builder), wild stat values, or unbounded names into the database.
 //
 // Storage path: legacy tokens are rewritten to their sanitized form (unknown
-// values are dropped, the token keeps working); binary tokens are only kept
-// when they already round-trip unchanged, otherwise the save is rejected -
-// those are only ever minted by our own encoders, so a mismatch means tampering.
+// values are dropped, the token keeps working); a clean binary token is kept
+// byte-for-byte, while a binary token the sanitizer had to trim (unresolvable
+// items, spec skills captured before a respec, a stale catalog) is stored as
+// that sanitized form instead of rejecting a build the mod legitimately made.
 //
 // Display path: stored rows may already contain junk, so the same sanitizer
 // runs when a build is opened and the builder receives the sanitized token.
+import fs from 'node:fs';
+import path from 'node:path';
 import { decodeBuildParam, getBuildItemSlots, fnv1a32 } from './buildUrlCodec';
-import czAbilitiesData from '../../../../public/items/czAbilities.json';
 
 const BINARY_PREFIX = 'v1_';
 
@@ -35,11 +37,28 @@ const MAX_ASCENSION = 18;
 const MAX_CHARMS = 12;
 const MAX_CZ_ABILITIES = 30;
 
-const CZ_ABILITIES = new Set();
-for (const tree of czAbilitiesData.trees || []) {
-    for (const skill of tree.skills || []) {
-        if (skill?.name) CZ_ABILITIES.add(skill.name);
+let czAbilityNames = null;
+
+// The known Celestial Zenith / Darkest Depths ability names. czAbilities.json
+// is optional data: a missing or corrupt file must not fail module load (which
+// would take every route importing this guard down with it), so it is read
+// lazily and a failure leaves the set empty - unknown CZ abilities are then
+// dropped from stored tokens instead of the whole build being rejected.
+function knownCzAbilities() {
+    if (czAbilityNames) return czAbilityNames;
+    czAbilityNames = new Set();
+    try {
+        const raw = fs.readFileSync(path.join(process.cwd(), 'public', 'items', 'czAbilities.json'), 'utf8');
+        const data = JSON.parse(raw);
+        for (const tree of data.trees || []) {
+            for (const skill of tree.skills || []) {
+                if (skill && skill.name) czAbilityNames.add(skill.name);
+            }
+        }
+    } catch (error) {
+        console.error(`[build-token] czAbilities.json unavailable: ${error && error.message ? error.message : error}`);
     }
+    return czAbilityNames;
 }
 
 function hasItem(itemData, name) {
@@ -178,7 +197,7 @@ function sanitizeLegacyString(decoded, itemData, skillsData) {
 
     const cz = limitList(
         (params.get('cz') || '').split(',').map((part) => part.split(':')[0]),
-        CZ_ABILITIES,
+        knownCzAbilities(),
         MAX_CZ_ABILITIES
     );
     if (cz.length > 0) legacy += `&cz=${encodeURIComponent(cz.join(','))}`;
@@ -230,20 +249,26 @@ function binaryItemsResolved(token, decoded) {
     return true;
 }
 
-// Token to store: legacy payloads are normalized to their sanitized form,
-// binary payloads are kept only when they are already clean.
+// Token to store: legacy payloads are normalized to their sanitized form; a
+// binary token that is already clean is kept byte-for-byte, any other binary
+// token is stored as its sanitized legacy form.
 export function sanitizeBuildTokenForStorage(token, itemData, skillsData) {
     if (typeof token !== 'string' || !token || token.length > 2048) return { ok: false, token: null };
     const result = sanitizedLegacyFor(token, itemData, skillsData);
     if (!result) return { ok: false, token: null };
+    // The skill catalog could not be loaded: nothing class/skill-related can
+    // be verified, so keep the token as sent rather than stripping a real
+    // build's class and abilities down to nothing.
+    if (!skillsData) return { ok: true, token };
     if (token.startsWith(BINARY_PREFIX)) {
         const itemsResolved = binaryItemsResolved(token, result.decoded);
         if (result.legacy === result.decoded && itemsResolved) return { ok: true, token };
-        // Sanitizing changed values (not just unresolvable items): the binary
-        // token was not minted by the encoders, so refuse the save.
-        if (result.legacy !== result.decoded) return { ok: false, token: null };
-        // Only the items could not be resolved: store the sanitized legacy
-        // form so they are dropped instead of riding along as hashes.
+        // The sanitizer only ever drops or normalizes values (unknown items,
+        // skills or charms, spec skills captured before a respec, a stale
+        // skill catalog, out-of-range stats), and the mod can legitimately
+        // mint some of those from its cache - so a mismatch is stored as the
+        // sanitized legacy form instead of refusing a real build. Malformed
+        // payloads (no equipment slot) are still rejected above.
         return { ok: true, token: result.legacy };
     }
     return { ok: true, token: result.legacy === result.decoded ? token : result.legacy };
@@ -255,5 +280,8 @@ export function sanitizeBuildTokenForDisplay(token, itemData, skillsData) {
     if (typeof token !== 'string' || !token) return token;
     const result = sanitizedLegacyFor(token, itemData, skillsData);
     if (!result) return token;
+    // Without the skill catalog the sanitizer would strip class/skills from the
+    // rendered token (and a re-save would then lose them for good), so keep it.
+    if (!skillsData) return token;
     return result.legacy === result.decoded ? token : result.legacy;
 }
