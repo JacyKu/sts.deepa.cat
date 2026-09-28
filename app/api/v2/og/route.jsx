@@ -119,7 +119,8 @@ async function getSpriteInfo() {
 
     const map = JSON.parse(mapRaw);
     const positions = {};
-    const re = /\.monumenta-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)px\s+(-?\d+)px/g;
+    // `px` is optional: the generator writes the first cell as `0 0`.
+    const re = /\.monumenta-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)(?:px)?\s+(-?\d+)(?:px)?/g;
     let match;
     while ((match = re.exec(cssRaw))) {
         positions[match[1]] = { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) };
@@ -128,13 +129,13 @@ async function getSpriteInfo() {
     // Tokens whose sprite lives on the animated sheet (strips of frames).
     const animTokens = new Set();
     const animRe =
-        /\.monumenta-([\w-]+)\s*\{\s*background-position:[^}]*background-image:\s*url\("\.\/itemsheet-anim\.png"\)/g;
+        /\.monumenta-([\w-]+)\s*\{\s*background-position:[^}]*background-image:\s*url\("\.\/itemsheet-anim\.(?:png|webp)"\)/g;
     while ((match = animRe.exec(cssRaw))) {
         animTokens.add(match[1]);
     }
 
     const mcPositions = {};
-    const mcRe = /\.minecraft-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)px\s+(-?\d+)(?:px)?/g;
+    const mcRe = /\.minecraft-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)(?:px)?\s+(-?\d+)(?:px)?/g;
     while ((match = mcRe.exec(mcCssRaw))) {
         mcPositions[match[1]] = { x: Math.abs(Number(match[2])), y: Math.abs(Number(match[3])) };
     }
