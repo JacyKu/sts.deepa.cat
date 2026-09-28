@@ -1,5 +1,4 @@
-import { getItemData, getSkillsData } from './itemsData';
-import czAbilitiesData from '../../../public/items/czAbilities.json';
+import { getItemData, getSkillsData, getCzData } from './itemsData';
 
 // Raw item types -> the builder slot they equip into (used to group the
 // item filter's value dropdown per slot). Everything else (Misc, Consumable,
@@ -61,12 +60,15 @@ async function getItemGroups() {
 // Celestial Zenith / Darkest Depths abilities are class-independent, so they
 // only appear in the full `skillOptions` list (no Class filter selected).
 export async function getBuildFilterData() {
-    const [skillsData, itemGroups] = await Promise.all([getSkillsData(), getItemGroups()]);
-    const classOptions = skillsData.classes.map((c) => c.className);
+    const [skillsData, czData, itemGroups] = await Promise.all([getSkillsData(), getCzData(), getItemGroups()]);
+    // A missing/unreadable data file leaves the filter lists empty instead of
+    // throwing (the pages keep rendering without filter options).
+    const classes = skillsData && Array.isArray(skillsData.classes) ? skillsData.classes : [];
+    const classOptions = classes.map((c) => c.className);
     const specMap = {};
     const skillMap = {};
     const skillNames = new Set();
-    for (const c of skillsData.classes) {
+    for (const c of classes) {
         specMap[c.className] = (c.specs || []).map((s) => s.specName);
         const list = [];
         for (const s of c.skills || []) {
@@ -82,7 +84,7 @@ export async function getBuildFilterData() {
         skillMap[c.className] = [...new Set(list)].sort((a, b) => a.localeCompare(b));
         for (const label of skillMap[c.className]) skillNames.add(label);
     }
-    for (const tree of czAbilitiesData.trees || []) {
+    for (const tree of (czData && czData.trees) || []) {
         for (const s of tree.skills || []) {
             const label = s.displayName || s.name;
             if (label) skillNames.add(label);

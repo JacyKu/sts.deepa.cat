@@ -34,9 +34,10 @@ async function getSpriteInfo() {
 
     const map = JSON.parse(mapRaw);
 
-    // Sprite position per token (background-position, negated).
+    // Sprite position per token (background-position, negated). `px` is
+    // optional: the generator writes the first cell as `0 0`.
     const positions = {};
-    const re = /\.monumenta-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)px\s+(-?\d+)px/g;
+    const re = /\.monumenta-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)(?:px)?\s+(-?\d+)(?:px)?/g;
     let m;
     while ((m = re.exec(cssRaw))) {
         positions[m[1]] = { x: Math.abs(Number(m[2])), y: Math.abs(Number(m[3])) };
@@ -55,7 +56,7 @@ async function getSpriteInfo() {
     const kr = /@keyframes\s+sts-anim-([\w-]+)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g;
     while ((m = kr.exec(cssRaw))) {
         const frames = [];
-        const fr = /(\d+(?:\.\d+)?%)\s*\{\s*background-position:\s*(-?\d+)px\s+(-?\d+)px/g;
+        const fr = /(\d+(?:\.\d+)?%)\s*\{\s*background-position:\s*(-?\d+)(?:px)?\s+(-?\d+)(?:px)?/g;
         let f;
         while ((f = fr.exec(m[2]))) {
             frames.push({ pct: parseFloat(f[1]), x: Math.abs(Number(f[2])), y: Math.abs(Number(f[3])) });
@@ -93,7 +94,7 @@ async function getSpriteInfo() {
     }
 
     const mcPositions = {};
-    const mcRe = /\.minecraft-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)px\s+(-?\d+)(?:px)?/g;
+    const mcRe = /\.minecraft-([\w-]+)\s*\{\s*background-position:\s*(-?\d+)(?:px)?\s+(-?\d+)(?:px)?/g;
     while ((m = mcRe.exec(mcCssRaw))) {
         mcPositions[m[1]] = { x: Math.abs(Number(m[2])), y: Math.abs(Number(m[3])) };
     }

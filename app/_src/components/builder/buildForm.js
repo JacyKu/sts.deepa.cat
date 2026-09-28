@@ -25,6 +25,7 @@ import { useMaxMasterwork } from '../items/maxMasterworkContext';
 import { filterBadWords } from '../../utils/badWords';
 import {
     decodeBuildParam,
+    decodeBuildName,
     encodeBuildParam,
     normalizeBuildParam,
     getBuildTokenVersion,
@@ -945,6 +946,12 @@ export default function BuildForm({
     const [favBusy, setFavBusy] = React.useState(false);
     const [resetConfirm, setResetConfirm] = React.useState(false);
     const resetTimeoutRef = React.useRef(null);
+    // Snapshot of the build as it was loaded/saved last, so Copy/Save can tell
+    // an unchanged share (copy the original link) from edits (fork a new link).
+    const savedSnapshotRef = React.useRef(null);
+    // Always points at the newest currentBuildSnapshot (the deferred baseline
+    // below runs after the restore's state updates have rendered).
+    const currentSnapshotRef = React.useRef(null);
     const [statInputs, setStatInputs] = React.useState(DEFAULT_STAT_INPUTS);
     const [regionValue, setRegionValue] = React.useState(3);
     const [regionSelectKey, setRegionSelectKey] = React.useState(0);
@@ -2041,14 +2048,84 @@ export default function BuildForm({
             .finally(() => setFavBusy(false));
     }
 
+    // The build as the save payload defines it. The token carries items,
+    // skills and stats; the name is compared separately because a build can be
+    // renamed in the database without its token changing.
+    function sortedEntries(map) {
+        return Object.entries(map || {}).sort(([a], [b]) => a.localeCompare(b));
+    }
+
+    // The Max Health (current-HP preview) and the display name are not build
+    // content: health is a viewer-local preview and the name can be changed in
+    // the database without the build changing, so neither counts as an edit.
+    function tokenForCompare(decoded) {
+        if (!decoded) return null;
+        const params = new URLSearchParams(decoded);
+        params.delete('name');
+        params.delete('health');
+        return params.toString();
+    }
+
+    function currentBuildSnapshot() {
+        let decoded = null;
+        try {
+            decoded = decodeBuildParam(makeBuildString(), itemData);
+        } catch (e) {}
+        return {
+            token: tokenForCompare(decoded),
+            infusions: sortedEntries(delveInfusions),
+            basicInfusions: sortedEntries(basicInfusions),
+            revelation: Boolean(revelation),
+            name: buildNameRef.current || 'Monumenta Builder',
+            notes: (notesDraft || '').trim(),
+        };
+    }
+
+    function loadedBuildSnapshot() {
+        const saved = savedState || {};
+        let decoded = null;
+        try {
+            decoded = decodeBuildParam(build, itemData);
+        } catch (e) {}
+        let name = savedName || null;
+        if (!name) {
+            try {
+                name = decodeBuildName(build);
+            } catch (e) {
+                name = null;
+            }
+        }
+        return {
+            token: tokenForCompare(decoded),
+            infusions: sortedEntries(saved.infusions),
+            basicInfusions: sortedEntries(saved.basicInfusions),
+            revelation: Boolean(saved.revelation),
+            name: name || 'Monumenta Builder',
+            notes: (notes || '').trim(),
+        };
+    }
+
+    // The baseline a Copy/Save compares against: the build last loaded from or
+    // saved to the server (the props don't update after an in-page fork).
+    function savedBuildSnapshot() {
+        if (!savedSnapshotRef.current) savedSnapshotRef.current = loadedBuildSnapshot();
+        return savedSnapshotRef.current;
+    }
+
+    function buildDiffersFromSaved() {
+        return JSON.stringify(currentBuildSnapshot()) !== JSON.stringify(savedBuildSnapshot());
+    }
+
     function saveBuildToServer(forking = false) {
         const token = makeBuildString();
         const tokenVersion = getBuildTokenVersion(token) ?? '';
-        // Someone else's saved build: sharing it must share the build as it
-        // is. Saving would fork a copy onto the account, and the embed would
-        // credit whoever shared it instead of the build's original author.
-        // Saving the current edits as a copy is what "Save as new copy" does.
+        // Someone else's saved build: an unchanged copy shares the original
+        // link, so the embed credits the build's author. Once the form differs
+        // from what was loaded, the edits must fork onto a new link or they
+        // would never be shareable. Saving the current edits as a copy is what
+        // "Save as new copy" does too.
         if (activeBuildId && !forking && !ownsBuild) {
+            if (buildDiffersFromSaved()) return saveBuildToServer(true);
             const storedVersion = getBuildTokenVersion(build) ?? tokenVersion;
             const link =
                 window.location.origin + getStsBase() + `/b/v${storedVersion}/${activeBuildId}` + `?v=${buildRevision}`;
@@ -2122,6 +2199,9 @@ export default function BuildForm({
                     if (result.savedToAccount) setOwnsBuild(true);
                     // The server may have appended " (2)" to a duplicate name.
                     if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
+                    // Re-baseline: the next Copy/Save compares against this
+                    // save, not against the state the page was loaded with.
+                    savedSnapshotRef.current = currentBuildSnapshot();
                     // Track the new revision so the draft saved next belongs to
                     // the row's current revision (older drafts are ignored).
                     if (result.version) setBuildRevision(result.version);
@@ -2132,6 +2212,16 @@ export default function BuildForm({
                         getStsBase() +
                         `/b/v${tokenVersion}/${activeBuildId}` +
                         (result.version ? `?v=${result.version}` : '');
+                    // Reflect the new revision in the address bar too, so a
+                    // reload or a link copied from it serves the updated embed
+                    // instead of the cached one.
+                    window.history.replaceState(
+                        null,
+                        '',
+                        getStsBase() +
+                            `/b/v${tokenVersion}/${activeBuildId}` +
+                            (result.version ? `?v=${result.version}` : '')
+                    );
                     setSaveState('copied');
                     setSavedAnonymous(false);
                     if (navigator.clipboard) {
@@ -2185,10 +2275,15 @@ export default function BuildForm({
                 if (d.savedToAccount) setOwnsBuild(true);
                 // The server may have appended " (2)" to a duplicate name.
                 if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
+                // Re-baseline: the next Copy/Save compares against this save,
+                // not against the state the page was loaded with.
+                savedSnapshotRef.current = currentBuildSnapshot();
                 // Move the address bar onto the build itself: a reload (or
                 // sharing the tab) keeps you on the saved build. replaceState,
                 // not pushState, so Back doesn't return to the blank builder.
-                window.history.replaceState(null, '', getStsBase() + d.url);
+                // The revision (?v=) rides along so the embed serves the fresh
+                // image instead of a cached older one.
+                window.history.replaceState(null, '', getStsBase() + d.url + (d.version ? `?v=${d.version}` : ''));
                 setSaveState('copied');
                 if (d.savedToAccount) {
                     setSavedAnonymous(false);
@@ -2258,7 +2353,19 @@ export default function BuildForm({
             body: JSON.stringify({ notes: notesDraft }),
         })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
-            .then(() => {
+            .then((data) => {
+                // A notes edit bumps the revision: keep the address bar (and the
+                // next copied link) on the new one.
+                if (data && data.version) {
+                    setBuildRevision(data.version);
+                    window.history.replaceState(
+                        null,
+                        '',
+                        getStsBase() +
+                            `/b/v${getBuildTokenVersion(makeBuildString()) ?? ''}/${activeBuildId}` +
+                            `?v=${data.version}`
+                    );
+                }
                 setNotesSaveState('saved');
                 setTimeout(() => setNotesSaveState(null), 2500);
             })
@@ -2630,6 +2737,26 @@ export default function BuildForm({
             }
         }
     }, [parentLoaded, effectiveDraft]);
+
+    // Keep the deferred snapshot helper pointing at the latest render (the
+    // baseline capture below runs in a timeout, after the restore's state
+    // updates have flushed).
+    React.useEffect(() => {
+        currentSnapshotRef.current = currentBuildSnapshot;
+    });
+
+    // Baseline for Copy/Save: the form as it came out of a clean load. A draft
+    // or a shared-set import is unsaved content, so those keep the props
+    // fallback (any save then forks); the baseline only decides whether
+    // sharing an untouched other-user build can reuse its original link.
+    React.useLayoutEffect(() => {
+        if (!parentLoaded || !build || effectiveDraft || sharedSet) return undefined;
+        savedSnapshotRef.current = null;
+        const timer = setTimeout(() => {
+            if (currentSnapshotRef.current) savedSnapshotRef.current = currentSnapshotRef.current();
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [parentLoaded, build, effectiveDraft, sharedSet]);
 
     // A shared skill/infusion set opened from /builder?set=<id>: apply it
     // once, after the build/draft restore effect above has run. Skill sets

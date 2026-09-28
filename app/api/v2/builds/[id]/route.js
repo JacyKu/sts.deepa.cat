@@ -17,6 +17,7 @@ import { getBuildTokenVersion, getBuildItemHashes } from '../../../../_src/utils
 import { sanitizeBuildTokenForStorage } from '../../../../_src/utils/builder/buildTokenGuard';
 import { getItemData, getSkillsData } from '../../../../_src/utils/itemsData';
 import { bodyTooLarge, tooLargeJson } from '../../../../../lib/request-guards';
+import { warmEmbedImage } from '../../../../../lib/embed-warm';
 
 export async function GET(request, { params }) {
     const p = await params;
@@ -149,6 +150,9 @@ export async function PATCH(request, { params }) {
         // final name (may carry a " (2)" suffix) when one was sent, and
         // `version` the build's revision (?v= for the copied link).
         const savedRow = getBuild(p.id);
+        // Pre-render the embed card for the new revision so Discord's first
+        // crawl is a cache hit.
+        warmEmbedImage(p.id, savedRow ? savedRow.revision || 1 : null);
         return NextResponse.json({
             ok: true,
             savedToAccount: Boolean(user),
@@ -191,6 +195,10 @@ export async function PATCH(request, { params }) {
         if (!ok) {
             return NextResponse.json({ error: 'build not found or not yours' }, { status: 403 });
         }
+        // The publicise angle changes the card (public badge/author bar), so
+        // pre-render the new revision too.
+        const warmRow = getBuild(p.id);
+        warmEmbedImage(p.id, warmRow ? warmRow.revision || 1 : null);
         return NextResponse.json({ ok: true, isPublic, anonymous });
     }
 
@@ -250,8 +258,16 @@ export async function PATCH(request, { params }) {
     if (!saved) {
         return NextResponse.json({ error: 'build not found or not yours' }, { status: 404 });
     }
-    // Return the final name (may carry a " (2)" suffix).
-    return NextResponse.json({ ok: true, name: update.name });
+    // Return the final name (may carry a " (2)" suffix) and the revision the
+    // client uses to refresh its share link / address bar.
+    const savedRow = getBuild(p.id);
+    // A notes/name edit bumps the revision: pre-render the card for it.
+    warmEmbedImage(p.id, savedRow ? savedRow.revision || 1 : null);
+    return NextResponse.json({
+        ok: true,
+        name: update.name,
+        version: savedRow ? savedRow.revision || 1 : null,
+    });
 }
 
 export async function DELETE(request, { params }) {

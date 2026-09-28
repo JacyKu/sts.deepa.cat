@@ -68,6 +68,12 @@ export function computeCharmTotals(itemData, charmNames) {
     return Object.fromEntries(Object.entries(totals).filter(([, obj]) => obj.value !== 0));
 }
 
+// Monumenta's NBT lore colors for positive and negative lines. On a single
+// charm a color follows that charm's own value, but the summary shows the
+// summed value, so these two are left to the sign-based fallback
+// (CharmFormatter.statStyle) instead; other colors are special and inherited.
+const SIGN_STAT_COLORS = new Set(['#4AC2E5', '#D02E28']);
+
 // Per-stat display colors (from the API's NBT lore) for the equipped charms:
 // the first charm that provides a stat defines the color of the summed line.
 export function computeCharmStatColors(itemData, charmNames) {
@@ -77,6 +83,7 @@ export function computeCharmStatColors(itemData, charmNames) {
         const statColors = key ? itemData[key].statColors : null;
         if (!statColors) continue;
         for (const [stat, color] of Object.entries(statColors)) {
+            if (!color || SIGN_STAT_COLORS.has(String(color).toUpperCase())) continue;
             if (!colors[stat]) colors[stat] = color;
         }
     }

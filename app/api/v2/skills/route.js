@@ -8,6 +8,9 @@ import { getSkillsData } from '../../../_src/utils/itemsData';
 export async function GET(request) {
     try {
         const skills = await getSkillsData();
+        // getSkillsData logs the failure and returns null when the file cannot
+        // be read; report it as temporarily unavailable instead of crashing.
+        if (!skills) return NextResponse.json({ error: 'skills data unavailable' }, { status: 503 });
         const versioned = new URL(request.url).searchParams.has('v');
         return compressedJsonResponse(skills, {
             request,

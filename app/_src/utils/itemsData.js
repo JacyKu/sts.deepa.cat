@@ -20,6 +20,21 @@ async function readJson(segments) {
     return JSON.parse(raw);
 }
 
+// A data file that cannot be read (interrupted deploy, corrupt write, disk
+// problem) must not take a whole page or API route down with a thrown
+// exception. The getters below log the failure and fall back to the last
+// parsed copy (stale but working); the auxiliary files (skills, CZ,
+// histories) fall back to null when nothing was parsed yet, so callers can
+// degrade instead of crashing.
+function logDataError(segments, error) {
+    const reason = error && error.message ? error.message : error;
+    console.error(`[data] failed to read public/${segments.join('/')}: ${reason}`);
+}
+
+function isMissingFile(error) {
+    return Boolean(error) && error.code === 'ENOENT';
+}
+
 function processItemData(itemData, extras) {
     // hardcoded exemption for Truest North
     for (let i = 1; i <= 4; i++) {
@@ -93,55 +108,82 @@ function processItemData(itemData, extras) {
 export async function getItemData() {
     const itemsPath = path.join(process.cwd(), 'public', 'items', 'items.json');
     const extrasPath = path.join(process.cwd(), 'public', 'items', 'extras.json');
-    const [itemsStat, extrasStat] = await Promise.all([fs.stat(itemsPath), fs.stat(extrasPath)]);
-    const key = itemsStat.mtimeMs + ':' + extrasStat.mtimeMs;
+    try {
+        const [itemsStat, extrasStat] = await Promise.all([fs.stat(itemsPath), fs.stat(extrasPath)]);
+        const key = itemsStat.mtimeMs + ':' + extrasStat.mtimeMs;
 
-    if (cache && cacheKey === key) return cache;
+        if (cache && cacheKey === key) return cache;
 
-    const [items, extras] = await Promise.all([readJson(['items', 'items.json']), readJson(['items', 'extras.json'])]);
+        const [items, extras] = await Promise.all([
+            readJson(['items', 'items.json']),
+            readJson(['items', 'extras.json']),
+        ]);
 
-    cache = processItemData(items, extras);
-    cacheKey = key;
-    return cache;
+        cache = processItemData(items, extras);
+        cacheKey = key;
+        return cache;
+    } catch (error) {
+        logDataError(['items', 'items.json'], error);
+        // Serve the last good parse if there is one; only a cold start with a
+        // broken file has nothing to offer (the error boundary explains it).
+        if (cache) return cache;
+        throw error;
+    }
 }
 
 // Raw, unprocessed items.json (cached). Used by the coverage checker.
 export async function getRawItems() {
     const itemsPath = path.join(process.cwd(), 'public', 'items', 'items.json');
-    const stat = await fs.stat(itemsPath);
-    const key = stat.mtimeMs;
+    try {
+        const stat = await fs.stat(itemsPath);
+        const key = stat.mtimeMs;
 
-    if (rawCache && rawCacheKey === key) return rawCache;
+        if (rawCache && rawCacheKey === key) return rawCache;
 
-    rawCache = await readJson(['items', 'items.json']);
-    rawCacheKey = key;
-    return rawCache;
+        rawCache = await readJson(['items', 'items.json']);
+        rawCacheKey = key;
+        return rawCache;
+    } catch (error) {
+        logDataError(['items', 'items.json'], error);
+        if (rawCache) return rawCache;
+        throw error;
+    }
 }
 
 // Class skills from the Monumenta API (cached). Used by the builder.
 export async function getSkillsData() {
     const skillsPath = path.join(process.cwd(), 'public', 'items', 'skills.json');
-    const stat = await fs.stat(skillsPath);
-    const key = stat.mtimeMs;
+    try {
+        const stat = await fs.stat(skillsPath);
+        const key = stat.mtimeMs;
 
-    if (skillsCache && skillsCacheKey === key) return skillsCache;
+        if (skillsCache && skillsCacheKey === key) return skillsCache;
 
-    skillsCache = await readJson(['items', 'skills.json']);
-    skillsCacheKey = key;
-    return skillsCache;
+        skillsCache = await readJson(['items', 'skills.json']);
+        skillsCacheKey = key;
+        return skillsCache;
+    } catch (error) {
+        logDataError(['items', 'skills.json'], error);
+        return skillsCache; // stale copy, or null when nothing was parsed yet
+    }
 }
 
 // Celestial Zenith / Darkest Depths ability trees (cached). Used by the builder.
 export async function getCzData() {
     const czPath = path.join(process.cwd(), 'public', 'items', 'czAbilities.json');
-    const stat = await fs.stat(czPath);
-    const key = stat.mtimeMs;
+    try {
+        const stat = await fs.stat(czPath);
+        const key = stat.mtimeMs;
 
-    if (czCache && czCacheKey === key) return czCache;
+        if (czCache && czCacheKey === key) return czCache;
 
-    czCache = await readJson(['items', 'czAbilities.json']);
-    czCacheKey = key;
-    return czCache;
+        czCache = await readJson(['items', 'czAbilities.json']);
+        czCacheKey = key;
+        return czCache;
+    } catch (error) {
+        logDataError(['items', 'czAbilities.json'], error);
+        return czCache; // stale copy, or null when nothing was parsed yet
+    }
 }
 
 // Item stat change archive (public/items/item-history.json), written by
@@ -149,19 +191,19 @@ export async function getCzData() {
 // when no archive has been recorded yet. Cached by file mtime like the rest.
 export async function getItemHistory() {
     const historyPath = path.join(process.cwd(), 'public', 'items', 'item-history.json');
-    let stat;
     try {
-        stat = await fs.stat(historyPath);
-    } catch (err) {
-        return null; // no history recorded yet
+        const stat = await fs.stat(historyPath);
+        const key = stat.mtimeMs;
+
+        if (historyCache && historyCacheKey === key) return historyCache;
+
+        historyCache = await readJson(['items', 'item-history.json']);
+        historyCacheKey = key;
+        return historyCache;
+    } catch (error) {
+        if (!isMissingFile(error)) logDataError(['items', 'item-history.json'], error);
+        return historyCache; // no archive yet, or the last one that parsed
     }
-    const key = stat.mtimeMs;
-
-    if (historyCache && historyCacheKey === key) return historyCache;
-
-    historyCache = await readJson(['items', 'item-history.json']);
-    historyCacheKey = key;
-    return historyCache;
 }
 
 // Class/skill/spec change archive (public/items/class-history.json), written
@@ -169,19 +211,19 @@ export async function getItemHistory() {
 // refreshes class data). Returns null until the first run records something.
 export async function getClassHistory() {
     const historyPath = path.join(process.cwd(), 'public', 'items', 'class-history.json');
-    let stat;
     try {
-        stat = await fs.stat(historyPath);
-    } catch (err) {
-        return null; // no history recorded yet
+        const stat = await fs.stat(historyPath);
+        const key = stat.mtimeMs;
+
+        if (classHistoryCache && classHistoryCacheKey === key) return classHistoryCache;
+
+        classHistoryCache = await readJson(['items', 'class-history.json']);
+        classHistoryCacheKey = key;
+        return classHistoryCache;
+    } catch (error) {
+        if (!isMissingFile(error)) logDataError(['items', 'class-history.json'], error);
+        return classHistoryCache; // no archive yet, or the last one that parsed
     }
-    const key = stat.mtimeMs;
-
-    if (classHistoryCache && classHistoryCacheKey === key) return classHistoryCache;
-
-    classHistoryCache = await readJson(['items', 'class-history.json']);
-    classHistoryCacheKey = key;
-    return classHistoryCache;
 }
 
 // Content versions for the client-side data endpoints. The files are replaced
@@ -191,8 +233,13 @@ export async function getClassHistory() {
 export async function getItemDataVersion() {
     const itemsPath = path.join(process.cwd(), 'public', 'items', 'items.json');
     const extrasPath = path.join(process.cwd(), 'public', 'items', 'extras.json');
-    const [itemsStat, extrasStat] = await Promise.all([fs.stat(itemsPath), fs.stat(extrasPath)]);
-    return `${Math.floor(itemsStat.mtimeMs)}-${Math.floor(extrasStat.mtimeMs)}`;
+    try {
+        const [itemsStat, extrasStat] = await Promise.all([fs.stat(itemsPath), fs.stat(extrasPath)]);
+        return `${Math.floor(itemsStat.mtimeMs)}-${Math.floor(extrasStat.mtimeMs)}`;
+    } catch (error) {
+        logDataError(['items', 'items.json'], error);
+        return 'none';
+    }
 }
 
 export async function getHistoryVersion() {
