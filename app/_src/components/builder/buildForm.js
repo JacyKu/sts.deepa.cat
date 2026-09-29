@@ -31,6 +31,7 @@ import {
     getBuildTokenVersion,
 } from '../../utils/builder/buildUrlCodec';
 import { skillsPayloadFromToken } from '../../utils/builder/buildSkills';
+import { readImportedBuildState } from '../../utils/builder/importedBuildState';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
@@ -111,6 +112,11 @@ const emptyBuild = {
 // the plain /builder page, or on /b/<id> when the draft belongs to that build.
 // Skipped entirely when the "Cache builds" setting is off.
 const DRAFT_KEY = DRAFT_DATA_KEY;
+
+// Saved builds carry their delve infusions + Revelation in the DB, which the
+// URL token cannot hold. When a build is imported from the other STS site it
+// has no local row, so the import bar stashes that state in sessionStorage
+// (see utils/builder/importedBuildState) and the builder restores it here.
 
 // Build list (shopping list): items collected on the items page are read from
 // localStorage on mount and equipped into empty slots. Leftovers (misc items,
@@ -2436,6 +2442,13 @@ export default function BuildForm({
         const isLoadedBuild = Boolean(build);
         const effDraft = effectiveDraft;
         const loadToken = effDraft ? effDraft.token : build;
+        // A build imported from the other site (sts <-> dev) has no local DB
+        // row, so its delve infusions / Revelation / basic infusions ride in
+        // sessionStorage, stashed by the import bar from the convert response.
+        let importedState = null;
+        if (loadToken && !effDraft && !savedState) {
+            importedState = readImportedBuildState(loadToken);
+        }
         if (!loadToken) {
             // Fresh builder (no build link, no draft): compute the empty build's
             // base stats right away so the stat cards are populated before any
@@ -2614,7 +2627,7 @@ export default function BuildForm({
         // Drafts carry them inline the same way, and a draft that applies to
         // this page (same build + revision, see effectiveDraft) wins over the
         // DB copy so unsaved infusion edits are not dropped.
-        const effSavedState = isLoadedBuild ? effDraft || savedState : effDraft;
+        const effSavedState = effDraft || savedState || importedState;
         const loadedDelve = {};
         if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
             for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {

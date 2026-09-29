@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import styles from '../../styles/Items.module.css';
 import { getStsBase } from '../../utils/base';
 import { encodeBuildParam } from '../../utils/builder/buildUrlCodec';
+import { stashImportedBuildState } from '../../utils/builder/importedBuildState';
 import { useTranslation } from '../useTranslation';
 
 function parseImportedBuild(raw) {
@@ -70,6 +71,7 @@ export default function BuildImportBar({ embedded }) {
             }
             setError(false);
             setValue('');
+            stashImportedBuildState(data.token, data.state);
             router.replace(getStsBase() + '/builder/' + data.token);
         } catch (e) {
             setError(true);
