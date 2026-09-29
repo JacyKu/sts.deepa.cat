@@ -44,16 +44,38 @@ export default function BuildImportBar({ embedded }) {
     const t = useTranslation();
     const [value, setValue] = React.useState('');
     const [error, setError] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
 
-    function handleImport() {
-        const buildString = parseImportedBuild(value);
-        if (!buildString) {
-            setError(true);
+    async function handleImport() {
+        const raw = value.trim();
+        if (!raw || loading) return;
+        const buildString = parseImportedBuild(raw);
+        if (buildString) {
+            setError(false);
+            setValue('');
+            router.replace(getStsBase() + '/builder/' + encodeBuildParam(buildString));
             return;
         }
-        setError(false);
-        setValue('');
-        router.replace(getStsBase() + '/builder/' + encodeBuildParam(buildString));
+        // Saved links (/b/<id>) and links to the other STS / dev site are
+        // resolved by the convert endpoint, which proxies the other host (its
+        // database holds the build), so links can be imported from one
+        // another. A lone build id works too.
+        setLoading(true);
+        try {
+            const res = await fetch('/api/v2/builds/convert?link=' + encodeURIComponent(raw));
+            const data = await res.json().catch(() => null);
+            if (!res.ok || !data || !data.token) {
+                setError(true);
+                return;
+            }
+            setError(false);
+            setValue('');
+            router.replace(getStsBase() + '/builder/' + data.token);
+        } catch (e) {
+            setError(true);
+        } finally {
+            setLoading(false);
+        }
     }
 
     if (embedded) {
@@ -89,8 +111,8 @@ export default function BuildImportBar({ embedded }) {
                             }}
                             spellCheck="false"
                         />
-                        <button type="button" className={styles.importButton} onClick={handleImport}>
-                            {t('builder.buttons.import')}
+                        <button type="button" className={styles.importButton} onClick={handleImport} disabled={loading}>
+                            {loading ? t('common.loading') : t('builder.buttons.import')}
                         </button>
                     </div>
                     {error && <div className={styles.importError}>{t('builder.errors.couldNotReadBuildLink')}</div>}
@@ -119,8 +141,8 @@ export default function BuildImportBar({ embedded }) {
                             }}
                             spellCheck="false"
                         />
-                        <button type="button" className={styles.importButton} onClick={handleImport}>
-                            {t('builder.buttons.import')}
+                        <button type="button" className={styles.importButton} onClick={handleImport} disabled={loading}>
+                            {loading ? t('common.loading') : t('builder.buttons.import')}
                         </button>
                     </div>
                     {error && <div className={styles.importError}>{t('builder.errors.couldNotReadBuildLink')}</div>}

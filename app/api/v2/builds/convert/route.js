@@ -54,10 +54,62 @@ function parseShortLinkId(raw) {
     return m ? m[1] : null;
 }
 
+// The STS site and its dev deployment have separate databases, so a saved
+// link (/b/<id>) only resolves on the site that minted it. Full links to the
+// other site are proxied to its convert endpoint (with just the path, so the
+// other instance treats it as local and never bounces it back).
+const KNOWN_STS_HOSTS = new Set(['sts.deepa.cat', 'www.sts.deepa.cat', 'dev.deepa.cat']);
+
+function remoteConvertUrl(link, currentHostname) {
+    let url;
+    try {
+        url = new URL(link);
+    } catch (e) {
+        return null;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const hostname = url.hostname.toLowerCase();
+    if (!KNOWN_STS_HOSTS.has(hostname)) return null;
+    if (hostname === String(currentHostname || '').toLowerCase()) return null;
+    return `https://${url.host}/api/v2/builds/convert?link=${encodeURIComponent(url.pathname + url.search)}`;
+}
+
 export async function GET(request) {
-    const link = request.nextUrl.searchParams.get('link') || '';
+    let link = request.nextUrl.searchParams.get('link') || '';
     if (!link.trim()) {
         return NextResponse.json({ error: 'no build link given' }, { status: 400 });
+    }
+
+    // A link that points at the other STS deployment (sts.deepa.cat vs
+    // dev.deepa.cat) is resolved by that site, so saved links can be imported
+    // from one another.
+    const remote = remoteConvertUrl(link, request.nextUrl.hostname);
+    if (remote) {
+        try {
+            const res = await fetch(remote, { headers: { accept: 'application/json' } });
+            const data = await res.json().catch(() => null);
+            if (!res.ok || !data || !data.token) {
+                return NextResponse.json(
+                    { error: (data && data.error) || 'could not read that build link' },
+                    { status: res.status === 200 ? 502 : res.status }
+                );
+            }
+            return NextResponse.json(data);
+        } catch (e) {
+            return NextResponse.json({ error: 'could not reach the other site' }, { status: 502 });
+        }
+    }
+
+    // A lone build id is treated as its /b/<id> short link (the import bar
+    // accepts a bare id the same way the database search does).
+    if (
+        !link.includes('/') &&
+        !link.includes('=') &&
+        !link.startsWith('v1_') &&
+        !link.startsWith('z:') &&
+        /^[A-Za-z0-9_-]{4,40}$/.test(link.trim())
+    ) {
+        link = '/b/' + link.trim();
     }
 
     // Saved-build short links resolve straight to the stored token (no

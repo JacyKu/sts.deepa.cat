@@ -136,9 +136,10 @@ function emptyFilterRow() {
 
 export default function SearchForm({ update, itemData }) {
     const t = useTranslation();
-    // Charm Skill options: every class + spec skill name. Charm stats are
-    // keyed by the skill they affect (e.g. "arcane_strike_cooldown_percent"),
-    // so the filter matches charms whose stats start with the skill's name.
+    // Charm Skill options: every class and spec skill (plus the passives a
+    // charm actually affects). Charm stats are keyed by the skill they affect
+    // (e.g. "arcane_strike_cooldown_percent"), so the filter matches charms
+    // whose stats start with the skill's name.
     const [charmSkills, setCharmSkills] = React.useState([]);
     // Skills grouped by the class they belong to, so the Charm Skill filter
     // only offers the active Charm Class's skills (and never charms from
@@ -146,37 +147,65 @@ export default function SearchForm({ update, itemData }) {
     const [charmSkillsByClass, setCharmSkillsByClass] = React.useState({});
     React.useEffect(() => {
         let active = true;
+        // Charm stat keys are keyed by the skill (or passive) they affect, so
+        // they double as the set of "does any charm roll this?" checks used to
+        // keep passives that no charm currently affects out of the filter.
+        const charmStatPrefixes = new Set();
+        for (const key in itemData || {}) {
+            const item = itemData[key];
+            if (!item || item.type !== 'Charm' || !item.stats) continue;
+            for (const stat of Object.keys(item.stats)) {
+                charmStatPrefixes.add(stat.toLowerCase().replace(/[^a-z0-9]+/g, '_'));
+            }
+        }
+        const affectsACharm = (s) => {
+            const value = s.name || s.displayName;
+            if (!value) return false;
+            const token = value.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+            for (const prefix of charmStatPrefixes) {
+                if (prefix === token || prefix.startsWith(token + '_')) return true;
+            }
+            return false;
+        };
         loadSkills()
             .then((d) => {
                 if (!active) return;
                 const byClass = {};
                 const all = [];
                 const seenAll = new Set();
+                // Some skills (the Warrior passives "Toughness", "Frenzy" and
+                // "Weapon Mastery", the Shaman passive "Spiritualism") have no
+                // `name`, only a `displayName`; the filter value falls back to
+                // the display name so they are not dropped. Charm stats are
+                // keyed by the display-name token, so both work for matching.
+                const addSkill = (list, seen, s) => {
+                    const value = s.name || s.displayName;
+                    if (!value || seen.has(value)) return;
+                    seen.add(value);
+                    const entry = { value, label: s.displayName || s.name };
+                    list.push(entry);
+                    if (!seenAll.has(value)) {
+                        seenAll.add(value);
+                        all.push(entry);
+                    }
+                };
                 for (const c of (d && d.classes) || []) {
                     if (!c.className) continue;
                     const list = [];
                     const seen = new Set();
-                    for (const s of c.skills || []) {
-                        if (s.name && !seen.has(s.name)) {
-                            seen.add(s.name);
-                            list.push({ value: s.name, label: s.displayName || s.name });
-                        }
-                    }
+                    for (const s of c.skills || []) addSkill(list, seen, s);
                     for (const sp of c.specs || []) {
-                        for (const s of sp.specSkills || []) {
-                            if (s.name && !seen.has(s.name)) {
-                                seen.add(s.name);
-                                list.push({ value: s.name, label: s.displayName || s.name });
-                            }
-                        }
+                        for (const s of sp.specSkills || []) addSkill(list, seen, s);
+                    }
+                    // Class and spec passives are charm skills too (charms
+                    // carry stats like `alchemist_potion_damage_percent` or
+                    // `channeling_hits_flat`), but only the ones a charm
+                    // actually rolls are worth offering.
+                    if (c.classPassive && affectsACharm(c.classPassive)) addSkill(list, seen, c.classPassive);
+                    for (const sp of c.specs || []) {
+                        if (sp.specPassive && affectsACharm(sp.specPassive)) addSkill(list, seen, sp.specPassive);
                     }
                     byClass[c.className] = list;
-                    for (const o of list) {
-                        if (!seenAll.has(o.value)) {
-                            seenAll.add(o.value);
-                            all.push(o);
-                        }
-                    }
                 }
                 setCharmSkillsByClass(byClass);
                 setCharmSkills(all);
@@ -185,7 +214,7 @@ export default function SearchForm({ update, itemData }) {
         return () => {
             active = false;
         };
-    }, []);
+    }, [itemData]);
 
     // The search form is fully controlled (like the database's filter rows):
     // every filter lives in state, so Reset is a plain state reset instead of
