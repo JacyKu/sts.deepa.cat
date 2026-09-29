@@ -57,13 +57,16 @@ class CharmFormatter {
         return humanStr;
     }
 
-    static statStyle(stat, valueObj) {
-        const { value } = CharmFormatter.asValue(valueObj);
-        const goodWhenNegative =
-            (stat.includes('cooldown') &&
-                !stat.includes('reduction') &&
-                !stat.includes('recharge') &&
-                !stat.includes('_cap')) || // need _cap because otherwise it matches esCAPe death
+    // Charm stats where a lower value is the better outcome (cooldown
+    // durations, prices, thresholds, self-damage, ...). Shared with the
+    // comparison page so its "better side" highlight matches the colours used
+    // everywhere else.
+    static isGoodWhenNegative(stat) {
+        return (
+            // A cooldown duration ("arcane_strike_cooldown_percent"). Cooldown
+            // reduction / recharge / refund / rate stats are better when
+            // higher, and none of those end in "_cooldown_percent".
+            /(^|_)cooldown_percent$/.test(stat) ||
             stat.includes('price') ||
             (stat.includes('threshold') &&
                 !stat.includes('rejuvenation') &&
@@ -73,8 +76,13 @@ class CharmFormatter {
             stat.includes('self_damage') ||
             stat.includes('delay') ||
             stat.includes('penalty') ||
-            stat.includes('requirement');
-        if (goodWhenNegative) return value < 0 ? 'positiveCharm' : 'negativeCharm';
+            stat.includes('requirement')
+        );
+    }
+
+    static statStyle(stat, valueObj) {
+        const { value } = CharmFormatter.asValue(valueObj);
+        if (CharmFormatter.isGoodWhenNegative(stat)) return value < 0 ? 'positiveCharm' : 'negativeCharm';
         if (value < 0) return 'negativeCharm';
         // A handful of charm stats display pink in-game (see PINK_CHARM_STATS).
         if (PINK_CHARM_STATS.has(stat)) return 'charmPink';

@@ -5,6 +5,7 @@ import styles from '../styles/Compare.module.css';
 import TranslatableText from './translatableText';
 import Stats from '../utils/builder/stats';
 import CharmShortener from '../utils/builder/charmShortener';
+import CharmFormatter from '../utils/items/charmFormatter';
 import { computeCharmTotals } from './builder/charmSelector';
 import { decodeBuildParam } from '../utils/builder/buildUrlCodec';
 import CheckboxWithLabel from './items/checkboxWithLabel';
@@ -25,7 +26,12 @@ const categoryDefs = [
             { type: 'knockbackRes', name: 'builder.stats.misc.kbResistance', percent: true },
             { type: 'thorns', name: 'builder.stats.misc.thorns', percent: false },
             { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
-            { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
+            {
+                type: 'spellCooldownPercent',
+                name: 'builder.stats.magic.spellCooldownPercent',
+                percent: true,
+                invert: true,
+            },
         ],
     },
     {
@@ -341,6 +347,7 @@ function parseBuild(build, itemData, enabledBoxes = {}) {
                 label: rawLabel.replace(' Percent', '').replace(' Base', '').replace(' Flat', ''),
                 percent: rawLabel.includes(' Percent'),
                 signed: true,
+                invert: CharmFormatter.isGoodWhenNegative(stat),
                 value: Number(obj.value) || 0,
                 locked: Boolean(obj.locked),
             };
@@ -362,7 +369,7 @@ function parseBuild(build, itemData, enabledBoxes = {}) {
                 if (def.type === 'potionDamage' && String(engine.spellPowerPercent) !== '100.00') continue;
                 if (def.type === 'spellDamage' && String(engine.potionDamage) !== '0.00') continue;
             }
-            rows.push({ labelKey: def.name, value: Number(value), percent: def.percent });
+            rows.push({ labelKey: def.name, value: Number(value), percent: def.percent, invert: Boolean(def.invert) });
         }
         if (cat.key === 'ehp' && engine && engine.instability) {
             const unstableEHPTypes = ['meleeEHP', 'projectileEHP', 'magicEHP', 'blastEHP'];
@@ -810,7 +817,13 @@ function CompareTable({ left, right }) {
                         <section key={cat.key} className={styles.category}>
                             <h2 className={styles.categoryTitle}>{t(cat.title)}</h2>
                             {Array.from(rowsByKey.entries()).map(([labelKey, { left: l, right: r }]) => (
-                                <CompareRow key={labelKey} labelKey={labelKey} left={l} right={r} />
+                                <CompareRow
+                                    key={labelKey}
+                                    labelKey={labelKey}
+                                    left={l}
+                                    right={r}
+                                    invert={Boolean((l || r).invert)}
+                                />
                             ))}
                         </section>
                     );
@@ -838,6 +851,7 @@ function CompareTable({ left, right }) {
                                         labelText={rowDef.locked ? `🔒 ${rowDef.label}` : rowDef.label}
                                         left={l}
                                         right={r}
+                                        invert={Boolean((l || r).invert)}
                                     />
                                 );
                             })}
@@ -855,24 +869,31 @@ function formatValue(row) {
     return `${sign}${row.value}${row.percent ? '%' : ''}`;
 }
 
-function CompareRow({ labelKey, labelText, left, right }) {
+function CompareRow({ labelKey, labelText, left, right, invert = false }) {
     const lv = left ? Number(left.value) : null;
     const rv = right ? Number(right.value) : null;
     let delta = null;
     if (lv !== null && rv !== null) {
-        if (Math.abs(lv - rv) > 1e-9) delta = lv < rv ? 'right' : 'left';
+        if (Math.abs(lv - rv) > 1e-9) {
+            // Some stats are better when lower (cooldown durations, prices,
+            // thresholds): the winning side is the smaller one for those.
+            const leftBetter = invert ? lv < rv : lv > rv;
+            delta = leftBetter ? 'left' : 'right';
+        }
     }
 
     // Signed relative percentage on BOTH sides: each value shows how far it
     // is from the opposite side's value (e.g. 500 (−9%) | stat | 550 (+10%)).
+    // The magnitude uses the absolute of the other value because inverted
+    // stats are often negative (cooldown reductions), where dividing by the
+    // signed value would flip the sign.
     const pctText = (mine, other) => {
         if (mine === null || other === null || other === 0 || Math.abs(mine - other) <= 1e-9) return null;
-        const relative = (mine - other) / other;
-        const sign = relative > 0 ? '+' : '-';
-        const cls = relative > 0 ? styles.pctUp : styles.pctDown;
-        return (
-            <span className={`${styles.rowPct} ${cls}`}>{` (${sign}${(Math.abs(relative) * 100).toFixed(2)}%)`}</span>
-        );
+        const magnitude = Math.abs(mine - other) / Math.abs(other);
+        const improved = invert ? mine < other : mine > other;
+        const sign = improved ? '+' : '-';
+        const cls = improved ? styles.pctUp : styles.pctDown;
+        return <span className={`${styles.rowPct} ${cls}`}>{` (${sign}${(magnitude * 100).toFixed(2)}%)`}</span>;
     };
 
     return (
