@@ -371,13 +371,18 @@ function getRelevantItems(data, itemData, hideSkins) {
             // stats, so match all three prefixes.
             const token = skill.toLowerCase().replace(/[^a-z0-9]+/g, '_');
             const tokens = CHARM_SKILL_STAT_TOKENS[token] || [token];
+            // Stat keys keep some punctuation that the skill token drops (e.g.
+            // "sage's_insight_decay_duration_flat"), so normalize both sides
+            // before comparing instead of only the skill name.
+            const statToken = (stat) => stat.toLowerCase().replace(/[^a-z0-9]+/g, '_');
             items = items.filter(
                 (name) =>
                     itemData[name].type == 'Charm' &&
                     itemData[name].stats &&
-                    Object.keys(itemData[name].stats).some((stat) =>
-                        tokens.some((t) => stat === t || stat.startsWith(t + '_'))
-                    )
+                    Object.keys(itemData[name].stats).some((stat) => {
+                        const normalized = statToken(stat);
+                        return tokens.some((t) => normalized === t || normalized.startsWith(t + '_'));
+                    })
             );
         });
     }
