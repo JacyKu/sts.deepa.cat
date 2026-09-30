@@ -7,6 +7,7 @@ import ConsumableFormatter from '../../utils/items/consumableFormatter';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
 import { useBuildList } from './buildListContext';
@@ -116,7 +117,10 @@ function ConsumableTile(data) {
             <div className={styles.imageIcon}>
                 <div className={[baseBackgroundClass, cssClass].join(' ')}></div>
             </div>
-            <span className={`${styles[camelCase(item.location)]} ${styles[camelCase(item.tier)]} ${styles.name}`}>
+            <span
+                style={locationStyle(item)}
+                className={`${styles[camelCase(item.location)]} ${styles[camelCase(item.tier)]} ${styles.name}`}
+            >
                 <a
                     href={`https://monumenta.wiki.gg/wiki/${item.name
                         .replace(/\(.*\)/g, '')
@@ -145,7 +149,9 @@ function ConsumableTile(data) {
                     {item.tier ? item.tier : t('items.type.consumable')}
                 </span>
             </span>
-            <span className={styles[camelCase(item.location)]}>{item.location}</span>
+            <span style={locationStyle(item)} className={styles[camelCase(item.location)]}>
+                {item.location}
+            </span>
             {formattedEffects}
             <Enchants item={item}></Enchants>
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}

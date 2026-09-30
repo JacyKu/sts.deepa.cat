@@ -72,7 +72,13 @@ function candidatesFor(statKeys, text) {
         else if (baseKey === normalized || baseKey === stripped) base.push(key);
     }
     const rank = (key) => {
-        const suffix = key.endsWith('_percent') ? 'percent' : key.endsWith('_base') ? 'base' : key.endsWith('_flat') ? 'flat' : 'none';
+        const suffix = key.endsWith('_percent')
+            ? 'percent'
+            : key.endsWith('_base')
+              ? 'base'
+              : key.endsWith('_flat')
+                ? 'flat'
+                : 'none';
         if (suffix === 'percent') return hasPercent ? 0 : 3;
         if (suffix === 'base') return bare && !hasPercent && !plus ? 0 : 3;
         if (suffix === 'flat') return !hasPercent && (plus || bare) ? 1 : 3;
@@ -83,11 +89,11 @@ function candidatesFor(statKeys, text) {
     return all;
 }
 
-function parseComponents(nbt) {
+function parseComponents(nbt, re = COMPONENT_RE) {
     const out = [];
-    COMPONENT_RE.lastIndex = 0;
+    re.lastIndex = 0;
     let m;
-    while ((m = COMPONENT_RE.exec(nbt))) {
+    while ((m = re.exec(nbt))) {
         // SNBT single-quoted strings escape apostrophes as \' etc.
         const text = m[2].replace(/\\(.)/g, '$1');
         out.push({ color: m[1], text });
@@ -114,4 +120,39 @@ export function extractStatColors(item) {
         if (!colors[candidates[0]]) colors[candidates[0]] = hex;
     }
     return Object.keys(colors).length > 0 ? colors : null;
+}
+
+// Location lore lines use the same JSON components, but some are written
+// without a leading key ({"color":"#FF6F55","text":"Azacor's Malice"}), which
+// the stat pattern above cannot match. This relaxed pattern matches any flat
+// component; the line is still identified by its text.
+const ANY_COMPONENT_RE = /\{[^{}]*?"color":"([a-z_]+|#[0-9a-fA-F]{6})"[^{}]*?"text":"((?:[^"\\]|\\.)*)"[^{}]*?\}/g;
+
+// Compound displays with no plain text to match: Twisted's obfuscated half and
+// the Tenyears gradient. Their colors come from the same source as the rest
+// (Location.java) and are pinned here.
+const LOCATION_COLOR_OVERRIDES = {
+    Tenyears: '#3EFBE7',
+    'Twisted lxxxxxxx': '#6B0000',
+};
+
+// The API falls back to the region name when an item's location is unknown;
+// those items carry no standalone location line and keep the region colors in
+// Items.module.css.
+export const REGION_FALLBACK_LOCATIONS = ["King's Valley", 'Celsian Isles', "Architect's Ring"];
+
+// Exact display color of the item's location line, taken from the game's NBT
+// lore like the stat colors above. Storing it per item means an API rename
+// (King's Valley Overworld, Halls of Wind and Blood, ...) can never break the
+// mapping again - the color travels with the text it belongs to.
+export function extractLocationColor(item) {
+    const nbt = item && item.nbt;
+    const location = item && item.location;
+    if (!nbt || !location) return null;
+    for (const { color, text } of parseComponents(nbt, ANY_COMPONENT_RE)) {
+        if (text !== location) continue;
+        const hex = color.startsWith('#') ? color.toUpperCase() : COLOR_HEX[color];
+        if (hex) return hex;
+    }
+    return LOCATION_COLOR_OVERRIDES[location] || null;
 }

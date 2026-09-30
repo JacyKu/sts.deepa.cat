@@ -12,6 +12,7 @@ import { useHideObtainment } from './hideObtainmentContext';
 import { useHideLore } from './hideLoreContext';
 import { useItemFavourites } from './itemFavouritesContext';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { locationStyle } from '../../utils/items/locationColor';
 import { useTranslation } from '../useTranslation';
 
 function camelCase(str) {
@@ -191,7 +192,10 @@ function CharmTile(data) {
                     <div className={[baseBackgroundClass, cssClass].join(' ')}></div>
                 )}
             </div>
-            <span className={`${styles[camelCase(item.location)]} ${styles[camelCase(item.tier)]} ${styles.name}`}>
+            <span
+                style={locationStyle(item)}
+                className={`${styles[camelCase(item.location)]} ${styles[camelCase(item.tier)]} ${styles.name}`}
+            >
                 <a
                     href={`https://monumenta.wiki.gg/wiki/${item.name
                         .replace(/\(.*\)/g, '')
@@ -224,7 +228,11 @@ function CharmTile(data) {
                     {t('items.type.charm')}
                 </span>
             </span>
-            {item.location && <span className={styles[camelCase(item.location)]}>{item.location}</span>}
+            {item.location && (
+                <span style={locationStyle(item)} className={styles[camelCase(item.location)]}>
+                    {item.location}
+                </span>
+            )}
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (
                 <>
