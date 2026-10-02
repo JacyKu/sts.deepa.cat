@@ -11,14 +11,23 @@ const pending = new Map();
 
 function loadJson(url) {
     if (!pending.has(url)) {
-        pending.set(
-            url,
-            fetch(url, { cache: 'force-cache' }).then((res) =>
-                res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status))
-            )
-        );
+        const request = fetch(url, { cache: 'force-cache' })
+            .then((res) => (res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status))))
+            .catch((error) => {
+                // Don't keep the rejection cached - a later mount should be
+                // able to retry instead of seeing the same error forever.
+                pending.delete(url);
+                throw error;
+            });
+        pending.set(url, request);
     }
     return pending.get(url);
+}
+
+// An absent content version must not be sent as an empty ?v=: the data routes
+// treat any ?v as "immutable", so an empty one would pin stale data for a year.
+function versionedUrl(path, version) {
+    return version ? `${path}?v=${encodeURIComponent(version)}` : path;
 }
 
 let versions = { items: '', history: '', skills: '', cz: '' };
@@ -31,11 +40,11 @@ export function setSiteDataVersions(next) {
 }
 
 export function loadItemData(version) {
-    return loadJson(`/api/v2/items/all?v=${encodeURIComponent(version)}`).then((data) => data.items);
+    return loadJson(versionedUrl('/api/v2/items/all', version)).then((data) => data.items);
 }
 
 export function loadRawItemData(version) {
-    return loadJson(`/api/v2/items/raw?v=${encodeURIComponent(version)}`).then((data) => data.items);
+    return loadJson(versionedUrl('/api/v2/items/raw', version)).then((data) => data.items);
 }
 
 export function loadItemHistory(version) {
@@ -49,11 +58,11 @@ export function loadClassHistory(version) {
 }
 
 export function loadSkills() {
-    return loadJson(`/api/v2/skills?v=${encodeURIComponent(versions.skills || '')}`);
+    return loadJson(versionedUrl('/api/v2/skills', versions.skills));
 }
 
 export function loadCz() {
-    return loadJson(`/api/v2/cz?v=${encodeURIComponent(versions.cz || '')}`);
+    return loadJson(versionedUrl('/api/v2/cz', versions.cz));
 }
 
 // Loads the data a page needs and keeps the result (or the error) for the

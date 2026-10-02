@@ -13,9 +13,7 @@ import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
 import { isSearchCacheEnabled, BUILDS_FILTERS_CACHE_KEY } from '../utils/cachePrefs';
 import { decodeBuildName } from '../utils/builder/buildUrlCodec';
-import { useLanguageContext } from './languageContext';
-import SupportedLanguages from '../utils/translation/languages';
-import { translate } from '../utils/translation/translate';
+import { useTranslation } from './useTranslation';
 import sf from '../styles/SearchForm.module.css';
 import {
     FilterRow,
@@ -69,8 +67,7 @@ function RenameInput({ initialName, onCommit, onCancel }) {
 }
 
 export default function BuildsPage({ classOptions, specMap, itemGroups, skillOptions = [], skillMap = null }) {
-    const { lang } = useLanguageContext();
-    const t = (id) => translate(lang, id);
+    const t = useTranslation();
 
     // Bulk (un)publicising: pick up to 20 builds and flip their visibility in
     // one action ("Select all" fills the batch from the visible list).
@@ -215,11 +212,15 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
         }
     }
 
+    // Deferred so typing in the search box stays responsive: the expensive
+    // filter + sort + card re-render is scheduled behind the keystroke.
+    const deferredSearchName = React.useDeferredValue(searchName);
+
     // Apply the search + filters + sort client-side over the already-fetched
     // list. Semantics mirror the database's server-side query: first row wins
     // per category, "Any" means no filter, and sort defaults to "top".
     const visibleBuilds = React.useMemo(() => {
-        const query = searchName.trim().toLowerCase();
+        const query = deferredSearchName.trim().toLowerCase();
         let result = query ? builds.filter((b) => displayName(b).toLowerCase().includes(query)) : builds;
 
         const applied = {};
@@ -247,14 +248,18 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
             result = result.filter((b) => ((b.authorName || '') + ' ').toLowerCase().includes(author));
         }
 
-        return [...result].sort((a, b) => {
-            const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
-            const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
-            if (sort === 'new') return bTime - aTime;
-            const favDiff = (b.favouriteCount || 0) - (a.favouriteCount || 0);
-            return favDiff !== 0 ? favDiff : bTime - aTime;
+        // Timestamps are parsed once per build instead of twice per comparison.
+        const decorated = result.map((b) => {
+            const value = b.updatedAt || b.createdAt || 0;
+            return { b, time: typeof value === 'number' ? value : Date.parse(value) || 0 };
         });
-    }, [builds, rows, searchName, sort]);
+        decorated.sort((a, b) => {
+            if (sort === 'new') return b.time - a.time;
+            const favDiff = (b.b.favouriteCount || 0) - (a.b.favouriteCount || 0);
+            return favDiff !== 0 ? favDiff : b.time - a.time;
+        });
+        return decorated.map((entry) => entry.b);
+    }, [builds, rows, deferredSearchName, sort]);
 
     function addFilterRow() {
         setRows((prev) => [...prev, { key: Date.now(), category: null, value: null }]);
@@ -471,272 +476,272 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
     return (
         <main className={styles.page}>
             <h1 className={styles.title}>
-                    <TranslatableText identifier="builds.title" />
-                </h1>
-                <div className={styles.subNav}>
-                    <MyPagesTabs active="builds" className={styles.subNavTabs} />
-                </div>
+                <TranslatableText identifier="builds.title" />
+            </h1>
+            <div className={styles.subNav}>
+                <MyPagesTabs active="builds" className={styles.subNavTabs} />
+            </div>
 
-                {!authChecked ? (
-                    <DatabaseSkeleton />
-                ) : !user ? (
-                    <div className={styles.loginPrompt}>
-                        <p>
-                            <TranslatableText identifier="builds.loginRequired" />
-                        </p>
-                        <a className={styles.loginBtn} href="/api/auth/discord/login?next=/builds">
-                            <TranslatableText identifier="auth.loginWithDiscord" />
-                        </a>
+            {!authChecked ? (
+                <DatabaseSkeleton />
+            ) : !user ? (
+                <div className={styles.loginPrompt}>
+                    <p>
+                        <TranslatableText identifier="builds.loginRequired" />
+                    </p>
+                    <a className={styles.loginBtn} href="/api/auth/discord/login?next=/builds">
+                        <TranslatableText identifier="auth.loginWithDiscord" />
+                    </a>
+                </div>
+            ) : error ? (
+                <p className={styles.error} onClick={clearError} title={t('common.dismiss')}>
+                    <TranslatableText
+                        identifier={
+                            error === 'rename'
+                                ? 'builds.renameError'
+                                : error === 'delete'
+                                  ? 'builds.deleteError'
+                                  : error === 'duplicate'
+                                    ? 'builds.duplicateName'
+                                    : 'database.publiciseError'
+                        }
+                    />
+                </p>
+            ) : !loaded ? (
+                <DatabaseSkeleton />
+            ) : builds.length === 0 ? (
+                <p className={styles.muted}>
+                    <TranslatableText identifier="builds.empty" />
+                </p>
+            ) : (
+                <>
+                    <div className={dbStyles.sortControl}>
+                        <FloatingLabel label={t('database.filters.sort')}>
+                            <Select
+                                instanceId="my-builds-sort"
+                                options={sortOptions}
+                                value={sortOptions.find((o) => o.value === sort) || null}
+                                onChange={(opt) => setSort(opt ? opt.value : 'top')}
+                                isSearchable={false}
+                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                menuPosition="fixed"
+                                theme={selectTheme}
+                                styles={selectStyles}
+                            />
+                        </FloatingLabel>
                     </div>
-                ) : error ? (
-                    <p className={styles.error} onClick={clearError} title={t('common.dismiss')}>
-                        <TranslatableText
-                            identifier={
-                                error === 'rename'
-                                    ? 'builds.renameError'
-                                    : error === 'delete'
-                                      ? 'builds.deleteError'
-                                      : error === 'duplicate'
-                                        ? 'builds.duplicateName'
-                                        : 'database.publiciseError'
-                            }
-                        />
-                    </p>
-                ) : !loaded ? (
-                    <DatabaseSkeleton />
-                ) : builds.length === 0 ? (
-                    <p className={styles.muted}>
-                        <TranslatableText identifier="builds.empty" />
-                    </p>
-                ) : (
-                    <>
-                        <div className={dbStyles.sortControl}>
-                            <FloatingLabel label={t('database.filters.sort')}>
-                                <Select
-                                    instanceId="my-builds-sort"
-                                    options={sortOptions}
-                                    value={sortOptions.find((o) => o.value === sort) || null}
-                                    onChange={(opt) => setSort(opt ? opt.value : 'top')}
-                                    isSearchable={false}
-                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                    menuPosition="fixed"
-                                    theme={selectTheme}
-                                    styles={selectStyles}
-                                />
-                            </FloatingLabel>
+                    {rows.length > 0 && (
+                        <div className={dbStyles.rows}>
+                            {rows.map((row) => (
+                                <div className={dbStyles.rowWrap} key={row.key}>
+                                    <FilterRow
+                                        categories={categories}
+                                        row={row}
+                                        onChangeCategory={changeCategory}
+                                        onChangeSlot={changeSlot}
+                                        onChangeValue={changeValue}
+                                        onDelete={deleteRow}
+                                        t={t}
+                                        itemGroups={itemGroups}
+                                        slotOptions={slotOptions}
+                                    />
+                                </div>
+                            ))}
                         </div>
-                        {rows.length > 0 && (
-                            <div className={dbStyles.rows}>
-                                {rows.map((row) => (
-                                    <div className={dbStyles.rowWrap} key={row.key}>
-                                        <FilterRow
-                                            categories={categories}
-                                            row={row}
-                                            onChangeCategory={changeCategory}
-                                            onChangeSlot={changeSlot}
-                                            onChangeValue={changeValue}
-                                            onDelete={deleteRow}
-                                            t={t}
-                                            itemGroups={itemGroups}
-                                            slotOptions={slotOptions}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        <div className={dbStyles.toolbar}>
-                            <input
-                                type="button"
-                                className={dbStyles.addBtn}
-                                value={'+ ' + t('common.add')}
-                                aria-label={t('database.addFilter')}
-                                onClick={addFilterRow}
-                            />
-                        </div>
+                    )}
+                    <div className={dbStyles.toolbar}>
                         <input
-                            type="text"
-                            className={dbStyles.searchName}
-                            value={searchName}
-                            onChange={(e) => setSearchName(e.target.value)}
-                            placeholder={t('database.filters.search')}
-                            aria-label={t('database.filters.search')}
+                            type="button"
+                            className={dbStyles.addBtn}
+                            value={'+ ' + t('common.add')}
+                            aria-label={t('database.addFilter')}
+                            onClick={addFilterRow}
                         />
-                        <div className={sf.filterActions}>
-                            <input
-                                type="button"
-                                className={sf.submitButton}
-                                value={t('common.search')}
-                                onClick={() => {}}
-                            />
-                            <input
-                                type="button"
-                                className={sf.warningButton}
-                                value={t('common.reset')}
-                                onClick={resetFilters}
-                            />
-                        </div>
-                        <div className={styles.bulkBar}>
-                            <button
-                                type="button"
-                                className={styles.rowBtn}
-                                onClick={toggleSelectMode}
-                                aria-expanded={selectMode}
-                            >
-                                {selectMode ? t('common.cancel') : t('builds.select')}
-                            </button>
-                            {selectMode && (
+                    </div>
+                    <input
+                        type="text"
+                        className={dbStyles.searchName}
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                        placeholder={t('database.filters.search')}
+                        aria-label={t('database.filters.search')}
+                    />
+                    <div className={sf.filterActions}>
+                        <input
+                            type="button"
+                            className={sf.submitButton}
+                            value={t('common.search')}
+                            onClick={() => {}}
+                        />
+                        <input
+                            type="button"
+                            className={sf.warningButton}
+                            value={t('common.reset')}
+                            onClick={resetFilters}
+                        />
+                    </div>
+                    <div className={styles.bulkBar}>
+                        <button
+                            type="button"
+                            className={styles.rowBtn}
+                            onClick={toggleSelectMode}
+                            aria-expanded={selectMode}
+                        >
+                            {selectMode ? t('common.cancel') : t('builds.select')}
+                        </button>
+                        {selectMode && (
+                            <>
+                                <span className={styles.bulkCount} title={t('builds.maxPerAction')}>
+                                    {selectedIds.size} / {BULK_MAX}
+                                </span>
+                                <button
+                                    type="button"
+                                    className={styles.rowBtn}
+                                    onClick={() => setPublicBulk(true)}
+                                    disabled={bulkBusy || selectedIds.size === 0}
+                                    title={t('database.publicise')}
+                                >
+                                    {t('database.publicise')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.rowBtn}
+                                    onClick={() => setPublicBulk(false)}
+                                    disabled={bulkBusy || selectedIds.size === 0}
+                                    title={t('database.unpublish')}
+                                >
+                                    {t('database.unpublish')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.rowBtn}
+                                    onClick={selectAllVisible}
+                                    disabled={bulkBusy}
+                                >
+                                    {t('builds.selectAll')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.rowBtn}
+                                    onClick={clearSelection}
+                                    disabled={bulkBusy || selectedIds.size === 0}
+                                >
+                                    {t('builds.clearSelection')}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    {bulkFeedback && (
+                        <p className={styles.bulkFeedback} role="status">
+                            <b>
+                                {bulkFeedback.action === 'public'
+                                    ? t('builds.bulkPublicised')
+                                    : t('builds.bulkUnpublicised')}
+                            </b>{' '}
+                            {bulkFeedback.done}
+                            {bulkFeedback.failed > 0 ? (
                                 <>
-                                    <span className={styles.bulkCount} title={t('builds.maxPerAction')}>
-                                        {selectedIds.size} / {BULK_MAX}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        className={styles.rowBtn}
-                                        onClick={() => setPublicBulk(true)}
-                                        disabled={bulkBusy || selectedIds.size === 0}
-                                        title={t('database.publicise')}
-                                    >
-                                        {t('database.publicise')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.rowBtn}
-                                        onClick={() => setPublicBulk(false)}
-                                        disabled={bulkBusy || selectedIds.size === 0}
-                                        title={t('database.unpublish')}
-                                    >
-                                        {t('database.unpublish')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.rowBtn}
-                                        onClick={selectAllVisible}
-                                        disabled={bulkBusy}
-                                    >
-                                        {t('builds.selectAll')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={styles.rowBtn}
-                                        onClick={clearSelection}
-                                        disabled={bulkBusy || selectedIds.size === 0}
-                                    >
-                                        {t('builds.clearSelection')}
-                                    </button>
+                                    {' · '}
+                                    <b>{t('builds.bulkFailed')}</b> {bulkFeedback.failed}
                                 </>
-                            )}
-                        </div>
-                        {bulkFeedback && (
-                            <p className={styles.bulkFeedback} role="status">
-                                <b>
-                                    {bulkFeedback.action === 'public'
-                                        ? t('builds.bulkPublicised')
-                                        : t('builds.bulkUnpublicised')}
-                                </b>{' '}
-                                {bulkFeedback.done}
-                                {bulkFeedback.failed > 0 ? (
-                                    <>
-                                        {' · '}
-                                        <b>{t('builds.bulkFailed')}</b> {bulkFeedback.failed}
-                                    </>
-                                ) : null}
-                            </p>
-                        )}
-                        {visibleBuilds.length === 0 ? (
-                            <p className={styles.muted}>
-                                <TranslatableText identifier="database.empty" />
-                            </p>
-                        ) : (
-                            <div className={dbStyles.grid}>
-                                {visibleBuilds.map((build) => (
-                                    <div key={build.id} className={styles.cell}>
-                                        <BuildCard
-                                            build={build}
-                                            user={user}
-                                            base={base}
-                                            onToggleFavourite={toggleFavourite}
-                                        >
-                                            <div className={styles.cardActions}>
-                                                {editingId === build.id ? (
-                                                    <RenameInput
-                                                        initialName={displayName(build)}
-                                                        onCommit={(name) => submitRename(build, name)}
-                                                        onCancel={() => setEditingId(null)}
-                                                    />
-                                                ) : (
-                                                    <>
-                                                        {selectMode && (
-                                                            <label
-                                                                className={styles.selectBox}
-                                                                onClick={(event) => event.stopPropagation()}
-                                                                title={t('builds.selectBuild')}
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedIds.has(build.id)}
-                                                                    disabled={
-                                                                        !selectedIds.has(build.id) &&
-                                                                        selectedIds.size >= BULK_MAX
-                                                                    }
-                                                                    onChange={() => toggleSelect(build.id)}
-                                                                    aria-label={t('builds.selectBuild')}
-                                                                />
-                                                            </label>
+                            ) : null}
+                        </p>
+                    )}
+                    {visibleBuilds.length === 0 ? (
+                        <p className={styles.muted}>
+                            <TranslatableText identifier="database.empty" />
+                        </p>
+                    ) : (
+                        <div className={dbStyles.grid}>
+                            {visibleBuilds.map((build) => (
+                                <div key={build.id} className={styles.cell}>
+                                    <BuildCard
+                                        build={build}
+                                        user={user}
+                                        base={base}
+                                        onToggleFavourite={toggleFavourite}
+                                    >
+                                        <div className={styles.cardActions}>
+                                            {editingId === build.id ? (
+                                                <RenameInput
+                                                    initialName={displayName(build)}
+                                                    onCommit={(name) => submitRename(build, name)}
+                                                    onCancel={() => setEditingId(null)}
+                                                />
+                                            ) : (
+                                                <>
+                                                    {selectMode && (
+                                                        <label
+                                                            className={styles.selectBox}
+                                                            onClick={(event) => event.stopPropagation()}
+                                                            title={t('builds.selectBuild')}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedIds.has(build.id)}
+                                                                disabled={
+                                                                    !selectedIds.has(build.id) &&
+                                                                    selectedIds.size >= BULK_MAX
+                                                                }
+                                                                onChange={() => toggleSelect(build.id)}
+                                                                aria-label={t('builds.selectBuild')}
+                                                            />
+                                                        </label>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        className={`${styles.rowBtn}${
+                                                            build.isPublic ? ` ${styles.rowBtnPublic}` : ''
+                                                        }`}
+                                                        onClick={stop(() => togglePublic(build))}
+                                                        disabled={build.publicBusy}
+                                                        title={
+                                                            build.isPublic
+                                                                ? t('database.unpublish')
+                                                                : t('database.publicise')
+                                                        }
+                                                    >
+                                                        {build.isPublic ? (
+                                                            <TranslatableText identifier="database.publicBadge" />
+                                                        ) : (
+                                                            <TranslatableText identifier="database.publicise" />
                                                         )}
-                                                        <button
-                                                            type="button"
-                                                            className={`${styles.rowBtn}${
-                                                                build.isPublic ? ` ${styles.rowBtnPublic}` : ''
-                                                            }`}
-                                                            onClick={stop(() => togglePublic(build))}
-                                                            disabled={build.publicBusy}
-                                                            title={
-                                                                build.isPublic
-                                                                    ? t('database.unpublish')
-                                                                    : t('database.publicise')
-                                                            }
-                                                        >
-                                                            {build.isPublic ? (
-                                                                <TranslatableText identifier="database.publicBadge" />
-                                                            ) : (
-                                                                <TranslatableText identifier="database.publicise" />
-                                                            )}
-                                                            {build.isPublic && build.anonymous && (
-                                                                <span className={styles.anonBadge}>
-                                                                    <TranslatableText identifier="database.anonBadge" />
-                                                                </span>
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={styles.rowBtn}
-                                                            onClick={stop(() => startRename(build))}
-                                                            title={t('builds.rename')}
-                                                        >
-                                                            <TranslatableText identifier="builds.rename" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
-                                                            onClick={stop(() => requestDelete(build))}
-                                                            title={t('builds.delete')}
-                                                        >
-                                                            {confirmDeleteId === build.id ? (
-                                                                <TranslatableText identifier="builds.confirmDelete" />
-                                                            ) : (
-                                                                <TranslatableText identifier="builds.delete" />
-                                                            )}
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </BuildCard>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </>
-                )}
+                                                        {build.isPublic && build.anonymous && (
+                                                            <span className={styles.anonBadge}>
+                                                                <TranslatableText identifier="database.anonBadge" />
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.rowBtn}
+                                                        onClick={stop(() => startRename(build))}
+                                                        title={t('builds.rename')}
+                                                    >
+                                                        <TranslatableText identifier="builds.rename" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`${styles.rowBtn} ${styles.rowBtnDanger}`}
+                                                        onClick={stop(() => requestDelete(build))}
+                                                        title={t('builds.delete')}
+                                                    >
+                                                        {confirmDeleteId === build.id ? (
+                                                            <TranslatableText identifier="builds.confirmDelete" />
+                                                        ) : (
+                                                            <TranslatableText identifier="builds.delete" />
+                                                        )}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </BuildCard>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
         </main>
     );
 }

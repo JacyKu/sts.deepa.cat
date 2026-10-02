@@ -29,6 +29,10 @@
     display: flex;
     flex-direction: column;
     position: relative;
+    /* Offscreen tiles skip layout/paint entirely (result lists can hold
+       thousands of them); the remembered size keeps scrolling stable. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
 }
 
 :global(html[data-theme='light']) .itemTile,

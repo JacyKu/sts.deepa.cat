@@ -7,7 +7,17 @@ export default function TileAuthor({ name, avatar }) {
     if (!name) return null;
     return (
         <div className={styles.tileAuthor}>
-            {avatar ? <img className={styles.tileAuthorAvatar} src={avatar} alt="" width={18} height={18} /> : null}
+            {avatar ? (
+                <img
+                    className={styles.tileAuthorAvatar}
+                    src={avatar}
+                    alt=""
+                    width={18}
+                    height={18}
+                    loading="lazy"
+                    decoding="async"
+                />
+            ) : null}
             <span className={styles.tileAuthorName}>{name}</span>
         </div>
     );

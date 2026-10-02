@@ -96,7 +96,15 @@ export default function CustomItemCard({
             <div className={styles.cardBottom}>
                 <span className={styles.author} title={author}>
                     {avatarSrc(item) && (
-                        <img className={styles.avatar} src={avatarSrc(item)} alt="" width={24} height={24} />
+                        <img
+                            className={styles.avatar}
+                            src={avatarSrc(item)}
+                            alt=""
+                            width={24}
+                            height={24}
+                            loading="lazy"
+                            decoding="async"
+                        />
                     )}
                     {author}
                 </span>

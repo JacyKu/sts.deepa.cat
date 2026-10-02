@@ -143,14 +143,14 @@ const EQUIP_SLOTS = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 
 // True when any gear slot actually holds an item (vs. the 'None' default).
 // The share/copy buttons read this so an empty, never-built form can't be
 // saved into a junk share link. The slot selects write hidden inputs with
-// their `name`, so a plain FormData pass tells us what is equipped.
+// their `name`, so reading those six controls is enough - building a full
+// FormData of the (very large) form on every render is not.
 function formHasEquippedItem(formEl) {
     if (!formEl) return false;
     try {
-        const form = new FormData(formEl);
         return EQUIP_SLOTS.some((slot) => {
-            const value = form.get(slot);
-            return value != null && String(value) !== 'None';
+            const field = formEl.elements.namedItem(slot);
+            return field != null && String(field.value) !== 'None';
         });
     } catch (e) {
         return false;
@@ -187,18 +187,28 @@ function isBuildListEnabled() {
 // unless the "Cache builds" setting is off.
 const ORDER_PREFIX = ORDER_PREFIX_KEY;
 
+// Applying the stored order happens three times per render; the localStorage
+// value only changes through writeOrder below, so it is read once per
+// container and kept in this module-level cache.
+const storedOrderCache = new Map();
+
 function readOrder(container) {
     if (typeof window === 'undefined' || !isBuildsCacheEnabled()) return null;
+    if (storedOrderCache.has(container)) return storedOrderCache.get(container);
+    let order = null;
     try {
         const raw = window.localStorage.getItem(ORDER_PREFIX + container);
-        return raw ? JSON.parse(raw) : null;
+        order = raw ? JSON.parse(raw) : null;
     } catch (e) {
-        return null;
+        order = null;
     }
+    storedOrderCache.set(container, order);
+    return order;
 }
 
 function writeOrder(container, orderedKeys) {
     if (typeof window === 'undefined' || !isBuildsCacheEnabled()) return;
+    storedOrderCache.set(container, orderedKeys);
     try {
         window.localStorage.setItem(ORDER_PREFIX + container, JSON.stringify(orderedKeys));
     } catch (e) {}
@@ -505,6 +515,13 @@ function recalcBuild(data, itemData) {
     }
     return tempStats;
 }
+
+// resolveBasicInfusions below enumerates up to 7^6 item -> infusion
+// assignments, and the total number boxes call it on every keystroke.
+// Identical inputs always produce the identical assignment, so keep the last
+// few results around (LRU, same shape as the stats cache above).
+const INFUSION_RESOLVE_CACHE_MAX = 24;
+const infusionResolveCache = new Map();
 
 // Run the (synchronous, heavy) stats recomputation as a low-priority update so
 // the interaction that triggered it (item select, checkbox, ...) paints and
@@ -1483,6 +1500,13 @@ export default function BuildForm({
     // types settle at four each on six items; levels no item can hold are
     // dropped, so every level the builder shows is on an item.
     function resolveBasicInfusions(wantedByKey, itemNames, picks = {}) {
+        const cacheKey = JSON.stringify([wantedByKey, itemNames, picks]);
+        const cached = infusionResolveCache.get(cacheKey);
+        if (cached) {
+            infusionResolveCache.delete(cacheKey); // refresh recency
+            infusionResolveCache.set(cacheKey, cached);
+            return cached;
+        }
         const slots = EQUIP_SLOTS.filter((slot) => itemNames && itemNames[slot] && itemNames[slot] !== 'None');
         const types = BASIC_INFUSIONS.map((infusion) => ({
             name: infusion.name,
@@ -1576,6 +1600,10 @@ export default function BuildForm({
                 next[slot] = { name: type.name, level: base + (slotIndex < remainder ? 1 : 0) };
             });
         });
+        infusionResolveCache.set(cacheKey, next);
+        if (infusionResolveCache.size > INFUSION_RESOLVE_CACHE_MAX) {
+            infusionResolveCache.delete(infusionResolveCache.keys().next().value);
+        }
         return next;
     }
 
@@ -3066,14 +3094,14 @@ export default function BuildForm({
     }
 
     function getEquipName(type) {
-        const decoded = decodedBuild;
-        if (!decoded) return undefined;
-        let buildParts = decodeURI(decoded).split('&');
-        let allowedTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
-        let name = allowedTypes.includes(type)
-            ? buildParts.find((str) => str.includes(`${type[0]}=`))?.split(`${type[0]}=`)[1]
+        if (!decodedBuild) return undefined;
+        const allowedTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
+        const name = allowedTypes.includes(type)
+            ? decodedBuildParts.find((str) => str.includes(`${type[0]}=`))?.split(`${type[0]}=`)[1]
             : 'None';
-        if (!Object.keys(itemData).includes(name)) {
+        // hasOwnProperty keeps this O(1); Object.keys(itemData) allocated a
+        // 6,400-entry array for every slot on every render.
+        if (!name || !Object.prototype.hasOwnProperty.call(itemData, name)) {
             return { value: 'None', label: 'None' };
         }
         return { value: name, label: removeMasterworkFromName(name) };
@@ -3468,7 +3496,9 @@ export default function BuildForm({
           : [];
 
     // Totals of every stat across all equipped charms (effect summary).
-    const equippedCharmNames = charms.map((c) => c.name);
+    // Memoised: a fresh array here invalidated the two memos below on every
+    // render, re-running the charm aggregation for no reason.
+    const equippedCharmNames = React.useMemo(() => charms.map((c) => c.name), [charms]);
     const charmTotals = React.useMemo(
         () => computeCharmTotals(itemData, equippedCharmNames),
         [itemData, equippedCharmNames]
@@ -3488,6 +3518,12 @@ export default function BuildForm({
     // The cells use the module class instead of bootstrap cols in the split
     // layout - bootstrap's col-* grid rules break the 2-column grid.
     const decodedBuild = React.useMemo(() => decodeBuildParam(build, itemData), [build, itemData]);
+    // Splitting the decoded URL is done for every slot by getEquipName; do it
+    // once per decoded build instead of six times per render.
+    const decodedBuildParts = React.useMemo(
+        () => (decodedBuild ? decodeURI(decodedBuild).split('&') : []),
+        [decodedBuild]
+    );
     const slotOptions = React.useMemo(
         () => ({
             mainhand: getRelevantItems(

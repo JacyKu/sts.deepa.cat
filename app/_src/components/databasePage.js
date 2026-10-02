@@ -9,9 +9,7 @@ import DatabaseSkeleton from './databaseSkeleton';
 import InfiniteScroll from './infiniteScroll';
 import DatabaseTabs from './databaseTabs';
 import FloatingLabel from './items/floatingLabel';
-import { useLanguageContext } from './languageContext';
-import SupportedLanguages from '../utils/translation/languages';
-import { translate } from '../utils/translation/translate';
+import { useTranslation } from './useTranslation';
 import sf from '../styles/SearchForm.module.css';
 import styles from '../styles/Database.module.css';
 import { getStsBase } from '../utils/base';
@@ -31,8 +29,7 @@ import {
 const COMPARE_PICKS_KEY = 'sts-compare-picks';
 
 export default function DatabasePage({ classOptions, specMap, itemGroups, skillOptions = [], skillMap = null }) {
-    const { lang } = useLanguageContext();
-    const t = (id) => translate(lang, id);
+    const t = useTranslation();
 
     const base = getStsBase();
     const [user, setUser] = React.useState(null);

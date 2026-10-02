@@ -33,11 +33,35 @@ export function getMappedSpriteClass(map, itemName) {
     // Some sprites are only catalogued under a masterwork-tier key
     // ("Judgement of the Voidstained-4"), while the item row is the plain
     // name. Fall back to the matching tier key, preferring the highest one.
+    // The candidate groups are built once per map: this used to filter and
+    // sort all ~6,700 map keys on every miss.
     const tierless = base.replace(/-\d+$/, '');
-    const tiered = Object.keys(map)
-        .filter((key) => key !== base && key !== itemName && key.replace(/^EX\s+/, '').replace(/-\d+$/, '') === tierless)
-        .sort((a, b) => tierOf(b) - tierOf(a));
-    return tiered.length > 0 ? `monumenta-${map[tiered[0]]}` : null;
+    const tiered = tierFallbackLookup(map).get(tierless) || [];
+    for (const { key } of tiered) {
+        if (key === base || key === itemName) continue;
+        return `monumenta-${map[key]}`;
+    }
+    return null;
+}
+
+// tierless name -> its keys, highest masterwork tier first.
+let tierFallbackCache = null;
+let tierFallbackCacheMap = null;
+
+function tierFallbackLookup(map) {
+    if (tierFallbackCacheMap !== map) {
+        const groups = new Map();
+        for (const key of Object.keys(map)) {
+            const tierless = key.replace(/^EX\s+/, '').replace(/-\d+$/, '');
+            let list = groups.get(tierless);
+            if (!list) groups.set(tierless, (list = []));
+            list.push({ key, tier: tierOf(key) });
+        }
+        for (const list of groups.values()) list.sort((a, b) => b.tier - a.tier);
+        tierFallbackCache = groups;
+        tierFallbackCacheMap = map;
+    }
+    return tierFallbackCache;
 }
 
 // Custom items store a chosen texture token, but a later spritesheet import
