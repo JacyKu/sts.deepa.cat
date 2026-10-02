@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mergeHistory } from './item-history.mjs';
 import { updateClassData } from './class-history.mjs';
-import { extractStatColors, extractLocationColor } from './stat-colors.mjs';
+import { extractStatColors, extractLocationColor, extractEffectColors } from './stat-colors.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
@@ -113,12 +113,14 @@ async function main() {
     // Pull the exact per-stat display colors out of the NBT lore and drop the
     // NBT itself (the site never consumes it). Items from sources without NBT
     // simply get no statColors and render with the site's fallback palette.
-    // The location line's color is captured the same way; `npm run check:data`
-    // fails when a location cannot be resolved to one, so API renames cannot
-    // silently drop the colors again.
+    // The location line's color and the consumable effect lines' colors are
+    // captured the same way; `npm run check:data` fails when a location cannot
+    // be resolved to one, so API renames cannot silently drop the colors again.
     let coloredItems = 0;
     let coloredStats = 0;
     let coloredLocations = 0;
+    let effectItems = 0;
+    let coloredEffects = 0;
     for (const key of result.keys) {
         const item = result.data[key];
         const colors = extractStatColors(item);
@@ -132,10 +134,19 @@ async function main() {
             item.locationColor = locationColor;
             coloredLocations++;
         }
+        if (Array.isArray(item.effects) && item.effects.length > 0) {
+            effectItems++;
+            const effectColors = extractEffectColors(item);
+            if (effectColors) {
+                item.effectColors = effectColors;
+                coloredEffects++;
+            }
+        }
         delete item.nbt;
     }
     console.log(`stat colors: ${coloredItems} items, ${coloredStats} stat lines`);
     console.log(`location colors: ${coloredLocations} items`);
+    console.log(`effect colors: ${coloredEffects} of ${effectItems} effect items`);
 
     const removed = currentCount - result.keys.length;
     console.log(

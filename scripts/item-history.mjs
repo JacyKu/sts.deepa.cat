@@ -43,10 +43,11 @@ export function deepEqualStable(a, b) {
     return JSON.stringify(sortify(a)) === JSON.stringify(sortify(b));
 }
 
-// Fields that don't represent a gameplay change: statColors and locationColor
-// are display-only metadata attached at import time, nbt is stripped before
-// writing. Ignoring them keeps color-only updates out of the archive.
-const IGNORED_COMPARE_FIELDS = ['statColors', 'locationColor', 'nbt'];
+// Fields that don't represent a gameplay change: statColors, locationColor and
+// effectColors are display-only metadata attached at import time, nbt is
+// stripped before writing. Ignoring them keeps color-only updates out of the
+// archive.
+const IGNORED_COMPARE_FIELDS = ['statColors', 'locationColor', 'effectColors', 'nbt'];
 
 function withoutIgnored(item) {
     if (!item || typeof item !== 'object') return item;

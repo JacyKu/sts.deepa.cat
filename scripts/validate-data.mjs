@@ -208,6 +208,23 @@ export function validateData(publicDir) {
         }
     }
 
+    // 6. consumable effect colors: same NBT-derived metadata as above. A few
+    // items legitimately cannot map one line per effect (the game merges
+    // duplicate effects), so missing arrays are not errors - only malformed
+    // ones are.
+    let effectColors = 0;
+    for (const [key, item] of Object.entries(items)) {
+        if (!Array.isArray(item.effectColors)) continue;
+        if (!Array.isArray(item.effects) || item.effectColors.length !== item.effects.length) {
+            add(`item "${key}" has ${item.effectColors.length} effect colors for ${item.effects?.length ?? 0} effects`);
+            continue;
+        }
+        for (const color of item.effectColors) {
+            if (!/^#[0-9A-F]{6}$/.test(color)) add(`item "${key}" has an invalid effect color "${color}"`);
+            else effectColors++;
+        }
+    }
+
     return {
         problems,
         stats: {
@@ -219,6 +236,7 @@ export function validateData(publicDir) {
             items: Object.keys(items).length,
             statColors,
             locationColors,
+            effectColors,
         },
     };
 }
@@ -230,7 +248,7 @@ function main() {
     console.log(
         `[check:data] ${stats.mapKeys} map keys (${stats.mapTokens} tokens), ${stats.rules} css rules, ` +
             `${stats.animated} animated (${stats.gifs} gifs), ${stats.items} items ` +
-            `(${stats.statColors} stat colors, ${stats.locationColors} location colors)`
+            `(${stats.statColors} stat colors, ${stats.locationColors} location colors, ${stats.effectColors} effect colors)`
     );
     if (problems.length > 0) {
         console.error(`[check:data] FAILED - ${problems.length} problem(s):`);

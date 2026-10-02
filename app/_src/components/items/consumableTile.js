@@ -61,7 +61,7 @@ function ConsumableTile(data) {
     const { hidden: hideObtainment } = useHideObtainment();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
-    let formattedEffects = ConsumableFormatter.formatEffects(item.effects);
+    let formattedEffects = ConsumableFormatter.formatEffects(item.effects, item.effectColors);
 
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
