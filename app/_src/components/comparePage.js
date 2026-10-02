@@ -884,14 +884,15 @@ function CompareRow({ labelKey, labelText, left, right, invert = false }) {
 
     // Signed relative percentage on BOTH sides: each value shows how far it
     // is from the opposite side's value (e.g. 500 (−9%) | stat | 550 (+10%)).
-    // The magnitude uses the absolute of the other value because inverted
-    // stats are often negative (cooldown reductions), where dividing by the
-    // signed value would flip the sign.
+    // The sign is the raw change (a lower value reads as a minus), while the
+    // colour says whether that change is an improvement - so a shorter
+    // cooldown shows as a green "(−14%)". The magnitude uses the absolute of
+    // the other value because inverted stats are often negative.
     const pctText = (mine, other) => {
         if (mine === null || other === null || other === 0 || Math.abs(mine - other) <= 1e-9) return null;
         const magnitude = Math.abs(mine - other) / Math.abs(other);
+        const sign = mine > other ? '+' : '-';
         const improved = invert ? mine < other : mine > other;
-        const sign = improved ? '+' : '-';
         const cls = improved ? styles.pctUp : styles.pctDown;
         return <span className={`${styles.rowPct} ${cls}`}>{` (${sign}${(magnitude * 100).toFixed(2)}%)`}</span>;
     };

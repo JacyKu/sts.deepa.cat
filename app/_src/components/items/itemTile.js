@@ -7,6 +7,7 @@ import TranslatableText from '../translatableText';
 import React from 'react';
 import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
+import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
 import { useLowResource } from '../lowResourceContext';
@@ -179,6 +180,7 @@ function ItemTile(data) {
                 )}
             </div>
             <span
+                style={locationStyle(item)}
                 className={`${styles[camelCase(item.location)]} ${item.tier == 'Tier 3' && item.region == 'Ring' ? styles['tier5'] : styles[camelCase(item.tier)]} ${styles.name}`}
             >
                 <a
@@ -206,7 +208,9 @@ function ItemTile(data) {
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
                 <span className={styles[camelCase(item.tier)]}>{item.tier}</span>
             </span>
-            <span className={styles[camelCase(item.location)]}>{item.location}</span>
+            <span style={locationStyle(item)} className={styles[camelCase(item.location)]}>
+                {item.location}
+            </span>
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (
                 <>

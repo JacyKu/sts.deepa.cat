@@ -45,13 +45,17 @@ export default function ItemHistoryPanel({ records, currentItem }) {
     const t = useTranslation();
     const { enabled: historyEnabled } = useItemHistory();
     const [open, setOpen] = React.useState(false);
-    if (!historyEnabled || !records || records.length === 0) return null;
-
     // Records are newest-first in the file; keep that order so the most
     // recent change is the first entry, with the current state marked above
     // the list. Each row still diffs its archived state against the next newer
-    // state (or the current item).
-    const sorted = [...records].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    // state (or the current item). Memoised: the tile re-renders often and the
+    // sort is over every archived change.
+    const sorted = React.useMemo(
+        () => (Array.isArray(records) ? [...records].sort((a, b) => String(b.at).localeCompare(String(a.at))) : []),
+        [records]
+    );
+    if (!historyEnabled || !records || records.length === 0) return null;
+
     const changeCount = sorted.length;
     const lastAt = records[0].at;
 

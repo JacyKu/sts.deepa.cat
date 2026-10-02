@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { REGION_FALLBACK_LOCATIONS } from './stat-colors.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STRIP_PITCH = 66; // SPRITE_SIZE (64) + 2px gap used by the sheet packer
@@ -108,7 +109,8 @@ export function validateData(publicDir) {
     );
 
     const mapTokens = new Set(Object.values(map));
-    if (Object.keys(map).length < 1000) add(`itemsheet-map.json only has ${Object.keys(map).length} keys (expected >1000)`);
+    if (Object.keys(map).length < 1000)
+        add(`itemsheet-map.json only has ${Object.keys(map).length} keys (expected >1000)`);
     if (rules.size < 1000) add(`_itemsheet.css only has ${rules.size} positioned rules (expected >1000)`);
 
     // 1. every mapped token must resolve to a rule whose position fits its sheet
@@ -180,6 +182,49 @@ export function validateData(publicDir) {
         }
     }
 
+    // 5. location colors: the location line's color is captured per item from
+    // the NBT lore (see stat-colors.mjs), so an API location rename must not
+    // leave any item without one. Region-fallback locations have no standalone
+    // lore line and keep the CSS palette instead. Skipped entirely when the
+    // dump has no NBT at all (every item would be missing it).
+    const regionFallbacks = new Set(REGION_FALLBACK_LOCATIONS);
+    let locationColors = 0;
+    const locationsWithoutColor = new Map();
+    for (const [key, item] of Object.entries(items)) {
+        if (!item.location) continue;
+        if (item.locationColor) {
+            if (!/^#[0-9A-F]{6}$/.test(item.locationColor)) {
+                add(`item "${key}" location "${item.location}" has an invalid color "${item.locationColor}"`);
+            } else {
+                locationColors++;
+            }
+        } else if (!regionFallbacks.has(item.location)) {
+            locationsWithoutColor.set(item.location, (locationsWithoutColor.get(item.location) || 0) + 1);
+        }
+    }
+    if (locationColors > 0) {
+        for (const [location, count] of locationsWithoutColor) {
+            add(`${count} item(s) with location "${location}" have no locationColor (renamed or new location?)`);
+        }
+    }
+
+    // 6. consumable effect colors: same NBT-derived metadata as above. A few
+    // items legitimately cannot map one line per effect (the game merges
+    // duplicate effects), so missing arrays are not errors - only malformed
+    // ones are.
+    let effectColors = 0;
+    for (const [key, item] of Object.entries(items)) {
+        if (!Array.isArray(item.effectColors)) continue;
+        if (!Array.isArray(item.effects) || item.effectColors.length !== item.effects.length) {
+            add(`item "${key}" has ${item.effectColors.length} effect colors for ${item.effects?.length ?? 0} effects`);
+            continue;
+        }
+        for (const color of item.effectColors) {
+            if (!/^#[0-9A-F]{6}$/.test(color)) add(`item "${key}" has an invalid effect color "${color}"`);
+            else effectColors++;
+        }
+    }
+
     return {
         problems,
         stats: {
@@ -190,18 +235,20 @@ export function validateData(publicDir) {
             gifs: gifs.size,
             items: Object.keys(items).length,
             statColors,
+            locationColors,
+            effectColors,
         },
     };
 }
 
 function main() {
     const argIdx = process.argv.indexOf('--public');
-    const publicDir =
-        argIdx !== -1 ? path.resolve(process.argv[argIdx + 1]) : path.join(__dirname, '..', 'public');
+    const publicDir = argIdx !== -1 ? path.resolve(process.argv[argIdx + 1]) : path.join(__dirname, '..', 'public');
     const { problems, stats } = validateData(publicDir);
     console.log(
         `[check:data] ${stats.mapKeys} map keys (${stats.mapTokens} tokens), ${stats.rules} css rules, ` +
-            `${stats.animated} animated (${stats.gifs} gifs), ${stats.items} items (${stats.statColors} stat colors)`
+            `${stats.animated} animated (${stats.gifs} gifs), ${stats.items} items ` +
+            `(${stats.statColors} stat colors, ${stats.locationColors} location colors, ${stats.effectColors} effect colors)`
     );
     if (problems.length > 0) {
         console.error(`[check:data] FAILED - ${problems.length} problem(s):`);

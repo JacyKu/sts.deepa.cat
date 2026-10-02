@@ -122,7 +122,22 @@ export async function GET(request) {
         }
         const tokenVersion = getBuildTokenVersion(row.token);
         const url = tokenVersion ? `/b/v${tokenVersion}/${row.id}` : `/b/${row.id}`;
-        return NextResponse.json({ token: row.token, url });
+        // The token cannot carry the delve infusions / Revelation / basic
+        // infusions, so hand the caller the row's saved state too. The import
+        // bar stashes it for the builder, which lets a build be imported from
+        // the other STS site with everything intact.
+        const saved = row.parsedState || {};
+        const state = {
+            infusions: saved.infusions && typeof saved.infusions === 'object' ? saved.infusions : {},
+            revelation: Boolean(saved.revelation),
+        };
+        if (saved.basicInfusions && typeof saved.basicInfusions === 'object') {
+            state.basicInfusions = saved.basicInfusions;
+        }
+        if (saved.globalInfusions && typeof saved.globalInfusions === 'object') {
+            state.globalInfusions = saved.globalInfusions;
+        }
+        return NextResponse.json({ token: row.token, url, state });
     }
 
     const token = parseBuildLink(link);

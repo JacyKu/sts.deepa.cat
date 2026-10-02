@@ -80,31 +80,20 @@ function loadBuildDetails() {
     if (!buildDetailPromise) {
         buildDetailPromise = Promise.all([loadSkills().catch(() => null), loadCz().catch(() => null)]).then(
             ([skills, cz]) => {
-            const skill = new Map();
-            const klass = new Map();
-            const spec = new Map();
-            for (const c of (skills && skills.classes) || []) {
-                if (c.className) {
-                    const passive = c.classPassive;
-                    klass.set(
-                        c.className,
-                        cleanDescription(passive && Array.isArray(passive.descriptions) ? passive.descriptions[0] : '')
-                    );
-                }
-                for (const s of c.skills || []) {
-                    if (s.name && !skill.has(s.name)) {
-                        skill.set(s.name, {
-                            displayName: s.displayName || s.name,
-                            description: cleanDescription(s.simpleDescription),
-                        });
+                const skill = new Map();
+                const klass = new Map();
+                const spec = new Map();
+                for (const c of (skills && skills.classes) || []) {
+                    if (c.className) {
+                        const passive = c.classPassive;
+                        klass.set(
+                            c.className,
+                            cleanDescription(
+                                passive && Array.isArray(passive.descriptions) ? passive.descriptions[0] : ''
+                            )
+                        );
                     }
-                }
-                for (const sp of c.specs || []) {
-                    const first = (sp.specSkills || [])[0];
-                    if (sp.specName && !spec.has(sp.specName)) {
-                        spec.set(sp.specName, first ? cleanDescription(first.simpleDescription) : '');
-                    }
-                    for (const s of sp.specSkills || []) {
+                    for (const s of c.skills || []) {
                         if (s.name && !skill.has(s.name)) {
                             skill.set(s.name, {
                                 displayName: s.displayName || s.name,
@@ -112,16 +101,30 @@ function loadBuildDetails() {
                             });
                         }
                     }
+                    for (const sp of c.specs || []) {
+                        const first = (sp.specSkills || [])[0];
+                        if (sp.specName && !spec.has(sp.specName)) {
+                            spec.set(sp.specName, first ? cleanDescription(first.simpleDescription) : '');
+                        }
+                        for (const s of sp.specSkills || []) {
+                            if (s.name && !skill.has(s.name)) {
+                                skill.set(s.name, {
+                                    displayName: s.displayName || s.name,
+                                    description: cleanDescription(s.simpleDescription),
+                                });
+                            }
+                        }
+                    }
                 }
-            }
-            const czAbilities = new Map();
-            for (const t of (cz && cz.trees) || []) {
-                for (const a of t.skills || []) {
-                    czAbilities.set(a.name, { zenith: a.zenith_description, depths: a.depths_description });
+                const czAbilities = new Map();
+                for (const t of (cz && cz.trees) || []) {
+                    for (const a of t.skills || []) {
+                        czAbilities.set(a.name, { zenith: a.zenith_description, depths: a.depths_description });
+                    }
                 }
+                return { skill, klass, spec, cz: czAbilities };
             }
-            return { skill, klass, spec, cz: czAbilities };
-        });
+        );
     }
     return buildDetailPromise;
 }
@@ -194,6 +197,21 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             setSideOpen(false);
         };
     }, [expanded]);
+
+    // Offscreen cards render an empty placeholder before any of the expensive
+    // per-build work below (JSON parsing, sprite lookups, chip tooltips) -
+    // /builds renders every owned build at once and re-renders on each
+    // keystroke.
+    if (!inView) {
+        return (
+            <Link
+                ref={cardRef}
+                href={base + build.url}
+                className={`${styles.card}${expanded ? ` ${styles.cardExpanded}` : ''}`}
+                style={{ minHeight }}
+            />
+        );
+    }
 
     function onCardEnter() {
         if (isTouch) return;
@@ -584,6 +602,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         alt=""
                         width={24}
                         height={24}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                             e.currentTarget.style.display = 'none';
                         }}
@@ -595,6 +615,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         alt=""
                         width={24}
                         height={24}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                             e.currentTarget.style.display = 'none';
                         }}
@@ -628,17 +650,6 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     // Whether the hover side extension has anything to show; the notes panel
     // only stretches over it when it is actually open.
     const sideHasContent = itemsFirst ? skills.length > 0 : items.length > 0;
-
-    if (!inView) {
-        return (
-            <Link
-                ref={cardRef}
-                href={base + build.url}
-                className={`${styles.card}${expanded ? ` ${styles.cardExpanded}` : ''}`}
-                style={{ minHeight }}
-            />
-        );
-    }
 
     return (
         <Link
@@ -737,6 +748,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                                 alt=""
                                 width={24}
                                 height={24}
+                                loading="lazy"
+                                decoding="async"
                             />
                             {build.class}
                             {classInfo && (
@@ -760,6 +773,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                                         alt=""
                                         width={24}
                                         height={24}
+                                        loading="lazy"
+                                        decoding="async"
                                     />
                                     {build.spec}
                                     {specInfo && (
@@ -801,6 +816,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                             alt=""
                             width={26}
                             height={26}
+                            loading="lazy"
+                            decoding="async"
                             onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                             }}
@@ -848,7 +865,17 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
 
             <div className={styles.cardBottom}>
                 <span className={styles.author} title={build.authorName || t('database.anonymous')}>
-                    {avatar && <img className={styles.avatar} src={avatar} alt="" width={24} height={24} />}
+                    {avatar && (
+                        <img
+                            className={styles.avatar}
+                            src={avatar}
+                            alt=""
+                            width={24}
+                            height={24}
+                            loading="lazy"
+                            decoding="async"
+                        />
+                    )}
                     {build.authorName || <TranslatableText identifier="database.anonymous" />}
                 </span>
                 <span className={styles.date}>{formatDateString(build.updatedAt || build.createdAt)}</span>

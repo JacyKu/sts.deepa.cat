@@ -11,7 +11,7 @@ export async function GET(request) {
         // getSkillsData logs the failure and returns null when the file cannot
         // be read; report it as temporarily unavailable instead of crashing.
         if (!skills) return NextResponse.json({ error: 'skills data unavailable' }, { status: 503 });
-        const versioned = new URL(request.url).searchParams.has('v');
+        const versioned = Boolean(new URL(request.url).searchParams.get('v'));
         return compressedJsonResponse(skills, {
             request,
             headers: { 'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300' },

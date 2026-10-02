@@ -29,6 +29,11 @@
     display: flex;
     flex-direction: column;
     position: relative;
+    contain: layout style;
+}
+
+.itemTile:hover {
+    z-index: 10;
 }
 
 :global(html[data-theme='light']) .itemTile,

@@ -1,4 +1,4 @@
-import { compressedJsonResponse } from '../../../../../lib/compressed-json';
+import { compressedJsonResponse, stableWrapper } from '../../../../../lib/compressed-json';
 import { getItemData } from '../../../../_src/utils/itemsData';
 
 // The full processed item database, fetched by the pages that need it
@@ -9,12 +9,9 @@ import { getItemData } from '../../../../_src/utils/itemsData';
 // out: the payload is megabytes of JSON (see lib/compressed-json.js).
 export async function GET(request) {
     const items = await getItemData();
-    const versioned = new URL(request.url).searchParams.has('v');
-    return compressedJsonResponse(
-        { items },
-        {
-            request,
-            headers: { 'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300' },
-        }
-    );
+    const versioned = Boolean(new URL(request.url).searchParams.get('v'));
+    return compressedJsonResponse(stableWrapper('items', items), {
+        request,
+        headers: { 'Cache-Control': versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=300' },
+    });
 }

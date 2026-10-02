@@ -6,6 +6,7 @@ import React from 'react';
 import TranslatableText from '../translatableText';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
+import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
 import { useMaxMasterwork } from './maxMasterworkContext';
@@ -300,6 +301,7 @@ function MasterworkableItemTile(data) {
                 )}
             </div>
             <span
+                style={locationStyle(activeItem)}
                 className={`${styles[camelCase(activeItem.location)]} ${styles[camelCase(activeItem.tier)]} ${styles.name}`}
             >
                 {activeItem.name.includes('EX ') ? (
@@ -407,7 +409,9 @@ function MasterworkableItemTile(data) {
                     </span>
                 </div>
             )}
-            <span className={styles[camelCase(activeItem.location)]}>{activeItem.location}</span>
+            <span style={locationStyle(activeItem)} className={styles[camelCase(activeItem.location)]}>
+                {activeItem.location}
+            </span>
             {!activeItem.undiscovered ? (
                 <div>
                     {activeItem.lore ? (
