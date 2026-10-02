@@ -5,8 +5,28 @@ const nameMappings = {
     damage: 'Damage',
 };
 
-const oneLevelEffects = ['Fire Immunity', 'Night Vision', 'Nausea'];
-const integerLevelEffects = ['Regeneration', 'Haste', 'Mining Fatigue', 'Poison', 'Jump Boost'];
+// Effects the game shows without a value ("Glowing") - not "+100% Glowing".
+const oneLevelEffects = ['Fire Immunity', 'Night Vision', 'Nausea', 'Glowing', 'Water Breath', 'Blindness', 'Clucking'];
+// Effects whose value is a level ("Regeneration II"), not a percentage.
+const integerLevelEffects = [
+    'Regeneration',
+    'Haste',
+    'Mining Fatigue',
+    'Poison',
+    'Jump Boost',
+    'Conduit Power',
+    'Wither',
+    'Bad Luck',
+    'Poison Immunity',
+    'Hunger',
+];
+// Effects whose value is a flat count, rendered like the game's own line.
+const flatEffects = {
+    FireDamageNegate: (value) => `+${value} Fire Hits Blocked`,
+    MeleeDamageNegate: (value) => `+${value} Melee Hits Blocked`,
+    FallDamageNegate: (value) => `+${value} Falling Hits Blocked`,
+    EnchantEffect: (value) => `+${value} Chaotic Levels`,
+};
 // Positive-strength effects that are still debuffs; used only when the API did
 // not provide a per-line color (missed extraction, custom items).
 const inverseColorEffects = [
@@ -67,7 +87,18 @@ class ConsumableFormatter {
         return splitName;
     }
 
+    // toPrecision alone renders 100% as "1.0e+2" and 5% as "5.0"; the game
+    // shows plain numbers ("100%", "5%").
+    static formatPercent(strength) {
+        return String(parseFloat((strength * 100).toPrecision(2)));
+    }
+
     static toHumanReadable(effect) {
+        const flat = flatEffects[effect.EffectType];
+        if (flat) {
+            return flat(effect.EffectStrength);
+        }
+
         const splitName = this.effectName(effect);
 
         // Some effects use levels like III instead of percentages, for the effect potency.
@@ -78,7 +109,7 @@ class ConsumableFormatter {
         if (oneLevelEffects.includes(splitName)) {
             return splitName;
         }
-        return `${effect.EffectStrength < 0 ? '-' : '+'}${(effect.EffectStrength * 100).toPrecision(2)}% ${splitName}`;
+        return `${effect.EffectStrength < 0 ? '-' : '+'}${this.formatPercent(effect.EffectStrength)}% ${splitName}`;
     }
 
     static statStyle(effect) {
