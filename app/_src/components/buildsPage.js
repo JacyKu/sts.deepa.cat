@@ -8,6 +8,7 @@ import BuildCard from './buildCard';
 import styles from '../styles/Builds.module.css';
 import dbStyles from '../styles/Database.module.css';
 import DatabaseSkeleton from './databaseSkeleton';
+import InfiniteScroll from './infiniteScroll';
 import FloatingLabel from './items/floatingLabel';
 import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
@@ -72,6 +73,11 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
     // Bulk (un)publicising: pick up to 20 builds and flip their visibility in
     // one action ("Select all" fills the batch from the visible list).
     const BULK_MAX = 20;
+    // The API returns the whole list at once, but each card is heavy (skills,
+    // items, tooltips), so they are rendered a page at a time and extended on
+    // scroll instead of painting hundreds at once.
+    const BUILDS_PER_PAGE = 24;
+    const [buildsToShow, setBuildsToShow] = React.useState(BUILDS_PER_PAGE);
 
     const [authChecked, setAuthChecked] = React.useState(false);
     const [user, setUser] = React.useState(null);
@@ -652,8 +658,12 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
                             <TranslatableText identifier="database.empty" />
                         </p>
                     ) : (
-                        <div className={dbStyles.grid}>
-                            {visibleBuilds.map((build) => (
+                        <InfiniteScroll
+                            className={dbStyles.grid}
+                            hasMore={buildsToShow < visibleBuilds.length}
+                            next={() => setBuildsToShow((n) => n + BUILDS_PER_PAGE)}
+                        >
+                            {visibleBuilds.slice(0, buildsToShow).map((build) => (
                                 <div key={build.id} className={styles.cell}>
                                     <BuildCard
                                         build={build}
@@ -738,7 +748,7 @@ export default function BuildsPage({ classOptions, specMap, itemGroups, skillOpt
                                     </BuildCard>
                                 </div>
                             ))}
-                        </div>
+                        </InfiniteScroll>
                     )}
                 </>
             )}
