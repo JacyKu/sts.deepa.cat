@@ -241,6 +241,11 @@
     border-top: 1px dashed var(--glass-border);
 }
 
+/* Divider, not a surface: square ends under Round corners. */
+:global(html[data-round='true']) .actionPanel {
+    border-radius: 0 !important;
+}
+
 .actionTabs {
     display: flex;
     gap: 0.35rem;

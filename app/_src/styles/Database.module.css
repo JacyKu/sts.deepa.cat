@@ -559,6 +559,11 @@
     padding-top: 10px;
 }
 
+/* Dividers, not surfaces: square ends under Round corners. */
+:global(html[data-round='true']) :is(.mobileItems, .mobileNotes) {
+    border-radius: 0 !important;
+}
+
 .previewRowWrap {
     display: flex;
     flex-direction: column;

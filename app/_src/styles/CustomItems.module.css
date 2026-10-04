@@ -704,6 +704,11 @@
     border-top: 1px solid var(--glass-border);
 }
 
+/* Divider, not a surface: square ends under Round corners. */
+:global(html[data-round='true']) .cardActions {
+    border-radius: 0 !important;
+}
+
 .rowBtn {
     display: inline-block;
     padding: 6px 12px;
