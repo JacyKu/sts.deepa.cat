@@ -2389,12 +2389,6 @@ div.builderStatCard {
         margin-right: 0 !important;
     }
 
-    .builderTopRow .delveToggle {
-        height: 38px;
-        padding: 6px 10px;
-        font-size: 13px;
-    }
-
     /* Keep the same 10px rhythm between the controls inside the group body
        and toggles wrappers. */
     .builderGroupBody,
