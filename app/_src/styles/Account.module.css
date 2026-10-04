@@ -540,6 +540,12 @@
     padding-top: 0.75rem;
 }
 
+/* Dividers are single-sided rules, not surfaces: keep square ends when Round
+   corners is on (the site-wide `html[data-round] *` radius would bow them). */
+:global(html[data-round='true']) :is(.glassColours, .accentRow, .siteOptions) {
+    border-radius: 0 !important;
+}
+
 .subTitle {
     font-size: 0.95rem;
     font-weight: 600;

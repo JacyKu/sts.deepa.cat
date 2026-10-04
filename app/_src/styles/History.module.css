@@ -129,6 +129,11 @@
     border-top: 1px solid var(--glass-border, #444);
 }
 
+/* Dividers, not surfaces: square ends under Round corners. */
+:global(html[data-round='true']) :is(.timeline, .versionRow, .itemHistory) {
+    border-radius: 0 !important;
+}
+
 .versionRow {
     margin: 4px 0 12px 14px;
     padding-left: 14px;

@@ -91,6 +91,11 @@
     border-top: 1px solid var(--glass-border);
 }
 
+/* Divider, not a surface: square ends under Round corners. */
+:global(html[data-round='true']) .cardActions {
+    border-radius: 0 !important;
+}
+
 .row {
     display: flex;
     align-items: center;

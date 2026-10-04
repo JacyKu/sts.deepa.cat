@@ -291,6 +291,11 @@
     border-bottom: 1px solid var(--glass-border);
 }
 
+/* Dividers, not surfaces: square ends under Round corners. */
+:global(html[data-round='true']) :is(.suggestionRow, .categoryTitle) {
+    border-radius: 0 !important;
+}
+
 .compareRow {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);

@@ -2686,6 +2686,11 @@ div.builderStatCard {
     border-bottom: 1px solid var(--glass-border);
 }
 
+/* Divider, not a surface: square ends under Round corners. */
+:global(html[data-round='true']) .setsModalHead {
+    border-radius: 0 !important;
+}
+
 .setsModalTitle {
     font-size: 17px;
     font-weight: 600;
