@@ -150,7 +150,7 @@
     font-size: 15px;
     line-height: 1;
     cursor: pointer;
-    z-index: 3;
+    z-index: 11;
     transition:
         border-color 150ms ease,
         color 150ms ease;
