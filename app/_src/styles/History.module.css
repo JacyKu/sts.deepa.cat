@@ -275,6 +275,20 @@
     white-space: nowrap;
 }
 
+/* Community-chosen name of the update run (set by a closed name poll): shown
+   after the run's date/counts info, pinned to the right of the header. */
+.runName {
+    margin-left: auto;
+    color: var(--accent, #b07ce8);
+    font-weight: bold;
+}
+
+/* The chevron normally pins itself right; with a name it sits right after it
+   instead, so the pair stays together at the end of the header. */
+.runHeader:has(.runName) .chevron {
+    margin-left: 0;
+}
+
 /* Times are UTC so every visitor reads the same clock. */
 .runTimeZone {
     font-size: 10px;

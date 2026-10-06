@@ -296,3 +296,20 @@
     color: var(--text-2);
     margin: 0;
 }
+
+.optionLine {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-right: 12px;
+    white-space: nowrap;
+}
+
+.optionRemove {
+    padding: 0 3px;
+    background: none;
+    border: none;
+    color: #ff6b6b;
+    font: inherit;
+    cursor: pointer;
+}

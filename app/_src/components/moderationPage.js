@@ -5,7 +5,7 @@ import styles from '../styles/Moderation.module.css';
 import { useTranslation } from './useTranslation';
 import { formatDateString } from '../utils/dateFormat';
 
-const TABS = ['users', 'builds', 'items', 'classes', 'notifications'];
+const TABS = ['users', 'builds', 'items', 'classes', 'polls', 'notifications'];
 const NOTIFICATION_TYPES = ['info', 'warning', 'error'];
 
 function displayName(row) {
@@ -501,6 +501,231 @@ function ClassesPanel({ t }) {
 }
 
 // ---------------------------------------------------------------------------
+// Update name polls
+// ---------------------------------------------------------------------------
+
+// Creates and manages the community name polls for class/API updates. Users
+// vote or add name ideas on /polls; when a poll is closed here, the winning
+// option (or the top-voted one) becomes the update run's title on the changes
+// pages.
+function PollsPanel({ t }) {
+    const [data, setData] = React.useState(null);
+    const [error, setError] = React.useState(null);
+    const [busy, setBusy] = React.useState(false);
+    const [form, setForm] = React.useState({ title: '', runAt: '', options: '' });
+    const [winners, setWinners] = React.useState({});
+
+    const load = React.useCallback(() => {
+        fetch('/api/v2/moderation/polls')
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => setData({ polls: d.polls || [], runs: d.runs || { class: [] } }))
+            .catch(() => setError(t('moderation.error')));
+    }, [t]);
+
+    React.useEffect(() => {
+        load();
+    }, [load]);
+
+    async function create(event) {
+        event.preventDefault();
+        if (!form.title.trim()) return;
+        setBusy(true);
+        setError(null);
+        try {
+            const response = await fetch('/api/v2/moderation/polls', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: form.title.trim(),
+                    kind: 'class',
+                    runAt: form.runAt || null,
+                    options: form.options
+                        .split('\n')
+                        .map((line) => line.trim())
+                        .filter(Boolean),
+                }),
+            });
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                throw new Error((data && data.error) || 'HTTP ' + response.status);
+            }
+            setForm({ title: '', runAt: form.runAt, options: '' });
+            load();
+        } catch (e) {
+            setError(e.message || t('moderation.error'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function act(poll, action, extra = {}) {
+        setBusy(true);
+        setError(null);
+        try {
+            const response = await fetch(`/api/v2/moderation/polls/${poll.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...extra }),
+            });
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                throw new Error((data && data.error) || 'HTTP ' + response.status);
+            }
+            load();
+        } catch (e) {
+            setError(e.message || t('moderation.error'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    const runs = data ? data.runs.class || [] : [];
+
+    return (
+        <section className={styles.panel}>
+            <p className={styles.muted}>
+                {t('moderation.polls.description')}{' '}
+                <span className={styles.experimentalBadge}>{t('moderation.experimental')}</span>
+            </p>
+            <form className={styles.notificationForm} onSubmit={create}>
+                <input
+                    className={styles.input}
+                    value={form.title}
+                    maxLength={50}
+                    placeholder={t('moderation.polls.titlePlaceholder')}
+                    aria-label={t('moderation.polls.titlePlaceholder')}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                />
+                <div className={styles.formActions}>
+                    <select
+                        className={styles.input}
+                        value={form.runAt}
+                        aria-label={t('moderation.polls.runLabel')}
+                        onChange={(e) => setForm({ ...form, runAt: e.target.value })}
+                    >
+                        <option value="">{t('moderation.polls.noRun')}</option>
+                        {runs.map((run) => (
+                            <option key={run.at} value={run.at}>
+                                {formatDateString(run.at, { spaceToT: true })} · {run.total}{' '}
+                                {t('moderation.polls.changes')}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <textarea
+                    className={`${styles.input} ${styles.textarea}`}
+                    value={form.options}
+                    maxLength={600}
+                    placeholder={t('moderation.polls.optionsPlaceholder')}
+                    aria-label={t('moderation.polls.optionsPlaceholder')}
+                    onChange={(e) => setForm({ ...form, options: e.target.value })}
+                />
+                <div className={styles.formActions}>
+                    <button type="submit" className={styles.button} disabled={busy || !form.title.trim()}>
+                        {t('moderation.polls.create')}
+                    </button>
+                </div>
+            </form>
+            {error && <p className={styles.error}>{error}</p>}
+            {data === null ? (
+                <p className={styles.muted}>{t('moderation.loading')}</p>
+            ) : data.polls.length === 0 ? (
+                <p className={styles.muted}>{t('moderation.polls.none')}</p>
+            ) : (
+                <ul className={styles.list}>
+                    {data.polls.map((poll) => (
+                        <li key={poll.id} className={styles.row}>
+                            <div className={styles.rowMain}>
+                                <span className={styles.rowTitle}>
+                                    {poll.title}
+                                    {poll.winnerName ? (
+                                        <span className={styles.badge}>
+                                            {t('polls.winner')}: {poll.winnerName}
+                                        </span>
+                                    ) : null}
+                                </span>
+                                <span className={styles.rowMeta}>
+                                    {poll.status === 'open' ? t('polls.open') : t('polls.closed')} · {poll.totalVotes}{' '}
+                                    {t('polls.votes')}
+                                    {poll.runAt
+                                        ? ` · ${t('polls.attachedRun')} ${formatDateString(poll.runAt, { spaceToT: true })}`
+                                        : ''}
+                                </span>
+                                <span className={styles.rowMeta}>
+                                    {poll.options.map((option) => (
+                                        <span key={option.id} className={styles.optionLine}>
+                                            {option.name} ({option.votes})
+                                            <button
+                                                type="button"
+                                                className={styles.optionRemove}
+                                                disabled={busy}
+                                                title={t('moderation.polls.removeOption')}
+                                                aria-label={`${t('moderation.polls.removeOption')}: ${option.name}`}
+                                                onClick={() => act(poll, 'removeOption', { optionId: option.id })}
+                                            >
+                                                ×
+                                            </button>
+                                        </span>
+                                    ))}
+                                </span>
+                            </div>
+                            <div className={styles.rowActions}>
+                                {poll.status === 'open' ? (
+                                    <>
+                                        <select
+                                            className={styles.input}
+                                            value={winners[poll.id] || ''}
+                                            aria-label={t('moderation.polls.winnerLabel')}
+                                            onChange={(e) => setWinners({ ...winners, [poll.id]: e.target.value })}
+                                        >
+                                            <option value="">{t('moderation.polls.topVoted')}</option>
+                                            {poll.options.map((option) => (
+                                                <option key={option.id} value={option.id}>
+                                                    {option.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            className={styles.button}
+                                            disabled={busy}
+                                            onClick={() =>
+                                                act(poll, 'close', {
+                                                    winnerOptionId: winners[poll.id] ? Number(winners[poll.id]) : null,
+                                                })
+                                            }
+                                        >
+                                            {t('moderation.polls.close')}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className={styles.button}
+                                        disabled={busy}
+                                        onClick={() => act(poll, 'reopen')}
+                                    >
+                                        {t('moderation.polls.reopen')}
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    className={`${styles.button} ${styles.buttonDanger}`}
+                                    disabled={busy}
+                                    onClick={() => act(poll, 'delete')}
+                                >
+                                    {t('common.delete')}
+                                </button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------
 
@@ -645,6 +870,7 @@ export default function ModerationPage({ moderator, moderatorId }) {
             {tab === 'builds' && <BuildsPanel t={t} />}
             {tab === 'items' && <ItemsPanel t={t} />}
             {tab === 'classes' && <ClassesPanel t={t} />}
+            {tab === 'polls' && <PollsPanel t={t} />}
             {tab === 'notifications' && <NotificationsPanel t={t} />}
         </main>
     );
