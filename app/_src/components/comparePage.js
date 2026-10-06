@@ -25,11 +25,7 @@ const categoryDefs = [
             { type: 'speedPercent', name: 'builder.stats.misc.speed', percent: true },
             { type: 'knockbackRes', name: 'builder.stats.misc.kbResistance', percent: true },
             { type: 'thorns', name: 'builder.stats.misc.thorns', percent: false },
-            {
-                type: 'infernoDmgPerTick',
-                name: 'builder.stats.misc.infernoDmgPerTick',
-                percent: false,
-            },
+            { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
             {
                 type: 'spellCooldownPercent',
                 name: 'builder.stats.magic.spellCooldownPercent',
@@ -365,14 +361,6 @@ function parseBuild(build, itemData, enabledBoxes = {}) {
             if (cat.hideClassDefault && engine && Number(engine[cat.hideClassDefault]) === 100) {
                 if (def.type === cat.hideClassDefault) continue;
             }
-            // Life Drain only applies while the enchant is equipped; hide its
-            // rows for an engine that has none (the other side still shows).
-            if (
-                (def.type === 'lifeDrainOnCrit' || def.type === 'lifeDrainOnCritPercent') &&
-                !(Number(engine?.lifeDrainOnCrit) > 0)
-            ) {
-                continue;
-            }
             const value = engine ? engine[def.type] : undefined;
             if (value === undefined || value === null || value === '') continue;
             if (cat.key === 'magic') {
@@ -381,31 +369,14 @@ function parseBuild(build, itemData, enabledBoxes = {}) {
                 if (def.type === 'potionDamage' && String(engine.spellPowerPercent) !== '100.00') continue;
                 if (def.type === 'spellDamage' && String(engine.potionDamage) !== '0.00') continue;
             }
-            rows.push({
-                labelKey: def.name,
-                value: Number(value),
-                percent: def.percent,
-                invert: Boolean(def.invert),
-                full: engine && engine.fullValues ? engine.fullValues[def.type] : undefined,
-            });
+            rows.push({ labelKey: def.name, value: Number(value), percent: def.percent, invert: Boolean(def.invert) });
         }
         if (cat.key === 'ehp' && engine && engine.instability) {
             const unstableEHPTypes = ['meleeEHP', 'projectileEHP', 'magicEHP', 'blastEHP'];
             let avg = 0;
-            let avgFull = 0;
-            unstableEHPTypes.forEach((t) => {
-                avg += Number(engine[t]);
-                const raw = engine.fullValues ? engine.fullValues[t] : undefined;
-                avgFull += raw === undefined ? Number(engine[t]) : Number(raw);
-            });
+            unstableEHPTypes.forEach((t) => (avg += Number(engine[t])));
             avg /= 4;
-            avgFull /= 4;
-            rows.unshift({
-                labelKey: 'builder.stats.dr-ehp.unstable',
-                value: avg,
-                percent: false,
-                full: avgFull,
-            });
+            rows.unshift({ labelKey: 'builder.stats.dr-ehp.unstable', value: avg, percent: false });
         }
         categoryRows[cat.key] = rows;
     }
@@ -898,15 +869,6 @@ function formatValue(row) {
     return `${sign}${row.value}${row.percent ? '%' : ''}`;
 }
 
-// Hover title for one side of a row: the engine's exact value (kept in
-// fullValues while the row renders the 2 dp one).
-function fullRowTitle(row) {
-    if (!row || row.full === undefined || row.full === null) return undefined;
-    const n = Number(row.full);
-    if (!Number.isFinite(n)) return undefined;
-    return `${Number(n.toFixed(6))}${row.percent ? '%' : ''}`;
-}
-
 function CompareRow({ labelKey, labelText, left, right, invert = false }) {
     const lv = left ? Number(left.value) : null;
     const rv = right ? Number(right.value) : null;
@@ -937,7 +899,7 @@ function CompareRow({ labelKey, labelText, left, right, invert = false }) {
 
     return (
         <div className={styles.compareRow}>
-            <span className={styles.rowValue} title={fullRowTitle(left)}>
+            <span className={styles.rowValue}>
                 {formatValue(left) !== null ? (
                     <span className={delta === 'left' ? styles.highlightUp : ''}>
                         {formatValue(left)}
@@ -950,7 +912,7 @@ function CompareRow({ labelKey, labelText, left, right, invert = false }) {
             <span className={styles.rowLabel}>
                 {labelText !== undefined ? <span>{labelText}</span> : <TranslatableText identifier={labelKey} />}
             </span>
-            <span className={styles.rowValue} title={fullRowTitle(right)}>
+            <span className={styles.rowValue}>
                 {formatValue(right) !== null ? (
                     <span className={delta === 'right' ? styles.highlightUp : ''}>
                         {formatValue(right)}

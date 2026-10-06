@@ -213,11 +213,11 @@
 }
 
 .deltaUp {
-    color: var(--delta-up, #4ade4a);
+    color: #4ade4a;
 }
 
 .deltaDown {
-    color: var(--delta-down, #fc5454);
+    color: #fc5454;
 }
 
 .complexLine {
@@ -273,20 +273,6 @@
     font-weight: bold;
     font-size: 15px;
     white-space: nowrap;
-}
-
-/* Community-chosen name of the update run (set by a closed name poll): shown
-   after the run's date/counts info, pinned to the right of the header. */
-.runName {
-    margin-left: auto;
-    color: var(--accent, #b07ce8);
-    font-weight: bold;
-}
-
-/* The chevron normally pins itself right; with a name it sits right after it
-   instead, so the pair stays together at the end of the header. */
-.runHeader:has(.runName) .chevron {
-    margin-left: 0;
 }
 
 /* Times are UTC so every visitor reads the same clock. */
@@ -513,9 +499,7 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: 6px 18px;
-    /* Follows the changes page's search bar (the earlier -4px only suited the
-       summary line directly above it). */
-    margin: 10px 0 10px;
+    margin: -4px 0 10px;
 }
 
 .loreToggle {
@@ -677,7 +661,7 @@
 }
 
 .textDiffAdd .textDiffText {
-    color: var(--diff-add-text, #cdf5cd);
+    color: #cdf5cd;
 }
 
 .textDiffDel {
@@ -689,7 +673,7 @@
 }
 
 .textDiffDel .textDiffText {
-    color: var(--diff-del-text, #f3b6b6);
+    color: #f3b6b6;
 }
 
 .lineText {

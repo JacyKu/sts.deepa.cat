@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import styles from '../styles/Footer.module.css';
 import LanguageSelector from './languageSelector';
-import { useSpookyTheme } from './spookyThemeContext';
 import { useTranslation } from './useTranslation';
 import pkg from '../../../package.json';
 
@@ -43,7 +42,6 @@ function ArrowUpIcon() {
 
 export default function Footer() {
     const t = useTranslation();
-    const spooky = useSpookyTheme();
     const [inviteOpen, setInviteOpen] = useState(false);
     const [inviteUrls, setInviteUrls] = useState(null);
     const [inviteFailed, setInviteFailed] = useState(false);
@@ -70,11 +68,6 @@ export default function Footer() {
                         {t('footer.forkedBy')} <b>jkitter</b>, {t('footer.originallyDevelopedBy')} <b>Albin</b>,{' '}
                         <b>FlamingoBike</b> {t('footer.and')} <b>Alecaboo</b>
                         <span className={styles.version}> · v{pkg.sts_version}</span>
-                        {spooky && (
-                            <div className={styles.artCredit}>
-                                {t('footer.artCredit')} <b>{t('footer.artCreditName')}</b>
-                            </div>
-                        )}
                     </div>
                     <div className={styles.links}>
                         <LanguageSelector className={styles.languageSelect} compact />
@@ -119,6 +112,31 @@ export default function Footer() {
                             title="CurseForge"
                         >
                             <CurseForgeIcon />
+                        </a>
+                        <a
+                            className={styles.link}
+                            href="https://ko-fi.com/jkitter"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Ko-fi"
+                            title="Ko-fi"
+                        >
+                            <span className={styles.kofiIcon}>
+                                <img
+                                    className={styles.kofiSymbol}
+                                    src="/images/kofi_symbol.webp"
+                                    alt=""
+                                    width="27"
+                                    height="22"
+                                />
+                                <img
+                                    className={styles.kofiMug}
+                                    src="/images/mug.gif"
+                                    alt=""
+                                    fetchPriority="low"
+                                    decoding="async"
+                                />
+                            </span>
                         </a>
                         <a
                             className={styles.link}

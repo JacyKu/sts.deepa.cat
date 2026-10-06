@@ -190,7 +190,6 @@
     "builder.statCategories.damageReduction.sub": "(Обычное)",
     "builder.statCategories.damageReductionHealthNormalized": "Снижение урона",
     "builder.statCategories.damageReductionHealthNormalized.sub": "(Относительно Здоровья)",
-    "builder.statCategories.effectiveHealthRegen": "Эффект. Регенерация Здоровья",
     "builder.statCategories.effectiveHealth": "Эффект. Здоровье",
     "builder.statCategories.melee": "Ближн. бой",
     "builder.statCategories.projectile": "Снаряды",

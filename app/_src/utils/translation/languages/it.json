@@ -192,7 +192,6 @@
     "builder.statCategories.damageReduction.sub": "(Regolare)",
     "builder.statCategories.damageReductionHealthNormalized": "Riduzione Danni",
     "builder.statCategories.damageReductionHealthNormalized.sub": "(Normalizzata alla Vita)",
-    "builder.statCategories.effectiveHealthRegen": "Rigenerazione Vita Effettiva",
     "builder.statCategories.effectiveHealth": "Vita Effettiva",
     "builder.statCategories.melee": "Corpo a Corpo",
     "builder.statCategories.projectile": "Proiettile",

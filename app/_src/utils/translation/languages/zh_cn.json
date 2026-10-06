@@ -164,7 +164,6 @@
     "builder.statCategories.damageReduction.sub": "（正常情况）",
     "builder.statCategories.damageReductionHealthNormalized": "免伤率",
     "builder.statCategories.damageReductionHealthNormalized.sub": "(按最大生命值衡量)",
-    "builder.statCategories.effectiveHealthRegen": "有效生命恢复",
     "builder.statCategories.effectiveHealth": "有效生命值",
     "builder.statCategories.melee": "近战",
     "builder.statCategories.projectile": "弹射物",

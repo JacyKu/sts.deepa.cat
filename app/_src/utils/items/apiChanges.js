@@ -34,32 +34,23 @@ function dedupeByName(entries) {
     return [...seen.values()];
 }
 
-// Options:
-//   limit - page of the newest runs to materialise (progressive rendering)
-//   query - item-name search across EVERY run (ignores limit); entries are
-//           name-filtered before the diff work, so only matches pay for it
-export function buildRunGroups(history, itemData, { limit, query } = {}) {
+export function buildRunGroups(history, itemData, limit) {
     const allRuns = Array.isArray(history && history.runs) ? history.runs : [];
-    const search = typeof query === 'string' && query.trim() ? query.trim().toLowerCase() : null;
-    const runs = search ? allRuns : Number.isFinite(limit) && limit >= 0 ? allRuns.slice(0, limit) : allRuns;
+    // The changes page renders progressively: only the first `limit` runs are
+    // turned into display groups (with their before/after diffs), so a long
+    // history can never be fully materialised on first paint.
+    const runs = Number.isFinite(limit) && limit >= 0 ? allRuns.slice(0, limit) : allRuns;
     const archives = history && history.items && typeof history.items === 'object' ? history.items : {};
     const items = itemData && typeof itemData === 'object' ? itemData : {};
-    const matches = (name, key) =>
-        !search ||
-        String(name || key)
-            .toLowerCase()
-            .includes(search);
 
     return runs
         .map((run) => {
             const at = run.at;
             const added = dedupeByName(
-                (run.added || [])
-                    .map((key) => {
-                        const item = items[key] || archivedItem(archives, key, at);
-                        return { key, item, name: (item && item.name) || key };
-                    })
-                    .filter((entry) => matches(entry.name, entry.key))
+                (run.added || []).map((key) => {
+                    const item = items[key] || archivedItem(archives, key, at);
+                    return { key, item, name: (item && item.name) || key };
+                })
             );
             const changedEntries = (run.changed || [])
                 .map((key) => {
@@ -71,10 +62,16 @@ export function buildRunGroups(history, itemData, { limit, query } = {}) {
                     const after =
                         index >= 0 && index + 1 < records.length ? records[index + 1].item : items[key] || null;
                     const item = after || before;
-                    return { key, name: (item && item.name) || key, before, after, item };
+                    return {
+                        key,
+                        name: (item && item.name) || key,
+                        before,
+                        after,
+                        item,
+                        loreOnly: isLoreOnlyChange(before, after),
+                    };
                 })
-                .filter((entry) => entry.before && entry.after && matches(entry.name, entry.key))
-                .map((entry) => ({ ...entry, loreOnly: isLoreOnlyChange(entry.before, entry.after) }));
+                .filter((entry) => entry.before && entry.after);
 
             const changedGroups = new Map();
             for (const entry of changedEntries) {
@@ -98,12 +95,10 @@ export function buildRunGroups(history, itemData, { limit, query } = {}) {
             }));
 
             const removed = dedupeByName(
-                (run.removed || [])
-                    .map((key) => {
-                        const item = archivedItem(archives, key, at);
-                        return { key, item, name: (item && item.name) || key };
-                    })
-                    .filter((entry) => matches(entry.name, entry.key))
+                (run.removed || []).map((key) => {
+                    const item = archivedItem(archives, key, at);
+                    return { key, item, name: (item && item.name) || key };
+                })
             );
             return { at, added, changed, removed };
         })

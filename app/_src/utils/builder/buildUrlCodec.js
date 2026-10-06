@@ -177,21 +177,11 @@ export function decodeBuildName(build) {
     // Token names are client-supplied and legacy/hand-made tokens can carry
     // arbitrarily long names; stored names cap at 50 (lib/sts-builds.js).
     const cap = (name) => (name ? String(name).slice(0, 50) : null);
-    // Percent-decoding a name part can throw on raw "%" sequences (hand-made
-    // or very old tokens that were never encoded) - keep the value as it is
-    // instead so special characters never crash a page.
-    const decodeName = (value) => {
-        try {
-            return decodeURIComponent(value);
-        } catch (e) {
-            return value;
-        }
-    };
 
     // Legacy formats: try to read name=... from the string directly.
     if (isLegacyBuildString(normalized)) {
         const part = normalized.split('&').find((p) => p.startsWith('name='));
-        return part ? cap(decodeName(part.slice('name='.length))) : null;
+        return part ? cap(decodeURIComponent(part.slice('name='.length))) : null;
     }
 
     if (normalized.startsWith(LEGACY_COMPRESSED_PREFIX)) {
@@ -199,7 +189,7 @@ export function decodeBuildName(build) {
         const decompressed = decompressFromEncodedURIComponent(payload);
         if (!decompressed) return null;
         const part = decompressed.split('&').find((p) => p.startsWith('name='));
-        return part ? cap(decodeName(part.slice('name='.length))) : null;
+        return part ? cap(decodeURIComponent(part.slice('name='.length))) : null;
     }
 
     if (normalized.startsWith(BINARY_V1_PREFIX)) {

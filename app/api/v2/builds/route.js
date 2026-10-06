@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import crypto from 'node:crypto';
 import {
     saveBuild,
     setBuildPublic,
@@ -93,10 +92,7 @@ export async function POST(request) {
             if (limits.buildsPerDay > 0 && countRecentBuilds(user.id) >= limits.buildsPerDay) {
                 return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
             }
-        } else if (!isBotRequest(request)) {
-            // The bot converts old build links into short links on users'
-            // behalf (shared key): its snapshots are trusted and must not eat
-            // the per-IP anonymous quota.
+        } else {
             const quota = consumeRateLimit(
                 `anon-build:${getClientIp(request)}`,
                 limits.anonymousBuildsPerDay,
@@ -163,19 +159,4 @@ export async function POST(request) {
         version: savedRow ? savedRow.revision || 1 : null,
         url: tokenVersion ? `/b/v${tokenVersion}/${result.id}` : `/b/${result.id}`,
     });
-}
-
-// The bot authenticates with the shared key (same value as its STS_BOT_API_KEY).
-function isBotRequest(request) {
-    const expected = process.env.STS_BOT_API_KEY;
-    if (!expected) return false;
-    const auth = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
-    return auth.length > 0 && timingSafeEqualStr(auth, expected);
-}
-
-function timingSafeEqualStr(a, b) {
-    const left = Buffer.from(String(a));
-    const right = Buffer.from(String(b));
-    if (left.length !== right.length) return false;
-    return crypto.timingSafeEqual(left, right);
 }

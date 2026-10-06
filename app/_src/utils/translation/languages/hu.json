@@ -190,7 +190,6 @@
     "builder.statCategories.damageReduction.sub": "(Normál)",
     "builder.statCategories.damageReductionHealthNormalized": "Sebzés Csökkentés",
     "builder.statCategories.damageReductionHealthNormalized.sub": "(Életerő Normalizálva)",
-    "builder.statCategories.effectiveHealthRegen": "Effektív Életerő Regeneráció",
     "builder.statCategories.effectiveHealth": "Effektív Életerő",
     "builder.statCategories.melee": "Közelharc",
     "builder.statCategories.projectile": "Lövedék",

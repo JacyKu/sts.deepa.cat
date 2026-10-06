@@ -40,16 +40,7 @@ export default function BuilderHeader(data) {
             let tempName = 'Monumenta Builder';
             // A DB-saved build can carry a display name from "My Builds" renaming.
             const name = data.savedName || decodeBuildName(data.build);
-            if (name) {
-                // Saved names are stored decoded; some legacy rows stored them
-                // percent-encoded, so try one decode - names with a literal "%"
-                // (e.g. "100% run") throw and are kept exactly as they are.
-                try {
-                    tempName = decodeURIComponent(name);
-                } catch (e) {
-                    tempName = name;
-                }
-            }
+            if (name) tempName = decodeURIComponent(name);
             setText(tempName);
             setTempText(tempName);
             data.buildNameRef.current = tempName;

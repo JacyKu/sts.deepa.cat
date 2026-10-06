@@ -6,7 +6,6 @@ import extras from '../../data/extras.json';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
 import { loadSkills } from '../../utils/siteDataClient';
 import { useTranslation } from '../useTranslation';
-import { renderObfuscated } from './obfuscatedText';
 
 let searchOptionsCache = null;
 function getSearchOptions(itemData) {
@@ -80,39 +79,14 @@ function getSearchOptions(itemData) {
         formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
         effects.push(formatted);
     });
-    // Location name -> registry id (locationId), so the filter can show the id
-    // in parentheses. Items written before the locationId field existed (or
-    // whose location the registry lacks) have no id and show the name alone.
     let uniqueLocations = {};
-    Object.keys(itemData).forEach((item) => {
-        const { location, locationId } = itemData[item];
-        if (location == undefined) return;
-        if (!(location in uniqueLocations) || (!uniqueLocations[location] && locationId)) {
-            uniqueLocations[location] = locationId || null;
-        }
-    });
-    Object.keys(uniqueLocations).forEach((locationName) => {
-        const id = uniqueLocations[locationName];
-        const suffix = id ? ` (${id})` : '';
-        // The Twisted location's redacted half scrambles like the game's
-        // <obfuscated> text, in the menu and the selected value alike; the
-        // value stays the raw string so filtering is unaffected.
-        locations.push(
-            /[A-Za-z]?x{4,}/.test(locationName)
-                ? {
-                      value: locationName,
-                      label: (
-                          <>
-                              {renderObfuscated(locationName)}
-                              {suffix}
-                          </>
-                      ),
-                  }
-                : id
-                  ? { value: locationName, label: `${locationName}${suffix}` }
-                  : locationName
-        );
-    });
+    Object.keys(itemData)
+        .map((item) => itemData[item].location)
+        .filter((locationName) => locationName != undefined)
+        .forEach((locationName) => {
+            uniqueLocations[locationName] = 1;
+        });
+    Object.keys(uniqueLocations).forEach((locationName) => locations.push(locationName));
     let uniquePowers = {};
     Object.keys(itemData)
         .filter((item) => itemData[item].type == 'Charm')
@@ -319,7 +293,9 @@ export default function SearchForm({ update, itemData }) {
         return null;
     }, [filters]);
     const visibleCharmSkills =
-        activeCharmClass && charmSkillsByClass[activeCharmClass] ? charmSkillsByClass[activeCharmClass] : charmSkills;
+        activeCharmClass && charmSkillsByClass[activeCharmClass]
+            ? charmSkillsByClass[activeCharmClass]
+            : charmSkills;
 
     function updateRowValue(uniqueKey, prefix, value) {
         setFilters((rows) =>
@@ -352,8 +328,7 @@ export default function SearchForm({ update, itemData }) {
     function rowValues(row) {
         const values = { ...(row.selected || {}) };
         if (row.activeCategory === 'Not') values.notCategorySelect = values.notCategorySelect || 'Item Type';
-        if (row.activeCategory === 'Charm Power')
-            values.charmPowerOperatorSelect = values.charmPowerOperatorSelect || '=';
+        if (row.activeCategory === 'Charm Power') values.charmPowerOperatorSelect = values.charmPowerOperatorSelect || '=';
         return values;
     }
 
@@ -486,14 +461,18 @@ export default function SearchForm({ update, itemData }) {
                 onChange={(opt) => onValueChange('itemStatSelect', opt ? opt.value : null)}
             />
         )),
-        new SearchCategory('Consumable Effect', 'items.searchForm.effect', ({ uniqueKey, selected, onValueChange }) => (
-            <SelectInput
-                name={`effectSelect-${uniqueKey}`}
-                sortableStats={effects}
-                value={selected.effectSelect ?? null}
-                onChange={(opt) => onValueChange('effectSelect', opt ? opt.value : null)}
-            />
-        )),
+        new SearchCategory(
+            'Consumable Effect',
+            'items.searchForm.effect',
+            ({ uniqueKey, selected, onValueChange }) => (
+                <SelectInput
+                    name={`effectSelect-${uniqueKey}`}
+                    sortableStats={effects}
+                    value={selected.effectSelect ?? null}
+                    onChange={(opt) => onValueChange('effectSelect', opt ? opt.value : null)}
+                />
+            )
+        ),
         new SearchCategory('Region', 'items.searchForm.region', ({ uniqueKey, selected, onValueChange }) => (
             <SelectInput
                 name={`regionSelect-${uniqueKey}`}
@@ -609,7 +588,12 @@ export default function SearchForm({ update, itemData }) {
     ];
 
     return (
-        <form className={styles.searchForm} onSubmit={sendUpdate} onContextMenu={disableRightClick} ref={form}>
+        <form
+            className={styles.searchForm}
+            onSubmit={sendUpdate}
+            onContextMenu={disableRightClick}
+            ref={form}
+        >
             <div className={styles.searchContainer} ref={searchContainer}>
                 {filters.map((f) => (
                     <div className={styles.filterEntry} key={`div-${f.uniqueKey}`}>

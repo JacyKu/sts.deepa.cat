@@ -7,7 +7,6 @@ import styles from '../../styles/History.module.css';
 import { formatDateString, formatMonthString } from '../../utils/dateFormat';
 import { buildClassRunGroups, classDiffLines } from '../../utils/classes/classDiff';
 import { useTranslation } from '../useTranslation';
-import { useRunNames } from '../useRunNames';
 
 // Runs are grouped by month; each run shows its full timestamp (UTC) so
 // several runs on one day stay distinct.
@@ -147,7 +146,7 @@ function mergeAbilities(skills, specs) {
     };
 }
 
-function RunCard({ run, defaultOpen, runName }) {
+function RunCard({ run, defaultOpen }) {
     const t = useTranslation();
     const [open, setOpen] = React.useState(defaultOpen);
     const skills = mergeAbilities(run.skills, run.specs);
@@ -203,7 +202,6 @@ function RunCard({ run, defaultOpen, runName }) {
                     <span className={styles.runTimeZone}>UTC</span>
                 </span>
                 <span className={styles.runCounts}>{counts}</span>
-                {runName ? <span className={styles.runName}>{runName}</span> : null}
                 <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`} aria-hidden="true">
                     ▸
                 </span>
@@ -248,7 +246,6 @@ function RunCard({ run, defaultOpen, runName }) {
 
 export default function ClassChangesPage({ classData, history }) {
     const t = useTranslation();
-    const runNames = useRunNames('class');
     const runs = React.useMemo(() => buildClassRunGroups(history, classData || {}), [history, classData]);
     const monthGroups = React.useMemo(() => groupByMonth(runs), [runs]);
     const updatedAt = history && history.updatedAt ? history.updatedAt : null;
@@ -288,12 +285,7 @@ export default function ClassChangesPage({ classData, history }) {
                             <section key={group.month} className={styles.dateGroup}>
                                 <h2 className={styles.dateHeading}>{formatMonthString(group.month)}</h2>
                                 {group.runs.map((run) => (
-                                    <RunCard
-                                        key={run.at}
-                                        run={run}
-                                        defaultOpen={run === runs[0]}
-                                        runName={runNames[run.at]}
-                                    />
+                                    <RunCard key={run.at} run={run} defaultOpen={run === runs[0]} />
                                 ))}
                             </section>
                         ))}

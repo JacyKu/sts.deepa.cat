@@ -40,12 +40,6 @@ class Stats {
             boots: formData.boots,
         };
 
-        // The exact value behind every rounded display stat, filled in by the
-        // round helpers below. The UI renders the 2 dp value and shows the
-        // full one in the hover tooltip; calculations always use the exact
-        // value (the rounded fields are never read back).
-        this.fullValues = {};
-
         this.fullItemData = {};
         types.forEach((type) => {
             this.fullItemData[type] =
@@ -203,36 +197,9 @@ class Stats {
         this.calculateOffenseStats();
 
         // Round HP to 2 decimals so floating-point precision errors don't leak
-        // into displayed values; the exact value stays in fullValues for the
-        // hover tooltips.
-        this.healthFinal = this.roundNumber('healthFinal', this.healthFinal);
-        this.currentHealth = this.roundNumber('currentHealth', this.currentHealth);
-    }
-
-    // ---------------------------------------------------------------------
-    // Display rounding. Calculations run at full precision; every stat that
-    // is rendered keeps its exact value in fullValues (used by the UI's hover
-    // tooltips) and its 2 dp value in the stat field (used by the cards).
-    // ---------------------------------------------------------------------
-
-    /** 2 dp string for a numeric stat (keeps trailing zeros, e.g. "0.00"). */
-    round(name, value) {
-        const num = Number(value);
-        this.fullValues[name] = num;
-        return num.toFixed(2);
-    }
-
-    /** 2 dp percentage string for a Percentage stat. */
-    roundPerc(name, percentage) {
-        this.fullValues[name] = percentage.perc;
-        return percentage.toFixedPerc(2);
-    }
-
-    /** Number rounded to 2 dp (no trailing zeros, e.g. for max/current HP). */
-    roundNumber(name, value) {
-        const num = Number(value);
-        this.fullValues[name] = num;
-        return Number(num.toFixed(2));
+        // into displayed values.
+        this.healthFinal = Number(this.healthFinal.toFixed(2));
+        this.currentHealth = Number(this.currentHealth.toFixed(2));
     }
 
     calculateOffenseStats() {
@@ -346,8 +313,12 @@ class Stats {
         if (this.hasDelveInfusion('Decapitation'))
             attackDamageCrit *= 1 + DELVE_DECAPITATION_PER_LEVEL * this.delveLevel;
 
-        // attack speed (computed in adjustStats, where Life Drain needs it)
-        let attackSpeed = this.weaponAttackSpeed;
+        // attack speed
+        let attackSpeed =
+            (this.sumNumberStat(this.itemStats.mainhand, 'attack_speed_base', this.attackSpeed) +
+                this.attackSpeedFlatBonus) *
+            this.attackSpeedPercent.val *
+            this.extraAttackSpeedMultiplier;
         let attackCritSpeed = Math.min(attackSpeed, 5 / 3);
 
         // Projectile Stats
@@ -368,7 +339,7 @@ class Stats {
         this.projectileDamagePercent.add(firstStrikeSit); // proj fstrike is 10%*level as of june balance
         this.projectileDamagePercent.add(regicideSit);
         this.projectileDamagePercent.add(staminaSit);
-        this.projectileDamagePercent.add(techniqueSit); // proj technique is 10%*level
+        this.projectileDamagePercent.add(0.75 * techniqueSit); // proj technique is 7.5%*level
         this.projectileDamagePercent.add(abyssalSit);
         this.projectileDamagePercent.add(skyseekerSit);
         this.projectileDamagePercent.add(retaliationSit * 0.5);
@@ -439,36 +410,30 @@ class Stats {
         this.potionDamage = potionDamageBase * magicMultiplier;
 
         // display
-        this.attackSpeedPercent = this.roundPerc('attackSpeedPercent', this.attackSpeedPercent);
-        this.attackSpeed = this.round('attackSpeed', attackSpeed);
-        this.attackDamagePercent = this.roundPerc('attackDamagePercent', this.attackDamagePercent);
-        this.classAttackDamagePercent = this.roundPerc('classAttackDamagePercent', this.classAttackDamagePercent);
-        this.attackDamage = this.round('attackDamage', attackDamage);
-        this.attackDamageCrit = this.round('attackDamageCrit', attackDamageCrit);
-        this.iframeDPS = this.round('iframeDPS', attackSpeed >= 2 ? attackDamage * 2 : attackDamage * attackSpeed);
-        this.iframeCritDPS = this.round(
-            'iframeCritDPS',
-            attackSpeed >= 2 ? attackDamageCrit * 2 : attackDamageCrit * attackSpeed
-        );
-        this.critSpamDPS = this.round('critSpamDPS', attackCritSpeed * attackDamageCrit);
+        this.attackSpeedPercent = this.attackSpeedPercent.toFixedPerc(2);
+        this.attackSpeed = attackSpeed.toFixed(2);
+        this.attackDamagePercent = this.attackDamagePercent.toFixedPerc(2);
+        this.classAttackDamagePercent = this.classAttackDamagePercent.toFixedPerc(2);
+        this.attackDamage = attackDamage.toFixed(2);
+        this.attackDamageCrit = attackDamageCrit.toFixed(2);
+        this.iframeDPS = (attackSpeed >= 2 ? attackDamage * 2 : attackDamage * attackSpeed).toFixed(2);
+        this.iframeCritDPS = (attackSpeed >= 2 ? attackDamageCrit * 2 : attackDamageCrit * attackSpeed).toFixed(2);
+        this.critSpamDPS = (attackCritSpeed * attackDamageCrit).toFixed(2);
 
-        this.projectileDamagePercent = this.roundPerc('projectileDamagePercent', this.projectileDamagePercent);
-        this.classProjectileDamagePercent = this.roundPerc(
-            'classProjectileDamagePercent',
-            this.classProjectileDamagePercent
-        );
-        this.projectileDamage = this.round('projectileDamage', projectileDamage);
-        this.projectileSpeedPercent = this.roundPerc('projectileSpeedPercent', this.projectileSpeedPercent);
-        this.projectileSpeed = this.round('projectileSpeed', projectileSpeed);
-        this.throwRatePercent = this.roundPerc('throwRatePercent', this.throwRatePercent);
-        this.throwRate = this.round('throwRate', throwRate);
+        this.projectileDamagePercent = this.projectileDamagePercent.toFixedPerc(2);
+        this.classProjectileDamagePercent = this.classProjectileDamagePercent.toFixedPerc(2);
+        this.projectileDamage = projectileDamage.toFixed(2);
+        this.projectileSpeedPercent = this.projectileSpeedPercent.toFixedPerc(2);
+        this.projectileSpeed = projectileSpeed.toFixed(2);
+        this.throwRatePercent = this.throwRatePercent.toFixedPerc(2);
+        this.throwRate = throwRate.toFixed(2);
 
-        this.magicDamagePercent = this.roundPerc('magicDamagePercent', this.magicDamagePercent);
-        this.classMagicDamagePercent = this.roundPerc('classMagicDamagePercent', this.classMagicDamagePercent);
-        this.spellPowerPercent = this.roundPerc('spellPowerPercent', this.spellPowerPercent);
-        this.spellDamage = this.roundPerc('spellDamage', this.spellDamage);
-        this.spellCooldownPercent = this.roundPerc('spellCooldownPercent', this.spellCooldownPercent);
-        this.potionDamage = this.round('potionDamage', this.potionDamage);
+        this.magicDamagePercent = this.magicDamagePercent.toFixedPerc(2);
+        this.classMagicDamagePercent = this.classMagicDamagePercent.toFixedPerc(2);
+        this.spellPowerPercent = this.spellPowerPercent.toFixedPerc(2);
+        this.spellDamage = this.spellDamage.toFixedPerc(2);
+        this.spellCooldownPercent = this.spellCooldownPercent.toFixedPerc(2);
+        this.potionDamage = this.potionDamage.toFixed(2);
     }
 
     calculateDefenseStats() {
@@ -478,100 +443,92 @@ class Stats {
         let drType = this.situationals.second_wind.enabled ? 'secondwind' : 'base';
 
         // Regular Damage Reductions
-        this.meleeDR = this.roundPerc('meleeDR', drs.melee[drType]);
-        this.projectileDR = this.roundPerc('projectileDR', drs.projectile[drType]);
-        this.magicDR = this.roundPerc('magicDR', drs.magic[drType]);
-        this.blastDR = this.roundPerc('blastDR', drs.blast[drType]);
-        this.fireDR = this.roundPerc('fireDR', drs.fire[drType]);
-        this.fallDR = this.roundPerc('fallDR', drs.fall[drType]);
-        this.ailmentDR = this.roundPerc('ailmentDR', drs.ailment[drType]);
+        this.meleeDR = drs.melee[drType].toFixedPerc(2);
+        this.projectileDR = drs.projectile[drType].toFixedPerc(2);
+        this.magicDR = drs.magic[drType].toFixedPerc(2);
+        this.blastDR = drs.blast[drType].toFixedPerc(2);
+        this.fireDR = drs.fire[drType].toFixedPerc(2);
+        this.fallDR = drs.fall[drType].toFixedPerc(2);
+        this.ailmentDR = drs.ailment[drType].toFixedPerc(2);
 
         // Effective HP
         if (this.situationals.second_wind.level == 0 || drType == 'base') {
-            const hp = this.healthFinal * this.currentHealthPercent.val;
-            this.meleeEHP = this.round('meleeEHP', hp / (1 - drs.melee.base.val));
-            this.projectileEHP = this.round('projectileEHP', hp / (1 - drs.projectile.base.val));
-            this.magicEHP = this.round('magicEHP', hp / (1 - drs.magic.base.val));
-            this.blastEHP = this.round('blastEHP', hp / (1 - drs.blast.base.val));
-            this.fireEHP = this.round('fireEHP', hp / (1 - drs.fire.base.val));
-            this.fallEHP = this.round('fallEHP', hp / (1 - drs.fall.base.val));
-            this.ailmentEHP = this.round('ailmentEHP', hp / (1 - drs.ailment.base.val));
+            this.meleeEHP = ((this.healthFinal * this.currentHealthPercent.val) / (1 - drs.melee.base.val)).toFixed(2);
+            this.projectileEHP = (
+                (this.healthFinal * this.currentHealthPercent.val) /
+                (1 - drs.projectile.base.val)
+            ).toFixed(2);
+            this.magicEHP = ((this.healthFinal * this.currentHealthPercent.val) / (1 - drs.magic.base.val)).toFixed(2);
+            this.blastEHP = ((this.healthFinal * this.currentHealthPercent.val) / (1 - drs.blast.base.val)).toFixed(2);
+            this.fireEHP = ((this.healthFinal * this.currentHealthPercent.val) / (1 - drs.fire.base.val)).toFixed(2);
+            this.fallEHP = ((this.healthFinal * this.currentHealthPercent.val) / (1 - drs.fall.base.val)).toFixed(2);
+            this.ailmentEHP = ((this.healthFinal * this.currentHealthPercent.val) / (1 - drs.ailment.base.val)).toFixed(
+                2
+            );
         } else {
-            const hpNoSecondWind = Math.max(0, this.currentHealth - this.healthFinal * 0.5);
-            const hpSecondWind = Math.min(this.currentHealth, this.healthFinal * 0.5);
-            this.meleeEHP = this.round(
-                'meleeEHP',
-                hpNoSecondWind / (1 - drs.melee.base.val) + hpSecondWind / (1 - drs.melee.secondwind.val)
-            );
-            this.projectileEHP = this.round(
-                'projectileEHP',
-                hpNoSecondWind / (1 - drs.projectile.base.val) + hpSecondWind / (1 - drs.projectile.secondwind.val)
-            );
-            this.magicEHP = this.round(
-                'magicEHP',
-                hpNoSecondWind / (1 - drs.magic.base.val) + hpSecondWind / (1 - drs.magic.secondwind.val)
-            );
-            this.blastEHP = this.round(
-                'blastEHP',
-                hpNoSecondWind / (1 - drs.blast.base.val) + hpSecondWind / (1 - drs.blast.secondwind.val)
-            );
-            this.fireEHP = this.round(
-                'fireEHP',
-                hpNoSecondWind / (1 - drs.fire.base.val) + hpSecondWind / (1 - drs.fire.secondwind.val)
-            );
-            this.fallEHP = this.round(
-                'fallEHP',
-                hpNoSecondWind / (1 - drs.fall.base.val) + hpSecondWind / (1 - drs.fall.secondwind.val)
-            );
-            this.ailmentEHP = this.round(
-                'ailmentEHP',
-                hpNoSecondWind / (1 - drs.ailment.base.val) + hpSecondWind / (1 - drs.ailment.secondwind.val)
-            );
+            let hpNoSecondWind = Math.max(0, this.currentHealth - this.healthFinal * 0.5);
+            let hpSecondWind = Math.min(this.currentHealth, this.healthFinal * 0.5);
+            this.meleeEHP = (
+                hpNoSecondWind / (1 - drs.melee.base.val) +
+                hpSecondWind / (1 - drs.melee.secondwind.val)
+            ).toFixed(2);
+            this.projectileEHP = (
+                hpNoSecondWind / (1 - drs.projectile.base.val) +
+                hpSecondWind / (1 - drs.projectile.secondwind.val)
+            ).toFixed(2);
+            this.magicEHP = (
+                hpNoSecondWind / (1 - drs.magic.base.val) +
+                hpSecondWind / (1 - drs.magic.secondwind.val)
+            ).toFixed(2);
+            this.blastEHP = (
+                hpNoSecondWind / (1 - drs.blast.base.val) +
+                hpSecondWind / (1 - drs.blast.secondwind.val)
+            ).toFixed(2);
+            this.fireEHP = (
+                hpNoSecondWind / (1 - drs.fire.base.val) +
+                hpSecondWind / (1 - drs.fire.secondwind.val)
+            ).toFixed(2);
+            this.fallEHP = (
+                hpNoSecondWind / (1 - drs.fall.base.val) +
+                hpSecondWind / (1 - drs.fall.secondwind.val)
+            ).toFixed(2);
+            this.ailmentEHP = (
+                hpNoSecondWind / (1 - drs.ailment.base.val) +
+                hpSecondWind / (1 - drs.ailment.secondwind.val)
+            ).toFixed(2);
         }
 
         // Effective HP regenerated per second: the raw (pre-mitigation) damage
         // that your regeneration can out-heal each second, per damage type.
-        // Built from the exact (unrounded) regeneration; negative regeneration
-        // (Curse of the Veil, Taboo burst) is clamped so the card never shows
-        // below zero; it reads 0 without any regen.
-        const regenPerSec = Math.max(0, this.regenPerSecFull || 0);
-        this.meleeEHPR = this.round('meleeEHPR', regenPerSec / (1 - drs.melee[drType].val));
-        this.projectileEHPR = this.round('projectileEHPR', regenPerSec / (1 - drs.projectile[drType].val));
-        this.magicEHPR = this.round('magicEHPR', regenPerSec / (1 - drs.magic[drType].val));
-        this.blastEHPR = this.round('blastEHPR', regenPerSec / (1 - drs.blast[drType].val));
-        this.fireEHPR = this.round('fireEHPR', regenPerSec / (1 - drs.fire[drType].val));
-        this.fallEHPR = this.round('fallEHPR', regenPerSec / (1 - drs.fall[drType].val));
-        this.ailmentEHPR = this.round('ailmentEHPR', regenPerSec / (1 - drs.ailment[drType].val));
+        const regenPerSec = Number(this.regenPerSec) || 0;
+        this.meleeEHPR = (regenPerSec / (1 - drs.melee[drType].val)).toFixed(2);
+        this.projectileEHPR = (regenPerSec / (1 - drs.projectile[drType].val)).toFixed(2);
+        this.magicEHPR = (regenPerSec / (1 - drs.magic[drType].val)).toFixed(2);
+        this.blastEHPR = (regenPerSec / (1 - drs.blast[drType].val)).toFixed(2);
+        this.fireEHPR = (regenPerSec / (1 - drs.fire[drType].val)).toFixed(2);
+        this.fallEHPR = (regenPerSec / (1 - drs.fall[drType].val)).toFixed(2);
+        this.ailmentEHPR = (regenPerSec / (1 - drs.ailment[drType].val)).toFixed(2);
 
         // Health Normalized Damage Reductions
-        this.meleeHNDR = this.roundPerc(
-            'meleeHNDR',
-            new Percentage(1 - (1 - drs.melee[drType].val) / (this.healthFinal / 20), false)
+        this.meleeHNDR = new Percentage(1 - (1 - drs.melee[drType].val) / (this.healthFinal / 20), false).toFixedPerc(
+            2
         );
-        this.projectileHNDR = this.roundPerc(
-            'projectileHNDR',
-            new Percentage(1 - (1 - drs.projectile[drType].val) / (this.healthFinal / 20), false)
+        this.projectileHNDR = new Percentage(
+            1 - (1 - drs.projectile[drType].val) / (this.healthFinal / 20),
+            false
+        ).toFixedPerc(2);
+        this.magicHNDR = new Percentage(1 - (1 - drs.magic[drType].val) / (this.healthFinal / 20), false).toFixedPerc(
+            2
         );
-        this.magicHNDR = this.roundPerc(
-            'magicHNDR',
-            new Percentage(1 - (1 - drs.magic[drType].val) / (this.healthFinal / 20), false)
+        this.blastHNDR = new Percentage(1 - (1 - drs.blast[drType].val) / (this.healthFinal / 20), false).toFixedPerc(
+            2
         );
-        this.blastHNDR = this.roundPerc(
-            'blastHNDR',
-            new Percentage(1 - (1 - drs.blast[drType].val) / (this.healthFinal / 20), false)
-        );
-        this.fireHNDR = this.roundPerc(
-            'fireHNDR',
-            new Percentage(1 - (1 - drs.fire[drType].val) / (this.healthFinal / 20), false)
-        );
-        this.fallHNDR = this.roundPerc(
-            'fallHNDR',
-            new Percentage(1 - (1 - drs.fall[drType].val) / (this.healthFinal / 20), false)
-        );
-        this.ailmentHNDR = this.roundPerc(
-            'ailmentHNDR',
-            new Percentage(1 - (1 - drs.ailment[drType].val) / (this.healthFinal / 20), false)
-        );
+        this.fireHNDR = new Percentage(1 - (1 - drs.fire[drType].val) / (this.healthFinal / 20), false).toFixedPerc(2);
+        this.fallHNDR = new Percentage(1 - (1 - drs.fall[drType].val) / (this.healthFinal / 20), false).toFixedPerc(2);
+        this.ailmentHNDR = new Percentage(
+            1 - (1 - drs.ailment[drType].val) / (this.healthFinal / 20),
+            false
+        ).toFixedPerc(2);
     }
 
     calculateDamageTaken(
@@ -924,28 +881,26 @@ class Stats {
             }
         }
         // Fix speed percentage to account for base speed
-        this.speedPercent = this.roundPerc(
-            'speedPercent',
-            this.speedPercent
-                .mul(this.speedFlat / 0.1, false)
-                .mul(this.currentHealthPercent.perc <= 50 ? 1 - 0.1 * this.crippling : 1, false)
-                .mul(this.enabledClassAbilityBuffs.totemic_empowerment ? 1.1 : 1, false)
-                .mul(this.enabledClassAbilityBuffs.celestial_blessing ? 1.2 : 1, false)
-                .mul(
-                    this.enabledClassAbilityBuffs.weapon_mastery_enhancement && this.fullItemData.mainhand.type == 'Axe'
-                        ? 1.15
-                        : 1,
-                    false
-                )
-                .mul(this.extraSpeedMultiplier, false)
-                // Expedite: (0.75% * level * 3 stacks) movement speed while damaging with abilities.
-                .mul(
-                    this.hasDelveInfusion('Expedite') ? 1 + DELVE_EXPEDITE_SPEED_PER_LEVEL * 3 * this.delveLevel : 1,
-                    false
-                )
-                // Ardor: (2% * level) speed after mining a spawner outside of water.
-                .mul(this.hasDelveInfusion('Ardor') ? 1 + DELVE_ARDOR_SPEED_PER_LEVEL * this.delveLevel : 1, false)
-        );
+        this.speedPercent = this.speedPercent
+            .mul(this.speedFlat / 0.1, false)
+            .mul(this.currentHealthPercent.perc <= 50 ? 1 - 0.1 * this.crippling : 1, false)
+            .mul(this.enabledClassAbilityBuffs.totemic_empowerment ? 1.1 : 1, false)
+            .mul(this.enabledClassAbilityBuffs.celestial_blessing ? 1.2 : 1, false)
+            .mul(
+                this.enabledClassAbilityBuffs.weapon_mastery_enhancement && this.fullItemData.mainhand.type == 'Axe'
+                    ? 1.15
+                    : 1,
+                false
+            )
+            .mul(this.extraSpeedMultiplier, false)
+            // Expedite: (0.75% * level * 3 stacks) movement speed while damaging with abilities.
+            .mul(
+                this.hasDelveInfusion('Expedite') ? 1 + DELVE_EXPEDITE_SPEED_PER_LEVEL * 3 * this.delveLevel : 1,
+                false
+            )
+            // Ardor: (2% * level) speed after mining a spawner outside of water.
+            .mul(this.hasDelveInfusion('Ardor') ? 1 + DELVE_ARDOR_SPEED_PER_LEVEL * this.delveLevel : 1, false)
+            .toFixedPerc(2);
 
         // Fix knockback resistance to be percentage and cap at 100
         if (this.enabledClassAbilityBuffs.formidable) this.knockbackRes += 2;
@@ -955,7 +910,7 @@ class Stats {
         this.knockbackRes = this.knockbackRes > 10 ? 100 : this.knockbackRes * 10;
         let effHealingNonRounded = new Percentage((20 / this.healthFinal) * this.healingRate.val, false);
         if (this.enabledClassAbilityBuffs.taboo) effHealingNonRounded.mul(50);
-        this.effHealingRate = this.roundPerc('effHealingRate', effHealingNonRounded);
+        this.effHealingRate = effHealingNonRounded.toFixedPerc(2);
         let regenPerSecNonRounded = (1 / 3) * Math.sqrt(this.baseRegenLevel) * this.healingRate.val;
         // Curse of the Veil: drains level health every 3 seconds (level/3 per
         // second), but only while its situational checkbox is ticked (hostile
@@ -966,32 +921,16 @@ class Stats {
         if (this.enabledClassAbilityBuffs.taboo_burst) regenPerSecNonRounded -= 0.07 * this.healthFinal;
         // Soothing: regenerates (0.04 * level) health per second.
         if (this.hasDelveInfusion('Soothing')) regenPerSecNonRounded += DELVE_REGEN_PER_LEVEL * this.delveLevel;
-        this.regenPerSec = this.round('regenPerSec', regenPerSecNonRounded);
-        this.regenPerSecPercent = this.roundPerc(
-            'regenPerSecPercent',
-            new Percentage(regenPerSecNonRounded / this.healthFinal, false)
-        );
-        // The exact (unrounded) regeneration, used by the EHPR calculation.
-        this.regenPerSecFull = regenPerSecNonRounded;
-        // The weapon's attack speed in attacks per second, computed exactly as
-        // calculateOffenseStats will (all of its inputs are ready by now).
-        // Life Drain scales with it, so it is computed once here and reused.
-        this.weaponAttackSpeed =
-            (this.sumNumberStat(this.itemStats.mainhand, 'attack_speed_base', this.attackSpeed) +
-                this.attackSpeedFlatBonus) *
-            this.attackSpeedPercent.val *
-            this.extraAttackSpeedMultiplier;
-        // Life Drain (balance update): healed on crit is
-        // 1.5 * sqrt(level) / attackSpeed^1.5, scaled by the healing rate.
-        let lifeDrainOnCritFixedNonRounded =
-            ((1.5 * Math.sqrt(this.lifeDrainOnCrit)) / Math.pow(this.weaponAttackSpeed, 1.5)) * this.healingRate.val;
-        this.lifeDrainOnCrit = this.round('lifeDrainOnCrit', lifeDrainOnCritFixedNonRounded);
-        this.healingRate = this.roundPerc('healingRate', this.healingRate);
-        this.lifeDrainOnCritPercent = this.roundPerc(
-            'lifeDrainOnCritPercent',
-            new Percentage(lifeDrainOnCritFixedNonRounded / this.healthFinal, false)
-        );
-        this.thorns = this.round('thorns', this.thorns * this.thornsPercent.val);
+        this.regenPerSec = regenPerSecNonRounded.toFixed(2);
+        this.regenPerSecPercent = new Percentage(regenPerSecNonRounded / this.healthFinal, false).toFixedPerc(2);
+        let lifeDrainOnCritFixedNonRounded = Math.sqrt(this.lifeDrainOnCrit) * this.healingRate.val;
+        this.lifeDrainOnCrit = lifeDrainOnCritFixedNonRounded.toFixed(2);
+        this.healingRate = this.healingRate.toFixedPerc(2);
+        this.lifeDrainOnCritPercent = new Percentage(
+            lifeDrainOnCritFixedNonRounded / this.healthFinal,
+            false
+        ).toFixedPerc(2);
+        this.thorns = (this.thorns * this.thornsPercent.val).toFixed(2);
     }
 
     sumAllStats() {
@@ -1011,7 +950,7 @@ class Stats {
                 this.thorns += this.sumNumberStat(itemStats, 'thorns_flat');
                 this.thornsPercent.add(this.sumNumberStat(itemStats, 'thorns_percent'));
                 this.throwRatePercent.add(this.sumNumberStat(itemStats, 'throw_rate_percent'));
-                this.infernoDmgPerTick += this.sumNumberStat(itemStats, 'inferno');
+                this.fireTickDamage += this.sumNumberStat(itemStats, 'inferno');
 
                 this.healingRate
                     .add(this.sumEnchantmentStat(itemStats, 'curse_of_anemia', -10))
@@ -1066,14 +1005,14 @@ class Stats {
             (this.speedFlat = 0.1),
             (this.knockbackRes = 0),
             (this.thorns = 0),
-            (this.infernoDmgPerTick = 0),
+            (this.fireTickDamage = 1),
             (this.thornsPercent = new Percentage(100)),
             (this.healthPercent = new Percentage(100)),
             (this.healthFlat = 20),
             (this.healthFinal = 20),
             (this.currentHealth = 20),
             (this.healingRate = new Percentage(100)),
-            (this.effHealingRate = this.roundPerc('effHealingRate', new Percentage(100))),
+            (this.effHealingRate = new Percentage(100).toFixedPerc(2)),
             (this.baseRegenLevel = 0),
             (this.baseVeilcurseLevel = 0),
             (this.regenPerSecPercent = new Percentage(0)),
@@ -1091,20 +1030,20 @@ class Stats {
             (this.magicFragility = 0),
             (this.blastFragility = 0),
             (this.fireFragility = 0),
-            (this.meleeHNDR = this.roundPerc('meleeHNDR', new Percentage(0))),
-            (this.projectileHNDR = this.roundPerc('projectileHNDR', new Percentage(0))),
-            (this.magicHNDR = this.roundPerc('magicHNDR', new Percentage(0))),
-            (this.blastHNDR = this.roundPerc('blastHNDR', new Percentage(0))),
-            (this.fireHNDR = this.roundPerc('fireHNDR', new Percentage(0))),
-            (this.fallHNDR = this.roundPerc('fallHNDR', new Percentage(0))),
-            (this.ailmentHNDR = this.roundPerc('ailmentHNDR', new Percentage(0))),
-            (this.meleeDR = this.roundPerc('meleeDR', new Percentage(0))),
-            (this.projectileDR = this.roundPerc('projectileDR', new Percentage(0))),
-            (this.magicDR = this.roundPerc('magicDR', new Percentage(0))),
-            (this.blastDR = this.roundPerc('blastDR', new Percentage(0))),
-            (this.fireDR = this.roundPerc('fireDR', new Percentage(0))),
-            (this.fallDR = this.roundPerc('fallDR', new Percentage(0))),
-            (this.ailmentDR = this.roundPerc('ailmentDR', new Percentage(0))),
+            (this.meleeHNDR = new Percentage(0).toFixedPerc(2)),
+            (this.projectileHNDR = new Percentage(0).toFixedPerc(2)),
+            (this.magicHNDR = new Percentage(0).toFixedPerc(2)),
+            (this.blastHNDR = new Percentage(0).toFixedPerc(2)),
+            (this.fireHNDR = new Percentage(0).toFixedPerc(2)),
+            (this.fallHNDR = new Percentage(0).toFixedPerc(2)),
+            (this.ailmentHNDR = new Percentage(0).toFixedPerc(2)),
+            (this.meleeDR = new Percentage(0).toFixedPerc(2)),
+            (this.projectileDR = new Percentage(0).toFixedPerc(2)),
+            (this.magicDR = new Percentage(0).toFixedPerc(2)),
+            (this.blastDR = new Percentage(0).toFixedPerc(2)),
+            (this.fireDR = new Percentage(0).toFixedPerc(2)),
+            (this.fallDR = new Percentage(0).toFixedPerc(2)),
+            (this.ailmentDR = new Percentage(0).toFixedPerc(2)),
             (this.meleeEHP = 0),
             (this.projectileEHP = 0),
             (this.magicEHP = 0),
