@@ -1,7 +1,7 @@
 {
   "name": "sts",
-  "version": "1.1.4",
-  "sts_version": "1.1.4",
+  "version": "1.1.5",
+  "sts_version": "1.1.5",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",

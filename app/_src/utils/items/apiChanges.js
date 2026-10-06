@@ -34,8 +34,12 @@ function dedupeByName(entries) {
     return [...seen.values()];
 }
 
-export function buildRunGroups(history, itemData) {
-    const runs = Array.isArray(history && history.runs) ? history.runs : [];
+export function buildRunGroups(history, itemData, limit) {
+    const allRuns = Array.isArray(history && history.runs) ? history.runs : [];
+    // The changes page renders progressively: only the first `limit` runs are
+    // turned into display groups (with their before/after diffs), so a long
+    // history can never be fully materialised on first paint.
+    const runs = Number.isFinite(limit) && limit >= 0 ? allRuns.slice(0, limit) : allRuns;
     const archives = history && history.items && typeof history.items === 'object' ? history.items : {};
     const items = itemData && typeof itemData === 'object' ? itemData : {};
 
@@ -52,15 +56,20 @@ export function buildRunGroups(history, itemData) {
                 .map((key) => {
                     // The archive records the state BEFORE each run. The state
                     // after a run is the next newer record, or the live item.
-                    const records = [...(archives[key] || [])].sort((a, b) =>
-                        String(a.at).localeCompare(String(b.at))
-                    );
+                    const records = [...(archives[key] || [])].sort((a, b) => String(a.at).localeCompare(String(b.at)));
                     const index = records.findIndex((record) => record.at === at);
                     const before = index >= 0 ? records[index].item : null;
                     const after =
                         index >= 0 && index + 1 < records.length ? records[index + 1].item : items[key] || null;
                     const item = after || before;
-                    return { key, name: (item && item.name) || key, before, after, item, loreOnly: isLoreOnlyChange(before, after) };
+                    return {
+                        key,
+                        name: (item && item.name) || key,
+                        before,
+                        after,
+                        item,
+                        loreOnly: isLoreOnlyChange(before, after),
+                    };
                 })
                 .filter((entry) => entry.before && entry.after);
 

@@ -182,15 +182,19 @@ export function validateData(publicDir) {
         }
     }
 
-    // 5. location colors: the location line's color is captured per item from
-    // the NBT lore (see stat-colors.mjs), so an API location rename must not
-    // leave any item without one. Region-fallback locations have no standalone
-    // lore line and keep the CSS palette instead. Skipped entirely when the
-    // dump has no NBT at all (every item would be missing it).
+    // 5. location colors: resolved from the API's /locations registry via each
+    // item's locationId (see stat-colors.mjs / update-items.mjs), with the NBT
+    // lore scan as fallback, so an API location rename must not leave any item
+    // without one. Region-fallback locations have no standalone lore line and
+    // keep the CSS palette instead. Skipped entirely when the dump has no
+    // colours at all (every item would be missing them).
     const regionFallbacks = new Set(REGION_FALLBACK_LOCATIONS);
     let locationColors = 0;
     const locationsWithoutColor = new Map();
     for (const [key, item] of Object.entries(items)) {
+        if (item.locationId !== undefined && (typeof item.locationId !== 'string' || item.locationId === '')) {
+            add(`item "${key}" has an invalid locationId "${item.locationId}"`);
+        }
         if (!item.location) continue;
         if (item.locationColor) {
             if (!/^#[0-9A-F]{6}$/.test(item.locationColor)) {

@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/History.module.css';
+import InfiniteScroll from '../infiniteScroll';
 import HistoryIcon from './historyIcon';
 import DiffLine from './itemDiffLine';
 import { useMaxMasterwork } from './maxMasterworkContext';
@@ -11,6 +12,12 @@ import { formatDateString, formatMonthString } from '../../utils/dateFormat';
 import { buildRunGroups } from '../../utils/items/apiChanges';
 import { allStatLines, topLevelDiffs, humanizeField } from '../../utils/items/itemDiff';
 import { useTranslation } from '../useTranslation';
+
+// Runs are processed and rendered a page at a time, and an open run renders
+// its changed items a page at a time, so a long history (or one huge update)
+// cannot lock up the page by building every diff at once.
+const RUNS_PER_PAGE = 8;
+const CHANGES_PER_PAGE = 25;
 
 function wikiHref(name) {
     return `https://monumenta.wiki.gg/wiki/${String(name)
@@ -74,9 +81,7 @@ function ChangedEntry({ entry }) {
     const statCount = statLines.filter((line) => line.kind !== 'same').length;
     const meta = [
         variant.masterwork > 0 ? `${t('items.changes.masterwork')} ${variant.masterwork}` : null,
-        statCount > 0
-            ? `${statCount} ${statCount === 1 ? t('items.changes.stat') : t('items.changes.stats')}`
-            : null,
+        statCount > 0 ? `${statCount} ${statCount === 1 ? t('items.changes.stat') : t('items.changes.stats')}` : null,
     ]
         .filter(Boolean)
         .join(' · ');
@@ -91,11 +96,7 @@ function ChangedEntry({ entry }) {
                     <span className={styles.groupMeta}>{meta}</span>
                 </span>
                 {entry.variants.length > 1 && (
-                    <span
-                        className={styles.masterworkSwitcher}
-                        role="group"
-                        aria-label={t('items.changes.masterwork')}
-                    >
+                    <span className={styles.masterworkSwitcher} role="group" aria-label={t('items.changes.masterwork')}>
                         {entry.variants.map((v, i) => (
                             <button
                                 key={v.key}
@@ -140,6 +141,13 @@ function ChangedEntry({ entry }) {
 function RunCard({ run, defaultOpen, showLoreOnly }) {
     const t = useTranslation();
     const [open, setOpen] = React.useState(defaultOpen);
+    const [shownChanged, setShownChanged] = React.useState(CHANGES_PER_PAGE);
+    // Reset the page window when the lore-only filter changes or the card is
+    // reused for another run (cards are keyed by timestamp, but the run prop
+    // can update when more runs load).
+    React.useEffect(() => {
+        setShownChanged(CHANGES_PER_PAGE);
+    }, [showLoreOnly, run.at]);
     const counts = [
         run.added.length ? `${run.added.length} ${t('items.changes.added')}` : null,
         run.changed.length ? `${run.changed.length} ${t('items.changes.changed')}` : null,
@@ -199,11 +207,15 @@ function RunCard({ run, defaultOpen, showLoreOnly }) {
                                 </span>
                             </h3>
                             {visibleChanged.length > 0 && (
-                                <div className={styles.changeList}>
-                                    {visibleChanged.map((entry) => (
+                                <InfiniteScroll
+                                    className={styles.changeList}
+                                    next={() => setShownChanged((n) => n + CHANGES_PER_PAGE)}
+                                    hasMore={shownChanged < visibleChanged.length}
+                                >
+                                    {visibleChanged.slice(0, shownChanged).map((entry) => (
                                         <ChangedEntry key={entry.name} entry={entry} />
                                     ))}
-                                </div>
+                                </InfiniteScroll>
                             )}
                         </section>
                     )}
@@ -230,7 +242,12 @@ function RunCard({ run, defaultOpen, showLoreOnly }) {
 
 export default function ApiChangesPage({ itemData, history }) {
     const t = useTranslation();
-    const runs = React.useMemo(() => buildRunGroups(history, itemData || {}), [history, itemData]);
+    const allRuns = Array.isArray(history && history.runs) ? history.runs : [];
+    const [runsToShow, setRunsToShow] = React.useState(RUNS_PER_PAGE);
+    const runs = React.useMemo(
+        () => buildRunGroups(history, itemData || {}, runsToShow),
+        [history, itemData, runsToShow]
+    );
     const monthGroups = React.useMemo(() => groupByMonth(runs), [runs]);
     const updatedAt = history && history.updatedAt ? history.updatedAt : null;
     const [showLoreOnly, setShowLoreOnly] = React.useState(false);
@@ -281,7 +298,11 @@ export default function ApiChangesPage({ itemData, history }) {
                         <b>{t('items.changes.empty')}</b>
                     </div>
                 ) : (
-                    <div className={styles.groupList}>
+                    <InfiniteScroll
+                        className={styles.groupList}
+                        next={() => setRunsToShow((n) => n + RUNS_PER_PAGE)}
+                        hasMore={runsToShow < allRuns.length}
+                    >
                         {monthGroups.map((group) => (
                             <section key={group.month} className={styles.dateGroup}>
                                 <h2 className={styles.dateHeading}>{formatMonthString(group.month)}</h2>
@@ -295,7 +316,7 @@ export default function ApiChangesPage({ itemData, history }) {
                                 ))}
                             </section>
                         ))}
-                    </div>
+                    </InfiniteScroll>
                 )}
             </main>
         </div>
