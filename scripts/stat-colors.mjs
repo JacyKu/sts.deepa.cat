@@ -233,10 +233,28 @@ const LOCATION_COLOR_OVERRIDES = {
     'Twisted lxxxxxxx': '#6B0000',
 };
 
+// The same overrides keyed by locationId, for the /locations registry path
+// below. Tenyears is an event location the registry does not list.
+const LOCATION_ID_COLOR_OVERRIDES = {
+    tenyears: LOCATION_COLOR_OVERRIDES.Tenyears,
+};
+
 // The API falls back to the region name when an item's location is unknown;
 // those items carry no standalone location line and keep the region colors in
 // Items.module.css.
 export const REGION_FALLBACK_LOCATIONS = ["King's Valley", 'Celsian Isles', "Architect's Ring"];
+
+// Authoritative location color for an item, resolved from the API's
+// /locations registry by the item's locationId (see the docs' field reference:
+// locationId matches the registry's `name`). The registry colour is stable
+// across display-name renames; the NBT scan below stays as the fallback for
+// dumps without locationId (the U5B mirror) and for ids the registry lacks.
+export function extractLocationColorFromRegistry(item, registryColors) {
+    const id = item && item.locationId;
+    if (!id) return null;
+    if (LOCATION_ID_COLOR_OVERRIDES[id]) return LOCATION_ID_COLOR_OVERRIDES[id];
+    return (registryColors && registryColors[id]) || null;
+}
 
 // Exact display color of the item's location line, taken from the game's NBT
 // lore like the stat colors above. Storing it per item means an API rename

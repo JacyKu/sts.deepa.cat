@@ -45,9 +45,10 @@ export function deepEqualStable(a, b) {
 
 // Fields that don't represent a gameplay change: statColors, locationColor and
 // effectColors are display-only metadata attached at import time, nbt is
-// stripped before writing. Ignoring them keeps color-only updates out of the
-// archive.
-const IGNORED_COMPARE_FIELDS = ['statColors', 'locationColor', 'effectColors', 'nbt'];
+// stripped before writing, and locationId is the stable identifier behind the
+// location name (its first appearance must not archive every item). Ignoring
+// them keeps metadata-only updates out of the archive.
+const IGNORED_COMPARE_FIELDS = ['statColors', 'locationColor', 'effectColors', 'nbt', 'locationId'];
 
 function withoutIgnored(item) {
     if (!item || typeof item !== 'object') return item;

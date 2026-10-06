@@ -3,7 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mergeHistory } from './item-history.mjs';
 import { updateClassData } from './class-history.mjs';
-import { extractStatColors, extractLocationColor, extractEffectColors } from './stat-colors.mjs';
+import {
+    extractStatColors,
+    extractLocationColor,
+    extractLocationColorFromRegistry,
+    extractEffectColors,
+} from './stat-colors.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
@@ -74,6 +79,25 @@ async function fetchSource(source) {
     return { data, keys, bytes: Buffer.byteLength(raw) };
 }
 
+// The /locations endpoint is the authoritative source for location colors:
+// every item's locationId maps to a registry entry whose colour is exactly
+// the one the game renders on the location line. Resolving colours from it
+// keeps items coloured across display-name renames; the per-item NBT scan is
+// only the fallback when locationId is absent (the U5B mirror) or unknown.
+async function fetchLocationRegistry() {
+    const res = await fetch('https://api.playmonumenta.com/locations');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const map = {};
+    for (const location of data.locations || []) {
+        if (location && typeof location.name === 'string' && /^#[0-9a-fA-F]{6}$/.test(location.color || '')) {
+            map[location.name] = location.color.toUpperCase();
+        }
+    }
+    if (Object.keys(map).length === 0) throw new Error('registry is empty');
+    return map;
+}
+
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
 
@@ -113,12 +137,23 @@ async function main() {
     // Pull the exact per-stat display colors out of the NBT lore and drop the
     // NBT itself (the site never consumes it). Items from sources without NBT
     // simply get no statColors and render with the site's fallback palette.
-    // The location line's color and the consumable effect lines' colors are
-    // captured the same way; `npm run check:data` fails when a location cannot
-    // be resolved to one, so API renames cannot silently drop the colors again.
+    // Location colors resolve from the /locations registry via each item's
+    // locationId first, with the NBT location line as fallback;
+    // `npm run check:data` fails when a location cannot be resolved to one, so
+    // API renames cannot silently drop the colors again.
+    let registryColors = null;
+    try {
+        registryColors = await fetchLocationRegistry();
+        console.log(`Location registry: ${Object.keys(registryColors).length} locations`);
+    } catch (err) {
+        console.warn(`  location registry failed (${err.message}) - falling back to NBT colors`);
+    }
+
     let coloredItems = 0;
     let coloredStats = 0;
     let coloredLocations = 0;
+    let registryLocations = 0;
+    let nbtLocations = 0;
     let effectItems = 0;
     let coloredEffects = 0;
     for (const key of result.keys) {
@@ -129,10 +164,13 @@ async function main() {
             coloredItems++;
             coloredStats += Object.keys(colors).length;
         }
-        const locationColor = extractLocationColor(item);
+        const registryColor = extractLocationColorFromRegistry(item, registryColors);
+        const locationColor = registryColor || extractLocationColor(item);
         if (locationColor) {
             item.locationColor = locationColor;
             coloredLocations++;
+            if (registryColor) registryLocations++;
+            else nbtLocations++;
         }
         if (Array.isArray(item.effects) && item.effects.length > 0) {
             effectItems++;
@@ -145,7 +183,9 @@ async function main() {
         delete item.nbt;
     }
     console.log(`stat colors: ${coloredItems} items, ${coloredStats} stat lines`);
-    console.log(`location colors: ${coloredLocations} items`);
+    console.log(
+        `location colors: ${coloredLocations} items (${registryLocations} via locationId, ${nbtLocations} via NBT)`
+    );
     console.log(`effect colors: ${coloredEffects} of ${effectItems} effect items`);
 
     const removed = currentCount - result.keys.length;
