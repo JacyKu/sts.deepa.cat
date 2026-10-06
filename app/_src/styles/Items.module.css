@@ -32,10 +32,6 @@
     contain: layout style;
 }
 
-.itemTile:hover {
-    z-index: 10;
-}
-
 :global(html[data-theme='light']) .itemTile,
 :global(html[data-theme='glass-light']) .itemTile {
     background: #6639622d;
