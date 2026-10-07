@@ -5,7 +5,7 @@ import styles from '../styles/Moderation.module.css';
 import { useTranslation } from './useTranslation';
 import { formatDateString } from '../utils/dateFormat';
 
-const TABS = ['users', 'builds', 'items', 'classes', 'polls', 'notifications'];
+const TABS = ['users', 'builds', 'items', 'classes', 'updates', 'polls', 'notifications'];
 const NOTIFICATION_TYPES = ['info', 'warning', 'error'];
 
 function displayName(row) {
@@ -501,6 +501,107 @@ function ClassesPanel({ t }) {
 }
 
 // ---------------------------------------------------------------------------
+// Update dates
+// ---------------------------------------------------------------------------
+
+// Corrects the recorded date of an API update entry. The run's timestamp keys
+// every archived item diff (and any attached name poll) to its update, so the
+// correction rewrites those records with it.
+function UpdateDatesPanel({ t }) {
+    const [runs, setRuns] = React.useState(null);
+    const [drafts, setDrafts] = React.useState({});
+    const [error, setError] = React.useState(null);
+    const [busy, setBusy] = React.useState(false);
+    const [savedAt, setSavedAt] = React.useState(null);
+
+    const load = React.useCallback(() => {
+        fetch('/api/v2/moderation/update-runs')
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => {
+                setRuns(d.runs || []);
+                setDrafts({});
+            })
+            .catch(() => setError(t('moderation.error')));
+    }, [t]);
+
+    React.useEffect(() => {
+        load();
+    }, [load]);
+
+    const valueFor = (run) => drafts[run.at] ?? String(run.at).slice(0, 19);
+
+    async function save(run) {
+        const value = valueFor(run);
+        setBusy(true);
+        setError(null);
+        setSavedAt(null);
+        try {
+            const response = await fetch('/api/v2/moderation/update-runs', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ at: run.at, newAt: `${value}Z` }),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error((data && data.error) || 'HTTP ' + response.status);
+            setSavedAt(data && data.run ? data.run.newAt : null);
+            load();
+        } catch (e) {
+            setError(e.message || t('moderation.error'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    return (
+        <section className={styles.panel}>
+            <p className={styles.muted}>{t('moderation.updates.description')}</p>
+            {error && <p className={styles.error}>{error}</p>}
+            {runs === null ? (
+                <p className={styles.muted}>{t('moderation.loading')}</p>
+            ) : runs.length === 0 ? (
+                <p className={styles.muted}>{t('moderation.updates.none')}</p>
+            ) : (
+                <ul className={styles.list}>
+                    {runs.map((run) => (
+                        <li key={run.at} className={styles.row}>
+                            <div className={styles.rowMain}>
+                                <span className={styles.rowTitle}>
+                                    {formatDateString(run.at, { includeTime: true, utc: true })}{' '}
+                                    <span className={styles.rowMeta}>UTC</span>
+                                </span>
+                                <span className={styles.rowMeta}>
+                                    {run.added} {t('items.changes.added')} · {run.changed} {t('items.changes.changed')}{' '}
+                                    · {run.removed} {t('items.changes.removed')}
+                                    {savedAt === run.at ? ` · ${t('moderation.updates.saved')}` : ''}
+                                </span>
+                            </div>
+                            <div className={styles.rowActions}>
+                                <input
+                                    type="datetime-local"
+                                    step="1"
+                                    className={styles.input}
+                                    value={valueFor(run)}
+                                    aria-label={t('moderation.updates.dateLabel')}
+                                    onChange={(e) => setDrafts({ ...drafts, [run.at]: e.target.value })}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.button}
+                                    disabled={busy || valueFor(run) === String(run.at).slice(0, 19)}
+                                    onClick={() => save(run)}
+                                >
+                                    {t('moderation.updates.save')}
+                                </button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Update name polls
 // ---------------------------------------------------------------------------
 
@@ -655,6 +756,21 @@ function PollsPanel({ t }) {
                                     {poll.options.map((option) => (
                                         <span key={option.id} className={styles.optionLine}>
                                             {option.name} ({option.votes})
+                                            {option.voters && option.voters.length > 0 ? (
+                                                <span
+                                                    className={styles.optionVoters}
+                                                    title={option.voters
+                                                        .map((voter) => voter.name || voter.id)
+                                                        .join(', ')}
+                                                >
+                                                    {' — '}
+                                                    {option.voters
+                                                        .slice(0, 12)
+                                                        .map((voter) => voter.name || voter.id)
+                                                        .join(', ')}
+                                                    {option.voters.length > 12 ? ` +${option.voters.length - 12}` : ''}
+                                                </span>
+                                            ) : null}
                                             <button
                                                 type="button"
                                                 className={styles.optionRemove}
@@ -870,6 +986,7 @@ export default function ModerationPage({ moderator, moderatorId }) {
             {tab === 'builds' && <BuildsPanel t={t} />}
             {tab === 'items' && <ItemsPanel t={t} />}
             {tab === 'classes' && <ClassesPanel t={t} />}
+            {tab === 'updates' && <UpdateDatesPanel t={t} />}
             {tab === 'polls' && <PollsPanel t={t} />}
             {tab === 'notifications' && <NotificationsPanel t={t} />}
         </main>

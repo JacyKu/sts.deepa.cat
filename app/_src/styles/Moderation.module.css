@@ -299,10 +299,15 @@
 
 .optionLine {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
+    flex-wrap: wrap;
     gap: 2px;
     margin-right: 12px;
-    white-space: nowrap;
+}
+
+.optionVoters {
+    color: var(--text-2);
+    font-size: 0.85em;
 }
 
 .optionRemove {

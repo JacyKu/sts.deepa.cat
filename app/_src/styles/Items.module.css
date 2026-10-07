@@ -93,16 +93,24 @@
     padding: 20px;
 }
 
-/* Slightly enlarge the 64px spritesheet tiles (scale keeps the layout box,
-   so the artwork grows into the surrounding padding without cropping).
-   The upscale resamples the bitmap; pixel-art sprites stay sharp with
-   nearest-neighbour rendering instead of the default blurry bilinear. */
+/* The sheet cells are already 4x-upscaled pixel art and render at whole-pixel
+   scale (the sprite cancels the UI zoom - see globals.css), so the artwork
+   needs no transform; nearest-neighbour keeps it sharp if a whole-number
+   scale is ever applied. */
 .imageIcon > :global(.monumenta-items),
 .imageIcon > :global(.monumenta-charms),
 .imageIcon > :global(.minecraft) {
-    transform: scale(1.15);
     image-rendering: pixelated;
     -webkit-optimize-contrast: pixelated;
+}
+
+/* Judgement of the Voidstained: a deliberately oversized sprite. It grows
+   past its 64px box (the tile does not clip) and floats above the card
+   content; the two-class selector beats the sheet's per-token !important. */
+.imageIcon > :global(.monumenta-judgement_of_the_voidstained_4_f6fec622) {
+    transform: scale(2) !important;
+    position: relative;
+    z-index: 2;
 }
 
 .lowResIcon {

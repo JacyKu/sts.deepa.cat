@@ -686,6 +686,17 @@ html a:hover {
         zoom: var(--ui-zoom, 0.9);
         min-height: calc(100dvh / var(--ui-zoom, 0.9));
     }
+
+    /* Sprite artwork ignores the UI zoom. The sheets hold 4x-upscaled pixel
+       art (64px cells), so the 0.9 zoom would resample them at a fractional
+       scale - some pixels a device pixel wider than others. Cancelling the
+       zoom keeps every sprite on whole-number scaling: a 64px sheet cell
+       lands on exactly 64 device pixels. */
+    .site-content .minecraft,
+    .site-content .monumenta-items,
+    .site-content .monumenta-charms {
+        zoom: calc(1 / var(--ui-zoom, 0.9));
+    }
 }
 
 main {

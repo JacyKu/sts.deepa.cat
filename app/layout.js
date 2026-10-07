@@ -21,6 +21,37 @@ import DevSiteBanner from './_src/components/devSiteBanner';
 import SanctionBanner from './_src/components/sanctionBanner';
 import SiteNav from './_src/components/headerTitle';
 
+// Runs before the first paint: mirrors the stored look (theme colours, round
+// corners, contrast, motion, font) onto <html> so a page never flashes the
+// default theme before the header's effect hydrates. Tiny and defensive -
+// localStorage can throw (private mode), in which case the CSS default wins.
+const LOOK_BOOT_SCRIPT = `
+(function () {
+    try {
+        var root = document.documentElement;
+        var stored = localStorage.getItem('theme');
+        var theme = stored;
+        if (stored === 'round') {
+            theme = 'dark';
+            root.setAttribute('data-round', 'true');
+        }
+        if (!theme) {
+            theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        root.setAttribute('data-theme', theme);
+        if (localStorage.getItem('roundStyle') === '1') root.setAttribute('data-round', 'true');
+        var radius = parseInt(localStorage.getItem('roundRadius'), 10);
+        if (isFinite(radius)) root.style.setProperty('--round-radius', Math.max(0, Math.min(24, radius)) + 'px');
+        if (localStorage.getItem('contrast') === '1') root.setAttribute('data-contrast', 'high');
+        if (localStorage.getItem('reduceMotion') === '1') root.setAttribute('data-motion', 'off');
+        var font = localStorage.getItem('font');
+        if (font && ['ubuntu', 'dyslexia', 'minecraft', 'default', 'mono'].indexOf(font) !== -1) {
+            root.setAttribute('data-font', font);
+        }
+    } catch (e) {}
+})();
+`;
+
 export const metadata = {
     title: {
         default: 'Spare the Sympathy',
@@ -53,8 +84,9 @@ export default async function StsLayout({ children }) {
     const base = host ? '' : '';
 
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <head>
+                <script dangerouslySetInnerHTML={{ __html: LOOK_BOOT_SCRIPT }} />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link

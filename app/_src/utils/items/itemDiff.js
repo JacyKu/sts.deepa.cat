@@ -105,3 +105,32 @@ export function topLevelDiffs(beforeItem, afterItem) {
     }
     return out;
 }
+
+// Every non-stat field difference between two item states, for the API
+// changes page's "show item data changes" view: scalars render as
+// old -> fresh, structured values (lore, effects, colour maps, ...) as a
+// single "changed" marker. `stats` is handled by the stat diff above.
+export function itemDataDiffs(beforeItem, afterItem) {
+    if (!beforeItem || !afterItem) return [];
+    const scalar = (value) =>
+        value === null ||
+        value === undefined ||
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean';
+    const keys = [...new Set([...Object.keys(beforeItem), ...Object.keys(afterItem)])].sort();
+    const out = [];
+    for (const key of keys) {
+        if (key === 'stats') continue;
+        const oldV = beforeItem[key];
+        const freshV = afterItem[key];
+        if (oldV === undefined && freshV === undefined) continue;
+        if (valueKey(oldV) === valueKey(freshV)) continue;
+        if (scalar(oldV) && scalar(freshV)) {
+            out.push({ key, old: String(oldV ?? ''), fresh: String(freshV ?? '') });
+        } else {
+            out.push({ key, complex: true });
+        }
+    }
+    return out;
+}

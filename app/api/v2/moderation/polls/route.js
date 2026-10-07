@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
     const { error } = await requireModerator();
     if (error) return error;
-    return NextResponse.json({ polls: listPolls(), runs: listRecentRuns() });
+    return NextResponse.json({ polls: listPolls({ withVoters: true }), runs: listRecentRuns() });
 }
 
 export async function POST(request) {

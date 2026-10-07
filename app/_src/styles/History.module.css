@@ -513,7 +513,9 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: 6px 18px;
-    margin: -4px 0 10px;
+    /* Follows the changes page's search bar (the earlier -4px only suited the
+       summary line directly above it). */
+    margin: 10px 0 10px;
 }
 
 .loreToggle {

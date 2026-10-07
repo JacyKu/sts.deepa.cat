@@ -621,23 +621,16 @@
     }
 }
 
-/* 64px of artwork in the side panel. The spritesheet's per-token fill rules
-   use transform: scale(...) !important, so a transform on the sprite itself
-   would be overridden; the downscale lives on the wrapper via zoom (which
-   composes with the child transform). The 1.15 matches the items page zoom so
-   full and under-filled cells normalize to the same rendered content size. */
+/* 64px of artwork in the side panel. The sprite cancels the site zoom itself
+   (globals.css), so the box just gives the whole-number-scaled artwork some
+   breathing room; no scale of its own, which would resample the pixels. */
 .previewIcon {
     flex-shrink: 0;
     width: 73.6px;
     height: 73.6px;
-    zoom: 0.8696;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.previewIcon .previewSprite {
-    transform: scale(1.15);
 }
 
 /* Hide-textures placeholder for the side panel rows. */
@@ -990,11 +983,9 @@
 
 /* Compact item icon strip on the card face (shown when items take the
    inline slot: "items first" toggle, or a build with no skills). The wrapper
-   zooms the whole 73.6px design box down to 40px; zoom (unlike transform on
-   the sprite) is not overridden by the spritesheet's per-token
-   transform: scale(...) !important fill rules, and the sprite's own
-   scale(1.15) normalizes full and under-filled cells to the same content
-   size. */
+   zooms the sprite to half size, which keeps the whole-number scales of the
+   sprite (and its zoom cancel) on whole device-pixel steps; clipping trims
+   only the transparent cell margins, never the centred artwork. */
 .itemStrip {
     display: flex;
     flex-wrap: wrap;
@@ -1043,11 +1034,26 @@
 .itemStripIcon {
     width: 73.6px;
     height: 73.6px;
-    zoom: 0.5435;
+    zoom: 0.5;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* Judgement of the Voidstained: the oversized sprite is bigger in the build
+   card icons too, without moving anything - the box keeps its normal size
+   and the transform only grows the artwork over its neighbours (the strip
+   lets this one sprite escape its clip, painting above the next icons). */
+.previewIcon > :global(.monumenta-judgement_of_the_voidstained_4_f6fec622),
+.itemStripIcon > :global(.monumenta-judgement_of_the_voidstained_4_f6fec622) {
+    transform: scale(2) !important;
+    position: relative;
+    z-index: 2;
+}
+
+.itemStripIcon:has(> :global(.monumenta-judgement_of_the_voidstained_4_f6fec622)) {
+    overflow: visible;
 }
 
 /* Hide-textures placeholder for the compact strip icons. */
@@ -1056,10 +1062,6 @@
     height: 100%;
     border: 1px solid var(--control-border, #333);
     background: var(--surface-2, #17171f);
-}
-
-.itemStripIcon .previewSprite {
-    transform: scale(1.15);
 }
 
 .itemStripLabel {
