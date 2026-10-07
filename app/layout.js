@@ -16,6 +16,10 @@ import { FavouritesEnabledProvider } from './_src/components/items/favouritesEna
 import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
 import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
+import SpookyArt from './_src/components/spookyArt';
+import SpookyCorners from './_src/components/spookyCorners';
+import SpookyThemeProvider from './_src/components/spookyThemeContext';
+import { isSpookyThemeEnabled } from '../lib/sts-builds';
 import NotificationsBar from './_src/components/notificationsBar';
 import DevSiteBanner from './_src/components/devSiteBanner';
 import SanctionBanner from './_src/components/sanctionBanner';
@@ -82,6 +86,9 @@ export default async function StsLayout({ children }) {
     const headersList = await headers();
     const host = headersList.get('host') || '';
     const base = host ? '' : '';
+    // Spooky Month decorations (moderation -> Theme): when off, every piece
+    // of artwork below reverts to the plain site.
+    const spooky = isSpookyThemeEnabled();
 
     return (
         <html lang="en" suppressHydrationWarning>
@@ -104,7 +111,9 @@ export default async function StsLayout({ children }) {
                     integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor"
                     crossOrigin="anonymous"
                 />
-                <div className="site-content" id="top">
+                <SpookyThemeProvider enabled={spooky}>
+                    <SpookyCorners />
+                    <div className="site-content" id="top">
                     <LowResourceProvider>
                         <AnimationsProvider>
                             <LanguageContextProvider>
@@ -130,6 +139,11 @@ export default async function StsLayout({ children }) {
                                                                         <DevSiteBanner />
                                                                         <SanctionBanner />
                                                                         <div className="site-main">{children}</div>
+                                                                        {spooky && (
+                                                                            <div className="spooky-footer-art" aria-hidden="true">
+                                                                                <SpookyArt name="spooky_assets_0001" width={128} />
+                                                                            </div>
+                                                                        )}
                                                                         <Footer />
                                                                     </ItemFavouritesProvider>
                                                                 </FavouritesEnabledProvider>
@@ -146,6 +160,7 @@ export default async function StsLayout({ children }) {
                         </AnimationsProvider>
                     </LowResourceProvider>
                 </div>
+                </SpookyThemeProvider>
             </body>
         </html>
     );

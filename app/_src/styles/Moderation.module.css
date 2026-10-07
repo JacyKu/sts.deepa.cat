@@ -294,7 +294,23 @@
 
 .muted {
     color: var(--text-2);
-    margin: 0;
+}
+
+/* Site theme toggle: a labelled checkbox on its own row. */
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    color: var(--text-1);
+    user-select: none;
+}
+
+.toggle input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent, #9146ff);
 }
 
 .optionLine {

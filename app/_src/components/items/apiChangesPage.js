@@ -7,6 +7,7 @@ import styles from '../../styles/History.module.css';
 import dbStyles from '../../styles/Database.module.css';
 import sf from '../../styles/SearchForm.module.css';
 import InfiniteScroll from '../infiniteScroll';
+import SpookyArt from '../spookyArt';
 import HistoryIcon from './historyIcon';
 import DiffLine from './itemDiffLine';
 import { useMaxMasterwork } from './maxMasterworkContext';
@@ -353,6 +354,11 @@ export default function ApiChangesPage({ itemData, history }) {
                 </div>
                 {runs.length === 0 ? (
                     <div className={itemsStyles.emptyState}>
+                        <SpookyArt
+                            name="spooky_assets_0011"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
                         <b>{searching ? t('items.changes.searchEmpty') : t('items.changes.empty')}</b>
                     </div>
                 ) : (

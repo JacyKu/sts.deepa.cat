@@ -656,6 +656,9 @@ html body {
     min-height: 100dvh;
     color: var(--text-1);
     background: var(--bg-0);
+    /* Containing block for the corner art layer, which spans the whole
+       document (see .spooky-corners) so the decorations scroll with the page. */
+    position: relative;
 }
 
 * {
@@ -671,6 +674,86 @@ html a {
 html a:hover {
     text-decoration: underline;
     color: inherit;
+}
+
+/* Spooky Month corner decorations: artwork pinned to the document's corners
+   (not the viewport), behind all page content (z-index -1, like the glass
+   backdrop - the body background is painted on the canvas, so the art stays
+   visible), so it can never cover text or controls and scrolls away with the
+   page instead of hovering on screen. Hidden when the window has no side
+   gutters. */
+.spooky-corners {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    display: none;
+}
+
+@media (min-width: 1200px) {
+    .spooky-corners {
+        display: block;
+    }
+}
+
+.spooky-corners img {
+    position: absolute;
+    image-rendering: pixelated;
+}
+
+/* Top corners clear the sticky nav (65px tall, scaled by the UI zoom). */
+.spooky-corner-tl {
+    top: 68px;
+    left: 8px;
+}
+
+.spooky-corner-tr {
+    top: 68px;
+    right: 8px;
+}
+
+/* The dragon is the only piece allowed to sit flush against the window edge,
+   bypassing the corner inset. */
+.spooky-corner-flush.spooky-corner-tl {
+    left: 0;
+}
+
+.spooky-corner-flush.spooky-corner-tr {
+    right: 0;
+}
+
+/* Bottom corners clear the footer at the end of the page. */
+.spooky-corner-bl {
+    bottom: 76px;
+    left: 8px;
+}
+
+.spooky-corner-br {
+    bottom: 76px;
+    right: 8px;
+}
+
+/* The pumpkin cat peeks out from behind the footer's left side on every page:
+   it sits right above the bar and the negative bottom margin tucks its base
+   behind the footer's top edge (the footer paints over it - no z-index here).
+   The left offset clears the bottom-left corner artwork's column. */
+.spooky-footer-art {
+    display: flex;
+    justify-content: flex-start;
+    padding-left: min(30%, 560px);
+    margin: 10px 0 -40px;
+    pointer-events: none;
+}
+
+/* The footer art lives inside the zoomed site column; cancel the UI zoom so
+   the pixel art keeps whole-number scaling, like the item sprites do. */
+.spooky-footer-art img {
+    zoom: calc(1 / var(--ui-zoom, 0.9));
+}
+
+/* Error screens (404 etc.) hide the corner artwork. */
+body:has(.spooky-off) .spooky-corners {
+    display: none !important;
 }
 
 /* Keep the footer at the bottom of the screen when a page is short: the

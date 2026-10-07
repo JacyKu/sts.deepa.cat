@@ -3,6 +3,7 @@
 import React from 'react';
 import styles from '../styles/Polls.module.css';
 import itemsStyles from '../styles/Items.module.css';
+import SpookyArt from './spookyArt';
 import { useTranslation } from './useTranslation';
 import { formatDateString } from '../utils/dateFormat';
 import { filterBadWords } from '../utils/badWords';
@@ -261,9 +262,21 @@ export default function PollsPage() {
                 </h1>
                 {error ? <p className={styles.error}>{error}</p> : null}
                 {polls === null && !error ? (
-                    <p className={styles.muted}>{t('polls.loading')}</p>
+                    <p className={styles.muted}>
+                        <SpookyArt
+                            name="spooky_assets_0010"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
+                        {t('polls.loading')}
+                    </p>
                 ) : polls && polls.length === 0 ? (
                     <div className={itemsStyles.emptyState}>
+                        <SpookyArt
+                            name="spooky_assets_0011"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
                         <b>{t('polls.empty')}</b>
                     </div>
                 ) : (

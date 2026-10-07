@@ -1,11 +1,12 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import styles from '../styles/Moderation.module.css';
 import { useTranslation } from './useTranslation';
 import { formatDateString } from '../utils/dateFormat';
 
-const TABS = ['users', 'builds', 'items', 'classes', 'updates', 'polls', 'notifications'];
+const TABS = ['users', 'builds', 'items', 'classes', 'updates', 'polls', 'notifications', 'theme'];
 const NOTIFICATION_TYPES = ['info', 'warning', 'error'];
 
 function displayName(row) {
@@ -956,6 +957,67 @@ function NotificationsPanel({ t }) {
     );
 }
 
+// ---------------------------------------------------------------------------
+// Theme: the site-wide Spooky Month decoration toggle. With it off every
+// server-rendered page hides the artwork (corners, footer piece, empty-state
+// and error-page images). router.refresh() re-renders the server tree so the
+// whole site flips immediately for the moderator.
+// ---------------------------------------------------------------------------
+function ThemePanel({ t }) {
+    const router = useRouter();
+    const [spooky, setSpooky] = React.useState(null);
+    const [busy, setBusy] = React.useState(false);
+    const [error, setError] = React.useState(null);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        fetch('/api/v2/moderation/theme')
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+            .then((d) => !cancelled && setSpooky(Boolean(d.spooky)))
+            .catch(() => !cancelled && setError(t('moderation.theme.loadError')));
+        return () => {
+            cancelled = true;
+        };
+    }, [t]);
+
+    async function toggle(enabled) {
+        setBusy(true);
+        setError(null);
+        try {
+            const response = await fetch('/api/v2/moderation/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ spooky: enabled }),
+            });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const data = await response.json();
+            setSpooky(Boolean(data.spooky));
+            router.refresh();
+        } catch (e) {
+            setError(t('moderation.theme.saveError'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    return (
+        <section className={styles.panel}>
+            <label className={styles.toggle}>
+                <input
+                    type="checkbox"
+                    checked={Boolean(spooky)}
+                    disabled={busy || spooky === null}
+                    onChange={(e) => toggle(e.target.checked)}
+                    aria-label={t('moderation.theme.enable')}
+                />
+                {t('moderation.theme.enable')}
+            </label>
+            <p className={styles.muted}>{t('moderation.theme.hint')}</p>
+            {error && <p className={styles.error}>{error}</p>}
+        </section>
+    );
+}
+
 export default function ModerationPage({ moderator, moderatorId }) {
     const t = useTranslation();
     const [tab, setTab] = React.useState('users');
@@ -989,6 +1051,7 @@ export default function ModerationPage({ moderator, moderatorId }) {
             {tab === 'updates' && <UpdateDatesPanel t={t} />}
             {tab === 'polls' && <PollsPanel t={t} />}
             {tab === 'notifications' && <NotificationsPanel t={t} />}
+            {tab === 'theme' && <ThemePanel t={t} />}
         </main>
     );
 }

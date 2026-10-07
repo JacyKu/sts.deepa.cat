@@ -13,6 +13,7 @@ import { MyPagesTabs } from '../databaseTabs';
 import CustomItemCard from './customItemCard';
 import CustomItemHeart from './customItemHeart';
 import { CustomItemCardSkeleton } from './customItemsSkeleton';
+import SpookyArt from '../spookyArt';
 import { getStsBase } from '../../utils/base';
 import { useTranslation } from '../useTranslation';
 
@@ -136,6 +137,11 @@ export default function CustomItemsFavouritesPage() {
                     </div>
                 ) : !user ? (
                     <div className={styles.favNote}>
+                        <SpookyArt
+                            name="spooky_assets_0005"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
                         <p>{t('customItems.favourites.loginRequired')}</p>
                         <a
                             className={styles.loginBtn}
@@ -147,7 +153,14 @@ export default function CustomItemsFavouritesPage() {
                 ) : error ? (
                     <p className={`${styles.errorText} ${styles.favNote}`}>{t('customItems.favourites.loadError')}</p>
                 ) : items.length === 0 && !searchName.trim() ? (
-                    <p className={`${styles.muted} ${styles.favNote}`}>{t('customItems.favourites.empty')}</p>
+                    <p className={`${styles.muted} ${styles.favNote}`}>
+                        <SpookyArt
+                            name="spooky_assets_0002"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
+                        {t('customItems.favourites.empty')}
+                    </p>
                 ) : (
                     <>
                         <input

@@ -355,15 +355,14 @@
     }
 }
 
+/* Empty-result message: plain centred text (no card), matching the database
+   pages' muted empty text. */
 .emptyState {
     margin: 40px auto;
     padding: 24px;
     max-width: 420px;
     text-align: center;
     color: var(--text-2);
-    background: var(--glass-1);
-    border: 2px solid var(--glass-border);
-    backdrop-filter: blur(10px);
 }
 
 .emptyState b {

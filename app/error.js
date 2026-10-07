@@ -17,7 +17,7 @@ export default function Error({ error, reset }) {
 
     return (
         <main
-            className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-20 text-center"
+            className="spooky-off relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-20 text-center"
             style={{ minHeight: '100vh' }}
         >
             <img src="/images/redx.png" alt="" width={96} height={96} style={{ imageRendering: 'pixelated' }} />
