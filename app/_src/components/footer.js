@@ -70,7 +70,11 @@ export default function Footer() {
                         {t('footer.forkedBy')} <b>jkitter</b>, {t('footer.originallyDevelopedBy')} <b>Albin</b>,{' '}
                         <b>FlamingoBike</b> {t('footer.and')} <b>Alecaboo</b>
                         <span className={styles.version}> · v{pkg.sts_version}</span>
-                        {spooky && <div className={styles.artCredit}>{t('footer.artCredit')}</div>}
+                        {spooky && (
+                            <div className={styles.artCredit}>
+                                {t('footer.artCredit')} <b>{t('footer.artCreditName')}</b>
+                            </div>
+                        )}
                     </div>
                     <div className={styles.links}>
                         <LanguageSelector className={styles.languageSelect} compact />
