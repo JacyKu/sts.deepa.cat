@@ -28,6 +28,12 @@
     opacity: 0.6;
 }
 
+/* Spooky Month artwork credit, under the developer line. */
+.artCredit {
+    margin-top: 2px;
+    opacity: 0.85;
+}
+
 .text b {
     color: var(--text-1);
 }

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import styles from '../styles/Footer.module.css';
 import LanguageSelector from './languageSelector';
+import { useSpookyTheme } from './spookyThemeContext';
 import { useTranslation } from './useTranslation';
 import pkg from '../../../package.json';
 
@@ -42,6 +43,7 @@ function ArrowUpIcon() {
 
 export default function Footer() {
     const t = useTranslation();
+    const spooky = useSpookyTheme();
     const [inviteOpen, setInviteOpen] = useState(false);
     const [inviteUrls, setInviteUrls] = useState(null);
     const [inviteFailed, setInviteFailed] = useState(false);
@@ -68,6 +70,7 @@ export default function Footer() {
                         {t('footer.forkedBy')} <b>jkitter</b>, {t('footer.originallyDevelopedBy')} <b>Albin</b>,{' '}
                         <b>FlamingoBike</b> {t('footer.and')} <b>Alecaboo</b>
                         <span className={styles.version}> · v{pkg.sts_version}</span>
+                        {spooky && <div className={styles.artCredit}>{t('footer.artCredit')}</div>}
                     </div>
                     <div className={styles.links}>
                         <LanguageSelector className={styles.languageSelect} compact />
