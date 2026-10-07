@@ -61,6 +61,7 @@ export default function CustomItemsDatabase() {
                 type: 'select',
                 options: [{ value: 'Any', label: t('database.any') }, ...ITEM_FILTER_OPTIONS],
             },
+            { name: 'author', labelKey: 'database.filters.author', type: 'text' },
         ],
         [t]
     );

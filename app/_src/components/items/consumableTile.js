@@ -4,6 +4,7 @@ import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
+import { renderObfuscated } from './obfuscatedText';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
@@ -150,7 +151,7 @@ function ConsumableTile(data) {
                 </span>
             </span>
             <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
-                {item.location}
+                {renderObfuscated(item.location)}
             </span>
             {formattedEffects}
             <Enchants item={item}></Enchants>

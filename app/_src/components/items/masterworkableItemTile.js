@@ -1,6 +1,7 @@
 import Enchants from './enchants';
 import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
+import { renderObfuscated } from './obfuscatedText';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
@@ -415,7 +416,7 @@ function MasterworkableItemTile(data) {
                 style={locationStyle(activeItem)}
                 className={`${styles[camelCase(activeItem.location)]} ${styles.gameText}`}
             >
-                {activeItem.location}
+                {renderObfuscated(activeItem.location)}
             </span>
             {!activeItem.undiscovered ? (
                 <div>
