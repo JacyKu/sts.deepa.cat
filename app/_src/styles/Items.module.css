@@ -490,6 +490,17 @@
     font-weight: bold;
 }
 
+/* Default game-convention text (names, tiers, locations, stat lines, the
+   builder's situational stat chips) follows the theme: `--game-text-filter`
+   is none on dark themes and darkens the bright game palette on light ones,
+   so the default colouring stays readable whichever theme is active. */
+.name,
+.gameText,
+.enchants,
+.checkboxWithLabel {
+    filter: var(--game-text-filter, none);
+}
+
 .underline {
     text-decoration: underline;
 }

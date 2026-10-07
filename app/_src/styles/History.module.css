@@ -213,11 +213,11 @@
 }
 
 .deltaUp {
-    color: #4ade4a;
+    color: var(--delta-up, #4ade4a);
 }
 
 .deltaDown {
-    color: #fc5454;
+    color: var(--delta-down, #fc5454);
 }
 
 .complexLine {
@@ -677,7 +677,7 @@
 }
 
 .textDiffAdd .textDiffText {
-    color: #cdf5cd;
+    color: var(--diff-add-text, #cdf5cd);
 }
 
 .textDiffDel {
@@ -689,7 +689,7 @@
 }
 
 .textDiffDel .textDiffText {
-    color: #f3b6b6;
+    color: var(--diff-del-text, #f3b6b6);
 }
 
 .lineText {

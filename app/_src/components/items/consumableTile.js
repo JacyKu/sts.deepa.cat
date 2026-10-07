@@ -145,11 +145,11 @@ function ConsumableTile(data) {
             )}
             <span>
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
-                <span className={styles[camelCase(item.tier)]}>
+                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>
                     {item.tier ? item.tier : t('items.type.consumable')}
                 </span>
             </span>
-            <span style={locationStyle(item)} className={styles[camelCase(item.location)]}>
+            <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
                 {item.location}
             </span>
             {formattedEffects}

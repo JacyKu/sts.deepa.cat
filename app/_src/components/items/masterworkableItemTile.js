@@ -405,11 +405,16 @@ function MasterworkableItemTile(data) {
                     <Enchants item={activeItem}></Enchants>
                     <span>
                         <span className={styles.infoText}>{`${activeItem.region} `}</span>
-                        <span className={styles[camelCase(activeItem.tier)]}>{activeItem.tier}</span>
+                        <span className={`${styles[camelCase(activeItem.tier)]} ${styles.gameText}`}>
+                            {activeItem.tier}
+                        </span>
                     </span>
                 </div>
             )}
-            <span style={locationStyle(activeItem)} className={styles[camelCase(activeItem.location)]}>
+            <span
+                style={locationStyle(activeItem)}
+                className={`${styles[camelCase(activeItem.location)]} ${styles.gameText}`}
+            >
                 {activeItem.location}
             </span>
             {!activeItem.undiscovered ? (

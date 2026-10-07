@@ -35,6 +35,25 @@
     --accent: #9c59d1;
     --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
     --accent-line: color-mix(in srgb, var(--accent) 55%, transparent);
+
+    /* Semantic default text colours. The game conventions and diff highlights
+       are tuned to the dark backdrop, so light themes override them below. */
+    --diff-add-text: #cdf5cd;
+    --diff-del-text: #f3b6b6;
+    --delta-up: #4ade4a;
+    --delta-down: #fc5454;
+    /* Filter for game-coloured text (item names, tiers, locations, stat
+       lines): none on dark themes, darkened on light ones. */
+    --game-text-filter: none;
+}
+
+:root[data-theme='light'],
+:root[data-theme='glass-light'] {
+    --diff-add-text: #166534;
+    --diff-del-text: #991b1b;
+    --delta-up: #15803d;
+    --delta-down: #b91c1c;
+    --game-text-filter: brightness(0.62) saturate(1.35);
 }
 
 /* Accent touches sprinkled across the app. */

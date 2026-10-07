@@ -223,13 +223,13 @@ function CharmTile(data) {
             {formattedCharm}
             <span>
                 {item.region && <span className={styles.infoText}>{`${item.region} `}</span>}
-                <span className={styles[camelCase(item.tier)]}>
+                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>
                     {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}
                     {t('items.type.charm')}
                 </span>
             </span>
             {item.location && (
-                <span style={locationStyle(item)} className={styles[camelCase(item.location)]}>
+                <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
                     {item.location}
                 </span>
             )}
