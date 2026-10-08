@@ -313,12 +313,8 @@ class Stats {
         if (this.hasDelveInfusion('Decapitation'))
             attackDamageCrit *= 1 + DELVE_DECAPITATION_PER_LEVEL * this.delveLevel;
 
-        // attack speed
-        let attackSpeed =
-            (this.sumNumberStat(this.itemStats.mainhand, 'attack_speed_base', this.attackSpeed) +
-                this.attackSpeedFlatBonus) *
-            this.attackSpeedPercent.val *
-            this.extraAttackSpeedMultiplier;
+        // attack speed (computed in adjustStats, where Life Drain needs it)
+        let attackSpeed = this.weaponAttackSpeed;
         let attackCritSpeed = Math.min(attackSpeed, 5 / 3);
 
         // Projectile Stats
@@ -923,7 +919,18 @@ class Stats {
         if (this.hasDelveInfusion('Soothing')) regenPerSecNonRounded += DELVE_REGEN_PER_LEVEL * this.delveLevel;
         this.regenPerSec = regenPerSecNonRounded.toFixed(2);
         this.regenPerSecPercent = new Percentage(regenPerSecNonRounded / this.healthFinal, false).toFixedPerc(2);
-        let lifeDrainOnCritFixedNonRounded = Math.sqrt(this.lifeDrainOnCrit) * this.healingRate.val;
+        // The weapon's attack speed in attacks per second, computed exactly as
+        // calculateOffenseStats will (all of its inputs are ready by now).
+        // Life Drain scales with it, so it is computed once here and reused.
+        this.weaponAttackSpeed =
+            (this.sumNumberStat(this.itemStats.mainhand, 'attack_speed_base', this.attackSpeed) +
+                this.attackSpeedFlatBonus) *
+            this.attackSpeedPercent.val *
+            this.extraAttackSpeedMultiplier;
+        // Life Drain (balance update): healed on crit is
+        // 1.5 * sqrt(level) / attackSpeed^1.5, scaled by the healing rate.
+        let lifeDrainOnCritFixedNonRounded =
+            ((1.5 * Math.sqrt(this.lifeDrainOnCrit)) / Math.pow(this.weaponAttackSpeed, 1.5)) * this.healingRate.val;
         this.lifeDrainOnCrit = lifeDrainOnCritFixedNonRounded.toFixed(2);
         this.healingRate = this.healingRate.toFixedPerc(2);
         this.lifeDrainOnCritPercent = new Percentage(
