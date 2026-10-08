@@ -339,7 +339,7 @@ class Stats {
         this.projectileDamagePercent.add(firstStrikeSit); // proj fstrike is 10%*level as of june balance
         this.projectileDamagePercent.add(regicideSit);
         this.projectileDamagePercent.add(staminaSit);
-        this.projectileDamagePercent.add(0.75 * techniqueSit); // proj technique is 7.5%*level
+        this.projectileDamagePercent.add(techniqueSit); // proj technique is 10%*level
         this.projectileDamagePercent.add(abyssalSit);
         this.projectileDamagePercent.add(skyseekerSit);
         this.projectileDamagePercent.add(retaliationSit * 0.5);
