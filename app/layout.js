@@ -16,10 +16,45 @@ import { FavouritesEnabledProvider } from './_src/components/items/favouritesEna
 import { ItemFavouritesProvider } from './_src/components/items/itemFavouritesContext';
 import Header, { HeaderNav } from './_src/components/header';
 import Footer from './_src/components/footer';
+import SpookyArt from './_src/components/spookyArt';
+import SpookyCorners from './_src/components/spookyCorners';
+import SpookyThemeProvider from './_src/components/spookyThemeContext';
+import { isSpookyThemeEnabled } from '../lib/sts-builds';
 import NotificationsBar from './_src/components/notificationsBar';
 import DevSiteBanner from './_src/components/devSiteBanner';
 import SanctionBanner from './_src/components/sanctionBanner';
 import SiteNav from './_src/components/headerTitle';
+
+// Runs before the first paint: mirrors the stored look (theme colours, round
+// corners, contrast, motion, font) onto <html> so a page never flashes the
+// default theme before the header's effect hydrates. Tiny and defensive -
+// localStorage can throw (private mode), in which case the CSS default wins.
+const LOOK_BOOT_SCRIPT = `
+(function () {
+    try {
+        var root = document.documentElement;
+        var stored = localStorage.getItem('theme');
+        var theme = stored;
+        if (stored === 'round') {
+            theme = 'dark';
+            root.setAttribute('data-round', 'true');
+        }
+        if (!theme) {
+            theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        root.setAttribute('data-theme', theme);
+        if (localStorage.getItem('roundStyle') === '1') root.setAttribute('data-round', 'true');
+        var radius = parseInt(localStorage.getItem('roundRadius'), 10);
+        if (isFinite(radius)) root.style.setProperty('--round-radius', Math.max(0, Math.min(24, radius)) + 'px');
+        if (localStorage.getItem('contrast') === '1') root.setAttribute('data-contrast', 'high');
+        if (localStorage.getItem('reduceMotion') === '1') root.setAttribute('data-motion', 'off');
+        var font = localStorage.getItem('font');
+        if (font && ['ubuntu', 'dyslexia', 'minecraft', 'default', 'mono'].indexOf(font) !== -1) {
+            root.setAttribute('data-font', font);
+        }
+    } catch (e) {}
+})();
+`;
 
 export const metadata = {
     title: {
@@ -51,10 +86,14 @@ export default async function StsLayout({ children }) {
     const headersList = await headers();
     const host = headersList.get('host') || '';
     const base = host ? '' : '';
+    // Spooky Month decorations (moderation -> Theme): when off, every piece
+    // of artwork below reverts to the plain site.
+    const spooky = isSpookyThemeEnabled();
 
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <head>
+                <script dangerouslySetInnerHTML={{ __html: LOOK_BOOT_SCRIPT }} />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link
@@ -72,7 +111,9 @@ export default async function StsLayout({ children }) {
                     integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor"
                     crossOrigin="anonymous"
                 />
-                <div className="site-content" id="top">
+                <SpookyThemeProvider enabled={spooky}>
+                    <SpookyCorners />
+                    <div className="site-content" id="top">
                     <LowResourceProvider>
                         <AnimationsProvider>
                             <LanguageContextProvider>
@@ -98,6 +139,11 @@ export default async function StsLayout({ children }) {
                                                                         <DevSiteBanner />
                                                                         <SanctionBanner />
                                                                         <div className="site-main">{children}</div>
+                                                                        {spooky && (
+                                                                            <div className="spooky-footer-art" aria-hidden="true">
+                                                                                <SpookyArt name="spooky_assets_0001" width={128} />
+                                                                            </div>
+                                                                        )}
                                                                         <Footer />
                                                                     </ItemFavouritesProvider>
                                                                 </FavouritesEnabledProvider>
@@ -114,6 +160,7 @@ export default async function StsLayout({ children }) {
                         </AnimationsProvider>
                     </LowResourceProvider>
                 </div>
+                </SpookyThemeProvider>
             </body>
         </html>
     );

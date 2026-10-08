@@ -173,7 +173,20 @@ const SelectInput = (data) => {
         ),
         [isFavourite]
     );
-    const selectComponents = React.useMemo(() => ({ Option, MenuList: WindowedMenuList }), [Option]);
+    // Node labels (the location filter's live obfuscated scramble) must render
+    // in the control too, not react-select's stringified label.
+    const SingleValue = React.useCallback(
+        (props) => (
+            <components.SingleValue {...props}>
+                {(props.data && props.data.label) || props.children}
+            </components.SingleValue>
+        ),
+        []
+    );
+    const selectComponents = React.useMemo(
+        () => ({ Option, MenuList: WindowedMenuList, SingleValue }),
+        [Option, SingleValue]
+    );
 
     // The option objects are rebuilt only when their source list, language or
     // translation string actually change instead of on every render.
@@ -253,7 +266,18 @@ const SelectInput = (data) => {
             theme={SELECT_THEME}
             styles={SELECT_STYLES}
             onChange={data.onChange}
-            filterOption={data.filterOption}
+            filterOption={
+                data.filterOption ||
+                ((option, input) => {
+                    // Node labels (the obfuscated location) filter by their raw
+                    // value instead of the element's stringified form.
+                    const text =
+                        typeof option.label === 'string'
+                            ? option.label
+                            : String((option.data && option.data.value) ?? option.value ?? '');
+                    return text.toLowerCase().includes(String(input || '').toLowerCase());
+                })
+            }
             components={selectComponents}
         />
     );

@@ -93,16 +93,24 @@
     padding: 20px;
 }
 
-/* Slightly enlarge the 64px spritesheet tiles (scale keeps the layout box,
-   so the artwork grows into the surrounding padding without cropping).
-   The upscale resamples the bitmap; pixel-art sprites stay sharp with
-   nearest-neighbour rendering instead of the default blurry bilinear. */
+/* The sheet cells are already 4x-upscaled pixel art and render at whole-pixel
+   scale (the sprite cancels the UI zoom - see globals.css), so the artwork
+   needs no transform; nearest-neighbour keeps it sharp if a whole-number
+   scale is ever applied. */
 .imageIcon > :global(.monumenta-items),
 .imageIcon > :global(.monumenta-charms),
 .imageIcon > :global(.minecraft) {
-    transform: scale(1.15);
     image-rendering: pixelated;
     -webkit-optimize-contrast: pixelated;
+}
+
+/* Judgement of the Voidstained: a deliberately oversized sprite. It grows
+   past its 64px box (the tile does not clip) and floats above the card
+   content; the two-class selector beats the sheet's per-token !important. */
+.imageIcon > :global(.monumenta-judgement_of_the_voidstained_4_f6fec622) {
+    transform: scale(2) !important;
+    position: relative;
+    z-index: 2;
 }
 
 .lowResIcon {
@@ -347,15 +355,14 @@
     }
 }
 
+/* Empty-result message: plain centred text (no card), matching the database
+   pages' muted empty text. */
 .emptyState {
     margin: 40px auto;
     padding: 24px;
     max-width: 420px;
     text-align: center;
     color: var(--text-2);
-    background: var(--glass-1);
-    border: 2px solid var(--glass-border);
-    backdrop-filter: blur(10px);
 }
 
 .emptyState b {
@@ -480,6 +487,17 @@
 
 .name {
     font-weight: bold;
+}
+
+/* Default game-convention text (names, tiers, locations, stat lines, the
+   builder's situational stat chips) follows the theme: `--game-text-filter`
+   is none on dark themes and darkens the bright game palette on light ones,
+   so the default colouring stays readable whichever theme is active. */
+.name,
+.gameText,
+.enchants,
+.checkboxWithLabel {
+    filter: var(--game-text-filter, none);
 }
 
 .underline {

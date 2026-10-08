@@ -4,13 +4,16 @@ import React from 'react';
 import Link from 'next/link';
 import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/History.module.css';
+import dbStyles from '../../styles/Database.module.css';
+import sf from '../../styles/SearchForm.module.css';
 import InfiniteScroll from '../infiniteScroll';
+import SpookyArt from '../spookyArt';
 import HistoryIcon from './historyIcon';
 import DiffLine from './itemDiffLine';
 import { useMaxMasterwork } from './maxMasterworkContext';
 import { formatDateString, formatMonthString } from '../../utils/dateFormat';
 import { buildRunGroups } from '../../utils/items/apiChanges';
-import { allStatLines, topLevelDiffs, humanizeField } from '../../utils/items/itemDiff';
+import { allStatLines, itemDataDiffs, humanizeField } from '../../utils/items/itemDiff';
 import { useTranslation } from '../useTranslation';
 
 // Runs are processed and rendered a page at a time, and an open run renders
@@ -18,6 +21,10 @@ import { useTranslation } from '../useTranslation';
 // cannot lock up the page by building every diff at once.
 const RUNS_PER_PAGE = 8;
 const CHANGES_PER_PAGE = 25;
+// Preference: reveal every non-stat item field change (location id/colour,
+// lore, effect colours, ...) in the entry diffs. Off by default, kept in
+// localStorage like the items page's quick toggles.
+const SHOW_DATA_KEY = 'sts.apiChangesShowData';
 
 function wikiHref(name) {
     return `https://monumenta.wiki.gg/wiki/${String(name)
@@ -53,7 +60,7 @@ function groupByMonth(runs) {
     return groups;
 }
 
-function ChangedEntry({ entry }) {
+function ChangedEntry({ entry, showDataChanges }) {
     const t = useTranslation();
     // Masterwork variants of one item share an entry; the star switcher (the
     // same as the item tiles) picks which variant's diff is shown. The
@@ -77,7 +84,8 @@ function ChangedEntry({ entry }) {
     // The full stat block of the variant, in the item display order; changed
     // stats are marked, unchanged ones are shown so the item is readable.
     const statLines = allStatLines(variant.before, variant.after);
-    const topLines = topLevelDiffs(variant.before, variant.after);
+    // Non-stat fields only render with the "show item data changes" toggle on.
+    const dataLines = showDataChanges ? itemDataDiffs(variant.before, variant.after) : [];
     const statCount = statLines.filter((line) => line.kind !== 'same').length;
     const meta = [
         variant.masterwork > 0 ? `${t('items.changes.masterwork')} ${variant.masterwork}` : null,
@@ -119,18 +127,18 @@ function ChangedEntry({ entry }) {
                 {statLines.map((line) => (
                     <DiffLine key={'stat-' + line.name} line={line} />
                 ))}
-                {topLines.map((line, i) =>
+                {dataLines.map((line, i) =>
                     line.complex ? (
-                        <div key={`top-${i}`} className={styles.complexLine}>
+                        <div key={`data-${i}`} className={styles.complexLine}>
                             {humanizeField(line.key)} {t('items.history.changed')}
                         </div>
                     ) : (
-                        <div key={`top-${i}`} className={styles.complexLine}>
-                            {humanizeField(line.key)}: {line.old} → {line.fresh}
+                        <div key={`data-${i}`} className={styles.complexLine}>
+                            {humanizeField(line.key)}: {line.old || t('common.none')} → {line.fresh || t('common.none')}
                         </div>
                     )
                 )}
-                {statCount === 0 && topLines.length === 0 && (
+                {statCount === 0 && dataLines.length === 0 && (
                     <div className={styles.complexLine}>{t('items.changes.noDiff')}</div>
                 )}
             </div>
@@ -138,7 +146,7 @@ function ChangedEntry({ entry }) {
     );
 }
 
-function RunCard({ run, defaultOpen, showLoreOnly }) {
+function RunCard({ run, defaultOpen, showLoreOnly, showDataChanges }) {
     const t = useTranslation();
     const [open, setOpen] = React.useState(defaultOpen);
     const [shownChanged, setShownChanged] = React.useState(CHANGES_PER_PAGE);
@@ -213,7 +221,11 @@ function RunCard({ run, defaultOpen, showLoreOnly }) {
                                     hasMore={shownChanged < visibleChanged.length}
                                 >
                                     {visibleChanged.slice(0, shownChanged).map((entry) => (
-                                        <ChangedEntry key={entry.name} entry={entry} />
+                                        <ChangedEntry
+                                            key={entry.name}
+                                            entry={entry}
+                                            showDataChanges={showDataChanges}
+                                        />
                                     ))}
                                 </InfiniteScroll>
                             )}
@@ -244,13 +256,43 @@ export default function ApiChangesPage({ itemData, history }) {
     const t = useTranslation();
     const allRuns = Array.isArray(history && history.runs) ? history.runs : [];
     const [runsToShow, setRunsToShow] = React.useState(RUNS_PER_PAGE);
+    const [query, setQuery] = React.useState('');
+    const [appliedQuery, setAppliedQuery] = React.useState('');
+    // Debounce the input: a search scans every recorded run, so the filter
+    // runs shortly after typing pauses rather than on each keystroke.
+    React.useEffect(() => {
+        const timer = setTimeout(() => setAppliedQuery(query), 200);
+        return () => clearTimeout(timer);
+    }, [query]);
+    const searching = appliedQuery.trim().length > 0;
     const runs = React.useMemo(
-        () => buildRunGroups(history, itemData || {}, runsToShow),
-        [history, itemData, runsToShow]
+        () =>
+            searching
+                ? buildRunGroups(history, itemData || {}, { query: appliedQuery })
+                : buildRunGroups(history, itemData || {}, { limit: runsToShow }),
+        [history, itemData, runsToShow, appliedQuery, searching]
     );
     const monthGroups = React.useMemo(() => groupByMonth(runs), [runs]);
     const updatedAt = history && history.updatedAt ? history.updatedAt : null;
     const [showLoreOnly, setShowLoreOnly] = React.useState(false);
+    const [showDataChanges, setShowDataChanges] = React.useState(false);
+    // Restore the data-changes preference once on mount (localStorage is not
+    // available during SSR).
+    React.useEffect(() => {
+        try {
+            setShowDataChanges(localStorage.getItem(SHOW_DATA_KEY) === 'true');
+        } catch (e) {
+            // storage unavailable; default off
+        }
+    }, []);
+    function toggleDataChanges(checked) {
+        setShowDataChanges(checked);
+        try {
+            localStorage.setItem(SHOW_DATA_KEY, String(checked));
+        } catch (e) {
+            // storage unavailable; the toggle still works for this visit
+        }
+    }
     const loreOnlyCount = React.useMemo(
         () => runs.reduce((sum, run) => sum + run.changed.filter((entry) => entry.loreOnly).length, 0),
         [runs]
@@ -280,9 +322,17 @@ export default function ApiChangesPage({ itemData, history }) {
                         </span>
                     )}
                 </div>
-                {loreOnlyCount > 0 && (
-                    <div className={styles.toggleRow}>
-                        <label className={styles.loreToggle}>
+                <input
+                    type="text"
+                    className={dbStyles.searchName}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t('items.changes.searchPlaceholder')}
+                    aria-label={t('items.changes.searchPlaceholder')}
+                />
+                <div className={styles.toggleRow}>
+                    {loreOnlyCount > 0 && (
+                        <label className={sf.toggleLabel}>
                             <input
                                 type="checkbox"
                                 checked={showLoreOnly}
@@ -291,17 +341,31 @@ export default function ApiChangesPage({ itemData, history }) {
                             />
                             {t('items.changes.showLoreOnly')} ({loreOnlyCount})
                         </label>
-                    </div>
-                )}
+                    )}
+                    <label className={sf.toggleLabel}>
+                        <input
+                            type="checkbox"
+                            checked={showDataChanges}
+                            onChange={(e) => toggleDataChanges(e.target.checked)}
+                            aria-label={t('items.changes.showDataChanges')}
+                        />
+                        {t('items.changes.showDataChanges')}
+                    </label>
+                </div>
                 {runs.length === 0 ? (
                     <div className={itemsStyles.emptyState}>
-                        <b>{t('items.changes.empty')}</b>
+                        <SpookyArt
+                            name="spooky_assets_0011"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
+                        <b>{searching ? t('items.changes.searchEmpty') : t('items.changes.empty')}</b>
                     </div>
                 ) : (
                     <InfiniteScroll
                         className={styles.groupList}
                         next={() => setRunsToShow((n) => n + RUNS_PER_PAGE)}
-                        hasMore={runsToShow < allRuns.length}
+                        hasMore={!searching && runsToShow < allRuns.length}
                     >
                         {monthGroups.map((group) => (
                             <section key={group.month} className={styles.dateGroup}>
@@ -312,6 +376,7 @@ export default function ApiChangesPage({ itemData, history }) {
                                         run={run}
                                         defaultOpen={run === runs[0]}
                                         showLoreOnly={showLoreOnly}
+                                        showDataChanges={showDataChanges}
                                     />
                                 ))}
                             </section>

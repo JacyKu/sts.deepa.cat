@@ -8,6 +8,7 @@ import sf from '../../styles/SearchForm.module.css';
 import CustomItemsSkeleton, { CustomItemCardSkeleton } from './customItemsSkeleton';
 import CustomItemCard from './customItemCard';
 import CustomItemHeart from './customItemHeart';
+import SpookyArt from '../spookyArt';
 import itemsStyles from '../../styles/Items.module.css';
 import { loadItemSpriteMap } from '../../utils/items/spritesheetMap';
 import { getStsBase } from '../../utils/base';
@@ -1286,7 +1287,14 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                         ))}
                     </div>
                 ) : items.length === 0 ? (
-                    <p className={styles.muted}>{t('customItems.myItems.empty')}</p>
+                    <p className={styles.muted}>
+                        <SpookyArt
+                            name="spooky_assets_0006"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
+                        {t('customItems.myItems.empty')}
+                    </p>
                 ) : (
                     <>
                         <input
@@ -1313,7 +1321,14 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                             />
                         </div>
                         {visibleItems.length === 0 ? (
-                            <p className={styles.muted}>{t('customItems.myItems.noResults')}</p>
+                            <p className={styles.muted}>
+                                <SpookyArt
+                                    name="spooky_assets_0011"
+                                    width={128}
+                                    style={{ display: 'block', margin: '0 auto 10px' }}
+                                />
+                                {t('customItems.myItems.noResults')}
+                            </p>
                         ) : (
                             <div className={`${styles.itemGrid} ${styles.searchResults}`}>
                                 {visibleItems.map((item) => (
