@@ -246,6 +246,12 @@
     border-top: 1px solid var(--glass-border, #444);
 }
 
+/* Round-corner mode: the footer divider stays square - the site-wide
+   `html[data-round] *` radius bows the ends of a lone border-top. */
+:global(html[data-round='true']) .pollFoot {
+    border-radius: 0 !important;
+}
+
 .suggestForm {
     display: flex;
     align-items: center;

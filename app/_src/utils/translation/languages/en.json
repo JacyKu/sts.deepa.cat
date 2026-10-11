@@ -198,6 +198,7 @@
     "builder.stats.misc.speed": "Speed",
     "builder.stats.misc.kbResistance": "KB Resistance",
     "builder.stats.misc.thorns": "Thorns Damage",
+    "builder.stats.misc.infernoDmgPerTick": "Inferno dmg per tick",
     "builder.stats.misc.fireTickDamage": "Fire Tick Damage",
     "builder.stats.health.healthFinal": "Max Health",
     "builder.stats.health.currentHealth": "Current Health",

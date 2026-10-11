@@ -11,20 +11,20 @@
     transform: translateX(-50%);
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     justify-content: center;
     align-items: flex-start;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
 
 .filterToolbar {
     display: flex;
     justify-content: flex-start;
-    margin: 4px auto;
+    margin: 0 auto 8px;
     width: 100%;
     max-width: 560px;
 }
@@ -40,7 +40,7 @@
     justify-content: center;
     align-items: stretch;
     gap: 8px;
-    margin-top: 4px;
+    margin-top: 0;
     width: 100%;
     max-width: 560px;
     margin-left: auto;
@@ -192,10 +192,10 @@
     background: var(--glass-1);
     border: 1px solid var(--control-border);
     color: var(--text-1);
-    height: 4vh;
+    height: 42px;
     width: 100%;
     max-width: 560px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     margin-left: auto;
     margin-right: auto;
     padding-inline: 10px;
@@ -249,7 +249,7 @@
     display: flex;
     gap: 8px;
     justify-content: center;
-    margin-top: 4px;
+    margin-top: 8px;
     flex-wrap: wrap;
 }
 

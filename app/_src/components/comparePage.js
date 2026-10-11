@@ -25,7 +25,11 @@ const categoryDefs = [
             { type: 'speedPercent', name: 'builder.stats.misc.speed', percent: true },
             { type: 'knockbackRes', name: 'builder.stats.misc.kbResistance', percent: true },
             { type: 'thorns', name: 'builder.stats.misc.thorns', percent: false },
-            { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
+            {
+                type: 'infernoDmgPerTick',
+                name: 'builder.stats.misc.infernoDmgPerTick',
+                percent: false,
+            },
             {
                 type: 'spellCooldownPercent',
                 name: 'builder.stats.magic.spellCooldownPercent',

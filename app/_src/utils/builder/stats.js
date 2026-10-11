@@ -957,7 +957,7 @@ class Stats {
                 this.thorns += this.sumNumberStat(itemStats, 'thorns_flat');
                 this.thornsPercent.add(this.sumNumberStat(itemStats, 'thorns_percent'));
                 this.throwRatePercent.add(this.sumNumberStat(itemStats, 'throw_rate_percent'));
-                this.fireTickDamage += this.sumNumberStat(itemStats, 'inferno');
+                this.infernoDmgPerTick += this.sumNumberStat(itemStats, 'inferno');
 
                 this.healingRate
                     .add(this.sumEnchantmentStat(itemStats, 'curse_of_anemia', -10))
@@ -1012,7 +1012,7 @@ class Stats {
             (this.speedFlat = 0.1),
             (this.knockbackRes = 0),
             (this.thorns = 0),
-            (this.fireTickDamage = 1),
+            (this.infernoDmgPerTick = 0),
             (this.thornsPercent = new Percentage(100)),
             (this.healthPercent = new Percentage(100)),
             (this.healthFlat = 20),
