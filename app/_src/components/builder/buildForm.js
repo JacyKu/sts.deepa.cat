@@ -36,6 +36,10 @@ import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
 import { getInfusionInputMode } from '../../utils/infusionPrefs';
+import {
+    getHiddenStatCards as getHiddenStatCardsPreference,
+    setHiddenStatCards as setHiddenStatCardsPreference,
+} from '../../utils/statCardPrefs';
 import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 
@@ -3317,8 +3321,34 @@ export default function BuildForm({
     // property), so dragging swaps entries in statCardOrder and the layout
     // follows. The order is a per-session preference (it resets on load).
     const STAT_CARD_KEYS = ['misc', 'health', 'dr', 'drhn', 'ehp', 'ehpr', 'melee', 'projectile', 'magic'];
+    // Card key -> title translation, for the show/hide toggle row.
+    const STAT_CARD_LABELS = {
+        misc: 'builder.statCategories.misc',
+        health: 'builder.statCategories.health',
+        dr: 'builder.statCategories.damageReduction',
+        drhn: 'builder.statCategories.damageReductionHealthNormalized',
+        ehp: 'builder.statCategories.effectiveHealth',
+        ehpr: 'builder.statCategories.effectiveHealthRegen',
+        melee: 'builder.statCategories.melee',
+        projectile: 'builder.statCategories.projectile',
+        magic: 'builder.statCategories.magic',
+    };
     const [statCardOrder, setStatCardOrder] = React.useState([...STAT_CARD_KEYS]);
+    // Hidden stat cards (per browser, all shown by default). Loaded after mount
+    // so the server render matches.
+    const [hiddenStatCards, setHiddenStatCards] = React.useState([]);
+    React.useEffect(() => {
+        setHiddenStatCards(getHiddenStatCardsPreference());
+    }, []);
     const statCardDragRef = React.useRef(null);
+
+    function toggleStatCardVisibility(key) {
+        const next = hiddenStatCards.includes(key)
+            ? hiddenStatCards.filter((hidden) => hidden !== key)
+            : [...hiddenStatCards, key];
+        setHiddenStatCards(next);
+        setHiddenStatCardsPreference(next);
+    }
 
     function startStatCardDrag(key, e) {
         if (e.dataTransfer) {
@@ -3359,7 +3389,12 @@ export default function BuildForm({
     }
 
     function statCardOrderStyle(key) {
-        return { order: statCardOrder.indexOf(key) };
+        return {
+            order: statCardOrder.indexOf(key),
+            // Hidden cards stay mounted (their stats keep updating) but are
+            // removed from the layout.
+            display: hiddenStatCards.includes(key) ? 'none' : undefined,
+        };
     }
 
     function itemChanged(newValue, actionMeta) {
@@ -4820,6 +4855,29 @@ export default function BuildForm({
                             {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
                         </>
                     )}
+                    <div className="row justify-content-center pt-1 mb-1 g-1">
+                        <TranslatableText
+                            identifier="builder.misc.statCards"
+                            className="text-center mb-1"
+                        ></TranslatableText>
+                        {STAT_CARD_KEYS.map((key) => {
+                            const visible = !hiddenStatCards.includes(key);
+                            return (
+                                <div className="col-auto" key={`${key}-${visible ? 'on' : 'off'}`}>
+                                    <CheckboxWithLabel
+                                        inputName={key}
+                                        name={
+                                            key === 'drhn'
+                                                ? `${t(STAT_CARD_LABELS[key])} ${t(STAT_CARD_LABELS[key] + '.sub')}`
+                                                : t(STAT_CARD_LABELS[key])
+                                        }
+                                        checked={visible}
+                                        onChange={() => toggleStatCardVisibility(key)}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
                     <div
                         className={
                             splitLayout
