@@ -3,6 +3,7 @@ import { decodeBuildParam, encodeBuildParam } from '../../../../_src/utils/build
 import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData } from '../../../../_src/utils/itemsData';
 import { getBuild } from '../../../../../lib/sts-builds';
+import { getDiscordUser } from '../../../../../lib/session';
 
 // Mirrors the client-side import parsing (app/_src/components/builder/
 // buildImportBar.js): accept a bare token, an old ?build=... URL, or a full
@@ -125,6 +126,17 @@ export async function GET(request) {
         const row = getBuild(shortId);
         if (!row) {
             return NextResponse.json({ error: 'build not found' }, { status: 404 });
+        }
+        // Private builds are only convertible by their owner (or the browser
+        // that created an anonymous one), matching the card/skills routes.
+        if (row.is_public !== 1) {
+            const user = await getDiscordUser();
+            const creatorToken = request.cookies.get(`sts-build-owner-${shortId}`)?.value || null;
+            const isOwner = Boolean(user && row.user_id && user.id === row.user_id);
+            const isCreator = Boolean(!row.user_id && creatorToken);
+            if (!isOwner && !isCreator) {
+                return NextResponse.json({ error: 'build not found' }, { status: 404 });
+            }
         }
         const tokenVersion = getBuildTokenVersion(row.token);
         const url = tokenVersion ? `/b/v${tokenVersion}/${row.id}` : `/b/${row.id}`;

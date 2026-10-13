@@ -15,7 +15,8 @@ const TARGET = path.join(__dirname, '..', 'public', 'items', 'items.json');
 const HISTORY_TARGET = path.join(__dirname, '..', 'public', 'items', 'item-history.json');
 // Timestamped copies of the outgoing history are kept here before every
 // rewrite, so an accidental loss (deleted file, bad write) can be recovered.
-const BACKUPS_DIR = path.join(__dirname, '..', 'public', 'items', 'backups');
+// Outside public/ (gitignored data/) so they are never served over HTTP.
+const BACKUPS_DIR = path.join(__dirname, '..', 'data', 'items-backups');
 const HISTORY_BACKUPS_KEPT = 10;
 const MIN_ITEMS = 1000;
 

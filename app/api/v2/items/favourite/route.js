@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server';
 import { addItemFavourite, removeItemFavourite } from '../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../lib/session';
 import { limitRequest } from '../../../../../lib/rate-limit';
+import { sanctionBlock } from '../../../../../lib/moderation';
 
 // Toggle a single item favourite. Item names may contain spaces and other
 // characters that are awkward in URL segments, so the name travels in the
 // request body (POST) or query string (DELETE).
 export async function POST(request) {
     const user = await getDiscordUser();
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
@@ -35,6 +38,8 @@ export async function POST(request) {
 
 export async function DELETE(request) {
     const user = await getDiscordUser();
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

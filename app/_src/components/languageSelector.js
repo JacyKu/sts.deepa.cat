@@ -23,7 +23,11 @@ function LanguageSelector({ className, compact } = {}) {
     const controlHeight = compact ? 36 : 44;
 
     function langSelected(lang) {
-        setCookie('lang', lang.value);
+        setCookie('lang', lang.value, {
+            path: '/',
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+        });
         setLang(lang.value);
     }
 

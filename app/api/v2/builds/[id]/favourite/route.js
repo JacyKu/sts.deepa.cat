@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { addFavourite, removeFavourite, getFavouriteState } from '../../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../../lib/session';
 import { limitRequest } from '../../../../../../lib/rate-limit';
+import { sanctionBlock } from '../../../../../../lib/moderation';
 
 export async function GET(request, { params }) {
     const p = await params;
@@ -13,6 +14,8 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
     const p = await params;
     const user = await getDiscordUser();
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
@@ -35,6 +38,8 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
     const p = await params;
     const user = await getDiscordUser();
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

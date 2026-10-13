@@ -151,7 +151,7 @@ export async function POST(request) {
     const savedRow = getBuild(result.id);
     // Pre-render the embed card so the first Discord crawl is instant.
     warmEmbedImage(result.id, savedRow ? savedRow.revision || 1 : null);
-    return NextResponse.json({
+    const response = NextResponse.json({
         id: result.id,
         isNew: result.isNew,
         savedToAccount: Boolean(user),
@@ -163,6 +163,20 @@ export async function POST(request) {
         version: savedRow ? savedRow.revision || 1 : null,
         url: tokenVersion ? `/b/v${tokenVersion}/${result.id}` : `/b/${result.id}`,
     });
+    // Anonymous saves carry an ownership token (logged-in saves are owned via
+    // the session). Remember it so the creator can later edit, publicise and
+    // re-import the build (matches the owner/creator checks in builds/[id]
+    // and the convert endpoint).
+    if (result.creatorToken) {
+        response.cookies.set(`sts-build-owner-${result.id}`, result.creatorToken, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365,
+        });
+    }
+    return response;
 }
 
 // The bot authenticates with the shared key (same value as its STS_BOT_API_KEY).

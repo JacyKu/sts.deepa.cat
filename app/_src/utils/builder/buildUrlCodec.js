@@ -5,6 +5,11 @@ const { compressToEncodedURIComponent, decompressFromEncodedURIComponent } = LZS
 const LEGACY_COMPRESSED_PREFIX = 'z:';
 const BINARY_V1_PREFIX = 'v1_';
 
+// Bound a token before it reaches lz-string: stored tokens cap at 2048 bytes
+// and decompression amplifies, so an unbounded read/convert input is a CPU/
+// memory amplifier. Legit tokens are well under this.
+const MAX_TOKEN_LENGTH = 8192;
+
 // The build token generation this codec currently produces. Short links are
 // versioned against this (/b/v7/<id>) so older decoder versions can be kept
 // around and the link routing stays honest about what a token contains.
@@ -173,7 +178,7 @@ export function normalizeBuildParam(build) {
 
 export function decodeBuildName(build) {
     const normalized = normalizeBuildParam(build);
-    if (!normalized) return null;
+    if (!normalized || normalized.length > MAX_TOKEN_LENGTH) return null;
     // Token names are client-supplied and legacy/hand-made tokens can carry
     // arbitrarily long names; stored names cap at 50 (lib/sts-builds.js).
     const cap = (name) => (name ? String(name).slice(0, 50) : null);
@@ -225,7 +230,7 @@ export function decodeBuildName(build) {
 
 export function decodeBuildParam(build, itemData) {
     const normalized = normalizeBuildParam(build);
-    if (!normalized) return null;
+    if (!normalized || normalized.length > MAX_TOKEN_LENGTH) return null;
 
     // Already legacy.
     if (isLegacyBuildString(normalized)) {
