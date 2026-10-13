@@ -102,6 +102,49 @@ const levelSelectStyles = {
     menu: (base) => ({ ...base, zIndex: 9999 }),
 };
 
+// The delve/basic infusion selects render each option with a portal tooltip.
+// These factories live at module scope; the component memoizes their results
+// (keyed on setTip / the infusion list) so react-select keeps a stable
+// component identity across renders instead of remounting every option - which
+// closed the menu and lost scroll while hovering.
+function makeInfusionOption(infusions, setTip) {
+    return function InfusionOption(props) {
+        const info = infusions.find((i) => i.name === props.data.value);
+        return (
+            <components.Option {...props}>
+                <span
+                    className={styles.enchantTooltip}
+                    onMouseEnter={(e) => {
+                        if (!info || !info.effect) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
+                    }}
+                    onMouseLeave={() => setTip(null)}
+                >
+                    {props.children}
+                </span>
+            </components.Option>
+        );
+    };
+}
+
+function makeInfusionValueLabel(infusions) {
+    return function InfusionValueLabel(opt) {
+        const info = infusions.find((i) => i.name === opt.value);
+        return (
+            <span className={styles.enchantTooltip}>
+                {opt.label}
+                {info && info.effect && (
+                    <span className={styles.enchantTooltipText}>
+                        <span style={{ fontWeight: 600 }}>{info.name}</span>
+                        <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
+                    </span>
+                )}
+            </span>
+        );
+    };
+}
+
 const emptyBuild = {
     mainhand: 'None',
     offhand: 'None',
@@ -1030,6 +1073,23 @@ export default function BuildForm({
     // so an absolutely-positioned tooltip inside it would be clipped. This
     // one renders on document.body, always on top.
     const [tip, setTip] = React.useState(null); // { left, top, info }
+    // Stable react-select components/label renderers for the infusion selects
+    // (see makeInfusionOption / makeInfusionValueLabel). setTip is a stable
+    // setState, so these only rebuild if it ever changes.
+    const delveOptionComponent = React.useMemo(() => makeInfusionOption(DELVE_INFUSIONS, setTip), [setTip]);
+    const basicOptionComponent = React.useMemo(() => makeInfusionOption(BASIC_INFUSIONS, setTip), [setTip]);
+    const delveSelectComponents = React.useMemo(() => ({ Option: delveOptionComponent }), [delveOptionComponent]);
+    const basicSelectComponents = React.useMemo(() => ({ Option: basicOptionComponent }), [basicOptionComponent]);
+    const delveFormatLabel = React.useMemo(() => makeInfusionValueLabel(DELVE_INFUSIONS), []);
+    const basicFormatLabel = React.useMemo(() => makeInfusionValueLabel(BASIC_INFUSIONS), []);
+    const delveFormatOptionLabel = React.useCallback(
+        (opt, { context }) => (context === 'value' ? delveFormatLabel(opt) : opt.label),
+        [delveFormatLabel]
+    );
+    const basicFormatOptionLabel = React.useCallback(
+        (opt, { context }) => (context === 'value' ? basicFormatLabel(opt) : opt.label),
+        [basicFormatLabel]
+    );
     // Saved skill/delve sets modal ("copy skills from a build" + apply saved
     // sets); opened by the "Skill sets" button under the import bar.
     const [setsOpen, setSetsOpen] = React.useState(false);
@@ -1400,42 +1460,6 @@ export default function BuildForm({
             value: i.name,
             label: i.name,
         }));
-        // Menu options get a portal tooltip with the infusion's effect (the
-        // menu scrolls, so an in-menu tooltip would be clipped at its edges).
-        const InfusionOption = (props) => {
-            const info = DELVE_INFUSIONS.find((i) => i.name === props.data.value);
-            return (
-                <components.Option {...props}>
-                    <span
-                        className={styles.enchantTooltip}
-                        onMouseEnter={(e) => {
-                            if (!info || !info.effect) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
-                        }}
-                        onMouseLeave={() => setTip(null)}
-                    >
-                        {props.children}
-                    </span>
-                </components.Option>
-            );
-        };
-        // The selected value in the control shows the same info as a plain
-        // enchant-style tooltip (the control doesn't scroll, so no portal).
-        const formatValueLabel = (opt) => {
-            const info = DELVE_INFUSIONS.find((i) => i.name === opt.value);
-            return (
-                <span className={styles.enchantTooltip}>
-                    {opt.label}
-                    {info && info.effect && (
-                        <span className={styles.enchantTooltipText}>
-                            <span style={{ fontWeight: 600 }}>{info.name}</span>
-                            <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
-                        </span>
-                    )}
-                </span>
-            );
-        };
         // The level picker mirrors the basic infusion one: I-IV, one per slot.
         const levelOpts = BASIC_INFUSION_LEVEL_LABELS.slice(0, DELVE_POINT_MAX_PER_SLOT).map((label, i) => ({
             value: i + 1,
@@ -1459,8 +1483,8 @@ export default function BuildForm({
                     menuPosition="fixed"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
-                    components={{ Option: InfusionOption }}
-                    formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
+                    components={delveSelectComponents}
+                    formatOptionLabel={delveFormatOptionLabel}
                 />
                 {cur && (
                     <Select
@@ -1703,40 +1727,6 @@ export default function BuildForm({
             value: i + 1,
             label,
         }));
-        // Menu options get a portal tooltip with the infusion's effect (the
-        // menu scrolls, so an in-menu tooltip would be clipped at its edges).
-        const InfusionOption = (props) => {
-            const info = BASIC_INFUSIONS.find((i) => i.name === props.data.value);
-            return (
-                <components.Option {...props}>
-                    <span
-                        className={styles.enchantTooltip}
-                        onMouseEnter={(e) => {
-                            if (!info || !info.effect) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
-                        }}
-                        onMouseLeave={() => setTip(null)}
-                    >
-                        {props.children}
-                    </span>
-                </components.Option>
-            );
-        };
-        const formatValueLabel = (opt) => {
-            const info = BASIC_INFUSIONS.find((i) => i.name === opt.value);
-            return (
-                <span className={styles.enchantTooltip}>
-                    {opt.label}
-                    {info && info.effect && (
-                        <span className={styles.enchantTooltipText}>
-                            <span style={{ fontWeight: 600 }}>{info.name}</span>
-                            <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
-                        </span>
-                    )}
-                </span>
-            );
-        };
         return (
             <div className={styles.delveSlotRow}>
                 <Select
@@ -1754,8 +1744,8 @@ export default function BuildForm({
                     menuPosition="fixed"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
-                    components={{ Option: InfusionOption }}
-                    formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
+                    components={basicSelectComponents}
+                    formatOptionLabel={basicFormatOptionLabel}
                 />
                 {cur && (
                     <Select
