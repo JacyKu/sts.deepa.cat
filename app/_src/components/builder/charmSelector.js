@@ -34,15 +34,27 @@ function getAbilityTextMap(itemData) {
     return map;
 }
 
+// display name -> charm item key, built once per itemData reference (like
+// getAbilityTextMap above) so resolveCharmKey stops scanning the whole item DB.
+let charmKeyCache = null;
+function getCharmKeyMap(itemData) {
+    if (charmKeyCache && charmKeyCache.data === itemData) return charmKeyCache.map;
+    const map = new Map();
+    for (const key of Object.keys(itemData)) {
+        const charm = itemData[key];
+        if (charm.type === 'Charm' && charm.name && !map.has(charm.name)) map.set(charm.name, key);
+    }
+    charmKeyCache = { data: itemData, map };
+    return map;
+}
+
 // The charm list carries display names, but the item data is keyed by
 // full item keys (e.g. "Event Horizon (orange_glazed_terracotta)"), which
 // differ from the display name for some charms. Resolve either form.
 export function resolveCharmKey(itemData, nameOrKey) {
     if (!nameOrKey) return null;
     if (itemData[nameOrKey]) return nameOrKey;
-    return (
-        Object.keys(itemData).find((key) => itemData[key].type === 'Charm' && itemData[key].name === nameOrKey) || null
-    );
+    return getCharmKeyMap(itemData).get(nameOrKey) || null;
 }
 
 // Effect summary: totals of every stat across all equipped charms. A stat

@@ -7,19 +7,27 @@ export const DATE_FORMATS = ['us', 'iso'];
 // The setting started as a boolean "American date format" toggle.
 const LEGACY_AMERICAN_KEY = 'sts.americanDate';
 
+// getDateFormat() runs once per rendered date (many per card grid), so the
+// preference is cached for the session instead of re-read from localStorage
+// every call. setDateFormat refreshes the cache; SSR stays uncached (no window).
+let cachedFormat;
+
 export function getDateFormat() {
     if (typeof window === 'undefined') return '';
+    if (cachedFormat !== undefined) return cachedFormat;
     try {
         const stored = window.localStorage.getItem(DATE_FORMAT_KEY);
-        if (DATE_FORMATS.includes(stored)) return stored;
-        if (window.localStorage.getItem(LEGACY_AMERICAN_KEY) === '1') return 'us';
+        if (DATE_FORMATS.includes(stored)) cachedFormat = stored;
+        else if (window.localStorage.getItem(LEGACY_AMERICAN_KEY) === '1') cachedFormat = 'us';
+        else cachedFormat = '';
     } catch (e) {
-        return '';
+        cachedFormat = '';
     }
-    return '';
+    return cachedFormat;
 }
 
 export function setDateFormat(format) {
+    cachedFormat = DATE_FORMATS.includes(format) ? format : '';
     try {
         if (DATE_FORMATS.includes(format)) window.localStorage.setItem(DATE_FORMAT_KEY, format);
         else window.localStorage.removeItem(DATE_FORMAT_KEY);
