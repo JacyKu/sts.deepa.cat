@@ -1,10 +1,11 @@
-import SupportedLanguages from './languages';
+import { getLanguageTable } from './languages';
 
 // Look up a translation id for a language, falling back to English (and then
-// the id itself) so a missing translation never surfaces as a raw key.
+// the id itself) so a missing translation never surfaces as a raw key. Only
+// English is bundled; other locales resolve once their chunk has loaded.
 export function translate(lang, id) {
-    const table = SupportedLanguages[lang];
-    if (table && table[id] != null) return table[id];
-    const en = SupportedLanguages.en;
-    return en && en[id] != null ? en[id] : id;
+    const table = getLanguageTable(lang);
+    if (table[id] != null) return table[id];
+    const en = getLanguageTable('en');
+    return en[id] != null ? en[id] : id;
 }

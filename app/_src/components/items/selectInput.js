@@ -1,7 +1,7 @@
 import Select, { components } from 'react-select';
 import React from 'react';
 import { useLanguageContext } from '../../components/languageContext';
-import SupportedLanguages from '../../utils/translation/languages';
+import { getLanguageTable } from '../../utils/translation/languages';
 import FloatingLabel from './floatingLabel';
 import { useItemFavourites } from './itemFavouritesContext';
 import { useTranslation } from '../useTranslation';
@@ -203,7 +203,7 @@ const SelectInput = (data) => {
             let translationString = `${data.baseTranslationString}.${convertItemNameForTranslationString(item)}`;
             return {
                 value: item,
-                label: SupportedLanguages[lang][translationString] ? SupportedLanguages[lang][translationString] : item,
+                label: getLanguageTable(lang)[translationString] ? getLanguageTable(lang)[translationString] : item,
             };
         });
 

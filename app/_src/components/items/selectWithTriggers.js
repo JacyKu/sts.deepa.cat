@@ -2,7 +2,7 @@ import Select from 'react-select';
 import React from 'react';
 import styles from '../../styles/SearchForm.module.css';
 import { useLanguageContext } from '../../components/languageContext';
-import SupportedLanguages from '../../utils/translation/languages';
+import { getLanguageTable } from '../../utils/translation/languages';
 
 // One filter row of the items search form: the category dropdown plus the
 // value control it spawns. Fully controlled from the search form's state
@@ -15,8 +15,8 @@ const SelectWithTriggers = (props) => {
     const options = props.opts.map((o) => ({
         value: o.name,
         label: o.translatableName
-            ? SupportedLanguages[lang][o.translatableName]
-                ? SupportedLanguages[lang][o.translatableName]
+            ? getLanguageTable(lang)[o.translatableName]
+                ? getLanguageTable(lang)[o.translatableName]
                 : o.name
             : o.name,
     }));

@@ -13,7 +13,6 @@ import { MyPagesTabs } from './databaseTabs';
 import { getStsBase } from '../utils/base';
 import { isSearchCacheEnabled, FAVOURITES_SEARCH_CACHE_KEY } from '../utils/cachePrefs';
 import { useLanguageContext } from './languageContext';
-import SupportedLanguages from '../utils/translation/languages';
 import { translate } from '../utils/translation/translate';
 
 export default function FavouritesPage() {
