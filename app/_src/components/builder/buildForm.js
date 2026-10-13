@@ -36,6 +36,10 @@ import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
 import { getInfusionInputMode } from '../../utils/infusionPrefs';
+import {
+    getHiddenStatCards as getHiddenStatCardsPreference,
+    setHiddenStatCards as setHiddenStatCardsPreference,
+} from '../../utils/statCardPrefs';
 import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 
@@ -940,6 +944,15 @@ export default function BuildForm({
         { value: 'dd', label: t('builder.regions.darkestDepths') },
         { value: 'cz', label: t('builder.regions.celestialZenith') },
     ];
+    // Hover title for a stat row: the exact value the engine computed (the
+    // stats cache keeps it in fullValues) while the row renders the 2 dp one.
+    // Trimmed at 6 dp so floating-point noise (0.30000000000000004) stays out.
+    const statFullTitle = (identifier, type, value, percent) => {
+        const raw = itemsToDisplay.fullValues && itemsToDisplay.fullValues[type];
+        const full = raw === undefined ? Number(value) : Number(raw);
+        if (!Number.isFinite(full)) return undefined;
+        return `${t(identifier)}: ${Number(full.toFixed(6))}${percent ? '%' : ''}`;
+    };
     const [stats, setStats] = React.useState({});
     const [charms, setCharms] = React.useState([]);
     const { favouriteSet } = useItemFavourites();
@@ -3307,9 +3320,35 @@ export default function BuildForm({
     // the equipped charms. Stat cards carry a CSS `order` (grid/flex order
     // property), so dragging swaps entries in statCardOrder and the layout
     // follows. The order is a per-session preference (it resets on load).
-    const STAT_CARD_KEYS = ['misc', 'health', 'dr', 'drhn', 'ehp', 'melee', 'projectile', 'magic'];
+    const STAT_CARD_KEYS = ['misc', 'health', 'dr', 'drhn', 'ehp', 'ehpr', 'melee', 'projectile', 'magic'];
+    // Card key -> title translation, for the show/hide toggle row.
+    const STAT_CARD_LABELS = {
+        misc: 'builder.statCategories.misc',
+        health: 'builder.statCategories.health',
+        dr: 'builder.statCategories.damageReduction',
+        drhn: 'builder.statCategories.damageReductionHealthNormalized',
+        ehp: 'builder.statCategories.effectiveHealth',
+        ehpr: 'builder.statCategories.effectiveHealthRegen',
+        melee: 'builder.statCategories.melee',
+        projectile: 'builder.statCategories.projectile',
+        magic: 'builder.statCategories.magic',
+    };
     const [statCardOrder, setStatCardOrder] = React.useState([...STAT_CARD_KEYS]);
+    // Hidden stat cards (per browser, all shown by default). Loaded after mount
+    // so the server render matches.
+    const [hiddenStatCards, setHiddenStatCards] = React.useState([]);
+    React.useEffect(() => {
+        setHiddenStatCards(getHiddenStatCardsPreference());
+    }, []);
     const statCardDragRef = React.useRef(null);
+
+    function toggleStatCardVisibility(key) {
+        const next = hiddenStatCards.includes(key)
+            ? hiddenStatCards.filter((hidden) => hidden !== key)
+            : [...hiddenStatCards, key];
+        setHiddenStatCards(next);
+        setHiddenStatCardsPreference(next);
+    }
 
     function startStatCardDrag(key, e) {
         if (e.dataTransfer) {
@@ -3350,7 +3389,12 @@ export default function BuildForm({
     }
 
     function statCardOrderStyle(key) {
-        return { order: statCardOrder.indexOf(key) };
+        return {
+            order: statCardOrder.indexOf(key),
+            // Hidden cards stay mounted (their stats keep updating) but are
+            // removed from the layout.
+            display: hiddenStatCards.includes(key) ? 'none' : undefined,
+        };
     }
 
     function itemChanged(newValue, actionMeta) {
@@ -3388,7 +3432,7 @@ export default function BuildForm({
         { type: 'speedPercent', name: 'builder.stats.misc.speed', percent: true },
         { type: 'knockbackRes', name: 'builder.stats.misc.kbResistance', percent: true },
         { type: 'thorns', name: 'builder.stats.misc.thorns', percent: false },
-        { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
+        { type: 'infernoDmgPerTick', name: 'builder.stats.misc.infernoDmgPerTick', percent: false },
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
     const healthStats = [
@@ -3427,6 +3471,16 @@ export default function BuildForm({
         { type: 'fireEHP', name: 'builder.stats.dr-ehp.fire', percent: false },
         { type: 'fallEHP', name: 'builder.stats.dr-ehp.fall', percent: false },
         { type: 'ailmentEHP', name: 'builder.stats.dr-ehp.ailment', percent: false },
+    ];
+
+    const EHPRStats = [
+        { type: 'meleeEHPR', name: 'builder.stats.dr-ehp.melee', percent: false },
+        { type: 'projectileEHPR', name: 'builder.stats.dr-ehp.projectile', percent: false },
+        { type: 'magicEHPR', name: 'builder.stats.dr-ehp.magic', percent: false },
+        { type: 'blastEHPR', name: 'builder.stats.dr-ehp.blast', percent: false },
+        { type: 'fireEHPR', name: 'builder.stats.dr-ehp.fire', percent: false },
+        { type: 'fallEHPR', name: 'builder.stats.dr-ehp.fall', percent: false },
+        { type: 'ailmentEHPR', name: 'builder.stats.dr-ehp.ailment', percent: false },
     ];
     const meleeStats = [
         { type: 'attackSpeedPercent', name: 'builder.stats.melee.attackSpeedPercent', percent: true },
@@ -4801,6 +4855,29 @@ export default function BuildForm({
                             {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
                         </>
                     )}
+                    <div className="row justify-content-center pt-1 mb-1 g-1">
+                        <TranslatableText
+                            identifier="builder.misc.statCards"
+                            className="text-center mb-1"
+                        ></TranslatableText>
+                        {STAT_CARD_KEYS.map((key) => {
+                            const visible = !hiddenStatCards.includes(key);
+                            return (
+                                <div className="col-auto" key={`${key}-${visible ? 'on' : 'off'}`}>
+                                    <CheckboxWithLabel
+                                        inputName={key}
+                                        name={
+                                            key === 'drhn'
+                                                ? `${t(STAT_CARD_LABELS[key])} ${t(STAT_CARD_LABELS[key] + '.sub')}`
+                                                : t(STAT_CARD_LABELS[key])
+                                        }
+                                        checked={visible}
+                                        onChange={() => toggleStatCardVisibility(key)}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
                     <div
                         className={
                             splitLayout
@@ -4823,7 +4900,15 @@ export default function BuildForm({
                             {miscStats.map((stat) =>
                                 itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4850,10 +4935,23 @@ export default function BuildForm({
                                 <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
                             </h5>
                             <h6 className="text-center fw-bold">&nbsp;</h6>
-                            {healthStats.map((stat) =>
-                                itemsToDisplay[stat.type] !== undefined ? (
+                            {healthStats.map((stat) => {
+                                // Life Drain only applies while the enchant is
+                                // equipped; hide its rows otherwise.
+                                const hideLifeDrain =
+                                    (stat.type === 'lifeDrainOnCrit' || stat.type === 'lifeDrainOnCritPercent') &&
+                                    !(Number(itemsToDisplay.lifeDrainOnCrit) > 0);
+                                return itemsToDisplay[stat.type] !== undefined && !hideLifeDrain ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4865,8 +4963,8 @@ export default function BuildForm({
                                     </div>
                                 ) : (
                                     ''
-                                )
-                            )}
+                                );
+                            })}
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
@@ -4885,7 +4983,15 @@ export default function BuildForm({
                             {DRStats.map((stat) =>
                                 itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4917,7 +5023,15 @@ export default function BuildForm({
                             {healthNormalizedDRStats.map((stat) =>
                                 itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4951,6 +5065,12 @@ export default function BuildForm({
                                     return itemsToDisplay[stat.type] !== undefined ? (
                                         <div key={stat.type}>
                                             <p
+                                                title={statFullTitle(
+                                                    stat.name,
+                                                    stat.type,
+                                                    itemsToDisplay[stat.type],
+                                                    stat.percent
+                                                )}
                                                 className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}
                                             >
                                                 <b>
@@ -4968,11 +5088,103 @@ export default function BuildForm({
                                 });
                                 if (itemsToDisplay.instability) {
                                     let avg = 0;
-                                    unstableEHPTypes.forEach((t) => (avg += Number(itemsToDisplay[t])));
+                                    let avgFull = 0;
+                                    unstableEHPTypes.forEach((t) => {
+                                        avg += Number(itemsToDisplay[t]);
+                                        const raw = itemsToDisplay.fullValues && itemsToDisplay.fullValues[t];
+                                        avgFull += raw === undefined ? Number(itemsToDisplay[t]) : Number(raw);
+                                    });
                                     avg /= 4;
+                                    avgFull /= 4;
                                     temp.unshift(
                                         <div key={'unstableEHP'}>
-                                            <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <p
+                                                className={`${styles.statRow} mb-0 mt-1`}
+                                                title={statFullTitle(
+                                                    'builder.stats.dr-ehp.unstable',
+                                                    'unstableEHP',
+                                                    avgFull,
+                                                    false
+                                                )}
+                                            >
+                                                <b>
+                                                    <TranslatableText
+                                                        identifier={'builder.stats.dr-ehp.unstable'}
+                                                    ></TranslatableText>
+                                                    :{' '}
+                                                </b>
+                                                <span className={styles.monoValue}>{avg.toFixed(2)}</span>
+                                            </p>
+                                        </div>
+                                    );
+                                }
+                                return temp;
+                            })()}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('ehpr', e)}
+                            onDragOver={(e) => statCardDragOver('ehpr', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('ehpr')}
+                        >
+                            <h5 className="text-center fw-bold mb-1">
+                                <TranslatableText identifier="builder.statCategories.effectiveHealthRegen"></TranslatableText>
+                            </h5>
+                            <h6 className="text-center fw-bold">
+                                <TranslatableText identifier="builder.stats.health.regenPerSecond"></TranslatableText>:{' '}
+                                {itemsToDisplay.regenPerSec}
+                            </h6>
+                            {(() => {
+                                const unstableEHPRTypes = ['meleeEHPR', 'projectileEHPR', 'magicEHPR', 'blastEHPR'];
+                                let temp = EHPRStats.map((stat) => {
+                                    let condition = itemsToDisplay.instability && unstableEHPRTypes.includes(stat.type);
+                                    return itemsToDisplay[stat.type] !== undefined ? (
+                                        <div key={stat.type}>
+                                            <p
+                                                title={statFullTitle(
+                                                    stat.name,
+                                                    stat.type,
+                                                    itemsToDisplay[stat.type],
+                                                    stat.percent
+                                                )}
+                                                className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}
+                                            >
+                                                <b>
+                                                    <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                                </b>
+                                                <span className={styles.monoValue}>
+                                                    {itemsToDisplay[stat.type]}
+                                                    {stat.percent ? '%' : ''}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        ''
+                                    );
+                                });
+                                if (itemsToDisplay.instability) {
+                                    let avg = 0;
+                                    let avgFull = 0;
+                                    unstableEHPRTypes.forEach((t) => {
+                                        avg += Number(itemsToDisplay[t]);
+                                        const raw = itemsToDisplay.fullValues && itemsToDisplay.fullValues[t];
+                                        avgFull += raw === undefined ? Number(itemsToDisplay[t]) : Number(raw);
+                                    });
+                                    avg /= 4;
+                                    avgFull /= 4;
+                                    temp.unshift(
+                                        <div key={'unstableEHPR'}>
+                                            <p
+                                                className={`${styles.statRow} mb-0 mt-1`}
+                                                title={statFullTitle(
+                                                    'builder.stats.dr-ehp.unstable',
+                                                    'unstableEHPR',
+                                                    avgFull,
+                                                    false
+                                                )}
+                                            >
                                                 <b>
                                                     <TranslatableText
                                                         identifier={'builder.stats.dr-ehp.unstable'}
@@ -5007,7 +5219,15 @@ export default function BuildForm({
                                     return '';
                                 return itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -5042,7 +5262,15 @@ export default function BuildForm({
                                     return '';
                                 return itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -5079,7 +5307,15 @@ export default function BuildForm({
                                     (stat.type != 'potionDamage' || itemsToDisplay.spellPowerPercent == '100.00') && // only show potion damage if spell power is 100% (default)
                                     (stat.type != 'spellDamage' || itemsToDisplay.potionDamage == '0.00') ? ( // only show spell damage if potion damage is 0
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>

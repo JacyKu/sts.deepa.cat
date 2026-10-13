@@ -39,10 +39,10 @@ const DEFAULT_DUMP_DIR = path.join(
 const SHEET_NAME = 'itemsheet';
 const CLASS_PREFIX = 'monumenta';
 const SPRITE_SIZE = 64;
-// The site's sprite tiles are zoomed by Items.module.css (.imageIcon > .monumenta-items
-// scale(1.15)); scaled-up cells keep the same zoom so their artwork matches the
-// other tiles' rendered size.
-const ICON_ZOOM = 1.15;
+// Sprites render at whole-number scales: the tiles cancel the site zoom (see
+// globals.css), so an under-filled cell is scaled by the largest whole number
+// that still fits its measured content inside the cell - never a fractional
+// stretch, which resamples the pixel art.
 
 function normalizeBaseToken(value) {
     return String(value || '')
@@ -126,8 +126,9 @@ function reducedMotionRule(token) {
 // awkward integer-fit sizes) render smaller than full cells on the site.
 // Measure the painted content of every frame's own cell (animated strips lay
 // frames side by side, so a strip-wide scan would span many cells), then emit
-// a per-token scale so the content fills the same rendered size as full cells.
-// !important beats the tile zoom rule in Items.module.css.
+// a whole-number per-token scale (the largest that still fits, at minimum 1)
+// so under-filled cells render closer to full cells without resampling.
+// !important beats any tile-level scale.
 function measureContentMax(sheet, entry) {
     const framesPerRow = entry.cols > 1 ? entry.cols : entry.frameCount;
     let maxContent = 0;
@@ -584,9 +585,9 @@ async function main() {
         }
     }
     for (const [token, contentMax] of scaledByToken) {
-        const scale = (ICON_ZOOM * SPRITE_SIZE) / contentMax;
-        if (scale > ICON_ZOOM) {
-            stylesFile += `.${CLASS_PREFIX}-${token} {\n\ttransform: scale(${scale.toFixed(3)}) !important;\n}\n\n`;
+        const scale = Math.floor(SPRITE_SIZE / contentMax);
+        if (scale >= 2) {
+            stylesFile += `.${CLASS_PREFIX}-${token} {\n\ttransform: scale(${scale}) !important;\n}\n\n`;
         }
     }
 

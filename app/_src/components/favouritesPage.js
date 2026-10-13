@@ -4,6 +4,7 @@ import React from 'react';
 import TranslatableText from './translatableText';
 import BuildCard from './buildCard';
 import InfiniteScroll from './infiniteScroll';
+import SpookyArt from './spookyArt';
 import styles from '../styles/Database.module.css';
 import sf from '../styles/SearchForm.module.css';
 import DatabaseSkeleton from './databaseSkeleton';
@@ -210,6 +211,11 @@ export default function FavouritesPage() {
                     </div>
                     {builds.length === 0 ? (
                         <p className={styles.muted}>
+                            <SpookyArt
+                                name="spooky_assets_0011"
+                                width={128}
+                                style={{ display: 'block', margin: '0 auto 10px' }}
+                            />
                             <TranslatableText identifier="database.empty" />
                         </p>
                     ) : (

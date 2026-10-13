@@ -294,7 +294,7 @@ export function HeaderSelect({ options, value, onChange, instanceId, className, 
 
 // The STS nav links, rendered in the center of the shared SiteNav top bar.
 // On small screens the inline links collapse into a hamburger menu (the top
-// bar has too little room for the brand, four links, the account and the
+// bar has too little room for the brand, five links, the account and the
 // settings button at once).
 export function HeaderNav() {
     const t = useTranslation();
@@ -307,6 +307,7 @@ export function HeaderNav() {
         { href: base + '/builder', translation: 'index.pages.builder.title' },
         { href: base + '/database', translation: 'index.pages.database.title' },
         { href: base + '/compare', label: t('header.compare') },
+        { href: base + '/polls', label: t('header.polls') },
     ];
 
     const close = () => setOpen(false);

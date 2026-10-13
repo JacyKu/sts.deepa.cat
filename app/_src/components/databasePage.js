@@ -9,6 +9,7 @@ import DatabaseSkeleton from './databaseSkeleton';
 import InfiniteScroll from './infiniteScroll';
 import DatabaseTabs from './databaseTabs';
 import FloatingLabel from './items/floatingLabel';
+import SpookyArt from './spookyArt';
 import { useTranslation } from './useTranslation';
 import sf from '../styles/SearchForm.module.css';
 import styles from '../styles/Database.module.css';
@@ -400,6 +401,11 @@ export default function DatabasePage({ classOptions, specMap, itemGroups, skillO
                 <DatabaseSkeleton />
             ) : builds.length === 0 ? (
                 <p className={styles.muted}>
+                    <SpookyArt
+                        name="spooky_assets_0011"
+                        width={128}
+                        style={{ display: 'block', margin: '0 auto 10px' }}
+                    />
                     <TranslatableText identifier="database.empty" />
                 </p>
             ) : (

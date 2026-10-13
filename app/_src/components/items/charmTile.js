@@ -3,6 +3,7 @@ import CharmFormatter from '../../utils/items/charmFormatter';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import LoreText from './loreText';
+import { renderObfuscated } from './obfuscatedText';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { useLowResource } from '../lowResourceContext';
@@ -223,14 +224,14 @@ function CharmTile(data) {
             {formattedCharm}
             <span>
                 {item.region && <span className={styles.infoText}>{`${item.region} `}</span>}
-                <span className={styles[camelCase(item.tier)]}>
+                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>
                     {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}
                     {t('items.type.charm')}
                 </span>
             </span>
             {item.location && (
-                <span style={locationStyle(item)} className={styles[camelCase(item.location)]}>
-                    {item.location}
+                <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
+                    {renderObfuscated(item.location)}
                 </span>
             )}
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}

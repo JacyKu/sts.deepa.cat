@@ -11,6 +11,7 @@ import DatabaseTabs from '../databaseTabs';
 import InfiniteScroll from '../infiniteScroll';
 import { FilterRow, selectTheme, selectStyles } from '../builds/filterRow';
 import FloatingLabel from '../items/floatingLabel';
+import SpookyArt from '../spookyArt';
 import { useTranslation } from '../useTranslation';
 import ItemTile from '../items/itemTile';
 import CharmTile from '../items/charmTile';
@@ -61,6 +62,7 @@ export default function CustomItemsDatabase() {
                 type: 'select',
                 options: [{ value: 'Any', label: t('database.any') }, ...ITEM_FILTER_OPTIONS],
             },
+            { name: 'author', labelKey: 'database.filters.author', type: 'text' },
         ],
         [t]
     );
@@ -239,7 +241,14 @@ export default function CustomItemsDatabase() {
                     ))}
                 </div>
             ) : items.length === 0 ? (
-                <p className={dbStyles.muted}>{t('customItems.database.empty')}</p>
+                <p className={dbStyles.muted}>
+                    <SpookyArt
+                        name="spooky_assets_0011"
+                        width={128}
+                        style={{ display: 'block', margin: '0 auto 10px' }}
+                    />
+                    {t('customItems.database.empty')}
+                </p>
             ) : (
                 <>
                     <InfiniteScroll

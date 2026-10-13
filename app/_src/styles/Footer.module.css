@@ -28,6 +28,13 @@
     opacity: 0.6;
 }
 
+/* Spooky Month artwork credit, under the developer line. The name uses the
+   same .text b colour as the developer credits - no extra opacity here, or
+   its white would render dimmer than theirs. */
+.artCredit {
+    margin-top: 2px;
+}
+
 .text b {
     color: var(--text-1);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { renderObfuscated } from './obfuscatedText';
 
 // Renders lore with the quest-item lines colored like in-game: the
 // "* Quest Item *" marker in light purple and the "#Q<id>I<index>" code in a
@@ -31,7 +32,7 @@ export default function LoreText({ text, className, questOnly = false }) {
                 return (
                     <React.Fragment key={i}>
                         {i > 0 && <br />}
-                        {color ? <span style={{ color }}>{line}</span> : line}
+                        {color ? <span style={{ color }}>{renderObfuscated(line)}</span> : renderObfuscated(line)}
                     </React.Fragment>
                 );
             })}

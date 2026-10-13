@@ -21,49 +21,49 @@ class Percentage {
     }
 
     addP(percentage) {
-        this.perc = Number((this.perc + percentage.perc).toFixed(2));
-        this.val = Number((this.val + percentage.val).toFixed(2));
+        this.perc += percentage.perc;
+        this.val += percentage.val;
         return this;
     }
 
     mulP(percentage) {
-        this.perc = Number((this.perc * percentage.val).toFixed(2));
-        this.val = Number((this.val * percentage.val).toFixed(2));
+        this.perc *= percentage.val;
+        this.val *= percentage.val;
         return this;
     }
 
+    // Calculations keep full precision; rounding only happens when a value is
+    // rendered (or captured into the stats engine's fullValues registry), so
+    // intermediate steps never drift from the exact result.
     add(value, percent) {
         if (this.isPercent(percent)) {
-            this.perc = Number((this.perc + Number(value)).toFixed(2));
-            // Re-Fix the value in order to fix potential precision errors.
-            // Happened for example equipping poet's tome and auric tiara, has weird calculations for HP.
-            this.val = Number((this.val + Number(value) / 100).toFixed(2));
+            this.perc += Number(value);
+            this.val += Number(value) / 100;
         } else {
-            this.perc = Number((this.perc + Number(value) * 100).toFixed(2));
-            // Same as above.
-            this.val = Number((this.val + Number(value)).toFixed(2));
+            this.perc += Number(value) * 100;
+            this.val += Number(value);
         }
         return this;
     }
 
     mul(value, percent) {
         if (this.isPercent(percent)) {
-            this.perc = Number((this.perc * (Number(value) / 100)).toFixed(2));
-            this.val = Number((this.val * (Number(value) / 100)).toFixed(2));
+            this.perc *= Number(value) / 100;
+            this.val *= Number(value) / 100;
         } else {
-            this.perc = Number((this.perc * Number(value)).toFixed(2));
-            this.val = Number((this.val * Number(value)).toFixed(2));
+            this.perc *= Number(value);
+            this.val *= Number(value);
         }
         return this;
     }
 
     preciseMul(value, percent) {
         if (this.isPercent(percent)) {
-            this.perc = Number((this.perc * (Number(value) / 100)).toFixed(4));
-            this.val = Number((this.val * (Number(value) / 100)).toFixed(4));
+            this.perc *= Number(value) / 100;
+            this.val *= Number(value) / 100;
         } else {
-            this.perc = Number((this.perc * Number(value)).toFixed(4));
-            this.val = Number((this.val * Number(value)).toFixed(4));
+            this.perc *= Number(value);
+            this.val *= Number(value);
         }
         return this;
     }

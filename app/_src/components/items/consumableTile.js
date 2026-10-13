@@ -4,6 +4,7 @@ import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
+import { renderObfuscated } from './obfuscatedText';
 import TranslatableText from '../translatableText';
 import React from 'react';
 import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
@@ -145,12 +146,12 @@ function ConsumableTile(data) {
             )}
             <span>
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
-                <span className={styles[camelCase(item.tier)]}>
+                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>
                     {item.tier ? item.tier : t('items.type.consumable')}
                 </span>
             </span>
-            <span style={locationStyle(item)} className={styles[camelCase(item.location)]}>
-                {item.location}
+            <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
+                {renderObfuscated(item.location)}
             </span>
             {formattedEffects}
             <Enchants item={item}></Enchants>

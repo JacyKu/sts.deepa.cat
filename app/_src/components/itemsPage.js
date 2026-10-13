@@ -10,6 +10,7 @@ import SearchForm from './items/searchForm';
 import React from 'react';
 import InfiniteScroll from './infiniteScroll';
 import TranslatableText from './translatableText';
+import SpookyArt from './spookyArt';
 import Link from 'next/link';
 import { useHideSkins } from './items/hideSkinsContext';
 import skinNames from '../data/skins.json';
@@ -468,6 +469,11 @@ export default function ItemsPage({ itemData, itemHistory }) {
                 </div>
                 {relevantItems.length === 0 ? (
                     <div className={styles.emptyState}>
+                        <SpookyArt
+                            name="spooky_assets_0011"
+                            width={128}
+                            style={{ display: 'block', margin: '0 auto 10px' }}
+                        />
                         <b>
                             <TranslatableText identifier="items.noItemsFound"></TranslatableText>
                         </b>

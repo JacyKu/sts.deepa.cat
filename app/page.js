@@ -5,6 +5,7 @@ import styles from './_src/styles/Home.module.css';
 import Link from 'next/link';
 import { getStsBase } from './_src/utils/base';
 import TranslatableText from './_src/components/translatableText';
+import SpookyArt from './_src/components/spookyArt';
 import { useTranslation } from './_src/components/useTranslation';
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
     return (
         <div className={styles.container}>
             <main className={styles.main}>
+                <SpookyArt name="spooky_assets_0006" width={192} style={{ marginBottom: '0.25rem' }} />
                 <h1 className={styles.title}>Spare the Sympathy</h1>
                 {itemCount !== null && (
                     <p className={styles.stats}>
