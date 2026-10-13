@@ -24,8 +24,6 @@ export async function buildLinkMetadata(id) {
         return { title: 'Monumenta Builder', description: 'Make and share Monumenta builds.' };
     }
 
-    const headersList = await headers();
-    const requestHost = headersList.get('host') || 'deepa.cat';
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
     const title = row.name || getLinkPreviewTitle(row.token, itemData, null, skillsData);
     const description = getLinkPreviewDescription(row.token, itemData, skillsData, row.parsedState?.infusions);
@@ -36,7 +34,9 @@ export async function buildLinkMetadata(id) {
     const imageUrl = '/api/v2/og?id=' + id + '&v=' + (row.revision || 1);
 
     return {
-        metadataBase: new URL('https://' + requestHost),
+        // Pinned to the configured public origin: never derive it from the
+        // request Host (a forged Host would spoof the embed/metadata URLs).
+        metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
         title,
         description,
         keywords,

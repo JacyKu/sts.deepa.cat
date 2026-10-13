@@ -71,7 +71,9 @@ function remoteConvertUrl(link, currentHostname) {
     const hostname = url.hostname.toLowerCase();
     if (!KNOWN_STS_HOSTS.has(hostname)) return null;
     if (hostname === String(currentHostname || '').toLowerCase()) return null;
-    return `https://${url.host}/api/v2/builds/convert?link=${encodeURIComponent(url.pathname + url.search)}`;
+    // Always https on the default port: `url.host` would preserve an arbitrary
+    // port on the allowlisted host.
+    return `https://${hostname}/api/v2/builds/convert?link=${encodeURIComponent(url.pathname + url.search)}`;
 }
 
 export async function GET(request) {
@@ -86,7 +88,11 @@ export async function GET(request) {
     const remote = remoteConvertUrl(link, request.nextUrl.hostname);
     if (remote) {
         try {
-            const res = await fetch(remote, { headers: { accept: 'application/json' } });
+            const res = await fetch(remote, {
+                headers: { accept: 'application/json' },
+                redirect: 'manual',
+                signal: AbortSignal.timeout(8000),
+            });
             const data = await res.json().catch(() => null);
             if (!res.ok || !data || !data.token) {
                 return NextResponse.json(

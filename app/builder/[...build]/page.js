@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-import { headers } from 'next/headers';
 import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../../_src/utils/buildPreview';
 import { referencedCustomItemExtras } from '../../../lib/sts-builds';
@@ -38,10 +37,10 @@ export async function generateMetadata({ params }) {
     const title = getLinkPreviewTitle(build, itemData, null, skillsData);
     const description = getLinkPreviewDescription(build, itemData, skillsData);
     const imageUrl = '/api/v2/og?build=' + encodeURIComponent(build);
-    const requestHost = (await headers()).get('host') || 'deepa.cat';
 
     return {
-        metadataBase: new URL('https://' + requestHost),
+        // Pinned to the configured public origin (never the request Host).
+        metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
         title,
         description,
         keywords,

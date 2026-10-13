@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start -p 6678",
+    "start": "next start -H 127.0.0.1 -p 6678",
     "update:items": "node scripts/update-items.mjs",
     "update:classes": "node scripts/update-classes.mjs",
     "update:spritesheet": "node scripts/spritesheetmaker/import-mod-dump.js",

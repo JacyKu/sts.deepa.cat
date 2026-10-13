@@ -18,6 +18,22 @@ export function proxy(request) {
         return NextResponse.redirect(url);
     }
 
+    // CSRF defence in depth for state-changing API calls. SameSite=Lax already
+    // keeps the session cookie off cross-site POSTs, but a same-site sibling
+    // origin (or a browser that ignores SameSite) could still ride it. Reject a
+    // write whose Origin is present and not this site; native clients (the mod
+    // and bot) send no Origin, so they are unaffected.
+    if (pathname.startsWith('/api/')) {
+        const method = request.method;
+        if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+            const origin = request.headers.get('origin');
+            const pinned = process.env.STS_PUBLIC_BASE_URL ? new URL(process.env.STS_PUBLIC_BASE_URL).origin : null;
+            if (origin && origin !== request.nextUrl.origin && origin !== pinned) {
+                return NextResponse.json({ error: 'cross-origin request blocked' }, { status: 403 });
+            }
+        }
+    }
+
     // Per-IP API rate limit: generous bucket for reads, a much smaller one
     // for writes. Per-account daily upload limits are enforced inside the
     // routes (they need the session / linked UUID).
