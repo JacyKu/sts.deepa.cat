@@ -7,6 +7,7 @@ import { getBuildItemHashes } from '../../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
 import { BuilderDataView } from '../../_src/components/builderDataView';
 import BuilderSkeleton from '../../_src/components/builderSkeleton';
+import BootstrapStyles from '../../_src/components/bootstrapStyles';
 
 const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
 
@@ -64,9 +65,12 @@ export default async function Page({ params }) {
     const p = await params;
     const build = p?.build ? String(p.build).replace(/,/g, '/') : null;
     return (
-        <Suspense fallback={<BuilderSkeleton />}>
-            <BuilderView build={build} />
-        </Suspense>
+        <>
+            <BootstrapStyles />
+            <Suspense fallback={<BuilderSkeleton />}>
+                <BuilderView build={build} />
+            </Suspense>
+        </>
     );
 }
 

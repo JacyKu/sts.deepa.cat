@@ -7,6 +7,7 @@ import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCz
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
 import { sanitizeBuildTokenForDisplay } from '../utils/builder/buildTokenGuard';
 import { BuilderDataView } from './builderDataView';
+import BootstrapStyles from './bootstrapStyles';
 import { stsBaseForHost } from '../utils/base';
 
 export const dynamic = 'force-dynamic';
@@ -90,21 +91,24 @@ export async function BuildLinkPageView(id) {
     const creatorToken = cookieStore.get(`sts-build-owner-${id}`)?.value || null;
     const isCreator = Boolean(user && !row.user_id && creatorToken);
     return (
-        <BuilderDataView
-            build={displayToken}
-            savedState={row.parsedState}
-            savedName={row.name}
-            notes={row.notes}
-            canEditNotes={isOwner || isCreator}
-            buildId={id}
-            revision={row.revision || 1}
-            canPublicise={isOwner || isCreator}
-            isPublic={row.is_public === 1}
-            isAnonymous={row.anonymous === 1}
-            itemsVersion={itemsVersion}
-            skillsVersion={skillsVersion}
-            czVersion={czVersion}
-            extraItems={extraItems}
-        />
+        <>
+            <BootstrapStyles />
+            <BuilderDataView
+                build={displayToken}
+                savedState={row.parsedState}
+                savedName={row.name}
+                notes={row.notes}
+                canEditNotes={isOwner || isCreator}
+                buildId={id}
+                revision={row.revision || 1}
+                canPublicise={isOwner || isCreator}
+                isPublic={row.is_public === 1}
+                isAnonymous={row.anonymous === 1}
+                itemsVersion={itemsVersion}
+                skillsVersion={skillsVersion}
+                czVersion={czVersion}
+                extraItems={extraItems}
+            />
+        </>
     );
 }

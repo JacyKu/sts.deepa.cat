@@ -105,12 +105,6 @@ export default async function StsLayout({ children }) {
                 <link rel="stylesheet" href={base + '/spritesheets/_minecraft.css'} />
                 <link rel="stylesheet" href={base + '/spritesheets/_itemsheet.css'} />
                 <link rel="stylesheet" href={base + '/spritesheets/_charmsheet.css'} />
-                <link
-                    rel="stylesheet"
-                    href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css"
-                    integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor"
-                    crossOrigin="anonymous"
-                />
                 <SpookyThemeProvider enabled={spooky}>
                     <SpookyCorners />
                     <div className="site-content" id="top">
