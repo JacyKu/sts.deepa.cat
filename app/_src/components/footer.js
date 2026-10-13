@@ -87,14 +87,6 @@ export default function Footer() {
                     </div>
                     <div className={styles.links}>
                         <LanguageSelector className={styles.languageSelect} compact />
-                        <a
-                            className={styles.textLink}
-                            href="https://crowdin.com/project/ohthemisery"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {t('footer.helpTranslate')}
-                        </a>
                         <Link className={styles.textLink} href="/privacy">
                             {t('footer.privacyPolicy')}
                         </Link>
