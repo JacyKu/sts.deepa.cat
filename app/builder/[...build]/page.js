@@ -5,7 +5,7 @@ import { getLinkPreviewTitle, getLinkPreviewDescription } from '../../_src/utils
 import { referencedCustomItemExtras } from '../../../lib/sts-builds';
 import { getBuildItemHashes } from '../../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
-import { BuilderDataView } from '../../_src/components/siteDataViews';
+import { BuilderDataView } from '../../_src/components/builderDataView';
 import BuilderSkeleton from '../../_src/components/builderSkeleton';
 
 const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';

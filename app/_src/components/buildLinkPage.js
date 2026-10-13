@@ -6,7 +6,7 @@ import { getDiscordUser } from '../../../lib/session';
 import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
 import { sanitizeBuildTokenForDisplay } from '../utils/builder/buildTokenGuard';
-import { BuilderDataView } from './siteDataViews';
+import { BuilderDataView } from './builderDataView';
 import { stsBaseForHost } from '../utils/base';
 
 export const dynamic = 'force-dynamic';

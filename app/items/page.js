@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getItemDataVersion, getHistoryVersion } from '../_src/utils/itemsData';
-import { ItemsDataView } from '../_src/components/siteDataViews';
+import { ItemsDataView } from '../_src/components/itemsDataView';
 import ItemsSkeleton from '../_src/components/itemsSkeleton';
 
 export const metadata = {

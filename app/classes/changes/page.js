@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getSkillsVersion, getClassHistoryVersion } from '../../_src/utils/itemsData';
-import { ClassChangesDataView } from '../../_src/components/siteDataViews';
+import { ClassChangesDataView } from '../../_src/components/classChangesDataView';
 import ClassChangesSkeleton from '../../_src/components/classes/classChangesSkeleton';
 
 export const metadata = {
