@@ -24,7 +24,8 @@ export function BuildListEnabledProvider({ children }) {
             return next;
         });
     }, []);
-    return <BuildListEnabledContext.Provider value={{ enabled, toggle }}>{children}</BuildListEnabledContext.Provider>;
+    const value = React.useMemo(() => ({ enabled, toggle }), [enabled, toggle]);
+    return <BuildListEnabledContext.Provider value={value}>{children}</BuildListEnabledContext.Provider>;
 }
 
 export function useBuildListEnabled() {

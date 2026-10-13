@@ -5,7 +5,8 @@ import { renderObfuscated } from './obfuscatedText';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
@@ -170,7 +171,7 @@ function MasterworkableItemTile(data) {
     const [activeItem, setActiveItem] = React.useState(computeDefaultItem);
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(activeItem.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
 
     // When the menu toggle flips, reset every tile to the newly applicable
     // default variant.
@@ -193,18 +194,6 @@ function MasterworkableItemTile(data) {
     const star3 = React.useRef();
     const star4 = React.useRef();
     const [starsAnimated, setStarsAnimated] = React.useState(false);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     React.useEffect(() => {
         // Prefer the explicit mapping generated from the texture pack.

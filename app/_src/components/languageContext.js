@@ -31,16 +31,8 @@ export const LanguageContextProvider = ({ children }) => {
         if (stored && stored !== 'en') setLang(stored);
     }, [setLang]);
 
-    return (
-        <LanguageContext.Provider
-            value={{
-                lang: lang,
-                setLang: setLang,
-            }}
-        >
-            {children}
-        </LanguageContext.Provider>
-    );
+    const value = React.useMemo(() => ({ lang, setLang }), [lang, setLang]);
+    return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };
 
 export const useLanguageContext = () => React.useContext(LanguageContext);

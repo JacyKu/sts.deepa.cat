@@ -22,7 +22,8 @@ export function HideLoreProvider({ children }) {
             return next;
         });
     }, []);
-    return <HideLoreContext.Provider value={{ hidden, toggle }}>{children}</HideLoreContext.Provider>;
+    const value = React.useMemo(() => ({ hidden, toggle }), [hidden, toggle]);
+    return <HideLoreContext.Provider value={value}>{children}</HideLoreContext.Provider>;
 }
 
 export function useHideLore() {

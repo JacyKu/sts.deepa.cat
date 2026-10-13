@@ -7,7 +7,8 @@ import ConsumableFormatter from '../../utils/items/consumableFormatter';
 import { renderObfuscated } from './obfuscatedText';
 import TranslatableText from '../translatableText';
 import React from 'react';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
@@ -66,19 +67,7 @@ function ConsumableTile(data) {
 
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    const spriteMap = useItemSpriteMap();
 
     React.useEffect(() => {
         const mappedClass = getMappedSpriteClass(spriteMap, item.name);

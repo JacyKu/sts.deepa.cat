@@ -12,7 +12,8 @@ import { useBuildListEnabled } from './buildListEnabledContext';
 import { useHideObtainment } from './hideObtainmentContext';
 import { useHideLore } from './hideLoreContext';
 import { useItemFavourites } from './itemFavouritesContext';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { locationStyle } from '../../utils/items/locationColor';
 import { useTranslation } from '../useTranslation';
 
@@ -89,7 +90,7 @@ function CharmTile(data) {
     const t = useTranslation();
     const [cssClass, setCssClass] = React.useState(getCharmSheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
     const { lowRes } = useLowResource();
     const { hidden: hideObtainment } = useHideObtainment();
     const { hidden: hideLore } = useHideLore();
@@ -98,18 +99,6 @@ function CharmTile(data) {
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
 
     let formattedCharm = CharmFormatter.formatCharm(item.stats, item.statColors);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     React.useEffect(() => {
         // Prefer the explicit mapping generated from the texture pack.

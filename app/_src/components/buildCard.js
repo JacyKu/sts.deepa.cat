@@ -7,7 +7,8 @@ import TranslatableText from './translatableText';
 import styles from '../styles/Database.module.css';
 import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../utils/items/spritesheetMap';
+import { useItemSpriteMap } from './useItemSpriteMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
 import { loadSkills, loadCz } from '../utils/siteDataClient';
 import { useCardItemsFirst } from './items/cardItemsFirstContext';
@@ -146,7 +147,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     const [expanded, setExpanded] = React.useState(false);
     const [sideOpen, setSideOpen] = React.useState(false);
     const [side, setSide] = React.useState('right');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
     const [openItem, setOpenItem] = React.useState(null);
     const [detail, setDetail] = React.useState(null);
     const [buildDetails, setBuildDetails] = React.useState(null);
@@ -166,16 +167,6 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             typeof window !== 'undefined' &&
                 Boolean(window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches)
         );
-    }, []);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) setSpriteMap(map);
-        });
-        return () => {
-            active = false;
-        };
     }, []);
 
     React.useEffect(() => {

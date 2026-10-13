@@ -25,9 +25,8 @@ export function FavouritesEnabledProvider({ children }) {
             return next;
         });
     }, []);
-    return (
-        <FavouritesEnabledContext.Provider value={{ enabled, toggle }}>{children}</FavouritesEnabledContext.Provider>
-    );
+    const value = React.useMemo(() => ({ enabled, toggle }), [enabled, toggle]);
+    return <FavouritesEnabledContext.Provider value={value}>{children}</FavouritesEnabledContext.Provider>;
 }
 
 export function useFavouritesEnabled() {

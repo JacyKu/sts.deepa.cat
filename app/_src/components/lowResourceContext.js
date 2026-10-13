@@ -30,7 +30,8 @@ export function LowResourceProvider({ children }) {
             return next;
         });
     }, [applyClass]);
-    return <LowResourceContext.Provider value={{ lowRes, toggle }}>{children}</LowResourceContext.Provider>;
+    const value = React.useMemo(() => ({ lowRes, toggle }), [lowRes, toggle]);
+    return <LowResourceContext.Provider value={value}>{children}</LowResourceContext.Provider>;
 }
 
 export function useLowResource() {

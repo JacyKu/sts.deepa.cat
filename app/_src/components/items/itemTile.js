@@ -6,7 +6,8 @@ import { renderObfuscated } from './obfuscatedText';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
-import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
@@ -70,25 +71,13 @@ function ItemTile(data) {
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
 
     // If the item name has accented characters, they are actually not present in the item's name property,
     // but they are present in the item's key. In that case, set the name to the key.
     if (doesNameContainNonASCII(data.name)) {
         item.name = data.name;
     }
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     React.useEffect(() => {
         // Custom items carry their chosen texture directly; regular items go

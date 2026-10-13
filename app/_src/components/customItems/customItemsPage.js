@@ -10,7 +10,7 @@ import CustomItemCard from './customItemCard';
 import CustomItemHeart from './customItemHeart';
 import SpookyArt from '../spookyArt';
 import itemsStyles from '../../styles/Items.module.css';
-import { loadItemSpriteMap } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getStsBase } from '../../utils/base';
 import { useSessionState } from '../header';
 import { MyPagesTabs } from '../databaseTabs';
@@ -206,7 +206,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
     const [lookupQuery, setLookupQuery] = React.useState('');
     const [lookupResults, setLookupResults] = React.useState(null); // null = nothing searched yet
     const [lookupBusy, setLookupBusy] = React.useState(false);
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
 
     const [name, setName] = React.useState('');
     const [type, setType] = React.useState('Offhand');
@@ -286,10 +286,6 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
             clearCustomItemsDraft(userId);
         }
     }, [authChecked, user, editingId, name, type, baseItem, textureQuery, textureToken, textureName, statRows]);
-
-    React.useEffect(() => {
-        loadItemSpriteMap().then(setSpriteMap);
-    }, []);
 
     React.useEffect(() => {
         if (!authChecked || !user) return;

@@ -33,7 +33,8 @@ export function AnimationsProvider({ children }) {
             return next;
         });
     }, [applyClass]);
-    return <AnimationsContext.Provider value={{ hidden: !enabled, toggle }}>{children}</AnimationsContext.Provider>;
+    const value = React.useMemo(() => ({ hidden: !enabled, toggle }), [enabled, toggle]);
+    return <AnimationsContext.Provider value={value}>{children}</AnimationsContext.Provider>;
 }
 
 export function useAnimations() {

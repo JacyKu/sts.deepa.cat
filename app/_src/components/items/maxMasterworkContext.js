@@ -22,9 +22,8 @@ export function MaxMasterworkProvider({ children }) {
             return next;
         });
     }, []);
-    return (
-        <MaxMasterworkContext.Provider value={{ enabled, toggle }}>{children}</MaxMasterworkContext.Provider>
-    );
+    const value = React.useMemo(() => ({ enabled, toggle }), [enabled, toggle]);
+    return <MaxMasterworkContext.Provider value={value}>{children}</MaxMasterworkContext.Provider>;
 }
 
 export function useMaxMasterwork() {

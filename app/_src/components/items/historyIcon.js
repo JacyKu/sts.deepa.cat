@@ -3,7 +3,8 @@
 import React from 'react';
 import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/History.module.css';
-import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 
 function camelCase(str, upper) {
@@ -39,17 +40,7 @@ function sheetClassFromName(itemName) {
 export default function HistoryIcon({ item, compact = false }) {
     const [cssClass, setCssClass] = React.useState(item.textureToken ? `monumenta-${item.textureToken}` : null);
     const [baseClass, setBaseClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) setSpriteMap(map);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    const spriteMap = useItemSpriteMap();
 
     React.useEffect(() => {
         if (item.textureToken && (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken))) {
