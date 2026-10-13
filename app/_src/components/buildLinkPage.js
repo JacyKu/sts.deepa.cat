@@ -66,16 +66,18 @@ export async function BuildLinkPageView(id) {
         redirect(base + '/builder');
     }
 
-    const user = await getDiscordUser();
     const hashes = getBuildItemHashes(row.token);
-    const baseItemData = await getItemData();
-    const mergedItemData = mergeReferencedCustomItems(baseItemData, user ? user.id : null, hashes);
-    const [skillsData, itemsVersion, skillsVersion, czVersion] = await Promise.all([
+    // All of these are independent; fetch them together instead of awaiting
+    // the session and item data before starting the rest.
+    const [user, baseItemData, skillsData, itemsVersion, skillsVersion, czVersion] = await Promise.all([
+        getDiscordUser(),
+        getItemData(),
         getSkillsData(),
         getItemDataVersion(),
         getSkillsVersion(),
         getCzVersion(),
     ]);
+    const mergedItemData = mergeReferencedCustomItems(baseItemData, user ? user.id : null, hashes);
     // Rows saved before token validation existed can carry junk (unknown
     // charms crash the builder, invalid classes/skills/names pollute it), so
     // the builder only ever sees the sanitized token.

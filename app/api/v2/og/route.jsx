@@ -41,6 +41,9 @@ let spriteInfoCache = null;
 let faviconCache = null;
 // Discord CDN avatars fetched for the embed author bar, keyed by URL so
 // repeated fetches (Discord re-fetches og images with each preview) stay cheap.
+// Bounded like the card cache: distinct avatars would otherwise grow it
+// forever across the process lifetime.
+const AVATAR_CACHE_LIMIT = 300;
 const avatarCache = new Map();
 
 // Rendered cards, keyed by build id + revision (or the token / set version)
@@ -113,7 +116,12 @@ function resolveAuthorAvatarUrl(userId, avatar, origin) {
 }
 
 async function getAvatarDataUrl(url) {
-    if (avatarCache.has(url)) return avatarCache.get(url);
+    if (avatarCache.has(url)) {
+        const hit = avatarCache.get(url);
+        avatarCache.delete(url);
+        avatarCache.set(url, hit); // LRU: refresh recency
+        return hit;
+    }
     let dataUrl = null;
     try {
         // Redirects are not followed: an allowlisted host could otherwise
@@ -131,6 +139,7 @@ async function getAvatarDataUrl(url) {
         dataUrl = null;
     }
     avatarCache.set(url, dataUrl);
+    if (avatarCache.size > AVATAR_CACHE_LIMIT) avatarCache.delete(avatarCache.keys().next().value);
     return dataUrl;
 }
 

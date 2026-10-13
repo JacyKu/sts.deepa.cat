@@ -4,8 +4,8 @@ import { ensureStsUser, getStsUserCreatedAt, getActiveSanction } from '../../../
 import { isModerator } from '../../../../lib/moderation';
 
 export async function GET() {
-    const user = await getDiscordUser();
-    const anonymous = await getAnonymousPreference();
+    // Both read the same session; the session read is memoized per request.
+    const [user, anonymous] = await Promise.all([getDiscordUser(), getAnonymousPreference()]);
     if (user) {
         // Sessions are stateless cookies; keep the account-creation date in
         // the database and register the account the first time it is seen.
