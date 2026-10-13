@@ -1,7 +1,28 @@
+import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { consumeRateLimit, getClientIp, rateLimitResponse, readRateLimits } from './lib/rate-limit.js';
 
 const MINUTE_MS = 60 * 1000;
+
+// Content-Security-Policy for the HTML document. Scripts use a per-request
+// nonce (Next applies it to its own scripts; the layout's inline boot script
+// reads it from the x-nonce header). Styles keep 'unsafe-inline' because the
+// app uses React inline style attributes, and the two external stylesheets
+// (Google Fonts and Bootstrap) are allowlisted.
+function buildCsp(nonce) {
+    return [
+        "default-src 'self'",
+        `script-src 'self' 'nonce-${nonce}'`,
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://cdn.discordapp.com https://mc-heads.net https://*.r2.dev",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ].join('; ');
+}
 
 export function proxy(request) {
     const { pathname } = request.nextUrl;
@@ -53,7 +74,16 @@ export function proxy(request) {
 
     globalThis.__deepaStsBase = hostname ? '' : '';
 
-    return NextResponse.next();
+    // Per-request nonce for the document's scripts (see buildCsp). The request
+    // header lets Next.js stamp its own scripts; the response header enforces.
+    const nonce = crypto.randomBytes(16).toString('base64');
+    const csp = buildCsp(nonce);
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-nonce', nonce);
+    requestHeaders.set('Content-Security-Policy', csp);
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set('Content-Security-Policy', csp);
+    return response;
 }
 
 export const config = {

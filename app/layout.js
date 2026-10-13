@@ -86,6 +86,8 @@ export default async function StsLayout({ children }) {
     const headersList = await headers();
     const host = headersList.get('host') || '';
     const base = host ? '' : '';
+    // Per-request CSP nonce (set by proxy.js) for the inline boot script.
+    const nonce = headersList.get('x-nonce') || undefined;
     // Spooky Month decorations (moderation -> Theme): when off, every piece
     // of artwork below reverts to the plain site.
     const spooky = isSpookyThemeEnabled();
@@ -93,7 +95,7 @@ export default async function StsLayout({ children }) {
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
-                <script dangerouslySetInnerHTML={{ __html: LOOK_BOOT_SCRIPT }} />
+                <script nonce={nonce} dangerouslySetInnerHTML={{ __html: LOOK_BOOT_SCRIPT }} />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link
