@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
-import Select from 'react-select';
 import TranslatableText from './translatableText';
 import { useTranslation } from './useTranslation';
 import LoreToggle from './items/loreToggle';
@@ -246,51 +245,6 @@ export const FONT_STACKS = {
     default:
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
 };
-
-const selectTheme = (theme) => ({
-    ...theme,
-    borderRadius: 0,
-    colors: {
-        ...theme.colors,
-        primary: 'var(--text-1)',
-        primary25: 'var(--surface-2)',
-        neutral0: 'var(--glass-menu)',
-        neutral5: 'var(--glass-2)',
-        neutral10: 'var(--glass-2)',
-        neutral20: 'var(--control-border)',
-        neutral30: 'var(--control-border-hover)',
-        neutral60: 'var(--text-2)',
-        neutral80: 'var(--text-1)',
-    },
-});
-
-const selectStyles = {
-    container: (base) => ({ ...base, width: '100%' }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    menu: (base) => ({ ...base, zIndex: 9999 }),
-};
-
-// The themed react-select used by the header/settings and the account
-// page's Settings card (theme, font, glass controls).
-export function HeaderSelect({ options, value, onChange, instanceId, className, formatOptionLabel }) {
-    return (
-        <div className={className}>
-            <Select
-                instanceId={instanceId}
-                name={instanceId}
-                options={options}
-                value={options.find((opt) => opt.value === value)}
-                onChange={onChange}
-                formatOptionLabel={formatOptionLabel}
-                isSearchable={false}
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                menuPosition="fixed"
-                theme={selectTheme}
-                styles={selectStyles}
-            />
-        </div>
-    );
-}
 
 // The STS nav links, rendered in the center of the shared SiteNav top bar.
 // On small screens the inline links collapse into a hamburger menu (the top

@@ -3,11 +3,20 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import styles from '../styles/Footer.module.css';
-import LanguageSelector from './languageSelector';
 import { useSpookyTheme } from './spookyThemeContext';
 import { useTranslation } from './useTranslation';
 import pkg from '../../../package.json';
+
+// The language selector pulls in react-select; lazy-load it (ssr:false) so
+// that library stays out of the first-load JS on every route -- the footer is
+// rendered globally. It sits below the fold, so loading after hydration is
+// invisible; the placeholder keeps the footer's layout stable.
+const LanguageSelector = dynamic(() => import('./languageSelector'), {
+    ssr: false,
+    loading: () => <span className={styles.languageSelect} style={{ display: 'inline-block', height: 36 }} />,
+});
 
 function GitHubIcon() {
     return (
