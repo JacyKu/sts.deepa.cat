@@ -112,8 +112,16 @@ export async function POST(request) {
     const state = {
         token: storedToken,
         infusions,
-        // Site-only settings the mod doesn't send ride along on a re-export.
-        revelation: existingState ? Boolean(existingState.revelation) : false,
+        // Site-only settings the mod doesn't normally send ride along on a
+        // re-export. The mod cannot detect an item's Revelation infusion, so
+        // when it uploads delve infusions it states its assumption (on) and
+        // that wins.
+        revelation:
+            typeof body?.revelation === 'boolean'
+                ? body.revelation
+                : existingState
+                  ? Boolean(existingState.revelation)
+                  : false,
         basicInfusions,
         globalInfusions:
             existingState && existingState.globalInfusions && typeof existingState.globalInfusions === 'object'
