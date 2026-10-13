@@ -278,7 +278,14 @@ function EquipmentGrid({ itemLines, size = 56 }) {
                             {img ? (
                                 <img src={img} width={size} height={size} style={{ imageRendering: 'pixelated' }} />
                             ) : (
-                                <div style={{ width: size, height: size, border: `1px solid ${BORDER}` }} />
+                                <div
+                                    style={{
+                                        width: size,
+                                        height: size,
+                                        border: `1px solid ${BORDER}`,
+                                        borderRadius: 8,
+                                    }}
+                                />
                             )}
                             <div style={{ display: 'flex', flexDirection: 'column', marginLeft: 10 }}>
                                 <div style={{ fontSize: 11, letterSpacing: 1.5, color: DIM, fontWeight: 700 }}>
@@ -333,6 +340,7 @@ function SkillChips({ skills, color, enhancedIds }) {
                             alignItems: 'center',
                             gap: 4,
                             border: `1px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: '2px 7px',
                             fontSize: 13,
@@ -410,6 +418,7 @@ function InfusionPanel({ infusions, points }) {
                             alignItems: 'center',
                             gap: 6,
                             border: `1px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: '2px 7px',
                             fontSize: 13,
@@ -524,6 +533,7 @@ async function setCardResponse(setId, origin) {
                             display: 'flex',
                             alignItems: 'center',
                             border: `1px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: '2px 7px',
                             fontSize: 13,
@@ -547,6 +557,7 @@ async function setCardResponse(setId, origin) {
                                     display: 'flex',
                                     alignItems: 'center',
                                     border: `2px solid ${CZ_COLOR}`,
+                                    borderRadius: 8,
                                     background: PANEL,
                                     padding: '3px 8px',
                                     fontSize: 13,
@@ -729,7 +740,9 @@ export async function GET(request) {
                     ...fontStyle,
                 }}
             >
-                <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{title}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{title}</div>
+                </div>
 
                 {hasBuildInfo && (
                     <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -765,6 +778,7 @@ export async function GET(request) {
                                         alignItems: 'center',
                                         gap: 6,
                                         border: `2px solid ${CZ_COLOR}`,
+                                        borderRadius: 8,
                                         background: PANEL,
                                         padding: '3px 8px',
                                     }}
@@ -781,6 +795,7 @@ export async function GET(request) {
                         style={{
                             flex: 1,
                             border: `2px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: 14,
                             display: 'flex',
@@ -797,6 +812,7 @@ export async function GET(request) {
                             style={{
                                 width: 330,
                                 border: `2px solid ${BORDER}`,
+                                borderRadius: 8,
                                 background: PANEL,
                                 padding: 14,
                                 display: 'flex',
