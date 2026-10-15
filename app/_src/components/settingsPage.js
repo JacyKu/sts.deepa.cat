@@ -8,6 +8,7 @@ import { useTranslation } from './useTranslation';
 import BuilderLayoutToggle from './builderLayoutToggle';
 import CardItemsFirstToggle from './cardItemsFirstToggle';
 import { CacheSearchToggle, CacheBuildsToggle, CacheCustomItemsToggle } from './cachingToggles';
+import LocationIdsToggle from './locationIdsToggle';
 import DateFormatToggle from './dateFormatToggle';
 import { HEADER_TITLE_MAX, HEADER_TITLE_KEY, saveHeaderTitle } from './headerTitle';
 import { getInfusionInputMode, setInfusionInputMode, DEFAULT_INFUSION_INPUT_MODE } from '../utils/infusionPrefs';
@@ -856,6 +857,7 @@ export default function SettingsPage() {
                         <CacheBuildsToggle className={styles.themeToggleRow} />
                         <CacheCustomItemsToggle className={styles.themeToggleRow} />
                         <CardItemsFirstToggle className={styles.themeToggleRow} />
+                        <LocationIdsToggle className={styles.themeToggleRow} />
                         <DateFormatToggle
                             className={styles.themeToggleRow}
                             checked={dateFormat === 'iso'}

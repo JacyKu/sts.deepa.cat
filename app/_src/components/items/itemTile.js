@@ -4,6 +4,8 @@ import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import { renderObfuscated } from './obfuscatedText';
 import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -66,6 +68,7 @@ function ItemTile(data) {
     const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { useIds: locationIds } = useLocationIds();
     const { lowRes } = useLowResource();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
@@ -200,7 +203,7 @@ function ItemTile(data) {
                 <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>{displayTier(item.tier)}</span>
             </span>
             <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
-                {renderObfuscated(item.location)}
+                {renderObfuscated(locationText(item, locationIds))}
             </span>
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (

@@ -5,6 +5,7 @@ import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
 import quests from '../../data/quests.json';
 import { displayTier } from '../../utils/items/tierDisplay';
+import { locationId } from '../../utils/items/locationDisplay';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
 import { loadSkills } from '../../utils/siteDataClient';
 import { useTranslation } from '../useTranslation';
@@ -48,8 +49,10 @@ function getSearchOptions(itemData) {
     // Remove the Charm tier since there is a checkbox for it.
     delete uniqueTiers.Charm;
     // Display names only: the option value stays the raw tier, so filtering
-    // keeps matching itemData[..].tier.
+    // keeps matching itemData[..].tier. Sorted by the label the user sees,
+    // since the option order is the array order.
     Object.keys(uniqueTiers).forEach((tierName) => tiers.push({ value: tierName, label: displayTier(tierName) }));
+    tiers.sort((a, b) => a.label.localeCompare(b.label));
     let charmNames = Object.keys(itemData).filter((item) => itemData[item].type == 'Charm');
     let uniqueCharmAttributes = {};
     for (let charmName of charmNames) {
@@ -84,15 +87,19 @@ function getSearchOptions(itemData) {
         formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
         effects.push(formatted);
     });
-    // Location name -> registry id (locationId), so the filter can show the id
-    // in parentheses. Items written before the locationId field existed (or
-    // whose location the registry lacks) have no id and show the name alone.
+    // Location name -> registry id, so every option lists the id in parentheses
+    // ("Salazar's Folly (lime)") regardless of the location-id display setting.
+    // The id comes from the item's own field when it has one, otherwise from the
+    // vendored registry (data/locations.json); locations the registry does not
+    // list (the region names, and event locations like Tenyears) show the name
+    // alone.
     let uniqueLocations = {};
     Object.keys(itemData).forEach((item) => {
-        const { location, locationId } = itemData[item];
+        const { location } = itemData[item];
         if (location == undefined) return;
-        if (!(location in uniqueLocations) || (!uniqueLocations[location] && locationId)) {
-            uniqueLocations[location] = locationId || null;
+        const id = locationId(itemData[item]);
+        if (!(location in uniqueLocations) || (!uniqueLocations[location] && id)) {
+            uniqueLocations[location] = id || null;
         }
     });
     Object.keys(uniqueLocations).forEach((locationName) => {

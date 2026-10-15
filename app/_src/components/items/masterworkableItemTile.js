@@ -7,6 +7,8 @@ import React from 'react';
 import TranslatableText from '../translatableText';
 import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
 import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
 import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { locationStyle } from '../../utils/items/locationColor';
@@ -143,6 +145,7 @@ function MasterworkableItemTile(data) {
     const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { useIds: locationIds } = useLocationIds();
     const { enabled: maxMasterworkDefault } = useMaxMasterwork();
     const { lowRes } = useLowResource();
     const { items: listItems, toggleItem } = useBuildList();
@@ -406,7 +409,7 @@ function MasterworkableItemTile(data) {
                 style={locationStyle(activeItem)}
                 className={`${styles[camelCase(activeItem.location)]} ${styles.gameText}`}
             >
-                {renderObfuscated(activeItem.location)}
+                {renderObfuscated(locationText(activeItem, locationIds))}
             </span>
             {!activeItem.undiscovered ? (
                 <div>

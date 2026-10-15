@@ -9,6 +9,8 @@ import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
 import { getMappedSpriteClass } from '../utils/items/spritesheetMap';
 import { displayTier } from '../utils/items/tierDisplay';
+import { locationText } from '../utils/items/locationDisplay';
+import { useLocationIds } from './items/locationIdsContext';
 import { useItemSpriteMap } from './useItemSpriteMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
 import { loadSkills, loadCz } from '../utils/siteDataClient';
@@ -139,6 +141,7 @@ function loadBuildDetails() {
 function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
     const t = useTranslation();
     const { itemsFirst: globalItemsFirst } = useCardItemsFirst();
+    const { useIds: locationIds } = useLocationIds();
     // The card's swap button overrides the global setting for this card only;
     // null follows the global default set on the settings page.
     const [layoutOverride, setLayoutOverride] = React.useState(null);
@@ -506,7 +509,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                             {detail.region ? `${detail.region} ` : ''}
                             {displayTier(detail.tier) || ''}
                         </div>
-                        <div className={styles.itemDetailInfo}>{detail.location || ''}</div>
+                        <div className={styles.itemDetailInfo}>{locationText(detail, locationIds)}</div>
                     </div>
                 )}
             </div>

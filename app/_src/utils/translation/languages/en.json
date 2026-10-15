@@ -911,6 +911,8 @@
     "settings.infusionInputs.item": "Per item",
     "settings.infusionInputs.label": "Infusion inputs",
     "settings.infusionInputs.total": "Number total",
+    "settings.locationIds.hint": "Show each location's registry id behind its name, for example Salazar's Folly (lime).",
+    "settings.locationIds.label": "Show location ids",
     "settings.myImage": "My image",
     "settings.pickColours": "Pick your own colours",
     "settings.removeBackdropImage": "Remove backdrop image",

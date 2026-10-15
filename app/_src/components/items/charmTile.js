@@ -1,6 +1,8 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
 import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import LoreText from './loreText';
@@ -95,6 +97,7 @@ function CharmTile(data) {
     const { lowRes } = useLowResource();
     const { hidden: hideObtainment } = useHideObtainment();
     const { hidden: hideLore } = useHideLore();
+    const { useIds: locationIds } = useLocationIds();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
@@ -221,7 +224,7 @@ function CharmTile(data) {
             </span>
             {item.location && (
                 <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
-                    {renderObfuscated(item.location)}
+                    {renderObfuscated(locationText(item, locationIds))}
                 </span>
             )}
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}

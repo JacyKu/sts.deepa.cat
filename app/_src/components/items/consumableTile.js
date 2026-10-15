@@ -5,6 +5,8 @@ import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
 import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
 import { renderObfuscated } from './obfuscatedText';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -62,6 +64,7 @@ function ConsumableTile(data) {
     const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { useIds: locationIds } = useLocationIds();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
     let formattedEffects = ConsumableFormatter.formatEffects(item.effects, item.effectColors);
@@ -141,7 +144,7 @@ function ConsumableTile(data) {
                 </span>
             </span>
             <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
-                {renderObfuscated(item.location)}
+                {renderObfuscated(locationText(item, locationIds))}
             </span>
             {formattedEffects}
             <Enchants item={item}></Enchants>
