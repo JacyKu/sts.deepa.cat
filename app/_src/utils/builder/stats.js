@@ -25,10 +25,39 @@ const DELVE_ORBITAL_DR_PER_LEVEL = 0.015; // Orbital (scalable types)
 const DELVE_PENNATE_FALL_PER_LEVEL = 0.05; // Pennate (fall only)
 const DELVE_DECAPITATION_PER_LEVEL = 0.0125; // Decapitation (melee crit damage)
 
+// Stack/uptime situationals. The enchant levels come from the gear; how much of
+// them applies depends on how many stacks are up (Scorch, Stamina) or where in
+// its window the moment sits (Reflexes, Tempo). The percentages that differ per
+// region (the 20/25/30% EHP scaling) stay in situationalEHPScaling below - these
+// four values are the same in every region.
+const SCORCH_DMG_PER_STACK = 0.03; // Scorch: +3% Inferno tick damage per stack
+const SCORCH_MAX_STACKS = 15;
+const STAMINA_MAX_STACKS = 4; // (level * 2.5)% per stack, (level * 10)% at 4
+const REFLEXES_FULL_SECONDS = 0.65; // full effect for 0.65s after a hit
+const REFLEXES_HALF_SECONDS = 1.0; // then half effect for another 0.35s
+const TEMPO_FULL_SECONDS = 4; // full after 4s without taking damage
+const TEMPO_HALF_SECONDS = 2.5; // half from 2.5s
+
+// A numeric form field, clamped, with a fallback for missing or unparsable
+// input (older links, hand-edited tokens).
+function clampStat(value, min, max, fallback) {
+    if (value === undefined || value === null || value === '') return fallback;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
 class Stats {
     constructor(itemData, formData, enabledBoxes, extraStats, enabledClassAbilityBuffs) {
         this.region = Number(formData.region);
         if (![1, 2, 3].includes(this.region)) this.region = 3; // guard against non-numeric/absent region (e.g. legacy 'cz'/'dd' links) -LC
+        // The defaults reproduce the behaviour before these inputs existed: full
+        // stacks for Stamina, full uptime for Tempo, just-triggered Reflexes and
+        // no Scorch.
+        this.scorchStacks = clampStat(formData.scorchStacks, 0, SCORCH_MAX_STACKS, 0);
+        this.staminaStacks = clampStat(formData.staminaStacks, 0, STAMINA_MAX_STACKS, STAMINA_MAX_STACKS);
+        this.tempoSeconds = clampStat(formData.tempoSeconds, 0, Infinity, TEMPO_FULL_SECONDS);
+        this.reflexesSeconds = clampStat(formData.reflexesSeconds, 0, Infinity, 0);
         this.enabledBoxes = enabledBoxes;
         this.enabledClassAbilityBuffs = enabledClassAbilityBuffs;
         this.itemNames = {
@@ -246,7 +275,9 @@ class Stats {
         let momentumSit = this.situationals.momentum.enabled ? 10 * this.situationals.momentum.level : 0;
         let regicideSit = this.situationals.regicide.enabled ? 10 * this.situationals.regicide.level : 0;
         let triviumSit = this.situationals.trivium.enabled ? 10 * this.situationals.trivium.level : 0;
-        let staminaSit = this.situationals.stamina.enabled ? 10 * this.situationals.stamina.level : 0;
+        let staminaSit = this.situationals.stamina.enabled
+            ? 10 * this.situationals.stamina.level * (this.staminaStacks / STAMINA_MAX_STACKS)
+            : 0;
         let techniqueSit = this.situationals.technique.enabled ? 10 * this.situationals.technique.level : 0;
         let abyssalSit = this.situationals.abyssal.enabled ? 10 * this.situationals.abyssal.level : 0;
         let fractalSit = this.situationals.fractal.enabled ? 10 * this.situationals.fractal.level : 0;
@@ -657,10 +688,12 @@ class Stats {
             let etherealSit = this.situationals.ethereal.enabled
                 ? agilityScaling * this.situationals.ethereal.level
                 : 0;
-            let tempoSit = this.situationals.tempo.enabled ? agilityScaling * this.situationals.tempo.level : 0;
+            let tempoSit = this.situationals.tempo.enabled
+                ? agilityScaling * this.situationals.tempo.level * this.tempoUptime()
+                : 0;
             let evasionSit = this.situationals.evasion.enabled ? agilityScaling * this.situationals.evasion.level : 0;
             let reflexesSit = this.situationals.reflexes.enabled
-                ? agilityScaling * this.situationals.reflexes.level
+                ? agilityScaling * this.situationals.reflexes.level * this.reflexesUptime()
                 : 0;
             let cloakedSit = this.situationals.cloaked.enabled ? agilityScaling * this.situationals.cloaked.level : 0;
             let shieldingSit = this.situationals.shielding.enabled
@@ -1057,6 +1090,29 @@ class Stats {
                 this.instability += this.sumNumberStat(itemStats, 'curse_of_instability');
             }
         });
+
+        // Scorch: each stack makes each Inferno damage tick deal 3% more. Ticks
+        // consume a stack, so this is the tick at the stack count entered. It
+        // needs a build with Inferno (nothing is left to scale otherwise) and
+        // its chip, like every other situational.
+        if (this.enabledBoxes && this.enabledBoxes.scorch && this.infernoDmgPerTick > 0 && this.scorchStacks > 0) {
+            this.infernoDmgPerTick *= 1 + SCORCH_DMG_PER_STACK * this.scorchStacks;
+        }
+    }
+
+    // How much of the Reflexes bonus is up, given how long ago it triggered:
+    // full for 0.65s, half for the next 0.35s, nothing after that.
+    reflexesUptime() {
+        if (this.reflexesSeconds <= REFLEXES_FULL_SECONDS) return 1;
+        if (this.reflexesSeconds <= REFLEXES_HALF_SECONDS) return 0.5;
+        return 0;
+    }
+
+    // Tempo: full once 4s have passed without taking damage, half from 2.5s.
+    tempoUptime() {
+        if (this.tempoSeconds >= TEMPO_FULL_SECONDS) return 1;
+        if (this.tempoSeconds >= TEMPO_HALF_SECONDS) return 0.5;
+        return 0;
     }
 
     setDefaultValues() {

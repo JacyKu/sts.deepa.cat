@@ -26,6 +26,7 @@ export default function CheckboxWithLabel(data) {
                     data.name
                 )}
             </label>
+            {data.children}
         </div>
     );
 }

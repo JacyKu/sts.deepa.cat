@@ -316,6 +316,9 @@ const enabledBoxes = {
     trivium: false,
     stamina: false,
     technique: false,
+    // Scorch scales every Inferno damage tick; no item carries it in the data
+    // yet, so its chip is always offered and the stack count is manual.
+    scorch: false,
     abyssal: false,
     fractal: false,
     skyseeker: false,
@@ -399,6 +402,18 @@ const itemTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'b
 const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspicacity', 'region'];
 
 const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor: '0', focus: '0', perspicacity: '0' };
+
+// Situationals whose effect depends on how many stacks are up / where in their
+// window the moment sits: their toggle gains a small number box beside it (see
+// stats.js for the maths). The defaults reproduce the pre-stack behaviour (full
+// Stamina stacks, full Tempo, just-triggered Reflexes, no Scorch).
+const STACK_INPUTS = {
+    scorch: { name: 'scorchStacks', label: 'Scorch stacks', hintKey: 'builder.misc.scorchStacksHint', min: 0, max: 15, step: 1 },
+    stamina: { name: 'staminaStacks', label: 'Stamina stacks', hintKey: 'builder.misc.staminaStacksHint', min: 0, max: 4, step: 1 },
+    tempo: { name: 'tempoSeconds', label: 'Tempo (s)', hintKey: 'builder.misc.tempoSecondsHint', min: 0, max: 60, step: 1 },
+    reflexes: { name: 'reflexesSeconds', label: 'Reflexes (s)', hintKey: 'builder.misc.reflexesSecondsHint', min: 0, max: 60, step: 0.1 },
+};
+const DEFAULT_STACK_INPUTS = { scorchStacks: '0', staminaStacks: '4', tempoSeconds: '4', reflexesSeconds: '0' };
 
 // The stats normal (basic) infusions feed, in display order, and the shared
 // budget for both entry paths (6 items x level IV).
@@ -531,6 +546,14 @@ function recalcBuild(data, itemData) {
             (slot) => data[`delveInfusion-${slot}`] ?? null
         ),
         revelation: data.revelation ?? null,
+        // Stack/uptime situationals (Scorch/Stamina stacks, Tempo and Reflexes
+        // seconds) are calculation inputs like any other.
+        stackSituationals: [
+            data.scorchStacks ?? null,
+            data.staminaStacks ?? null,
+            data.tempoSeconds ?? null,
+            data.reflexesSeconds ?? null,
+        ],
         // The delve/basic infusion toggles only decide whether the picks
         // count, so they are part of the calculation's inputs too.
         delveEnabled: data.delveEnabled ?? null,
@@ -660,7 +683,7 @@ function formatSituationalName(situ) {
     return ret;
 }
 
-function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, classAbilityContext) {
+function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, classAbilityContext, stackInputs, onStackChange) {
     let tempDef = [];
     let tempFlatDmg = [];
     let tempPercentDmg = [];
@@ -669,9 +692,30 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
     // the ability has points, ticked to count its triggered effect.
     let tempClass = [];
 
+    // The chips whose effect depends on stacks/uptime carry a small number box
+    // beside their toggle (see STACK_INPUTS).
+    const stackBox = (situ) => {
+        const input = STACK_INPUTS[situ];
+        if (!input) return null;
+        return (
+            <input
+                type="number"
+                className={styles.stackInput}
+                name={input.name}
+                min={input.min}
+                max={input.max}
+                step={input.step}
+                value={stackInputs[input.name]}
+                onChange={(event) => onStackChange(input.name, event.target.value)}
+                aria-label={input.label}
+                title={input.label}
+            />
+        );
+    };
+
     situationalDefenses.forEach(function (situ) {
         if (!itemsToDisplay.situationals) return;
-        if (itemsToDisplay.situationals[situ].level) {
+        if (itemsToDisplay.situationals[situ]?.level) {
             tempDef.push(
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
@@ -679,14 +723,16 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                         enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
-                    />
+                    >
+                        {stackBox(situ)}
+                    </CheckboxWithLabel>
                 </div>
             );
         }
     });
     situationalFlatDamage.forEach(function (situ) {
         if (!itemsToDisplay.situationals) return;
-        if (itemsToDisplay.situationals[situ].level) {
+        if (itemsToDisplay.situationals[situ]?.level) {
             tempFlatDmg.push(
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
@@ -701,7 +747,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
     });
     situationalPercentDamage.forEach(function (situ) {
         if (!itemsToDisplay.situationals) return;
-        if (itemsToDisplay.situationals[situ].level) {
+        if (itemsToDisplay.situationals[situ]?.level) {
             tempPercentDmg.push(
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
@@ -709,11 +755,29 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                         enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
-                    />
+                    >
+                        {stackBox(situ)}
+                    </CheckboxWithLabel>
                 </div>
             );
         }
     });
+    // Scorch scales every Inferno damage tick, so it is offered whenever the
+    // build has Inferno - not on a Scorch stat, which no item carries yet.
+    if (itemsToDisplay.infernoDmgPerTick) {
+        tempPercentDmg.push(
+            <div className="col-auto" key="situationalbox-scorch">
+                <CheckboxWithLabel
+                    name={formatSituationalName('scorch')}
+                    enchantName={'scorch'}
+                    checked={enabledBoxes.scorch}
+                    onChange={checkboxChanged}
+                >
+                    {stackBox('scorch')}
+                </CheckboxWithLabel>
+            </div>
+        );
+    }
     if (itemsToDisplay.retaliation) {
         ['normal', 'elite', 'boss'].forEach((type) => {
             tempPercentDmg.push(
@@ -1033,6 +1097,7 @@ export default function BuildForm({
     // below runs after the restore's state updates have rendered).
     const currentSnapshotRef = React.useRef(null);
     const [statInputs, setStatInputs] = React.useState(DEFAULT_STAT_INPUTS);
+    const [stackInputs, setStackInputs] = React.useState(DEFAULT_STACK_INPUTS);
     const [regionValue, setRegionValue] = React.useState(3);
     const [regionSelectKey, setRegionSelectKey] = React.useState(0);
     const [enhancements, setEnhancements] = React.useState({}); // buff key -> true
@@ -3187,6 +3252,15 @@ export default function BuildForm({
         return encodeBuildParam(legacy);
     }
 
+    // Stack/uptime situational inputs (Scorch/Stamina stacks, Tempo/Reflexes
+    // seconds). The visible inputs carry their own `name`, so the value is
+    // already in the form; the state keeps it across recalcs, and the recalc is
+    // deferred one frame so it reads the updated DOM value.
+    function changeStackInput(name, value) {
+        setStackInputs((prev) => ({ ...prev, [name]: value }));
+        scheduleStatsRecalc();
+    }
+
     function checkboxChanged(event) {
         // Checkbox names come in lowercase, with words separated by spaces.
         // Replace every space so multi-word situationals (e.g. "curse of the
@@ -3831,7 +3905,7 @@ export default function BuildForm({
                 {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveOpen ? delveInfusions : null, {
                     frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
                     frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
-                })}
+                }, stackInputs, changeStackInput)}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
                 <HealthControls
