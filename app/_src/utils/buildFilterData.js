@@ -1,32 +1,7 @@
 import { getItemData, getSkillsData, getCzData } from './itemsData';
-
-// Raw item types -> the builder slot they equip into (used to group the
-// item filter's value dropdown per slot). Everything else (Misc, Consumable,
-// Written Book, ...) can't be equipped, so it never appears in builds.
-const SLOT_BY_TYPE = {
-    Mainhand: 'Mainhand',
-    'Mainhand Sword': 'Mainhand',
-    'Mainhand Shield': 'Mainhand',
-    Axe: 'Mainhand',
-    Pickaxe: 'Mainhand',
-    Scythe: 'Mainhand',
-    Bow: 'Mainhand',
-    Crossbow: 'Mainhand',
-    Wand: 'Mainhand',
-    Snowball: 'Mainhand',
-    Trident: 'Mainhand',
-    Shovel: 'Mainhand',
-    Projectile: 'Mainhand',
-    Offhand: 'Offhand',
-    'Offhand Sword': 'Offhand',
-    'Offhand Shield': 'Offhand',
-    'Alchemist Bag': 'Offhand',
-    Helmet: 'Helmet',
-    Chestplate: 'Chestplate',
-    Leggings: 'Leggings',
-    Boots: 'Boots',
-    Charm: 'Charm',
-};
+// Raw item types -> the builder slot they equip into, used to group the item
+// filter's value dropdown per slot (shared with the items page's gear filter).
+import { SLOT_BY_TYPE } from './itemSlots';
 
 let groupsCache = null;
 let groupsCacheKey = null;

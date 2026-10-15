@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useHideSkins } from './items/hideSkinsContext';
 import skinNames from '../data/skins.json';
 import { groupMasterworkItems } from '../utils/itemList';
+import { isGearItem } from '../utils/itemSlots';
 
 // Skin variants confirmed from the Monumenta wiki "Skins" sections.
 const SKIN_NAMES = new Set(skinNames);
@@ -327,16 +328,17 @@ function getRelevantItems(data, itemData, hideSkins) {
         items = items.filter((name) => !isQuestItem(itemData[name]));
     }
 
-    // Quick-hide non-gear items: items with no enchants or stats.
+    // Quick-hide non-gear items: anything that can't be equipped (materials,
+    // consumables, books, ...), dungeon keys, and anything with no stats at all.
     if (data.hideNonGear) {
         items = items.filter((name) => {
-            const stats = itemData[name].stats;
+            const item = itemData[name];
+            if (!isGearItem(item)) return false;
+            const stats = item.stats;
             if (!stats) return false;
-            const values = Object.values(stats);
-            if (values.length === 0) return false;
-            return values.some((v) => {
-                const val = typeof v === 'object' && v !== null && 'value' in v ? v.value : v;
-                return typeof val === 'number' ? val !== 0 : Boolean(val);
+            return Object.values(stats).some((value) => {
+                const v = getStatValue(value);
+                return typeof v === 'number' ? v !== 0 : Boolean(v);
             });
         });
     }

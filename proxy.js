@@ -9,10 +9,17 @@ const MINUTE_MS = 60 * 1000;
 // reads it from the x-nonce header). Styles keep 'unsafe-inline' because the
 // app uses React inline style attributes, and the two external stylesheets
 // (Google Fonts and Bootstrap) are allowlisted.
+//
+// React uses eval() in development for its debugging features (rebuilding
+// server-side error stacks in the browser), so development needs
+// 'unsafe-eval' in script-src. Production never uses eval, so it keeps the
+// strict nonce-only policy.
+const IS_DEV = process.env['NODE_ENV'] === 'development';
+
 function buildCsp(nonce) {
     return [
         "default-src 'self'",
-        `script-src 'self' 'nonce-${nonce}'`,
+        `script-src 'self' 'nonce-${nonce}'${IS_DEV ? " 'unsafe-eval'" : ''}`,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
         "font-src 'self' data: https://fonts.gstatic.com",
         "img-src 'self' data: blob: https://cdn.discordapp.com https://mc-heads.net https://*.r2.dev",

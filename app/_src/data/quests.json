@@ -1,0 +1,279 @@
+{
+  "generatedAt": "2026-10-15T18:37:52.489Z",
+  "source": "https://monumenta.wiki.gg/wiki/Quests",
+  "note": "Derived by scripts/update-quests.mjs; a code is only listed when the wiki quest page names at least 2 of its items. Add one-off entries under \"manual\" - they survive regeneration.",
+  "minimumMatches": 2,
+  "quests": [
+    {
+      "code": "01",
+      "name": "A Crown of Majesty",
+      "matches": 2,
+      "items": 4
+    },
+    {
+      "code": "02",
+      "name": "Bandit Troubles",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "03",
+      "name": "Mage's Legacy",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "04",
+      "name": "The Staff",
+      "matches": 2,
+      "items": 8
+    },
+    {
+      "code": "05",
+      "name": "Buried Blade",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "06",
+      "name": "Missing Soldiers",
+      "matches": 3,
+      "items": 4
+    },
+    {
+      "code": "07",
+      "name": "The Plague",
+      "matches": 4,
+      "items": 4
+    },
+    {
+      "code": "16",
+      "name": "The Salmon",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "21",
+      "name": "Unveiled",
+      "matches": 3,
+      "items": 3
+    },
+    {
+      "code": "23",
+      "name": "Winds of War",
+      "matches": 3,
+      "items": 4
+    },
+    {
+      "code": "24",
+      "name": "Clear as Glass",
+      "matches": 2,
+      "items": 6
+    },
+    {
+      "code": "25",
+      "name": "Beasts of Men",
+      "matches": 3,
+      "items": 3
+    },
+    {
+      "code": "26",
+      "name": "Starrier Night",
+      "matches": 3,
+      "items": 3
+    },
+    {
+      "code": "29",
+      "name": "Roots of the Plague",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "30",
+      "name": "Words Upon Hushed Lips",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "31",
+      "name": "A Crew to Remember",
+      "matches": 3,
+      "items": 5
+    },
+    {
+      "code": "36",
+      "name": "A Study in Crimson Part One",
+      "matches": 4,
+      "items": 10
+    },
+    {
+      "code": "37",
+      "name": "Lost in My Mind",
+      "matches": 3,
+      "items": 3
+    },
+    {
+      "code": "41",
+      "name": "Shurima's Big Day Off",
+      "matches": 3,
+      "items": 3
+    },
+    {
+      "code": "44",
+      "name": "Starriest Night",
+      "matches": 4,
+      "items": 5
+    },
+    {
+      "code": "47",
+      "name": "Halid's Song",
+      "matches": 6,
+      "items": 6
+    },
+    {
+      "code": "55",
+      "name": "A Little Spark",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "57",
+      "name": "The Elder's Scrolls",
+      "matches": 6,
+      "items": 6
+    },
+    {
+      "code": "60",
+      "name": "Creeperjuice",
+      "matches": 4,
+      "items": 4
+    },
+    {
+      "code": "62",
+      "name": "Lie of the Igor",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "103",
+      "name": "Master of One",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "104",
+      "name": "An Alcoholic Accord",
+      "matches": 3,
+      "items": 4
+    },
+    {
+      "code": "106",
+      "name": "The Wizard's Apprentice",
+      "matches": 5,
+      "items": 5
+    },
+    {
+      "code": "107",
+      "name": "Xenophobia",
+      "matches": 4,
+      "items": 4
+    },
+    {
+      "code": "110",
+      "name": "Rapacity",
+      "matches": 2,
+      "items": 11
+    },
+    {
+      "code": "116",
+      "name": "Harmonic Convergence",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "120",
+      "name": "Vital Needs",
+      "matches": 3,
+      "items": 3
+    },
+    {
+      "code": "127",
+      "name": "Out With A Bang",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "129",
+      "name": "A Lost Cause",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "130",
+      "name": "Bleeding Proof",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "132",
+      "name": "Kingdom of Lies",
+      "matches": 2,
+      "items": 8
+    },
+    {
+      "code": "137",
+      "name": "Woof!",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "138",
+      "name": "An Unexpected Lesson",
+      "matches": 3,
+      "items": 5
+    },
+    {
+      "code": "140",
+      "name": "The Rooster Crows at Midnight",
+      "matches": 2,
+      "items": 3
+    },
+    {
+      "code": "142",
+      "name": "The Stone Ocean",
+      "matches": 2,
+      "items": 4
+    },
+    {
+      "code": "144",
+      "name": "Pyre and Prejudice",
+      "matches": 3,
+      "items": 3
+    },
+    {
+      "code": "151",
+      "name": "The End Chimes",
+      "matches": 2,
+      "items": 2
+    },
+    {
+      "code": "202",
+      "name": "Into the Woods",
+      "matches": 5,
+      "items": 5
+    },
+    {
+      "code": "205",
+      "name": "Cure for Insomnia",
+      "matches": 3,
+      "items": 8
+    },
+    {
+      "code": "216",
+      "name": "External Corruption",
+      "matches": 8,
+      "items": 8
+    }
+  ],
+  "manual": {}
+}
