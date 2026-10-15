@@ -242,19 +242,24 @@ class StatFormatter {
 
 // History page support: describe a single stat the same way formatStats
 // renders it, so change logs can diff one version against another.
-export function describeStat(name, rawValue, color) {
+export function describeStat(name, rawValue, color, locked) {
     const format = inferFormat(name, rawValue);
     const stat = { name, format };
+    // Locked charm stats (the item data stores { value, locked }) render a
+    // lock glyph, matching CharmFormatter. It is part of the value text so a
+    // lock-only change (-40% -> locked -40%) still shows up in a diff.
+    const lock = locked ? '🔒 ' : '';
     return {
         name,
         rawValue,
         format,
         color: color || null,
-        text: StatFormatter.toHumanReadable(stat, rawValue),
+        locked: Boolean(locked),
+        text: `${lock}${StatFormatter.toHumanReadable(stat, rawValue)}`,
         // Label and value separately, so change lines can show the label once
         // ("Attack Damage 14 -> 10") instead of repeating the full text.
         label: StatFormatter.displayLabel(stat),
-        valueText: StatFormatter.valueText(stat, rawValue),
+        valueText: `${lock}${StatFormatter.valueText(stat, rawValue)}`,
         style: StatFormatter.statStyle(stat, rawValue),
         rank: formatRank(format),
     };
@@ -268,9 +273,15 @@ export function statSnapshot(stats, statColors) {
     for (const name of Object.keys(stats)) {
         if (HIDDEN_STATS.has(name)) continue;
         let raw = stats[name];
-        if (raw !== undefined && raw !== null && typeof raw === 'object' && 'value' in raw) raw = raw.value;
+        let locked = false;
+        if (raw !== undefined && raw !== null && typeof raw === 'object' && 'value' in raw) {
+            // Charm stats carry a lock flag next to the value; keep it, or the
+            // diff would treat locked and unlocked stats as identical.
+            locked = Boolean(raw.locked);
+            raw = raw.value;
+        }
         if (raw === undefined) continue;
-        out.set(name, describeStat(name, raw, statColors && statColors[name]));
+        out.set(name, describeStat(name, raw, statColors && statColors[name], locked));
     }
     return out;
 }
