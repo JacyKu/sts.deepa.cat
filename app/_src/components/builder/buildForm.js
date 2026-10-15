@@ -32,6 +32,7 @@ import {
 } from '../../utils/builder/buildUrlCodec';
 import { skillsPayloadFromToken } from '../../utils/builder/buildSkills';
 import { readImportedBuildState } from '../../utils/builder/importedBuildState';
+import { detectBuild } from '../../utils/builder/detectBuild';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
@@ -3416,6 +3417,22 @@ export default function BuildForm({
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
 
+    // Fill the region, class and specialization from what is equipped: the
+    // region from the items' own region, the class and spec from the charms
+    // (their class_name, and the skills their stats belong to). Applied in
+    // this order because picking a region or class clears the spec. Anything
+    // it cannot work out is left alone.
+    function detectFromGear() {
+        const detected = detectBuild({
+            items: stats ? Object.values(stats.fullItemData || {}) : [],
+            charms,
+            skillsData,
+        });
+        if (detected.region) regionChanged({ value: detected.region });
+        if (detected.className) classChanged({ value: detected.className });
+        if (detected.specName) specChanged({ value: detected.specName });
+    }
+
     const miscStats = [
         { type: 'armor', name: 'builder.stats.misc.armor', percent: false },
         { type: 'agility', name: 'builder.stats.misc.agility', percent: false },
@@ -4188,10 +4205,20 @@ export default function BuildForm({
                                     />
                                 </div>
                             )}
+                            <div className="ms-3 d-flex align-items-center">
+                                <button
+                                    type="button"
+                                    className={styles.detectButton}
+                                    onClick={detectFromGear}
+                                    title={t('builder.misc.detectHint')}
+                                >
+                                    {t('builder.misc.detect')}
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div className={styles.builderToggles}>
-                        <label className={`${styles.delveToggle} ${delveOpen ? styles.delveToggleActive : ''} ms-3`}>
+                        <label className={`${styles.delveToggle} ${delveOpen ? styles.delveToggleActive : ''}`}>
                             <input
                                 type="checkbox"
                                 checked={delveOpen}
@@ -4206,7 +4233,7 @@ export default function BuildForm({
                             />
                             {t('builder.misc.delveInfusions')}
                         </label>
-                        <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''} ms-3`}>
+                        <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''}`}>
                             <input
                                 type="checkbox"
                                 checked={basicOpen}
@@ -4218,7 +4245,7 @@ export default function BuildForm({
                             />
                             {t('builder.misc.infusions')}
                         </label>
-                        <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
+                        <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''}`}>
                             <input
                                 type="checkbox"
                                 name="revelation"

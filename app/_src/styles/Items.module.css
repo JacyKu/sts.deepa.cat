@@ -1103,6 +1103,24 @@
     color: var(--text-on-accent);
 }
 
+/* The builder's "Detect" button: the copy/save buttons' blue (.shareButton),
+   with the same box as the infusion toggles beside it (42px tall, 8px/12px
+   padding) so the row lines up. Its spacing comes from the wrapper's ms-3,
+   exactly like the other controls in the group. */
+.detectButton {
+    height: 42px;
+    padding: 8px 12px;
+    animation: background-pan 5s linear infinite;
+    background: linear-gradient(to right, #3d3286, #2f4187, #3d3286);
+    background-size: 200%;
+    border: 2px solid rgba(61, 50, 134, 0.95);
+    backdrop-filter: blur(10px);
+    transition:
+        filter 150ms ease,
+        transform 75ms ease;
+    color: var(--text-on-accent);
+}
+
 .publiciseRow {
     display: flex;
     flex-wrap: wrap;
@@ -2264,6 +2282,14 @@ div.builderStatCard {
     transform: translateY(1px);
 }
 
+.detectButton:hover {
+    filter: brightness(125%);
+}
+
+.detectButton:active {
+    transform: translateY(1px);
+}
+
 @keyframes background-pan {
     from {
         background-position: 0% center;
@@ -2306,6 +2332,20 @@ div.builderStatCard {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+}
+
+/* The controls cluster (region/class/spec + the infusion toggles) wraps onto
+   more than one line on narrower builders, so the container owns the spacing in
+   both directions. That gap is also what separates the toggles from the inputs
+   above them once they wrap, and it only sits *between* items - no leading
+   margin, so a wrapped row lines up with the controls above it. */
+.builderControls {
+    gap: 16px;
+}
+
+/* The same rhythm between the infusion/revelation toggles themselves. */
+.builderToggles {
+    gap: 16px;
 }
 
 .builderGroupToggle {
@@ -2403,10 +2443,8 @@ div.builderStatCard {
         margin-right: 0 !important;
     }
 
-    /* Keep the same 10px rhythm between the controls inside the group body
-       and toggles wrappers. */
-    .builderGroupBody,
-    .builderToggles {
+    /* Keep the same 10px rhythm between the controls inside the group body. */
+    .builderGroupBody {
         gap: 10px;
     }
 }
@@ -2601,7 +2639,6 @@ div.builderStatCard {
     }
 
     .builderToggles {
-        gap: 8px;
         width: 100%;
     }
 
