@@ -3,6 +3,7 @@ import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import { renderObfuscated } from './obfuscatedText';
+import { displayTier } from '../../utils/items/tierDisplay';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
@@ -196,7 +197,7 @@ function ItemTile(data) {
             <Enchants item={item}></Enchants>
             <span>
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
-                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>{item.tier}</span>
+                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>{displayTier(item.tier)}</span>
             </span>
             <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
                 {renderObfuscated(item.location)}

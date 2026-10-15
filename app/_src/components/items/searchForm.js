@@ -4,6 +4,7 @@ import SelectWithTriggers from './selectWithTriggers';
 import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
 import quests from '../../data/quests.json';
+import { displayTier } from '../../utils/items/tierDisplay';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
 import { loadSkills } from '../../utils/siteDataClient';
 import { useTranslation } from '../useTranslation';
@@ -46,7 +47,9 @@ function getSearchOptions(itemData) {
         });
     // Remove the Charm tier since there is a checkbox for it.
     delete uniqueTiers.Charm;
-    Object.keys(uniqueTiers).forEach((tierName) => tiers.push(tierName));
+    // Display names only: the option value stays the raw tier, so filtering
+    // keeps matching itemData[..].tier.
+    Object.keys(uniqueTiers).forEach((tierName) => tiers.push({ value: tierName, label: displayTier(tierName) }));
     let charmNames = Object.keys(itemData).filter((item) => itemData[item].type == 'Charm');
     let uniqueCharmAttributes = {};
     for (let charmName of charmNames) {

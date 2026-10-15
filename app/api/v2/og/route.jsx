@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import { getItemData, getSkillsData, getItemDataVersion, getSkillsVersion } from '../../../_src/utils/itemsData';
 import { getLinkPreviewData, getEffectiveBuildName, getSetPreviewData } from '../../../_src/utils/buildPreview';
 import { getMinecraftTextureKey } from '../../../_src/utils/items/minecraftFallback';
+import { displayTier } from '../../../_src/utils/items/tierDisplay';
 import { getBuild, getPublicSkillSet } from '../../../../lib/sts-builds';
 
 export const runtime = 'nodejs';
@@ -312,7 +313,7 @@ function EquipmentGrid({ itemLines, size = 56 }) {
                                     {name && tier && masterwork != null && (
                                         <>
                                             <MasterworkStars tier={tier} masterwork={masterwork} />
-                                            <div style={{ color: DIM, fontSize: 12, marginLeft: 7 }}>{tier}</div>
+                                            <div style={{ color: DIM, fontSize: 12, marginLeft: 7 }}>{displayTier(tier)}</div>
                                         </>
                                     )}
                                 </div>

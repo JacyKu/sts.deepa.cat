@@ -8,6 +8,7 @@ import styles from '../styles/Database.module.css';
 import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
 import { getMappedSpriteClass } from '../utils/items/spritesheetMap';
+import { displayTier } from '../utils/items/tierDisplay';
 import { useItemSpriteMap } from './useItemSpriteMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
 import { loadSkills, loadCz } from '../utils/siteDataClient';
@@ -503,7 +504,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         )}
                         <div className={styles.itemDetailInfo}>
                             {detail.region ? `${detail.region} ` : ''}
-                            {detail.tier || ''}
+                            {displayTier(detail.tier) || ''}
                         </div>
                         <div className={styles.itemDetailInfo}>{detail.location || ''}</div>
                     </div>

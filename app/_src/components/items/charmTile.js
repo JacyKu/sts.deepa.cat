@@ -1,5 +1,6 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
+import { displayTier } from '../../utils/items/tierDisplay';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import LoreText from './loreText';
@@ -214,7 +215,7 @@ function CharmTile(data) {
             <span>
                 {item.region && <span className={styles.infoText}>{`${item.region} `}</span>}
                 <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>
-                    {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}
+                    {item.tier && item.tier != 'Base' ? `${displayTier(item.tier)} ` : ''}
                     {t('items.type.charm')}
                 </span>
             </span>

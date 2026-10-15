@@ -6,6 +6,7 @@ import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
 import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { displayTier } from '../../utils/items/tierDisplay';
 import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { locationStyle } from '../../utils/items/locationColor';
@@ -396,7 +397,7 @@ function MasterworkableItemTile(data) {
                     <span>
                         <span className={styles.infoText}>{`${activeItem.region} `}</span>
                         <span className={`${styles[camelCase(activeItem.tier)]} ${styles.gameText}`}>
-                            {activeItem.tier}
+                            {displayTier(activeItem.tier)}
                         </span>
                     </span>
                 </div>
