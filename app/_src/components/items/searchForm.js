@@ -3,6 +3,7 @@ import styles from '../../styles/SearchForm.module.css';
 import SelectWithTriggers from './selectWithTriggers';
 import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
+import quests from '../../data/quests.json';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
 import { loadSkills } from '../../utils/siteDataClient';
 import { useTranslation } from '../useTranslation';
@@ -141,9 +142,21 @@ function getSearchOptions(itemData) {
             uniquePois[poiName] = 1;
         });
     Object.keys(uniquePois).forEach((poiName) => pois.push(poiName));
+    // Confirmed quest names (data/quests.json, refreshed by
+    // scripts/update-quests.mjs). Only codes the wiki confirms are listed - the
+    // free-text Quest ID filter still covers everything else.
+    const questOptions = [
+        ...(quests.quests || []).map(({ code, name }) => ({ value: code, label: name })),
+        ...Object.entries(quests.manual || {}).map(([code, entry]) => ({
+            value: code,
+            label: typeof entry === 'string' ? entry : entry && entry.name,
+        })),
+    ]
+        .filter((option) => option.value && option.label)
+        .sort((a, b) => a.label.localeCompare(b.label));
     searchOptionsCache = {
         data: itemData,
-        options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers },
+        options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers, questOptions },
     };
     return searchOptionsCache.options;
 }
@@ -461,7 +474,7 @@ export default function SearchForm({ update, itemData }) {
         event.preventDefault();
     }
 
-    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } =
+    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers, questOptions } =
         getSearchOptions(itemData);
 
     function addFilter() {
@@ -556,6 +569,14 @@ export default function SearchForm({ update, itemData }) {
                 sortableStats={baseItems}
                 value={selected.baseItemSelect ?? null}
                 onChange={(opt) => onValueChange('baseItemSelect', opt ? opt.value : null)}
+            />
+        )),
+        new SearchCategory('Quest', 'items.searchForm.quest', ({ uniqueKey, selected, onValueChange }) => (
+            <SelectInput
+                name={`questSelect-${uniqueKey}`}
+                sortableStats={questOptions}
+                value={selected.questSelect ?? null}
+                onChange={(opt) => onValueChange('questSelect', opt ? opt.value : null)}
             />
         )),
         new SearchCategory('Quest ID', 'items.searchForm.questId', ({ uniqueKey, selected, onValueChange }) => (
