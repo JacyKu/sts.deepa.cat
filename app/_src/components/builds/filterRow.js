@@ -156,8 +156,7 @@ export function FilterRow({
                         options={categories.map((c) => ({ value: c.name, label: t(c.labelKey) }))}
                         value={cat ? { value: cat.name, label: t(cat.labelKey) } : null}
                         onChange={(opt) => onChangeCategory(row.key, opt ? opt.value : null)}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
+                        menuPosition="absolute"
                         theme={selectTheme}
                         styles={selectStyles}
                         components={{ MenuList: WindowedMenuList }}
@@ -169,8 +168,7 @@ export function FilterRow({
                                 options={optList}
                                 value={current}
                                 onChange={(opt) => onChangeValue(row.key, opt ? opt.value : null)}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
+                                menuPosition="absolute"
                                 theme={selectTheme}
                                 styles={selectStyles}
                                 components={{ MenuList: WindowedMenuList }}
@@ -182,8 +180,7 @@ export function FilterRow({
                                 options={slotOptions}
                                 value={slot}
                                 onChange={(opt) => onChangeSlot(row.key, opt ? opt.value : null)}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
+                                menuPosition="absolute"
                                 theme={selectTheme}
                                 styles={selectStyles}
                                 components={{ MenuList: WindowedMenuList }}
@@ -215,8 +212,7 @@ export function FilterRow({
                         options={itemOpts}
                         value={currentItem}
                         onChange={(opt) => onChangeValue(row.key, opt ? opt.value : null)}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
+                        menuPosition="absolute"
                         theme={selectTheme}
                         styles={selectStyles}
                         components={{ MenuList: WindowedMenuList }}

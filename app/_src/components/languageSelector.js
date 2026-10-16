@@ -40,8 +40,7 @@ function LanguageSelector({ className, compact } = {}) {
                 options={options}
                 onChange={langSelected}
                 defaultValue={options.find((opt) => opt.value == lang)}
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                menuPosition="fixed"
+                menuPosition="absolute"
                 theme={(theme) => ({
                     ...theme,
                     borderRadius: 0,

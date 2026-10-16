@@ -912,8 +912,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 }
                                 onChange={(option) => setType(option ? option.value : 'Offhand')}
                                 isOptionDisabled={(option) => Boolean(option && option.isDisabled)}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
+                                menuPosition="absolute"
                                 theme={selectTheme}
                                 styles={selectStyles}
                             />
@@ -933,8 +932,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                 onChange={(option) => setBaseItem(option ? option.value : '')}
                                 isClearable
                                 placeholder={t('customItems.form.baseItemPlaceholder')}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
+                                menuPosition="absolute"
                                 theme={selectTheme}
                                 styles={selectStyles}
                             />
@@ -990,8 +988,7 @@ export default function CustomItemsPage({ statCategories, baseItemOptions = [] }
                                     }
                                     onChange={(option) => updateStatRow(index, 'key', option ? option.value : '')}
                                     placeholder={t('customItems.form.chooseStat')}
-                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                    menuPosition="fixed"
+                                    menuPosition="absolute"
                                     theme={selectTheme}
                                     styles={selectStyles}
                                 />

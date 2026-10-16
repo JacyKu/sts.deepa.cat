@@ -282,8 +282,7 @@ const SelectInput = (data) => {
             {...(controlled
                 ? { value: data.value === null ? null : findOption(data.value) }
                 : { defaultValue: defaultOption })}
-            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-            menuPosition="fixed"
+            menuPosition="absolute"
             theme={SELECT_THEME}
             styles={SELECT_STYLES}
             onChange={data.onChange}

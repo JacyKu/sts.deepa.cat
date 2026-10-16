@@ -1545,8 +1545,7 @@ export default function BuildForm({
                     onChange={(opt) => delveChanged(slot, opt)}
                     onMenuClose={() => setTip(null)}
                     placeholder={t('builder.infusions.placeholder')}
-                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                    menuPosition="fixed"
+                    menuPosition="absolute"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
                     components={delveSelectComponents}
@@ -1560,8 +1559,7 @@ export default function BuildForm({
                         options={levelOpts}
                         value={levelOpts.find((o) => o.value === currentLevel) || levelOpts[levelOpts.length - 1]}
                         onChange={(opt) => setDelvePoints((prev) => ({ ...prev, [slot]: opt.value }))}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
+                        menuPosition="absolute"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
                         aria-label={`${cur} ${t('builder.infusions.level')}`}
@@ -1806,8 +1804,7 @@ export default function BuildForm({
                     onChange={(opt) => basicChanged(slot, opt)}
                     onMenuClose={() => setTip(null)}
                     placeholder={t('builder.infusions.placeholder')}
-                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                    menuPosition="fixed"
+                    menuPosition="absolute"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
                     components={basicSelectComponents}
@@ -1821,8 +1818,7 @@ export default function BuildForm({
                         options={levelOpts}
                         value={levelOpts.find((o) => o.value === cur.level) || levelOpts[levelOpts.length - 1]}
                         onChange={(opt) => changeBasicLevel(slot, opt.value)}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
+                        menuPosition="absolute"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
                         aria-label={`${cur.name} ${t('builder.infusions.level')}`}
@@ -4173,8 +4169,7 @@ export default function BuildForm({
                                                   ? { value: 3, label: t('builder.regions.celestialZenith') }
                                                   : regions.find((r) => r.value === regionValue)
                                         }
-                                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                        menuPosition="fixed"
+                                        menuPosition="absolute"
                                         theme={(theme) => ({
                                             ...theme,
                                             borderRadius: 0,
@@ -4222,8 +4217,7 @@ export default function BuildForm({
                                             }
                                             onChange={(opt) => setCzSelectedTree(opt.value)}
                                             isSearchable={false}
-                                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                            menuPosition="fixed"
+                                            menuPosition="absolute"
                                             theme={(theme) => ({
                                                 ...theme,
                                                 borderRadius: 0,

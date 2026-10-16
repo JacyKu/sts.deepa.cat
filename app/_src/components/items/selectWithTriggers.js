@@ -32,8 +32,7 @@ const SelectWithTriggers = (props) => {
                     value={category ? { value: category.name, label: options.find((o) => o.value === category.name)?.label || category.name } : null}
                     options={options}
                     onChange={(option) => props.onCategoryChange(option ? option.value : null)}
-                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                    menuPosition="fixed"
+                    menuPosition="absolute"
                     theme={(theme) => ({
                         ...theme,
                         borderRadius: 0,

@@ -777,12 +777,16 @@ body:has(.spooky-off) .spooky-corners {
 
 /* Whole-UI scale: the app column is zoomed so every element (px-sized text,
    controls, sprite tiles) reads less cramped. The zoom sits on .site-content
-   rather than <html> on purpose: dropdown menus are portaled to <body> and
-   position themselves from viewport coordinates, so keeping them outside the
-   zoomed subtree stops the browser from scaling those coordinates twice.
-   Viewport units are not scaled by zoom, so the full-height layout divides by
-   the same factor to keep the footer at the bottom. Browsers without zoom
-   support (older Firefox) simply keep the full size. */
+   rather than <html> on purpose: viewport units are not scaled by zoom, so the
+   full-height layout divides by the same factor to keep the footer at the
+   bottom. Browsers without zoom support (older Firefox) simply keep the full
+   size.
+
+   Dropdown menus are not portaled out of this subtree: react-select places
+   them with CSS under their control, so they travel with the input while the
+   page scrolls. A portaled menu is a fixed-position box, and iOS only moves
+   those once momentum scrolling has stopped, which left the menu stranded at
+   its original spot. */
 @supports (zoom: 1) {
     .site-content {
         zoom: var(--ui-zoom, 0.9);
@@ -941,6 +945,18 @@ button {
 button:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+/* Bootstrap's reboot - loaded only on the builder pages - turns on smooth
+   scrolling through html:focus-within. Dropdown menus are portaled to <body>
+   and positioned from viewport coordinates by JS, so any animated scroll
+   leaves an open menu trailing behind its control (the scroll iOS does to
+   bring a just-focused field into view becomes an animation too). Nothing on
+   the site scrolls smoothly by design - the motion settings below switch it
+   off for anyone asking for less motion - so keep scrolling instant. */
+html,
+html:focus-within {
+    scroll-behavior: auto !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

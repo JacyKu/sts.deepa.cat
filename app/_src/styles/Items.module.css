@@ -1615,9 +1615,9 @@
     color: var(--negative, #ce2d27);
 }
 
-/* Portal tooltip for delve infusion options: rendered on document.body so
-   the scrolling dropdown menu never clips it, and stacked above the menu
-   portal (react-select portals its menu with z-index 9999). */
+/* Portal tooltip for delve infusion options: rendered on document.body so the
+   scrolling dropdown menu never clips it, and stacked above the menus (which
+   carry z-index 9999). */
 .infusionTip {
     position: fixed;
     z-index: 10000;

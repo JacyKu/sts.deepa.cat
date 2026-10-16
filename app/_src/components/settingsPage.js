@@ -762,8 +762,7 @@ export default function SettingsPage() {
                                     )
                                 }
                                 isSearchable={false}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
+                                menuPosition="absolute"
                                 theme={fontSelectTheme}
                                 styles={fontSelectStyles}
                             />
@@ -804,8 +803,7 @@ export default function SettingsPage() {
                                 value={currentCb}
                                 onChange={(option) => setColorblind(option ? option.value : '')}
                                 isSearchable={false}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
+                                menuPosition="absolute"
                                 theme={fontSelectTheme}
                                 styles={fontSelectStyles}
                             />
@@ -845,8 +843,7 @@ export default function SettingsPage() {
                                 value={currentInfusionOption}
                                 onChange={(option) => setInfusionInputValue(option.value)}
                                 isSearchable={false}
-                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                menuPosition="fixed"
+                                menuPosition="absolute"
                                 theme={fontSelectTheme}
                                 styles={fontSelectStyles}
                             />

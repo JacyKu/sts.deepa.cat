@@ -9,6 +9,12 @@
     position: relative;
     left: 50%;
     transform: translateX(-50%);
+    /* The translate makes this a stacking context, and the dropdown menus are
+       no longer portaled to <body> (so they scroll with the page instead of
+       being repositioned on iOS), so the whole filter row has to paint above
+       the controls that follow it - otherwise an open menu is covered by the
+       "add filter" input. */
+    z-index: 30;
     flex-direction: row;
     flex-wrap: wrap;
     gap: 8px;
