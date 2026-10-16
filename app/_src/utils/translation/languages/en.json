@@ -4,6 +4,8 @@
     "index.pages.items.description": "Monumenta Item Browser to easily find items.",
     "index.pages.builder.title": "Builder",
     "index.pages.builder.description": "Monumenta Build Maker to share class builds and see their statistics.",
+    "index.pages.compare.title": "Compare",
+    "index.pages.compare.description": "Compare two builds side by side: stats, items and charms.",
     "items.type.helmet": "Helmet",
     "items.type.chestplate": "Chestplate",
     "items.type.leggings": "Leggings",

@@ -78,16 +78,35 @@
         monospace;
 }
 
-.grid {
+/* The art, title and item count, then the page cards as a 2x2 box underneath
+   (each card a corner of that box). */
+.frame {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    width: 100%;
+    max-width: 900px;
+}
+
+.center {
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
-    max-width: 800px;
+    width: 100%;
+    min-width: 0;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    width: 100%;
 }
 
 .card {
-    margin: 1rem;
+    width: 100%;
     padding: 1.5rem;
     text-align: left;
     color: inherit;
@@ -97,7 +116,6 @@
     transition:
         color 0.15s ease,
         border-color 0.15s ease;
-    max-width: 300px;
 }
 
 .card:hover,
@@ -128,8 +146,20 @@
         padding: 0 1rem;
     }
 
+    /* Art nearer the top of the screen on phones. */
     .main {
-        padding: 2rem 0;
+        justify-content: flex-start;
+        padding: 0.5rem 0 2rem;
+    }
+
+    .frame {
+        gap: 1.25rem;
+        max-width: 100%;
+    }
+
+    .cards {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
     }
 
     .title {
@@ -142,7 +172,7 @@
     }
 
     .card {
-        margin: 0.75rem 0;
+        margin: 0;
         padding: 1.25rem;
         max-width: 100%;
     }
@@ -153,13 +183,6 @@
 
     .card p {
         font-size: 1.1rem;
-    }
-}
-
-@media (max-width: 600px) {
-    .grid {
-        width: 100%;
-        flex-direction: column;
     }
 }
 
