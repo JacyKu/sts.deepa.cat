@@ -56,6 +56,13 @@ const avatarCache = new Map();
 const CARD_CACHE_LIMIT = 150;
 const cardCache = new Map();
 
+// Finished 64x64 sprite crops (PNG data URLs), keyed by sheet + position. Cards
+// share items heavily, so a repeated item skips sharp entirely; the limit only
+// has to cover the working set of a few hundred distinct items. Data URLs are
+// a couple of KB each, so this stays small.
+const SPRITE_CACHE_LIMIT = 600;
+const spriteDataCache = new Map();
+
 async function respondCached(key, immutable, render) {
     const headers = {
         'Content-Type': 'image/png',
@@ -198,49 +205,97 @@ function findSpriteKey(map, itemKey, itemName) {
     return null;
 }
 
-async function cropSprite(sheet, pos) {
+// The spritesheets are large (the item sheet is 16366x1648), and sharp decodes
+// the whole sheet for every crop. Decoding is the expensive half of a render,
+// so the raw pixels are memoised per request in `decodedSheets`: the six
+// equipment slots all ask for the same sheet, and the first one to get there
+// decodes it while the others await that same promise. That also cuts the peak
+// memory of a card by the same factor, since the slots no longer decode the
+// sheet concurrently. The map is created per render, so no multi-hundred-MB
+// buffer outlives the request.
+function decodeSheet(sheet, sheetId, decodedSheets) {
+    let pending = decodedSheets.get(sheetId);
+    if (!pending) {
+        pending = sharp(sheet, { limitInputPixels: false }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        // Clear a failed decode so a later slot (or render) can retry.
+        pending.catch(() => decodedSheets.delete(sheetId));
+        decodedSheets.set(sheetId, pending);
+    }
+    return pending;
+}
+
+async function cropSprite(sheetId, sheet, pos, decodedSheets) {
+    const key = `${sheetId}:${pos.x}:${pos.y}`;
+    const cached = spriteDataCache.get(key);
+    if (cached !== undefined) {
+        spriteDataCache.delete(key);
+        spriteDataCache.set(key, cached); // LRU: refresh recency
+        return cached;
+    }
+    let dataUrl = null;
     try {
-        const buf = await sharp(sheet, { limitInputPixels: false })
+        const { data, info } = await decodeSheet(sheet, sheetId, decodedSheets);
+        const buf = await sharp(data, {
+            raw: { width: info.width, height: info.height, channels: info.channels },
+            limitInputPixels: false,
+        })
             .extract({ left: pos.x, top: pos.y, width: 64, height: 64 })
             .png()
             .toBuffer();
-        return `data:image/png;base64,${buf.toString('base64')}`;
+        dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
     } catch (e) {
-        return null;
+        dataUrl = null;
     }
+    spriteDataCache.set(key, dataUrl);
+    if (spriteDataCache.size > SPRITE_CACHE_LIMIT) spriteDataCache.delete(spriteDataCache.keys().next().value);
+    return dataUrl;
+}
+
+// Animated items come from the prerendered GIFs only (the same files the
+// texture endpoint and the bot serve): their first frame is the strip start,
+// identical to the animated sheet's cell. `animated: true` would load the
+// whole frame stack as one tall canvas, so it is left off to extract a single
+// 64x64 page. The frame is cached like any other crop.
+async function animatedSpriteDataUrl(spriteKey) {
+    const key = `gif:${spriteKey}`;
+    const cached = spriteDataCache.get(key);
+    if (cached !== undefined) {
+        spriteDataCache.delete(key);
+        spriteDataCache.set(key, cached);
+        return cached;
+    }
+    let dataUrl = null;
+    try {
+        const pre = path.join(process.cwd(), 'public', 'spritesheets', 'textures', `${spriteKey}.gif`);
+        const gif = await fs.readFile(pre);
+        const frame = await sharp(gif, { page: 0 }).png().toBuffer();
+        dataUrl = `data:image/png;base64,${frame.toString('base64')}`;
+    } catch (e) {
+        dataUrl = null;
+    }
+    spriteDataCache.set(key, dataUrl);
+    if (spriteDataCache.size > SPRITE_CACHE_LIMIT) spriteDataCache.delete(spriteDataCache.keys().next().value);
+    return dataUrl;
 }
 
 async function itemSpriteDataUrl(
     { map, positions, animTokens, sheet, mcPositions, mcSheet },
     itemKey,
     itemName,
-    baseItem
+    baseItem,
+    decodedSheets
 ) {
     const spriteKey = findSpriteKey(map, itemKey, itemName);
     const pos = spriteKey && positions[spriteKey];
     if (pos) {
-        // Animated items come from the prerendered GIFs only (the same files
-        // the texture endpoint and the bot serve): their first frame is the
-        // strip start, identical to the animated sheet's cell. `animated:
-        // true` would load the whole frame stack as one tall canvas, so it is
-        // left off to extract a single 64x64 page.
-        if (animTokens.has(spriteKey)) {
-            try {
-                const pre = path.join(process.cwd(), 'public', 'spritesheets', 'textures', `${spriteKey}.gif`);
-                const gif = await fs.readFile(pre);
-                const frame = await sharp(gif, { page: 0 }).png().toBuffer();
-                return `data:image/png;base64,${frame.toString('base64')}`;
-            } catch (e) {
-                return null;
-            }
-        }
-        return cropSprite(sheet, pos);
+        if (animTokens.has(spriteKey)) return animatedSpriteDataUrl(spriteKey);
+        return cropSprite('items', sheet, pos, decodedSheets);
     }
     // Fall back to the vanilla Minecraft texture for the item's base material.
     if (baseItem) {
         const mcKey = getMinecraftTextureKey(baseItem);
         const mcPos = mcPositions[mcKey];
-        if (mcPos) return cropSprite(mcSheet, mcPos);
+        if (mcPos) return cropSprite('minecraft', mcSheet, mcPos, decodedSheets);
     }
     return null;
 }
@@ -686,6 +741,9 @@ export async function GET(request) {
         const hasInfusions = Object.values((savedState && savedState.infusions) || {}).some((v) => v && v !== 'None');
 
         const spriteInfo = await getSpriteInfo();
+        // Per-render sheet decode memo (see decodeSheet): the equipment slots
+        // below all crop from the same sheets.
+        const decodedSheets = new Map();
         const avatarDataUrl = author?.avatarUrl ? await getAvatarDataUrl(author.avatarUrl) : null;
         const itemLines = data
             ? await Promise.all(
@@ -697,7 +755,7 @@ export async function GET(request) {
                       const rawName = item?.name || key;
                       const ex = Boolean(rawName?.startsWith('EX '));
                       const name = ex ? rawName.replace(/^EX\s+/, '') : rawName;
-                      const img = await itemSpriteDataUrl(spriteInfo, key, rawName, item?.base_item);
+                      const img = await itemSpriteDataUrl(spriteInfo, key, rawName, item?.base_item, decodedSheets);
                       return {
                           label,
                           name,
