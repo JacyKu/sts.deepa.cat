@@ -82,7 +82,13 @@ export async function POST(request) {
     // build keeps its name, while a different build whose name the account
     // already uses gets " (2)", " (3)", ... appended automatically. Other
     // accounts may use the same name.
-    const existingId = findBuildByState(ownerId, state);
+    //
+    // body.copy is the builder's "Save as new copy": an explicit fork, so the
+    // save must neither fold onto the identical row it was copied from nor
+    // exclude that row from the name check (excluding it would let the copy
+    // keep the same name instead of getting " (2)").
+    const copy = Boolean(body.copy);
+    const existingId = copy ? null : findBuildByState(ownerId, state);
     const buildName = body.name ? uniqueBuildName(ownerId, body.name, existingId) : null;
 
     // Daily upload limit: accounts are counted from the database (site and mod
@@ -124,6 +130,8 @@ export async function POST(request) {
             // Notes are a signed-in feature: signed-out saves never carry them.
             notes: user ? body.notes || null : null,
             summary,
+            // An explicit copy always inserts a fresh row.
+            forceNew: copy,
         });
     } catch (error) {
         if (isDuplicateNameError(error)) {

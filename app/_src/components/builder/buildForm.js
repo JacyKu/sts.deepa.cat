@@ -2219,7 +2219,12 @@ export default function BuildForm({
         return JSON.stringify(currentBuildSnapshot()) !== JSON.stringify(savedBuildSnapshot());
     }
 
-    function saveBuildToServer(forking = false) {
+    // `forking` saves onto a new row instead of the one that was loaded (used
+    // when this build isn't ours, or when the edits must not overwrite it).
+    // `asCopy` is the explicit "Save as new copy" button: the server is told to
+    // always create a fresh row and to number the name when the account
+    // already uses it, instead of folding the save onto an identical build.
+    function saveBuildToServer(forking = false, asCopy = false) {
         const token = makeBuildString();
         const tokenVersion = getBuildTokenVersion(token) ?? '';
         // Someone else's saved build: an unchanged copy shares the original
@@ -2247,6 +2252,9 @@ export default function BuildForm({
             revelation,
             name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
             notes: notesDraft.trim() ? notesDraft : null,
+            // Ask for a fresh row even though this state already has one (the
+            // build being copied): the name comes back numbered if needed.
+            ...(asCopy ? { copy: true } : {}),
         };
         // Signed-in users can publicise / post anonymously straight from the
         // save button; the flags ride along with the save.
@@ -4823,7 +4831,7 @@ export default function BuildForm({
                             type="button"
                             className={styles.shareButton}
                             id="saveAsNewCopy"
-                            onClick={() => saveBuildToServer(true)}
+                            onClick={() => saveBuildToServer(true, true)}
                             disabled={!buildContentReady || saveState === 'saving'}
                             title={
                                 buildContentReady
