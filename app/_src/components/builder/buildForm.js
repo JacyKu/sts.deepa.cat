@@ -405,15 +405,18 @@ const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor
 
 // Situationals whose effect depends on how many stacks are up / where in their
 // window the moment sits: their toggle gains a small number box beside it (see
-// stats.js for the maths). The defaults reproduce the pre-stack behaviour (full
-// Stamina stacks, full Tempo, just-triggered Reflexes, no Scorch).
+// stats.js for the maths). The defaults are each situational at full effect:
+// full Scorch and Stamina stacks, full Tempo, just-triggered Reflexes.
 const STACK_INPUTS = {
     scorch: { name: 'scorchStacks', label: 'Scorch stacks', hintKey: 'builder.misc.scorchStacksHint', min: 0, max: 15, step: 1 },
     stamina: { name: 'staminaStacks', label: 'Stamina stacks', hintKey: 'builder.misc.staminaStacksHint', min: 0, max: 4, step: 1 },
     tempo: { name: 'tempoSeconds', label: 'Tempo (s)', hintKey: 'builder.misc.tempoSecondsHint', min: 0, max: 60, step: 1 },
     reflexes: { name: 'reflexesSeconds', label: 'Reflexes (s)', hintKey: 'builder.misc.reflexesSecondsHint', min: 0, max: 60, step: 0.1 },
 };
-const DEFAULT_STACK_INPUTS = { scorchStacks: '0', staminaStacks: '4', tempoSeconds: '4', reflexesSeconds: '0' };
+const DEFAULT_STACK_INPUTS = { scorchStacks: '15', staminaStacks: '4', tempoSeconds: '4', reflexesSeconds: '0' };
+// The inputs (and the form fields) are keyed by state name, the definition map
+// by situational, so the caps are looked up by state name.
+const STACK_INPUT_BY_STATE = Object.fromEntries(Object.values(STACK_INPUTS).map((input) => [input.name, input]));
 
 // The stats normal (basic) infusions feed, in display order, and the shared
 // budget for both entry paths (6 items x level IV).
@@ -683,7 +686,7 @@ function formatSituationalName(situ) {
     return ret;
 }
 
-function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, classAbilityContext, stackInputs, onStackChange) {
+function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, classAbilityContext, stackInputs, onStackChange, t) {
     let tempDef = [];
     let tempFlatDmg = [];
     let tempPercentDmg = [];
@@ -693,7 +696,8 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
     let tempClass = [];
 
     // The chips whose effect depends on stacks/uptime carry a small number box
-    // beside their toggle (see STACK_INPUTS).
+    // beside their toggle (see STACK_INPUTS). Hovering the box shows that
+    // chip's hint, which says what the number means and how far it goes.
     const stackBox = (situ) => {
         const input = STACK_INPUTS[situ];
         if (!input) return null;
@@ -708,7 +712,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                 value={stackInputs[input.name]}
                 onChange={(event) => onStackChange(input.name, event.target.value)}
                 aria-label={input.label}
-                title={input.label}
+                title={t(input.hintKey)}
             />
         );
     };
@@ -3260,8 +3264,22 @@ export default function BuildForm({
     // seconds). The visible inputs carry their own `name`, so the value is
     // already in the form; the state keeps it across recalcs, and the recalc is
     // deferred one frame so it reads the updated DOM value.
+    //
+    // Values are capped as they are typed (the HTML max attribute does not stop
+    // typing): a stray 99 for a 15-stack chip would otherwise sit in the box
+    // while the maths quietly used 15. Partial input ("", "0.") passes through
+    // so decimals can still be typed.
     function changeStackInput(name, value) {
-        setStackInputs((prev) => ({ ...prev, [name]: value }));
+        const range = STACK_INPUT_BY_STATE[name];
+        let next = value;
+        if (range && value !== '' && !/[.,]$/.test(value)) {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) {
+                const capped = Math.min(range.max, Math.max(range.min, parsed));
+                if (capped !== parsed) next = String(capped);
+            }
+        }
+        setStackInputs((prev) => ({ ...prev, [name]: next }));
         scheduleStatsRecalc();
     }
 
@@ -3906,10 +3924,18 @@ export default function BuildForm({
                     identifier="builder.misc.situationals"
                     className="text-center mb-1"
                 ></TranslatableText>
-                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveOpen ? delveInfusions : null, {
-                    frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
-                    frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
-                }, stackInputs, changeStackInput)}
+                {generateSituationalCheckboxes(
+                    itemsToDisplay,
+                    checkboxChanged,
+                    delveOpen ? delveInfusions : null,
+                    {
+                        frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
+                        frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
+                    },
+                    stackInputs,
+                    changeStackInput,
+                    t
+                )}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
                 <HealthControls

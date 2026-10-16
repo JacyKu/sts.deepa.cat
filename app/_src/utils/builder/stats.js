@@ -1101,9 +1101,9 @@ class Stats {
     }
 
     // How much of the Reflexes bonus is up, given how long ago it triggered:
-    // full for 0.65s, half for the next 0.35s, nothing after that.
+    // full for the first 0.65s, half from 0.65s through 1s, nothing after that.
     reflexesUptime() {
-        if (this.reflexesSeconds <= REFLEXES_FULL_SECONDS) return 1;
+        if (this.reflexesSeconds < REFLEXES_FULL_SECONDS) return 1;
         if (this.reflexesSeconds <= REFLEXES_HALF_SECONDS) return 0.5;
         return 0;
     }
