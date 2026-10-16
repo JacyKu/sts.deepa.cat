@@ -801,6 +801,24 @@ body:has(.spooky-off) .spooky-corners {
     }
 }
 
+/* iOS auto-zooms the whole page when a control under 16px takes focus ("input
+   zoom"): tapping a text field, or a dropdown's combobox, jumps the layout
+   larger and it never settles back. Every browser on iPhone is WebKit, so this
+   is scoped to it (and to phone widths) and leaves other platforms alone. The
+   site column is zoomed, and WebKit measures the *rendered* size, so the value
+   is divided by that same factor: a flat 16px would render as 14.4px and still
+   trip the check. !important because the controls set their own font sizes. */
+@media (max-width: 900px) {
+    @supports (-webkit-touch-callout: none) {
+        input:not([type='checkbox']):not([type='radio']),
+        select,
+        textarea,
+        [contenteditable='true'] {
+            font-size: calc(16px / var(--ui-zoom, 0.9)) !important;
+        }
+    }
+}
+
 main {
     flex: 1 0 auto;
     width: 100%;

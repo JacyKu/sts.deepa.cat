@@ -53,6 +53,10 @@ const SELECT_STYLES = {
 const OPTION_HEIGHT = 40;
 const MENU_MAX_HEIGHT = 300;
 
+function optionValue(option) {
+    return option && typeof option === 'object' ? option.value : option;
+}
+
 export function WindowedMenuList(props) {
     const scrollRef = React.useRef(null);
     const [scrollTop, setScrollTop] = React.useState(0);
@@ -63,16 +67,33 @@ export function WindowedMenuList(props) {
     const canWindow = children.length === options.length && children.length > 100;
     const useIsomorphicLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
 
+    // Identity of what the list is showing, so the reset below only runs when
+    // the list itself changes. react-select rebuilds the filtered options array
+    // on every render, and keying the reset on that array meant the scroll
+    // position was reset by the very render a scroll causes: the list snapped
+    // back to the top and could not be scrolled at all (worst on touch, where
+    // one flick is dozens of scroll events).
+    const optionKey = options.length
+        ? `${options.length}|${String(optionValue(options[0]))}|${String(optionValue(options[options.length - 1]))}`
+        : '';
+
     // New filtered list: start from the top again.
     React.useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
         setScrollTop(0);
-    }, [options]);
+    }, [optionKey]);
 
     // Keep the keyboard-focused option inside the rendered slice. When the
     // focused option is in the slice we find it by identity; once it moves
     // past the slice, compare its original-list index with the slice edges
     // and step the window towards it.
+    //
+    // This only has work to do when the focus moves (arrow keys, typing), so
+    // it is keyed on the focused option. Running it after every render made
+    // the list impossible to scroll: a scroll updates the rendered slice (a
+    // state change, so a render), and the effect then pulled the view straight
+    // back to the focused option - one flick on a phone snapped back to the
+    // top.
     useIsomorphicLayoutEffect(() => {
         if (!canWindow) return;
         const el = scrollRef.current;
@@ -108,7 +129,7 @@ export function WindowedMenuList(props) {
         const bottom = top + OPTION_HEIGHT;
         if (top < el.scrollTop) el.scrollTop = top;
         else if (bottom > el.scrollTop + MENU_MAX_HEIGHT) el.scrollTop = bottom - MENU_MAX_HEIGHT;
-    });
+    }, [props.focusedOption, canWindow]);
 
     // react-select's MenuList only forwards innerProps to the DOM, so the
     // scroll listener is attached to the element directly.
