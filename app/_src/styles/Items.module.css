@@ -2567,6 +2567,15 @@ div.builderStatCard {
     .czTrigger {
         font-size: 10px;
     }
+
+    /* Phones: the skill, spec and ability rows take the whole width of their
+       card. They are flex items in a wrapping row sized to their content, so
+       on a narrow screen they were centred at ~60-75% of the space and the
+       longer skill names had nothing to spare. */
+    .skillRow,
+    .czSkillRow {
+        flex: 1 1 100%;
+    }
 }
 
 /* Phones: the top-row clusters fold into dropdowns. Region/class/spec and
