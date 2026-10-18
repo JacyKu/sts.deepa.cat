@@ -11,9 +11,12 @@ const BINARY_V1_PREFIX = 'v1_';
 const MAX_TOKEN_LENGTH = 8192;
 
 // The build token generation this codec currently produces. Short links are
-// versioned against this (/b/v7/<id>) so older decoder versions can be kept
+// versioned against this (/b/v8/<id>) so older decoder versions can be kept
 // around and the link routing stays honest about what a token contains.
-export const CURRENT_TOKEN_VERSION = 7;
+// v8 keeps the v7 binary layout; the bump only marks tokens written from now
+// on, and v7 tokens remain readable (and are re-written as v8 on the next
+// save).
+export const CURRENT_TOKEN_VERSION = 8;
 
 // Reads the version byte out of a binary token (v1_<base64url>), or null for
 // legacy formats. Used to version short links and to validate that a token
@@ -253,7 +256,15 @@ export function decodeBuildParam(build, itemData) {
         if (bytes.length < 1 + 6 * 4) return null;
 
         const version = bytes[0];
-        if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7)
+        if (
+            version !== 2 &&
+            version !== 3 &&
+            version !== 4 &&
+            version !== 5 &&
+            version !== 6 &&
+            version !== 7 &&
+            version !== 8
+        )
             return null;
 
         const readU32 = (off) =>
@@ -314,7 +325,7 @@ export function decodeBuildParam(build, itemData) {
 
             // Extra stat inputs. v6+ encodes health as a varint (no upper cap,
             // minimum 1); older tokens keep 7 single bytes (health 0-255).
-            // v7 shares the v6 layout.
+            // v7 and v8 share the v6 layout.
             const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspicacity', 'region'];
             const STAT_DEFAULTS = [100, 0, 0, 0, 0, 0, 3];
             if (version >= 6) {

@@ -7,7 +7,7 @@ import { getItemData, getSkillsData, getItemDataVersion, getSkillsVersion } from
 import { getLinkPreviewData, getEffectiveBuildName, getSetPreviewData } from '../../../_src/utils/buildPreview';
 import { getMinecraftTextureKey } from '../../../_src/utils/items/minecraftFallback';
 import { displayTier } from '../../../_src/utils/items/tierDisplay';
-import { getBuild, getPublicSkillSet } from '../../../../lib/sts-builds';
+import { getBuild, getBuildRevision, getPublicSkillSet } from '../../../../lib/sts-builds';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -693,9 +693,18 @@ export async function GET(request) {
     } else if (buildId) {
         const row = getBuild(buildId);
         if (row) {
-            token = row.token;
-            savedState = row.parsedState;
-            cacheKey = `id:${row.id}:${row.revision || 1}`;
+            // ?v=<revision> renders that stored revision (old shared links);
+            // the current revision (or an unknown one) renders the live row.
+            const currentRevision = Number(row.revision) || 1;
+            const requestedRevision = Number(searchParams.get('v'));
+            const revisionRow =
+                Number.isInteger(requestedRevision) && requestedRevision > 0 && requestedRevision !== currentRevision
+                    ? getBuildRevision(row.id, requestedRevision)
+                    : null;
+            const shown = revisionRow || row;
+            token = shown.token;
+            savedState = shown.parsedState;
+            cacheKey = `id:${row.id}:${revisionRow ? requestedRevision : currentRevision}`;
             cacheImmutable = true;
             if (row.is_public === 1 && row.anonymous !== 1 && row.author_name) {
                 author = { name: row.author_name };

@@ -32,6 +32,14 @@
     contain: layout style;
 }
 
+/* Enchant tooltips are wider than a card, so on hover the card has to paint
+   above the neighbours that would otherwise cover the tooltip (the builder's
+   stat cards sit right below the equipped items). */
+.itemTile:hover,
+.itemTile:focus-within {
+    z-index: 5;
+}
+
 :global(html[data-theme='light']) .itemTile,
 :global(html[data-theme='glass-light']) .itemTile {
     background: #6639622d;
@@ -2086,8 +2094,8 @@ div.builderStatCard {
     accent-color: #4a78fc;
 }
 
-/* "Experimental" chip after the potion picker title. */
-.potionExperimental {
+/* "Experimental" chip after a builder section title. */
+.experimentalBadge {
     display: inline-block;
     vertical-align: middle;
     margin-left: 8px;
@@ -2100,6 +2108,16 @@ div.builderStatCard {
     line-height: 1.5;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+}
+
+/* Note under the potion picker: the selection is a browser preview and is not
+   part of the saved build. */
+.potionNote {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.8rem;
+    text-align: center;
+    opacity: 0.85;
 }
 
 /* The stacks/seconds box that lives inside the Scorch, Stamina, Tempo and

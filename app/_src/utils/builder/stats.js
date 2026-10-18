@@ -48,7 +48,7 @@ function clampStat(value, min, max, fallback) {
 }
 
 class Stats {
-    constructor(itemData, formData, enabledBoxes, extraStats, enabledClassAbilityBuffs, potionEffects) {
+    constructor(itemData, formData, enabledBoxes, extraStats, enabledClassAbilityBuffs, buffEffects) {
         this.region = Number(formData.region);
         if (![1, 2, 3].includes(this.region)) this.region = 3; // guard against non-numeric/absent region (e.g. legacy 'cz'/'dd' links) -LC
         // The defaults reproduce the behaviour before these inputs existed: full
@@ -60,9 +60,9 @@ class Stats {
         this.reflexesSeconds = clampStat(formData.reflexesSeconds, 0, Infinity, 0);
         this.enabledBoxes = enabledBoxes;
         this.enabledClassAbilityBuffs = enabledClassAbilityBuffs;
-        // Potion/food buffs selected in the builder (null when none are
-        // picked). They are a preview, not part of the saved build.
-        this.potionEffects = potionEffects || null;
+        // Potion/food buffs and the enabled skill/spec calculations, combined
+        // (null when none apply). Preview-only, not part of the saved build.
+        this.buffEffects = buffEffects || null;
         this.itemNames = {
             mainhand: formData.mainhand,
             offhand: formData.offhand,
@@ -379,6 +379,9 @@ class Stats {
         // ticked, like the other infusions.
         if (this.hasDelveInfusion('Decapitation'))
             attackDamageCrit *= 1 + DELVE_DECAPITATION_PER_LEVEL * this.delveLevel;
+        // Skill calculations that add flat damage to critical hits (By My
+        // Blade).
+        attackDamageCrit += Number(this.buffEffects && this.buffEffects.critFlatDamage) || 0;
 
         // attack speed (computed in adjustStats, where Life Drain needs it)
         let attackSpeed = this.weaponAttackSpeed;
@@ -467,8 +470,8 @@ class Stats {
             this.spellCooldownPercent.mul(1 - DELVE_COOLDOWN_PER_LEVEL * this.delveLevel, false);
         // Potion cooldown buffs scale the same multiplier (a negative value is
         // a cooldown increase).
-        if (this.potionEffects && this.potionEffects.cooldownReduction) {
-            this.spellCooldownPercent.mul(1 - this.potionEffects.cooldownReduction, false);
+        if (this.buffEffects && this.buffEffects.cooldownReduction) {
+            this.spellCooldownPercent.mul(1 - this.buffEffects.cooldownReduction, false);
         }
 
         // final damage
@@ -789,7 +792,7 @@ class Stats {
 
         // Potion/food resistances multiply the incoming damage of each type.
         const potionTaken = (type) =>
-            this.potionEffects ? this.potionEffects.damageTaken.all * (this.potionEffects.damageTaken[type] ?? 1) : 1;
+            this.buffEffects ? this.buffEffects.damageTaken.all * (this.buffEffects.damageTaken[type] ?? 1) : 1;
 
         let meleeDamage = this.calculateDamageTaken(
             hasNothing,
@@ -1008,6 +1011,10 @@ class Stats {
         // Unyielding: additive (8% * level) knockback resistance.
         if (this.hasDelveInfusion('Unyielding')) this.knockbackRes += DELVE_KB_PER_LEVEL * this.delveLevel;
         this.knockbackRes = this.knockbackRes > 10 ? 100 : this.knockbackRes * 10;
+        // Skill/spec calculations can scale healing (Spiritualism, Dark Pact).
+        if (this.buffEffects && this.buffEffects.healingMultiplier !== 1) {
+            this.healingRate.mul(this.buffEffects.healingMultiplier, false);
+        }
         let effHealingNonRounded = new Percentage((20 / this.healthFinal) * this.healingRate.val, false);
         if (this.enabledClassAbilityBuffs.taboo) effHealingNonRounded.mul(50);
         this.effHealingRate = this.roundPerc('effHealingRate', effHealingNonRounded);
@@ -1116,8 +1123,8 @@ class Stats {
         // Potion/food buffs: additive with the gear percentages they mirror,
         // like the item stats above. Knockback resistance uses the same [0, 1]
         // attribute scale as items (multiplied by 10 for display later).
-        if (this.potionEffects) {
-            const potions = this.potionEffects;
+        if (this.buffEffects) {
+            const potions = this.buffEffects;
             this.healthPercent.add(potions.healthPercent);
             this.speedPercent.add(potions.speedPercent);
             this.attackSpeedPercent.add(potions.attackSpeedPercent);

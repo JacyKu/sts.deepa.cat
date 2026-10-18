@@ -529,6 +529,8 @@
     "builder.potions.enable": "Enable potion selection",
     "builder.potions.remove": "Remove potion",
     "builder.potions.select": "Select Potions",
+    "builder.potions.notSaved": "Potion selections are not saved with the build.",
+    "builder.skillCalcs.title": "Skill & Spec Calculations",
     "builder.regions.celestialZenith": "Celestial Zenith",
     "builder.regions.darkestDepths": "Darkest Depths",
     "builder.regions.isles": "Isles",

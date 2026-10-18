@@ -316,7 +316,7 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             .finally(() => setFavBusy(false));
     }
 
-    // Copy this build's short link (/b/v7/<id>). The card itself is a link, so
+    // Copy this build's short link (/b/v<version>/<id>). The card itself is a link, so
     // the button stops the click from navigating.
     function copyBuildLink(event) {
         event.preventDefault();

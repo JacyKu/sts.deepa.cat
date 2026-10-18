@@ -46,6 +46,13 @@ import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 import { computePotionEffects } from '../../utils/builder/potionEffects';
 import {
+    computeSkillEffects,
+    isSkillCalcLearned,
+    mergeBuffEffects,
+    skillCalcEntries,
+} from '../../utils/builder/skillEffects';
+import { getEnabledSkillCalcs, setEnabledSkillCalcs } from '../../utils/skillCalcPrefs';
+import {
     builderPotionsValue,
     getBuilderPotions,
     isBuilderPotionsEnabled,
@@ -420,6 +427,11 @@ const extraStats = {
     attackSpeedMultipliers: [],
 };
 
+// Skill/spec calculation effects for the current class, spec, skill points and
+// toggles. Rebuilt by refreshClassBuffs and read by recalcBuild (like the
+// mutable enabledBoxes/extraStats objects).
+const skillCalcState = { effects: null };
+
 const itemTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
 
 // Extra stat inputs that are part of the build (shared in the link under their full names).
@@ -598,6 +610,8 @@ function recalcBuild(data, itemData) {
         counts: data.basicInfusionCounts ?? null,
         // Selected potion/food buffs (preview-only, see potionEffects.js).
         potions: data.potions ?? null,
+        // Enabled skill/spec calculations for the current class/spec.
+        sk: skillCalcState.effects,
         eb: enabledBoxes,
         es: extraStats,
         eca: enabledClassAbilityBuffs,
@@ -614,7 +628,7 @@ function recalcBuild(data, itemData) {
         enabledBoxes,
         extraStats,
         enabledClassAbilityBuffs,
-        computePotionEffects(data.potions, itemData)
+        mergeBuffEffects(computePotionEffects(data.potions, itemData), skillCalcState.effects)
     );
     statsCache.set(signature, { itemData, stats: tempStats });
     if (statsCache.size > STATS_CACHE_MAX) {
@@ -1184,6 +1198,13 @@ export default function BuildForm({
         if (stored.length > 0) setPotions(stored);
         setPotionsEnabledState(isBuilderPotionsEnabled());
     }, []);
+
+    // Skill/spec calculation toggles: every calculation starts off and the row
+    // below the stat toggles stores the switched-on ones per browser. The ref
+    // is read by refreshClassBuffs, which runs before state updates flush.
+    const enabledSkillCalcsRef = React.useRef(null);
+    if (enabledSkillCalcsRef.current === null) enabledSkillCalcsRef.current = getEnabledSkillCalcs();
+    const [enabledSkillCalcs, setEnabledSkillCalcsState] = React.useState(enabledSkillCalcsRef.current);
     const [charmSelectKey, setCharmSelectKey] = React.useState(0);
     const [multiplierListKey, setMultiplierListKey] = React.useState(0);
     // The Extra Multipliers section is collapsed behind a toggle by default;
@@ -1980,6 +2001,22 @@ export default function BuildForm({
         return (cls?.specs || []).map((s) => ({ value: s.specName, label: s.specName }));
     }, [skillsData, gameClass]);
 
+    // Hover descriptions for the class and spec selectors, mirroring the
+    // styled tooltips used by the builder's other controls.
+    const classPassiveTooltip = React.useMemo(() => {
+        if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none') return null;
+        const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
+        const passive = cls && cls.classPassive;
+        return passive ? cleanDescription((passive.descriptions || []).join('\n')) : null;
+    }, [skillsData, gameClass]);
+
+    const specPassiveTooltip = React.useMemo(() => {
+        if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return null;
+        const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
+        const specData = cls?.specs?.find((s) => s.specName == spec);
+        return specData?.specPassive ? cleanDescription((specData.specPassive.descriptions || []).join('\n')) : null;
+    }, [skillsData, gameClass, spec]);
+
     const currentSpecSkills = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
@@ -1996,7 +2033,10 @@ export default function BuildForm({
 
     // Rebuild the class-ability buff flags from skill points, spec skill
     // points, and the enhancement checkboxes. The stat engine reads these.
-    function refreshClassBuffs(nextSkillPoints, nextSpecPoints, nextEnhancements) {
+    // Also recomputes the experimental skill/spec calculation effects for the
+    // class/spec being applied (callers changing them pass the new value, since
+    // the state setters have not re-rendered yet).
+    function refreshClassBuffs(nextSkillPoints, nextSpecPoints, nextEnhancements, nextClass = gameClass, nextSpec = spec) {
         Object.keys(enabledClassAbilityBuffs).forEach((key) => {
             enabledClassAbilityBuffs[key] = false;
         });
@@ -2022,6 +2062,27 @@ export default function BuildForm({
                 enabledClassAbilityBuffs[`${buffKey}_enhancement`] = true;
             }
         }
+
+        // Skill/spec calculation toggles: every calculation is opt-in. Entries
+        // the stat engine already models keep their buff flags only while their
+        // toggle is on; the rest contribute the computed effect object below.
+        const enabled = enabledSkillCalcsRef.current || [];
+        for (const entry of skillCalcEntries(nextClass, nextSpec)) {
+            if (!entry.flagPrefix || enabled.includes(entry.id)) continue;
+            for (const key of Object.keys(enabledClassAbilityBuffs)) {
+                if (key === entry.flagPrefix || key.startsWith(`${entry.flagPrefix}_`)) {
+                    enabledClassAbilityBuffs[key] = false;
+                }
+            }
+        }
+        skillCalcState.effects = computeSkillEffects({
+            gameClass: nextClass,
+            spec: nextSpec,
+            skillPoints: nextSkillPoints,
+            specSkillPoints: nextSpecPoints,
+            enhancements: nextEnhancements,
+            enabled,
+        });
     }
 
     function recalcBuildStats(statOverrides) {
@@ -2094,7 +2155,7 @@ export default function BuildForm({
         const specName = newValue ? newValue.value : null;
         setSpec(specName);
         setSpecSkillPoints({});
-        refreshClassBuffs(skillPoints, {}, enhancements);
+        refreshClassBuffs(skillPoints, {}, enhancements, gameClass, specName);
         recalcBuildStats();
     }
 
@@ -2228,7 +2289,20 @@ export default function BuildForm({
         const params = new URLSearchParams(decoded);
         params.delete('name');
         params.delete('health');
-        return params.toString();
+        // Spec skill points live under `ssk`; older saved tokens also listed
+        // them under `sk`, so drop the duplicates (the form only writes `ssk`).
+        const sk = params.get('sk');
+        const ssk = params.get('ssk');
+        if (sk && ssk) {
+            const specIds = new Set(ssk.split(',').map((entry) => entry.split(':')[0]));
+            const classEntries = sk.split(',').filter((entry) => !specIds.has(entry.split(':')[0]));
+            if (classEntries.length > 0) params.set('sk', classEntries.join(','));
+            else params.delete('sk');
+        }
+        // Canonical key order: saved tokens were written in different orders
+        // over time, which must not read as an edit.
+        const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b));
+        return new URLSearchParams(entries).toString();
     }
 
     function currentBuildSnapshot() {
@@ -2288,16 +2362,10 @@ export default function BuildForm({
         return !activeBuildId || buildDiffersFromSaved();
     }
 
-    // Link for what is on the page. Once the build is saved and unchanged that
-    // is the saved build's own link; otherwise it is a builder link carrying the
-    // current build token, so the unsaved edits are what gets shared (nothing is
-    // saved by copying).
+    // Link to the saved build at its current revision.
     function shareLink() {
-        if (activeBuildId && !hasUnsavedEdits()) {
-            const version = getBuildTokenVersion(makeBuildString()) ?? '';
-            return window.location.origin + getStsBase() + `/b/v${version}/${activeBuildId}?v=${buildRevision}`;
-        }
-        return window.location.origin + getStsBase() + '/builder/' + makeBuildString();
+        const version = getBuildTokenVersion(makeBuildString()) ?? '';
+        return window.location.origin + getStsBase() + `/b/v${version}/${activeBuildId}?v=${buildRevision}`;
     }
 
     // Name shown for the link in the Discord message.
@@ -2357,11 +2425,10 @@ export default function BuildForm({
         const tokenVersion = getBuildTokenVersion(token) ?? '';
         // Someone else's saved build: an unchanged copy shares the original
         // link, so the embed credits the build's author. Once the form differs
-        // from what was loaded, the edits must fork onto a new link or they
-        // would never be shareable. Saving the current edits as a copy is what
-        // "Save as new copy" does too.
-        if (activeBuildId && !forking && !ownsBuild) {
-            if (buildDiffersFromSaved()) return saveBuildToServer(true);
+        // from what was loaded, try updating in place first - the creator
+        // cookie of an anonymous build authorizes that - and fork on a 403
+        // (which is what happens for someone else's build).
+        if (activeBuildId && !forking && !ownsBuild && !buildDiffersFromSaved()) {
             const storedVersion = getBuildTokenVersion(build) ?? tokenVersion;
             const link =
                 window.location.origin + getStsBase() + `/b/v${storedVersion}/${activeBuildId}` + `?v=${buildRevision}`;
@@ -2389,8 +2456,9 @@ export default function BuildForm({
         let duplicateHit = false;
 
         // The account's own build is updated in place; an explicit fork (or an
-        // unsaved build) POSTs a fresh snapshot link instead.
-        if (activeBuildId && !forking && loggedIn) {
+        // unsaved build) POSTs a fresh snapshot link instead. Anonymous builds
+        // are authorized by the creator cookie; a 403 forks (see above).
+        if (activeBuildId && !forking) {
             setSaveState('saving');
             setSavedAnonymous(false);
             return fetch(`/api/v2/builds/${activeBuildId}`, {
@@ -2538,14 +2606,31 @@ export default function BuildForm({
             });
     }
 
+    // Copy actions always hand out a real short link. A saved, unchanged build
+    // reuses its existing link; anything else goes through the save endpoint
+    // first, so the server creates/bumps the revision and returns the /b/ link
+    // for that new revision.
+    function linkForCopy() {
+        if (activeBuildId && !hasUnsavedEdits()) return Promise.resolve(shareLink());
+        return saveBuildToServer();
+    }
+
     // Discord renders markdown, so the link goes out as its label.
     function copyBuildDiscord() {
-        copyToClipboard(`[${discordLinkLabel()}](${shareLink()})`, 'discord');
+        linkForCopy()
+            .then((link) => {
+                if (link) copyToClipboard(`[${discordLinkLabel()}](${link})`, 'discord');
+            })
+            .catch(() => {});
     }
 
     // The plain link, for anywhere else.
     function copyShareLink() {
-        copyToClipboard(shareLink(), 'link');
+        linkForCopy()
+            .then((link) => {
+                if (link) copyToClipboard(link, 'link');
+            })
+            .catch(() => {});
     }
 
     // "Copy to new build": detach the page from the saved row it came from. Its
@@ -2659,7 +2744,9 @@ export default function BuildForm({
             // Fresh builder (no build link, no draft): compute the empty build's
             // base stats right away so the stat cards are populated before any
             // edit instead of showing empty cards. Potions are a browser
-            // preference, so they come from storage rather than the form.
+            // preference, so they come from storage rather than the form, and
+            // any skill calculations from a previous build are cleared.
+            skillCalcState.effects = null;
             applyStatsUpdateNow(
                 {
                     ...Object.fromEntries(new FormData(formRef.current).entries()),
@@ -2811,7 +2898,7 @@ export default function BuildForm({
             setSpecSkillPoints(loadedSpecPoints);
         }
 
-        refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements);
+        refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements, loadedClass, loadedSpec);
         // extra stat inputs (health/tenacity/vitality/vigor/focus/perspicacity/region)
         const statValues = {};
         for (const key of STAT_KEYS) {
@@ -2876,11 +2963,15 @@ export default function BuildForm({
             effSavedState && effSavedState.globalInfusions && typeof effSavedState.globalInfusions === 'object'
                 ? effSavedState.globalInfusions
                 : null;
+        // Saved states that carry no per-slot picks at all (mod uploads and
+        // older rows) have nothing to derive the totals from, so fall back to
+        // the token totals instead of dropping them.
+        const hadBasicState = Object.keys(loadedBasic).length > 0;
         const wantedBasic = basicInfusionTotals(loadedBasic);
         for (const key of BASIC_INFUSION_STAT_KEYS) {
             // A saved state without the field predates the global boxes, so
             // its token totals were the per-slot sums (nothing extra to place).
-            const source = storedGlobals ? storedGlobals[key] : effSavedState ? 0 : statValues[key];
+            const source = storedGlobals ? storedGlobals[key] : hadBasicState ? 0 : statValues[key];
             const value = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(source) || 0)));
             if (value > 0) wantedBasic[key] = value;
         }
@@ -2945,11 +3036,11 @@ export default function BuildForm({
             setCharms([]);
             setCzAbilities({});
             setCzOpen(false);
-            refreshClassBuffs({}, {}, {});
+            refreshClassBuffs({}, {}, {}, loadedClass, loadedSpec);
         } else if (loadedRegion < 3) {
             setEnhancements({});
             setCharms([]);
-            refreshClassBuffs(skillPoints, specSkillPoints, {});
+            refreshClassBuffs(skillPoints, specSkillPoints, {}, loadedClass, loadedSpec);
         }
         if (loadedRegion === 2) {
             const prismaticOnly = Object.keys(nextCz).filter((name) =>
@@ -2974,11 +3065,17 @@ export default function BuildForm({
     // or a shared-set import is unsaved content, so those keep the props
     // fallback (any save then forks); the baseline only decides whether
     // sharing an untouched other-user build can reuse its original link.
+    const [, bumpSaveBaseline] = React.useState(0);
     React.useLayoutEffect(() => {
         if (!parentLoaded || !build || effectiveDraft || sharedSet) return undefined;
         savedSnapshotRef.current = null;
         const timer = setTimeout(() => {
             if (currentSnapshotRef.current) savedSnapshotRef.current = currentSnapshotRef.current();
+            // The restore can normalise token-only state (basic infusions get
+            // placed onto items), so the labels/disabled state computed on the
+            // previous render may still claim the build is unsaved. Re-render
+            // once against the new baseline.
+            bumpSaveBaseline((value) => value + 1);
         }, 300);
         return () => clearTimeout(timer);
     }, [parentLoaded, build, effectiveDraft, sharedSet]);
@@ -3217,7 +3314,7 @@ export default function BuildForm({
         setSpec(null);
         setSpecSkillPoints({});
         setEnhancements({});
-        refreshClassBuffs({}, {}, {});
+        refreshClassBuffs({}, {}, {}, 'none', null);
         setStatInputs(DEFAULT_STAT_INPUTS);
         setRegionValue(3);
         setRegionSelectKey((k) => k + 1);
@@ -3495,6 +3592,52 @@ export default function BuildForm({
         recalcBuildStats({ potions: enabled ? JSON.stringify(potions) : '[]' });
     }
 
+    // --- Experimental skill/spec calculations ---
+    // Entries for the row below the stat toggles: every calculation for the
+    // current class and spec; skills without points are shown disabled.
+    const skillCalcRow = React.useMemo(
+        () =>
+            skillCalcEntries(gameClass, spec).map((entry) => ({
+                entry,
+                learned: isSkillCalcLearned(entry, skillPoints, specSkillPoints),
+            })),
+        [gameClass, spec, skillPoints, specSkillPoints]
+    );
+
+    function toggleSkillCalc(id) {
+        const current = enabledSkillCalcsRef.current || [];
+        const next = current.includes(id) ? current.filter((value) => value !== id) : [...current, id];
+        enabledSkillCalcsRef.current = next;
+        setEnabledSkillCalcsState(next);
+        setEnabledSkillCalcs(next);
+        refreshClassBuffs(skillPoints, specSkillPoints, enhancements);
+        recalcBuildStats();
+    }
+
+    // Hover descriptions for the calculation toggles, mirroring the native
+    // tooltips on the builder's skill and spec rows.
+    const skillCalcTooltips = React.useMemo(() => {
+        const map = new Map();
+        let passive = null;
+        if (!skillsData) return { map, passive };
+        const cls = (skillsData.classes || []).find(
+            (c) => (c.className || '').toLowerCase() === gameClass
+        );
+        if (!cls) return { map, passive };
+        const add = (skill) => {
+            const text =
+                skill.simpleDescription || cleanDescription((skill.descriptions || []).join('\n'));
+            if (text) map.set(skill.scoreboardId, text);
+        };
+        (cls.skills || []).forEach(add);
+        const specData = spec ? (cls.specs || []).find((s) => s.specName === spec) : null;
+        (specData?.specSkills || []).forEach(add);
+        if (specData?.specPassive) {
+            passive = cleanDescription((specData.specPassive.descriptions || []).join('\n')) || null;
+        }
+        return { map, passive };
+    }, [skillsData, gameClass, spec]);
+
     function updateCharms(charmNames) {
         // Dedupe by resolved key so a charm can never appear twice (the
         // selector add-entry guard also blocks it; this covers loaded lists).
@@ -3667,7 +3810,7 @@ export default function BuildForm({
         setSpec(null);
         setSpecSkillPoints({});
         setEnhancements({});
-        refreshClassBuffs({}, {}, {});
+        refreshClassBuffs({}, {}, {}, newClass, null);
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
         applyStatsUpdate(itemNames, itemData, setStats, update);
     }
@@ -4050,7 +4193,7 @@ export default function BuildForm({
                                 />
                             </label>
                             <TranslatableText identifier="builder.potions.select"></TranslatableText>
-                            <span className={styles.potionExperimental}>{t('items.changes.experimental')}</span>
+                            <span className={styles.experimentalBadge}>{t('items.changes.experimental')}</span>
                         </p>
                         <div className={`${charmSelectorStyles.listSelectorInputs} justify-content-center`}>
                             {potionsEnabled && (
@@ -4068,24 +4211,29 @@ export default function BuildForm({
                 </div>
             </div>
             {potionsEnabled && (
-                <div className="row justify-content-center mb-1">
-                    {selectedPotionItems.map((item) => (
-                        <div className={`col-auto ${styles.builderCol}`} key={item.name}>
-                            <div className={styles.charmCardWrap}>
-                                <ConsumableTile item={item} />
-                                <button
-                                    type="button"
-                                    className={styles.charmRemoveButton}
-                                    onClick={() => removePotion(item.name)}
-                                    aria-label={`${t('common.remove')} ${item.name}`}
-                                    title={t('builder.potions.remove')}
-                                >
-                                    ×
-                                </button>
+                <>
+                    <div className="row justify-content-center mb-1">
+                        {selectedPotionItems.map((item) => (
+                            <div className={`col-auto ${styles.builderCol}`} key={item.name}>
+                                <div className={styles.charmCardWrap}>
+                                    <ConsumableTile item={item} />
+                                    <button
+                                        type="button"
+                                        className={styles.charmRemoveButton}
+                                        onClick={() => removePotion(item.name)}
+                                        aria-label={`${t('common.remove')} ${item.name}`}
+                                        title={t('builder.potions.remove')}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                    <p className={`${styles.potionNote} mb-1`}>
+                        <TranslatableText identifier="builder.potions.notSaved"></TranslatableText>
+                    </p>
+                </>
             )}
         </>
     );
@@ -4498,25 +4646,30 @@ export default function BuildForm({
                                 </div>
                             ) : (
                                 <div>
-                                    <SelectInput
-                                        name="class"
-                                        floatingLabel={t('builder.misc.class')}
-                                        noneOption={true}
-                                        widthToOptions
-                                        sortableStats={classes}
-                                        value={
-                                            gameClass != 'none'
-                                                ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1)
-                                                : 'None'
-                                        }
-                                        onChange={classChanged}
-                                    />
+                                    <div className={styles.enchantTooltip}>
+                                        <SelectInput
+                                            name="class"
+                                            floatingLabel={t('builder.misc.class')}
+                                            noneOption={true}
+                                            widthToOptions
+                                            sortableStats={classes}
+                                            value={
+                                                gameClass != 'none'
+                                                    ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1)
+                                                    : 'None'
+                                            }
+                                            onChange={classChanged}
+                                        />
+                                        {classPassiveTooltip && (
+                                            <span className={styles.enchantTooltipText}>{classPassiveTooltip}</span>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                             {gameClass == 'none' || regionValue === 1 ? (
                                 ''
                             ) : (
-                                <div className="ms-3">
+                                <div className={`ms-3 ${styles.enchantTooltip}`}>
                                     <SelectInput
                                         name="spec"
                                         floatingLabel={t('database.filters.spec')}
@@ -4525,6 +4678,9 @@ export default function BuildForm({
                                         value={spec || 'None'}
                                         onChange={specChanged}
                                     />
+                                    {specPassiveTooltip && (
+                                        <span className={styles.enchantTooltipText}>{specPassiveTooltip}</span>
+                                    )}
                                 </div>
                             )}
                             <div className="ms-3 d-flex align-items-center">
@@ -4708,7 +4864,6 @@ export default function BuildForm({
                                             <div
                                                 key={skill.scoreboardId}
                                                 className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}${over ? ` ${styles.skillDragOver}` : ''}`}
-                                                title={tooltip}
                                                 onDragOver={(e) =>
                                                     classOrderContainer &&
                                                     skillDragOver(
@@ -4746,46 +4901,64 @@ export default function BuildForm({
                                                         e.currentTarget.style.display = 'none';
                                                     }}
                                                 />
-                                                <span className={styles.skillName}>{skill.displayName}</span>
+                                                <span className={styles.skillName}>
+                                                    <span className={styles.enchantTooltip}>
+                                                        {skill.displayName}
+                                                        {tooltip && (
+                                                            <span className={styles.enchantTooltipText}>{tooltip}</span>
+                                                        )}
+                                                    </span>
+                                                </span>
                                                 <span className={styles.skillPoints}>
                                                     {points}/{maxPoints}
                                                 </span>
                                                 <div className={styles.skillChecks}>
-                                                    {Array.from({ length: maxPoints }).map((_, i) => (
-                                                        <input
-                                                            key={i}
-                                                            type="checkbox"
-                                                            checked={points > i}
-                                                            onChange={() => skillPointClicked(skill.scoreboardId, i)}
-                                                            aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
-                                                            title={[cleanDescription((skill.descriptions || [])[i])]
-                                                                .filter(Boolean)
-                                                                .join('\n\n')}
-                                                        />
-                                                    ))}
+                                                    {Array.from({ length: maxPoints }).map((_, i) => {
+                                                        const pointInfo = cleanDescription(
+                                                            (skill.descriptions || [])[i]
+                                                        );
+                                                        return (
+                                                            <span key={i} className={styles.enchantTooltip}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={points > i}
+                                                                    onChange={() =>
+                                                                        skillPointClicked(skill.scoreboardId, i)
+                                                                    }
+                                                                    aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
+                                                                />
+                                                                {pointInfo && (
+                                                                    <span className={styles.enchantTooltipText}>
+                                                                        {pointInfo}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        );
+                                                    })}
                                                 </div>
                                                 {regionValue >= 3 && (
-                                                    <input
-                                                        type="checkbox"
-                                                        className={styles.skillEnhance}
-                                                        checked={enhanced && !enhanceDisabled}
-                                                        disabled={enhanceDisabled}
-                                                        onChange={(e) =>
-                                                            enhancementToggled(skill.scoreboardId, e.target.checked)
-                                                        }
-                                                        aria-label={`${skill.displayName} ${t('builder.skills.enhancement')}`}
-                                                        title={
-                                                            points < 1
+                                                    <span className={styles.enchantTooltip}>
+                                                        <input
+                                                            type="checkbox"
+                                                            className={styles.skillEnhance}
+                                                            checked={enhanced && !enhanceDisabled}
+                                                            disabled={enhanceDisabled}
+                                                            onChange={(e) =>
+                                                                enhancementToggled(
+                                                                    skill.scoreboardId,
+                                                                    e.target.checked
+                                                                )
+                                                            }
+                                                            aria-label={`${skill.displayName} ${t('builder.skills.enhancement')}`}
+                                                        />
+                                                        <span className={styles.enchantTooltipText}>
+                                                            {points < 1
                                                                 ? `${skill.displayName} ${t('builder.skills.enhancementTitle')}\n${t('builder.skills.enhancementRequiresPoint')}`
-                                                                : [
-                                                                      cleanDescription(
-                                                                          (skill.descriptions || [])[maxPoints]
-                                                                      ),
-                                                                  ]
-                                                                      .filter(Boolean)
-                                                                      .join('\n\n')
-                                                        }
-                                                    />
+                                                                : cleanDescription(
+                                                                      (skill.descriptions || [])[maxPoints]
+                                                                  ) || ''}
+                                                        </span>
+                                                    </span>
                                                 )}
                                             </div>
                                         );
@@ -4804,7 +4977,12 @@ export default function BuildForm({
                         <div className={styles.skillsSection}>
                             <div className={styles.skillsHeader}>
                                 <span className={styles.skillsTitle}>
-                                    {spec} {t('database.filters.spec')}
+                                    <span className={styles.enchantTooltip}>
+                                        {spec} {t('database.filters.spec')}
+                                        {specPassiveTooltip && (
+                                            <span className={styles.enchantTooltipText}>{specPassiveTooltip}</span>
+                                        )}
+                                    </span>
                                 </span>
                                 <span className={styles.skillTotal}>
                                     {Object.values(specSkillPoints).reduce((sum, pts) => sum + pts, 0)} /{' '}
@@ -4833,7 +5011,6 @@ export default function BuildForm({
                                         <div
                                             key={skill.scoreboardId}
                                             className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}${over ? ` ${styles.skillDragOver}` : ''}`}
-                                            title={tooltip}
                                             onDragOver={(e) =>
                                                 specOrderContainer &&
                                                 skillDragOver(
@@ -4871,23 +5048,38 @@ export default function BuildForm({
                                                     e.currentTarget.style.display = 'none';
                                                 }}
                                             />
-                                            <span className={styles.skillName}>{skill.displayName}</span>
+                                            <span className={styles.skillName}>
+                                                <span className={styles.enchantTooltip}>
+                                                    {skill.displayName}
+                                                    {tooltip && (
+                                                        <span className={styles.enchantTooltipText}>{tooltip}</span>
+                                                    )}
+                                                </span>
+                                            </span>
                                             <span className={styles.skillPoints}>
                                                 {points}/{maxPoints}
                                             </span>
                                             <div className={styles.skillChecks}>
-                                                {Array.from({ length: maxPoints }).map((_, i) => (
-                                                    <input
-                                                        key={i}
-                                                        type="checkbox"
-                                                        checked={points > i}
-                                                        onChange={() => specSkillPointClicked(skill.scoreboardId, i)}
-                                                        aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
-                                                        title={[cleanDescription((skill.descriptions || [])[i])]
-                                                            .filter(Boolean)
-                                                            .join('\n\n')}
-                                                    />
-                                                ))}
+                                                {Array.from({ length: maxPoints }).map((_, i) => {
+                                                    const pointInfo = cleanDescription((skill.descriptions || [])[i]);
+                                                    return (
+                                                        <span key={i} className={styles.enchantTooltip}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={points > i}
+                                                                onChange={() =>
+                                                                    specSkillPointClicked(skill.scoreboardId, i)
+                                                                }
+                                                                aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
+                                                            />
+                                                            {pointInfo && (
+                                                                <span className={styles.enchantTooltipText}>
+                                                                    {pointInfo}
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
@@ -5242,6 +5434,35 @@ export default function BuildForm({
                             );
                         })}
                     </div>
+                    {skillCalcRow.length > 0 && (
+                        <div className="row justify-content-center pt-1 mb-1 g-1">
+                            <span className="text-center mb-1">
+                                <TranslatableText identifier="builder.skillCalcs.title"></TranslatableText>{' '}
+                                <span className={styles.experimentalBadge}>{t('items.changes.experimental')}</span>
+                            </span>
+                            {skillCalcRow.map(({ entry, learned }) => {
+                                const enabled = enabledSkillCalcs.includes(entry.id);
+                                const tooltip = entry.passive
+                                    ? skillCalcTooltips.passive
+                                    : skillCalcTooltips.map.get(entry.id);
+                                return (
+                                    <div
+                                        className="col-auto"
+                                        key={`${entry.id}-${learned ? 'learned' : 'unlearned'}-${enabled ? 'on' : 'off'}`}
+                                        title={tooltip || undefined}
+                                    >
+                                        <CheckboxWithLabel
+                                            inputName={`skillCalc-${entry.id}`}
+                                            name={entry.label}
+                                            checked={enabled && learned}
+                                            disabled={!learned}
+                                            onChange={() => toggleSkillCalc(entry.id)}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                     <div
                         className={
                             splitLayout
