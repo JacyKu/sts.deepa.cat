@@ -1,0 +1,68 @@
+/* One-time "End Halloween?" prompt and the Deltarune explosion overlays. */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+}
+
+.modal {
+    background: var(--glass-1);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-elevated);
+    max-width: 360px;
+    width: 100%;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    text-align: center;
+}
+
+.title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-1);
+}
+
+.confirm {
+    padding: 8px 28px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass-2);
+    color: var(--text-1);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.confirm:hover {
+    border-color: var(--control-border-hover);
+    filter: brightness(115%);
+}
+
+.confirm:focus-visible {
+    outline: 2px solid var(--accent, #9c59d1);
+    outline-offset: 2px;
+}
+
+/* One explosion per piece of art, positioned over where the art was. */
+.explosions {
+    position: fixed;
+    inset: 0;
+    z-index: 1001;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.explosion {
+    position: absolute;
+    object-fit: contain;
+    image-rendering: pixelated;
+}

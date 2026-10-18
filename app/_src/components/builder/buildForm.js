@@ -1073,6 +1073,14 @@ export default function BuildForm({
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
     const [saveState, setSaveState] = React.useState(null); // 'saving' | 'copied' | 'error' | 'duplicate'
+    // Which copy button just put a link on the clipboard ('discord' | 'link'),
+    // so only that one shows "Copied" for a moment.
+    const [copyState, setCopyState] = React.useState(null);
+    const copyTimeoutRef = React.useRef(null);
+    // Set by "Copy to new build": the page is a replica detached from the saved
+    // row, so its first save must insert a new build rather than fold onto the
+    // identical row it was copied from.
+    const [replica, setReplica] = React.useState(false);
     const [savedAnonymous, setSavedAnonymous] = React.useState(false);
     // The DB row this build was opened from / saved to; edits update it in
     // place instead of spawning a new link.
@@ -1901,6 +1909,13 @@ export default function BuildForm({
         if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
         setResetConfirm(false);
         resetForm();
+        // Reset only clears the page: a saved build is left exactly as it is,
+        // and the address bar moves off its link so a reload cannot reopen it.
+        setOwnsBuild(false);
+        setPublicState({ isPublic: false, anonymous: false });
+        setReplica(false);
+        savedSnapshotRef.current = null;
+        window.history.replaceState(null, '', getStsBase() + '/builder');
     }
 
     // Memoized: returning a fresh [] on every render made every memo that
@@ -2219,6 +2234,72 @@ export default function BuildForm({
         return JSON.stringify(currentBuildSnapshot()) !== JSON.stringify(savedBuildSnapshot());
     }
 
+    // "Unsaved" means there is nothing saved yet, or the form no longer matches
+    // the build it was opened from. The save button and both copy buttons read
+    // this, so they always agree on which state the page is in.
+    function hasUnsavedEdits() {
+        return !activeBuildId || buildDiffersFromSaved();
+    }
+
+    // Link for what is on the page. Once the build is saved and unchanged that
+    // is the saved build's own link; otherwise it is a builder link carrying the
+    // current build token, so the unsaved edits are what gets shared (nothing is
+    // saved by copying).
+    function shareLink() {
+        if (activeBuildId && !hasUnsavedEdits()) {
+            const version = getBuildTokenVersion(makeBuildString()) ?? '';
+            return window.location.origin + getStsBase() + `/b/v${version}/${activeBuildId}?v=${buildRevision}`;
+        }
+        return window.location.origin + getStsBase() + '/builder/' + makeBuildString();
+    }
+
+    // Name shown for the link in the Discord message.
+    function discordLinkLabel() {
+        const classLabel = gameClass != 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : null;
+        const regionLabel =
+            czOpen && regionValue === 2
+                ? t('builder.regions.darkestDepths')
+                : czOpen && regionValue === 3
+                  ? t('builder.regions.celestialZenith')
+                  : `R${regionValue}`;
+        return buildNameRef.current && buildNameRef.current != 'Monumenta Builder'
+            ? buildNameRef.current
+            : classLabel
+              ? `${regionLabel} ${spec || classLabel} ${t('builder.misc.build')}`
+              : 'Monumenta Builder';
+    }
+
+    // Momentary "Copied" on the button that was used.
+    function flashCopied(which) {
+        setCopyState(which);
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = setTimeout(() => setCopyState(null), 3000);
+    }
+
+    function copyToClipboard(text, which) {
+        if (!navigator.clipboard) {
+            window.alert(t('builder.errors.clipboardCopyFailed'));
+            return;
+        }
+        navigator.clipboard.writeText(text).then(
+            () => flashCopied(which),
+            () => window.alert(t('builder.errors.clipboardCopyFailed'))
+        );
+    }
+
+    // Break the link to the saved build: the page becomes an unsaved replica, so
+    // saving creates a new build and the original is left exactly as it was. The
+    // address bar moves off the saved link too, so a reload cannot reopen it.
+    function detachFromSaved() {
+        setActiveBuildId(null);
+        setBuildRevision(1);
+        setOwnsBuild(false);
+        setPublicState({ isPublic: false, anonymous: false });
+        setReplica(true);
+        savedSnapshotRef.current = null;
+        window.history.replaceState(null, '', getStsBase() + '/builder');
+    }
+
     // `forking` saves onto a new row instead of the one that was loaded (used
     // when this build isn't ours, or when the edits must not overwrite it).
     // `asCopy` is the explicit "Save as new copy" button: the server is told to
@@ -2237,12 +2318,7 @@ export default function BuildForm({
             const storedVersion = getBuildTokenVersion(build) ?? tokenVersion;
             const link =
                 window.location.origin + getStsBase() + `/b/v${storedVersion}/${activeBuildId}` + `?v=${buildRevision}`;
-            setSaveState('copied');
             setSavedAnonymous(false);
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(link).catch(() => {});
-            }
-            setTimeout(() => setSaveState(null), 4000);
             return Promise.resolve(link);
         }
         const payload = {
@@ -2333,12 +2409,10 @@ export default function BuildForm({
                             `/b/v${tokenVersion}/${activeBuildId}` +
                             (result.version ? `?v=${result.version}` : '')
                     );
-                    setSaveState('copied');
                     setSavedAnonymous(false);
-                    if (navigator.clipboard) {
-                        navigator.clipboard.writeText(link).catch(() => {});
-                    }
-                    setTimeout(() => setSaveState(null), 4000);
+                    // The save button's label follows hasUnsavedEdits(), which is
+                    // false again now - it reads "Saved" on its own.
+                    setSaveState(null);
                     return link;
                 })
                 .catch(() => {
@@ -2384,6 +2458,8 @@ export default function BuildForm({
                 setActiveBuildId(d.id);
                 if (d.version) setBuildRevision(d.version);
                 if (d.savedToAccount) setOwnsBuild(true);
+                // The replica got its own build; from here on it is that build.
+                setReplica(false);
                 // The server may have appended " (2)" to a duplicate name.
                 if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
                 // Re-baseline: the next Copy/Save compares against this save,
@@ -2395,17 +2471,15 @@ export default function BuildForm({
                 // The revision (?v=) rides along so the embed serves the fresh
                 // image instead of a cached older one.
                 window.history.replaceState(null, '', getStsBase() + d.url + (d.version ? `?v=${d.version}` : ''));
-                setSaveState('copied');
+                // The save button's label follows hasUnsavedEdits(), which is
+                // false again now - it reads "Saved" on its own.
+                setSaveState(null);
                 if (d.savedToAccount) {
                     setSavedAnonymous(false);
                 } else {
                     setSavedAnonymous(true);
                     setTimeout(() => setSavedAnonymous(false), 7000);
                 }
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(link).catch(() => {});
-                }
-                setTimeout(() => setSaveState(null), 4000);
                 return link;
             })
             .catch(() => {
@@ -2417,42 +2491,22 @@ export default function BuildForm({
             });
     }
 
-    function copyBuildDiscord(event) {
-        saveBuildToServer()
-            .then((link) => {
-                event.target.value = t('common.copied');
-                event.target.classList.add('fw-bold');
-                setTimeout(() => {
-                    event.target.value = t('builder.buttons.copyLinkForDiscord');
-                    event.target.classList.remove('fw-bold');
-                }, 3000);
-                if (!navigator.clipboard) {
-                    window.alert(t('builder.errors.clipboardCopyFailed'));
-                    return;
-                }
-                const classLabel = gameClass != 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : null;
-                const regionLabel =
-                    czOpen && regionValue === 2
-                        ? t('builder.regions.darkestDepths')
-                        : czOpen && regionValue === 3
-                          ? t('builder.regions.celestialZenith')
-                          : `R${regionValue}`;
-                const tempBuildName =
-                    buildNameRef.current && buildNameRef.current != 'Monumenta Builder'
-                        ? buildNameRef.current
-                        : classLabel
-                          ? `${regionLabel} ${spec || classLabel} ${t('builder.misc.build')}`
-                          : 'Monumenta Builder';
-                navigator.clipboard.writeText(`[${tempBuildName}](${link})`).then(
-                    function () {
-                        console.log('Copying to clipboard was successful!');
-                    },
-                    function (err) {
-                        console.error('Could not copy text: ', err);
-                    }
-                );
-            })
-            .catch(() => {});
+    // Discord renders markdown, so the link goes out as its label.
+    function copyBuildDiscord() {
+        copyToClipboard(`[${discordLinkLabel()}](${shareLink()})`, 'discord');
+    }
+
+    // The plain link, for anywhere else.
+    function copyShareLink() {
+        copyToClipboard(shareLink(), 'link');
+    }
+
+    // "Copy to new build": detach the page from the saved row it came from. Its
+    // next save inserts a new build (see detachFromSaved), so this is the way to
+    // duplicate a build without touching the original.
+    function copyToNewBuild() {
+        detachFromSaved();
+        setSaveState(null);
     }
 
     function saveNotes() {
@@ -4826,7 +4880,27 @@ export default function BuildForm({
                         disabled={!buildContentReady}
                         title={buildContentReady ? '' : t('builder.buttons.shareDisabled')}
                     >
-                        <TranslatableText identifier="builder.buttons.copyLinkForDiscord"></TranslatableText>
+                        {copyState === 'discord'
+                            ? t('common.copied')
+                            : hasUnsavedEdits()
+                              ? t('builder.buttons.copyNewLinkForDiscord')
+                              : t('builder.buttons.copyLinkForDiscord')}
+                    </button>
+                </div>
+                <div className="col-4 col-md-3 col-lg-2 text-center">
+                    <button
+                        type="button"
+                        className={styles.shareButton}
+                        id="copyLink"
+                        onClick={copyShareLink}
+                        disabled={!buildContentReady}
+                        title={buildContentReady ? '' : t('builder.buttons.shareDisabled')}
+                    >
+                        {copyState === 'link'
+                            ? t('common.copied')
+                            : hasUnsavedEdits()
+                              ? t('builder.buttons.copyNewLink')
+                              : t('builder.buttons.copyLink')}
                     </button>
                 </div>
                 <div className="col-4 col-md-3 col-lg-2 text-center">
@@ -4834,15 +4908,21 @@ export default function BuildForm({
                         type="button"
                         className={styles.shareButton}
                         id="saveBuild"
-                        onClick={() => saveBuildToServer()}
-                        disabled={!buildContentReady || saveState === 'saving'}
-                        title={buildContentReady ? '' : t('builder.buttons.saveDisabled')}
+                        onClick={() => saveBuildToServer(false, replica)}
+                        disabled={!buildContentReady || saveState === 'saving' || !hasUnsavedEdits()}
+                        title={
+                            !buildContentReady
+                                ? t('builder.buttons.saveDisabled')
+                                : hasUnsavedEdits()
+                                  ? t('builder.buttons.saveHint')
+                                  : t('builder.buttons.savedHint')
+                        }
                     >
                         {saveState === 'saving'
                             ? t('builder.buttons.saving')
-                            : saveState === 'copied'
-                              ? t('common.copied')
-                              : t('builder.buttons.copySave')}
+                            : hasUnsavedEdits()
+                              ? t('builder.buttons.unsaved')
+                              : t('builder.buttons.saved')}
                     </button>
                 </div>
                 {activeBuildId && (
@@ -4850,16 +4930,12 @@ export default function BuildForm({
                         <button
                             type="button"
                             className={styles.shareButton}
-                            id="saveAsNewCopy"
-                            onClick={() => saveBuildToServer(true, true)}
-                            disabled={!buildContentReady || saveState === 'saving'}
-                            title={
-                                buildContentReady
-                                    ? t('builder.buttons.saveAsNewCopyTitle')
-                                    : t('builder.buttons.copyDisabled')
-                            }
+                            id="copyToNewBuild"
+                            onClick={copyToNewBuild}
+                            disabled={saveState === 'saving'}
+                            title={t('builder.buttons.copyToNewBuildTitle')}
                         >
-                            {t('builder.buttons.saveAsNewCopy')}
+                            {t('builder.buttons.copyToNewBuild')}
                         </button>
                     </div>
                 )}
@@ -4870,6 +4946,7 @@ export default function BuildForm({
                         value={resetConfirm ? t('common.confirm') : t('common.reset')}
                         onClick={handleResetClick}
                         aria-label={t('builder.buttons.resetBuild')}
+                        title={t('builder.buttons.resetHint')}
                     />
                 </div>
             </div>
@@ -4878,13 +4955,14 @@ export default function BuildForm({
                     ? t(ownsBuild ? 'builder.status.editingSaved' : 'builder.status.viewingSaved')
                     : t('builder.status.unsaved')}
             </p>
-            {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
+            {loggedIn === true && activeBuildId && (canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
                     <button
                         type="button"
                         className={`${styles.publiciseBtn}${publicState.isPublic ? ` ${styles.publiciseOn}` : ''}`}
                         onClick={togglePublic}
                         disabled={publiciseState === 'saving'}
+                        title={t(publicState.isPublic ? 'database.unpublishHint' : 'database.publiciseHint')}
                     >
                         {publicState.isPublic ? (
                             <TranslatableText identifier="database.unpublish" />
