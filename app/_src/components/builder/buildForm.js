@@ -410,8 +410,8 @@ const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor
 const STACK_INPUTS = {
     scorch: { name: 'scorchStacks', label: 'Scorch stacks', hintKey: 'builder.misc.scorchStacksHint', min: 0, max: 15, step: 1 },
     stamina: { name: 'staminaStacks', label: 'Stamina stacks', hintKey: 'builder.misc.staminaStacksHint', min: 0, max: 4, step: 1 },
-    tempo: { name: 'tempoSeconds', label: 'Tempo (s)', hintKey: 'builder.misc.tempoSecondsHint', min: 0, max: 60, step: 1 },
-    reflexes: { name: 'reflexesSeconds', label: 'Reflexes (s)', hintKey: 'builder.misc.reflexesSecondsHint', min: 0, max: 60, step: 0.1 },
+    tempo: { name: 'tempoSeconds', label: 'Tempo (s)', hintKey: 'builder.misc.tempoSecondsHint', min: 0, max: 4, step: 1 },
+    reflexes: { name: 'reflexesSeconds', label: 'Reflexes (s)', hintKey: 'builder.misc.reflexesSecondsHint', min: 0, max: 1, step: 0.1 },
 };
 const DEFAULT_STACK_INPUTS = { scorchStacks: '15', staminaStacks: '4', tempoSeconds: '4', reflexesSeconds: '0' };
 // The inputs (and the form fields) are keyed by state name, the definition map
