@@ -48,7 +48,7 @@ function clampStat(value, min, max, fallback) {
 }
 
 class Stats {
-    constructor(itemData, formData, enabledBoxes, extraStats, enabledClassAbilityBuffs) {
+    constructor(itemData, formData, enabledBoxes, extraStats, enabledClassAbilityBuffs, potionEffects) {
         this.region = Number(formData.region);
         if (![1, 2, 3].includes(this.region)) this.region = 3; // guard against non-numeric/absent region (e.g. legacy 'cz'/'dd' links) -LC
         // The defaults reproduce the behaviour before these inputs existed: full
@@ -60,6 +60,9 @@ class Stats {
         this.reflexesSeconds = clampStat(formData.reflexesSeconds, 0, Infinity, 0);
         this.enabledBoxes = enabledBoxes;
         this.enabledClassAbilityBuffs = enabledClassAbilityBuffs;
+        // Potion/food buffs selected in the builder (null when none are
+        // picked). They are a preview, not part of the saved build.
+        this.potionEffects = potionEffects || null;
         this.itemNames = {
             mainhand: formData.mainhand,
             offhand: formData.offhand,
@@ -462,6 +465,11 @@ class Stats {
         // Epoch: class ability cooldowns reduced by 1% per level.
         if (this.hasDelveInfusion('Epoch'))
             this.spellCooldownPercent.mul(1 - DELVE_COOLDOWN_PER_LEVEL * this.delveLevel, false);
+        // Potion cooldown buffs scale the same multiplier (a negative value is
+        // a cooldown increase).
+        if (this.potionEffects && this.potionEffects.cooldownReduction) {
+            this.spellCooldownPercent.mul(1 - this.potionEffects.cooldownReduction, false);
+        }
 
         // final damage
         let magicMultiplier =
@@ -613,7 +621,8 @@ class Stats {
         armor,
         agility,
         usesSituationals,
-        delveMultiplier = 1
+        delveMultiplier = 1,
+        potionMultiplier = 1
     ) {
         let damageTaken = {};
         let worldlyProtDR = 0.025 * (this.region + 1);
@@ -727,7 +736,8 @@ class Stats {
             this.extraResistanceMultiplier.val *
             bonusResistanceMultiplier *
             situationalResistanceMultiplier *
-            delveMultiplier;
+            delveMultiplier *
+            potionMultiplier;
 
         damageTaken.secondwind =
             damageTaken.secondwind *
@@ -735,7 +745,8 @@ class Stats {
             this.extraResistanceMultiplier.val *
             bonusResistanceMultiplier *
             situationalResistanceMultiplier *
-            delveMultiplier;
+            delveMultiplier *
+            potionMultiplier;
 
         return damageTaken;
     }
@@ -776,6 +787,10 @@ class Stats {
             ? 1 - DELVE_PENNATE_FALL_PER_LEVEL * this.delveLevel
             : 1;
 
+        // Potion/food resistances multiply the incoming damage of each type.
+        const potionTaken = (type) =>
+            this.potionEffects ? this.potionEffects.damageTaken.all * (this.potionEffects.damageTaken[type] ?? 1) : 1;
+
         let meleeDamage = this.calculateDamageTaken(
             hasNothing,
             this.meleeProt,
@@ -784,7 +799,8 @@ class Stats {
             armor,
             agility,
             true,
-            delveCommonMultiplier * delveOrbitalMultiplier
+            delveCommonMultiplier * delveOrbitalMultiplier,
+            potionTaken('melee')
         );
         let projectileDamage = this.calculateDamageTaken(
             hasNothing,
@@ -794,7 +810,8 @@ class Stats {
             armor,
             agility,
             true,
-            delveCommonMultiplier * delveOrbitalMultiplier
+            delveCommonMultiplier * delveOrbitalMultiplier,
+            potionTaken('projectile')
         );
         let magicDamage = this.calculateDamageTaken(
             hasNothing,
@@ -804,7 +821,8 @@ class Stats {
             armor,
             agility,
             true,
-            delveCommonMultiplier * delveOrbitalMultiplier
+            delveCommonMultiplier * delveOrbitalMultiplier,
+            potionTaken('magic')
         );
         let blastDamage = this.calculateDamageTaken(
             hasNothing,
@@ -814,7 +832,8 @@ class Stats {
             armor,
             agility,
             true,
-            delveCommonMultiplier * delveOrbitalMultiplier
+            delveCommonMultiplier * delveOrbitalMultiplier,
+            potionTaken('blast')
         );
         let fireDamage = this.calculateDamageTaken(
             hasNothing,
@@ -824,7 +843,8 @@ class Stats {
             halfArmor,
             halfAgility,
             false,
-            delveCommonMultiplier * delveOrbitalMultiplier
+            delveCommonMultiplier * delveOrbitalMultiplier,
+            potionTaken('fire')
         );
         let fallDamage = this.calculateDamageTaken(
             hasNothing,
@@ -834,7 +854,8 @@ class Stats {
             halfArmor,
             halfAgility,
             false,
-            delveCommonMultiplier * delvePennateMultiplier
+            delveCommonMultiplier * delvePennateMultiplier,
+            potionTaken('fall')
         );
         let ailmentDamage = this.calculateDamageTaken(
             true,
@@ -844,7 +865,8 @@ class Stats {
             0,
             0,
             false,
-            delveCommonMultiplier * delveOrbitalMultiplier
+            delveCommonMultiplier * delveOrbitalMultiplier,
+            potionTaken('ailment')
         );
 
         let reductions = {
@@ -1090,6 +1112,21 @@ class Stats {
                 this.instability += this.sumNumberStat(itemStats, 'curse_of_instability');
             }
         });
+
+        // Potion/food buffs: additive with the gear percentages they mirror,
+        // like the item stats above. Knockback resistance uses the same [0, 1]
+        // attribute scale as items (multiplied by 10 for display later).
+        if (this.potionEffects) {
+            const potions = this.potionEffects;
+            this.healthPercent.add(potions.healthPercent);
+            this.speedPercent.add(potions.speedPercent);
+            this.attackSpeedPercent.add(potions.attackSpeedPercent);
+            this.knockbackRes += potions.knockbackRes;
+            this.baseRegenLevel += potions.regenLevels;
+            this.attackDamagePercent.add(potions.meleeDamagePercent);
+            this.projectileDamagePercent.add(potions.projectileDamagePercent);
+            this.magicDamagePercent.add(potions.magicDamagePercent);
+        }
 
         // Scorch: each stack makes each Inferno damage tick deal 3% more. Ticks
         // consume a stack, so this is the tick at the stack count entered. It

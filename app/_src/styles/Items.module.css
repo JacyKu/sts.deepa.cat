@@ -2069,6 +2069,39 @@ div.builderStatCard {
     accent-color: #4a78fc;
 }
 
+/* Toggle before the potion picker title (turns the preview on/off). */
+.potionEnable {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.potionEnable input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #4a78fc;
+}
+
+/* "Experimental" chip after the potion picker title. */
+.potionExperimental {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border: 1px solid var(--accent, #9c59d1);
+    background: var(--surface-2);
+    color: var(--accent, #9c59d1);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
 /* The stacks/seconds box that lives inside the Scorch, Stamina, Tempo and
    Reflexes chips. The themed/global input styles set a radius, border, padding
    and background that a bare class cannot outrank, so this uses a compound

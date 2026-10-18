@@ -279,6 +279,7 @@ const SelectInput = (data) => {
             instanceId={data.name}
             name={data.name}
             options={options}
+            isDisabled={Boolean(data.disabled)}
             {...(controlled
                 ? { value: data.value === null ? null : findOption(data.value) }
                 : { defaultValue: defaultOption })}

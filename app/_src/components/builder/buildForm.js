@@ -6,6 +6,7 @@ import CheckboxWithLabel from '../items/checkboxWithLabel';
 import ItemTile from '../items/itemTile';
 import MasterworkableItemTile from '../items/masterworkableItemTile';
 import CharmTile from '../items/charmTile';
+import ConsumableTile from '../items/consumableTile';
 import BuildImportBar from './buildImportBar';
 import SavedSetsPanel from './savedSetsPanel';
 import BuilderHeader from '../items/builderHeader';
@@ -43,6 +44,15 @@ import {
 } from '../../utils/statCardPrefs';
 import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
+import { computePotionEffects } from '../../utils/builder/potionEffects';
+import {
+    builderPotionsValue,
+    getBuilderPotions,
+    isBuilderPotionsEnabled,
+    setBuilderPotions,
+    setBuilderPotionsEnabled,
+} from '../../utils/builderPotionPrefs';
+import charmSelectorStyles from '../../styles/CharmSelector.module.css';
 
 // Whether the viewport is desktop-width (>= 992px). The experimental
 // "New Layout" only applies on desktop; mobile always keeps the standard
@@ -586,6 +596,8 @@ function recalcBuild(data, itemData) {
         // Understanding's amplifier is applied per item, so the counts are
         // part of the calculation's inputs.
         counts: data.basicInfusionCounts ?? null,
+        // Selected potion/food buffs (preview-only, see potionEffects.js).
+        potions: data.potions ?? null,
         eb: enabledBoxes,
         es: extraStats,
         eca: enabledClassAbilityBuffs,
@@ -596,7 +608,14 @@ function recalcBuild(data, itemData) {
         statsCache.set(signature, hit);
         return hit.stats;
     }
-    const tempStats = new Stats(itemData, data, enabledBoxes, extraStats, enabledClassAbilityBuffs);
+    const tempStats = new Stats(
+        itemData,
+        data,
+        enabledBoxes,
+        extraStats,
+        enabledClassAbilityBuffs,
+        computePotionEffects(data.potions, itemData)
+    );
     statsCache.set(signature, { itemData, stats: tempStats });
     if (statsCache.size > STATS_CACHE_MAX) {
         statsCache.delete(statsCache.keys().next().value);
@@ -1151,6 +1170,20 @@ export default function BuildForm({
     const DELVE_POINT_MAX_PER_SLOT = 4;
     const [delvePoints, setDelvePoints] = React.useState({});
     const [revelation, setRevelation] = React.useState(false);
+    // Potions/food picked for the stat preview (like the extra multipliers),
+    // kept per browser rather than in the build token. The picker clears after
+    // each add; the picks render as item cards below it. The toggle before the
+    // title turns the preview off without clearing the picks.
+    const [potions, setPotions] = React.useState([]);
+    const [potionsEnabled, setPotionsEnabledState] = React.useState(true);
+    React.useEffect(() => {
+        // Loaded after mount so the server render has no selection; the list
+        // and the enabled flag are applied by the restore calculation (which
+        // reads the stored preferences).
+        const stored = getBuilderPotions();
+        if (stored.length > 0) setPotions(stored);
+        setPotionsEnabledState(isBuilderPotionsEnabled());
+    }, []);
     const [charmSelectKey, setCharmSelectKey] = React.useState(0);
     const [multiplierListKey, setMultiplierListKey] = React.useState(0);
     // The Extra Multipliers section is collapsed behind a toggle by default;
@@ -2625,9 +2658,13 @@ export default function BuildForm({
         if (!loadToken) {
             // Fresh builder (no build link, no draft): compute the empty build's
             // base stats right away so the stat cards are populated before any
-            // edit instead of showing empty cards.
+            // edit instead of showing empty cards. Potions are a browser
+            // preference, so they come from storage rather than the form.
             applyStatsUpdateNow(
-                Object.fromEntries(new FormData(formRef.current).entries()),
+                {
+                    ...Object.fromEntries(new FormData(formRef.current).entries()),
+                    potions: builderPotionsValue(),
+                },
                 itemData,
                 setStats,
                 update
@@ -2891,6 +2928,8 @@ export default function BuildForm({
                 ...(Object.keys(delveEntries).length > 0 ? { delveEnabled: '1' } : {}),
                 ...(hasBasicInfusions ? { infusionsEnabled: '1' } : {}),
                 ...(loadedRevelation ? { revelation: '1' } : {}),
+                // Potions are a browser preference, not part of the build.
+                potions: builderPotionsValue(),
             },
             itemData,
             setStats,
@@ -3200,7 +3239,10 @@ export default function BuildForm({
             extraStats[key] = [];
         }
         setMultiplierListKey((k) => k + 1);
-        applyStatsUpdate(emptyBuild, itemData, setStats, update);
+        // Potions are a preview like the multipliers, so reset clears them too.
+        setPotions([]);
+        setBuilderPotions([]);
+        applyStatsUpdate({ ...emptyBuild, potions: '[]' }, itemData, setStats, update);
     }
 
     function receiveMasterworkUpdate(newActiveItem, itemType) {
@@ -3402,6 +3444,55 @@ export default function BuildForm({
     }
     function attackSpeedMultipliersChanged(newMultipliers) {
         multipliersChanged(newMultipliers, 'attackSpeedMultipliers');
+    }
+
+    // --- Potions (stat preview only, stored per browser) ---
+    // Pickable consumables (potions, elixirs and buff food), in name order.
+    const potionNames = React.useMemo(() => {
+        if (!itemData) return [];
+        const names = [];
+        for (const key of Object.keys(itemData)) {
+            const item = itemData[key];
+            if (!item || item.type !== 'Consumable' || !Array.isArray(item.effects) || item.effects.length === 0)
+                continue;
+            names.push(key);
+        }
+        return names.sort((a, b) => String(itemData[a].name || a).localeCompare(String(itemData[b].name || b)));
+    }, [itemData]);
+    const selectedPotionItems = React.useMemo(
+        () => potions.map((name) => itemData && itemData[name]).filter(Boolean),
+        [potions, itemData]
+    );
+
+    // The picker is an "add" control: it clears after every pick, and the
+    // selected potions render as their own item cards (like charms).
+    function potionPicked(option) {
+        const name = option && option.value;
+        if (name && name !== 'None') addPotion(name);
+    }
+
+    function addPotion(name) {
+        if (!itemData || !itemData[name] || potions.includes(name)) return;
+        const next = [...potions, name];
+        setPotions(next);
+        setBuilderPotions(next);
+        // Apply right away: the hidden form field has not re-rendered yet.
+        recalcBuildStats({ potions: JSON.stringify(next) });
+    }
+
+    function removePotion(name) {
+        const next = potions.filter((potion) => potion !== name);
+        setPotions(next);
+        setBuilderPotions(next);
+        recalcBuildStats({ potions: JSON.stringify(next) });
+    }
+
+    // Turn the preview on/off without touching the picks; remembered per
+    // browser like the selection itself.
+    function togglePotionsEnabled(enabled) {
+        setPotionsEnabledState(enabled);
+        setBuilderPotionsEnabled(enabled);
+        recalcBuildStats({ potions: enabled ? JSON.stringify(potions) : '[]' });
     }
 
     function updateCharms(charmNames) {
@@ -3941,6 +4032,64 @@ export default function BuildForm({
         </>
     );
 
+    // Potion picker + the picked potions as full item cards (their effects are
+    // printed on the card, like the items page). The picker clears after each
+    // add; the × on a card removes it.
+    const potionsSection = (
+        <>
+            <div className="row mb-1">
+                <div className="col-12">
+                    <div className={`${charmSelectorStyles.listSelectorContainer} p-1`}>
+                        <p className={`${charmSelectorStyles.name} m-0 mb-1`}>
+                            <label className={styles.potionEnable}>
+                                <input
+                                    type="checkbox"
+                                    checked={potionsEnabled}
+                                    onChange={(e) => togglePotionsEnabled(e.target.checked)}
+                                    aria-label={t('builder.potions.enable')}
+                                />
+                            </label>
+                            <TranslatableText identifier="builder.potions.select"></TranslatableText>
+                            <span className={styles.potionExperimental}>{t('items.changes.experimental')}</span>
+                        </p>
+                        <div className={`${charmSelectorStyles.listSelectorInputs} justify-content-center`}>
+                            {potionsEnabled && (
+                                <span className={charmSelectorStyles.entryInput}>
+                                    <SelectInput
+                                        name="potionPicker"
+                                        value={null}
+                                        onChange={potionPicked}
+                                        sortableStats={potionNames}
+                                    />
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {potionsEnabled && (
+                <div className="row justify-content-center mb-1">
+                    {selectedPotionItems.map((item) => (
+                        <div className={`col-auto ${styles.builderCol}`} key={item.name}>
+                            <div className={styles.charmCardWrap}>
+                                <ConsumableTile item={item} />
+                                <button
+                                    type="button"
+                                    className={styles.charmRemoveButton}
+                                    onClick={() => removePotion(item.name)}
+                                    aria-label={`${t('common.remove')} ${item.name}`}
+                                    title={t('builder.potions.remove')}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </>
+    );
+
     // Collapsible charm stat summary (stays with the charm section).
     const charmStatsSection = (
         <>
@@ -4060,6 +4209,9 @@ export default function BuildForm({
                     name="basicInfusionCounts"
                     value={JSON.stringify(basicInfusionCounts(basicInfusions))}
                 />
+                {/* Selected potion/food buffs; the stat calculation and its
+                    cache signature read this like the other inputs. */}
+                <input type="hidden" name="potions" value={potionsEnabled ? JSON.stringify(potions) : '[]'} />
             </div>
             <div className="row pt-1">
                 <span className="text-center text-danger fs-2 fw-bold">
@@ -5064,6 +5216,7 @@ export default function BuildForm({
                             {itemTiles}
                             {regionValue >= 3 && charmsSection}
                             {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
+                            {potionsSection}
                         </>
                     )}
                     <div className="row justify-content-center pt-1 mb-1 g-1">
@@ -5557,6 +5710,7 @@ export default function BuildForm({
                 <>
                     {regionValue >= 3 && charmsSection}
                     {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
+                    {potionsSection}
                 </>
             )}
             {tailSections}
