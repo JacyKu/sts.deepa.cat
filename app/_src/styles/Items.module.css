@@ -414,6 +414,31 @@
     color: #545454;
 }
 
+/* Basic charm tiles: the NPC that sells the charm and their coordinates. */
+.charmTraderLine {
+    color: #545454;
+}
+
+.charmTraderCoords {
+    color: #6f6f6f;
+}
+
+.charmTraderCoordsButton {
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+}
+
+.charmTraderCoordsButton:hover {
+    text-decoration: underline;
+}
+
 .fish1,
 .fish2,
 .fish3,

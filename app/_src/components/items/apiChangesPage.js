@@ -15,6 +15,7 @@ import { formatDateString, formatMonthString } from '../../utils/dateFormat';
 import { buildRunGroups } from '../../utils/items/apiChanges';
 import { allStatLines, itemDataDiffs, humanizeField } from '../../utils/items/itemDiff';
 import { useTranslation } from '../useTranslation';
+import { wikiHref } from '../../utils/items/charmWiki';
 
 // Runs are processed and rendered a page at a time, and an open run renders
 // its changed items a page at a time, so a long history (or one huge update)
@@ -26,16 +27,9 @@ const CHANGES_PER_PAGE = 25;
 // localStorage like the items page's quick toggles.
 const SHOW_DATA_KEY = 'sts.apiChangesShowData';
 
-function wikiHref(name) {
-    return `https://monumenta.wiki.gg/wiki/${String(name)
-        .replace(/\(.*\)/g, '')
-        .trim()
-        .replaceAll(' ', '_')}`;
-}
-
-function ItemLink({ name }) {
+function ItemLink({ name, item }) {
     return (
-        <Link href={wikiHref(name)} target="_blank" rel="noreferrer">
+        <Link href={wikiHref(name, item)} target="_blank" rel="noreferrer">
             {name}
         </Link>
     );
@@ -99,7 +93,7 @@ function ChangedEntry({ entry, showDataChanges }) {
                 <HistoryIcon item={variant.item} compact />
                 <span className={styles.changeEntryTitles}>
                     <span className={styles.groupName}>
-                        <ItemLink name={entry.name} />
+                        <ItemLink name={entry.name} item={entry.item} />
                     </span>
                     <span className={styles.groupMeta}>{meta}</span>
                 </span>
@@ -196,7 +190,7 @@ function RunCard({ run, defaultOpen, showLoreOnly, showDataChanges }) {
                             <div className={styles.chipList}>
                                 {run.added.map((entry) => (
                                     <span key={entry.key} className={styles.itemChip}>
-                                        <ItemLink name={entry.name} />
+                                        <ItemLink name={entry.name} item={entry.item} />
                                     </span>
                                 ))}
                             </div>
@@ -240,7 +234,7 @@ function RunCard({ run, defaultOpen, showLoreOnly, showDataChanges }) {
                             <div className={styles.chipList}>
                                 {run.removed.map((entry) => (
                                     <span key={entry.key} className={`${styles.itemChip} ${styles.itemChipRemoved}`}>
-                                        <ItemLink name={entry.name} />
+                                        <ItemLink name={entry.name} item={entry.item} />
                                     </span>
                                 ))}
                             </div>

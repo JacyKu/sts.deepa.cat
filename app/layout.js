@@ -7,6 +7,7 @@ import { HideLoreProvider } from './_src/components/items/hideLoreContext';
 import { HideObtainmentProvider } from './_src/components/items/hideObtainmentContext';
 import { HideSkinsProvider } from './_src/components/items/hideSkinsContext';
 import { LocationIdsProvider } from './_src/components/items/locationIdsContext';
+import { CharmTradersProvider } from './_src/components/items/charmTradersContext';
 import { MaxMasterworkProvider } from './_src/components/items/maxMasterworkContext';
 import { BuildListProvider } from './_src/components/items/buildListContext';
 import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
@@ -118,6 +119,7 @@ export default async function StsLayout({ children }) {
                                     <HideObtainmentProvider>
                                         <HideSkinsProvider>
                                             <LocationIdsProvider>
+                                                    <CharmTradersProvider>
                                             <MaxMasterworkProvider>
                                                 <BuildListProvider>
                                                     <BuildListEnabledProvider>
@@ -151,6 +153,7 @@ export default async function StsLayout({ children }) {
                                                     </BuildListEnabledProvider>
                                                 </BuildListProvider>
                                             </MaxMasterworkProvider>
+                                                    </CharmTradersProvider>
                                             </LocationIdsProvider>
                                         </HideSkinsProvider>
                                     </HideObtainmentProvider>

@@ -12,8 +12,12 @@ import MaxMasterworkToggle from './items/maxMasterworkToggle';
 import ItemHistoryToggle from './items/itemHistoryToggle';
 import BuildListToggle from './items/buildListToggle';
 import AnimationsToggle from './items/animationsToggle';
+import CardItemsFirstToggle from './cardItemsFirstToggle';
+import LocationIdsToggle from './locationIdsToggle';
+import CharmTradersToggle from './charmTradersToggle';
 import styles from '../styles/Header.module.css';
 import itemsStyles from '../styles/Items.module.css';
+import searchStyles from '../styles/SearchForm.module.css';
 import Link from 'next/link';
 import { getStsBase } from '../utils/base';
 import { useLowResource } from './lowResourceContext';
@@ -54,17 +58,29 @@ const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 function useMenuPortal(open, { fullWidthOnMobile = false } = {}) {
     const [anchor, setAnchor] = React.useState(null);
     const ref = React.useRef(null);
+    const panelRef = React.useRef(null);
     React.useLayoutEffect(() => {
         if (!open) return undefined;
         const measure = () => {
             const rect = ref.current ? ref.current.getBoundingClientRect() : null;
             if (!rect) return;
             const top = rect.bottom + 10;
-            if (fullWidthOnMobile && window.innerWidth <= 700) {
-                setAnchor({ top, left: 12, right: 12 });
-            } else {
-                setAnchor({ top, right: Math.max(8, window.innerWidth - rect.right) });
-            }
+            const available = Math.max(0, window.innerHeight - top - 12);
+            // Only make the panel a scroll container when its content actually
+            // does not fit: the toggles' tooltips are absolutely positioned and
+            // widen the scrollable area, which would let the menu itself be
+            // dragged sideways on a normal window.
+            const panel = panelRef.current;
+            const scroll = Boolean(panel && panel.scrollHeight > available);
+            const placement =
+                fullWidthOnMobile && window.innerWidth <= 700
+                    ? { left: 12, right: 12 }
+                    : { right: Math.max(8, window.innerWidth - rect.right) };
+            setAnchor(
+                scroll
+                    ? { top, ...placement, maxHeight: available, scroll: true }
+                    : { top, ...placement, scroll: false }
+            );
         };
         measure();
         window.addEventListener('resize', measure);
@@ -76,12 +92,15 @@ function useMenuPortal(open, { fullWidthOnMobile = false } = {}) {
     }, [open, fullWidthOnMobile]);
     return {
         ref,
+        panelRef,
+        scroll: Boolean(anchor && anchor.scroll),
         style: anchor
             ? {
                   position: 'fixed',
                   top: anchor.top,
                   ...(anchor.left !== undefined ? { left: anchor.left } : {}),
                   right: anchor.right,
+                  ...(anchor.scroll ? { maxHeight: anchor.maxHeight } : {}),
                   zIndex: 61,
               }
             : undefined,
@@ -610,7 +629,13 @@ export default function Header() {
                     createPortal(
                         <>
                             <div className={styles.menuBackdrop} onClick={closeMenu} />
-                            <div className={`${styles.menuPanel} ${styles.menuOpen}`} style={gearMenuPortal.style}>
+                            <div
+                                ref={gearMenuPortal.panelRef}
+                                className={`${styles.menuPanel} ${styles.menuOpen}${
+                                    gearMenuPortal.scroll ? ` ${styles.menuScroll}` : ''
+                                }`}
+                                style={gearMenuPortal.style}
+                            >
                                 {session.user && (
                                     <label className={`${styles.toggle} ${styles.loreToggle}`}>
                                         <input
@@ -649,6 +674,9 @@ export default function Header() {
                                 <MaxMasterworkToggle className={styles.loreToggle} />
                                 <ItemHistoryToggle className={styles.loreToggle} />
                                 <BuildListToggle className={styles.loreToggle} />
+                                <CardItemsFirstToggle className={`${searchStyles.toggleLabel} ${styles.loreToggle}`} />
+                                <LocationIdsToggle className={`${searchStyles.toggleLabel} ${styles.loreToggle}`} />
+                                <CharmTradersToggle className={`${searchStyles.toggleLabel} ${styles.loreToggle}`} />
                                 {session.user && session.user.isModerator && (
                                     <Link className={styles.navButton} href="/moderation" onClick={closeMenu}>
                                         {t('moderation.title')}
