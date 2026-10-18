@@ -59,6 +59,20 @@ function useIsDesktop() {
     return isDesktop;
 }
 
+// Stat card heading with a hover explanation of the card's contents. Reuses the
+// site's item-tooltip styling so it looks like the other hints.
+function StatCardTitle({ identifier, hint }) {
+    const t = useTranslation();
+    return (
+        <h5 className="text-center fw-bold mb-1">
+            <span className={styles.enchantTooltip}>
+                <TranslatableText identifier={identifier} />
+                <span className={styles.enchantTooltipText}>{t(hint)}</span>
+            </span>
+        </h5>
+    );
+}
+
 const infusionSelectTheme = (theme) => ({
     ...theme,
     borderRadius: 0,
@@ -5090,9 +5104,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('misc')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.misc"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.misc"
+                                hint="builder.statCategories.misc.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {miscStats.map((stat) =>
                                 itemsToDisplay[stat.type] !== undefined ? (
@@ -5128,9 +5143,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('health')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.health"
+                                hint="builder.statCategories.health.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {healthStats.map((stat) => {
                                 // Life Drain only applies while the enchant is
@@ -5171,9 +5187,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('dr')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.damageReduction"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.damageReduction"
+                                hint="builder.statCategories.damageReduction.hint"
+                            />
                             <h6 className="text-center fw-bold">
                                 <TranslatableText identifier="builder.statCategories.damageReduction.sub"></TranslatableText>
                             </h6>
@@ -5211,9 +5228,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('drhn')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.damageReductionHealthNormalized"
+                                hint="builder.statCategories.damageReductionHealthNormalized.hint"
+                            />
                             <h6 className="text-center fw-bold">
                                 <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized.sub"></TranslatableText>
                             </h6>
@@ -5251,9 +5269,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('ehp')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.effectiveHealth"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.effectiveHealth"
+                                hint="builder.statCategories.effectiveHealth.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {(() => {
                                 const unstableEHPTypes = ['meleeEHP', 'projectileEHP', 'magicEHP', 'blastEHP'];
@@ -5326,9 +5345,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('ehpr')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.effectiveHealthRegen"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.effectiveHealthRegen"
+                                hint="builder.statCategories.effectiveHealthRegen.hint"
+                            />
                             <h6 className="text-center fw-bold">
                                 <TranslatableText identifier="builder.stats.health.regenPerSecond"></TranslatableText>:{' '}
                                 {itemsToDisplay.regenPerSec}
@@ -5404,9 +5424,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('melee')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.melee"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.melee"
+                                hint="builder.statCategories.melee.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {meleeStats.map((stat) => {
                                 if (
@@ -5447,9 +5468,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('projectile')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.projectile"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.projectile"
+                                hint="builder.statCategories.projectile.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {projectileStats.map((stat) => {
                                 if (
@@ -5490,9 +5512,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('magic')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.magic"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.magic"
+                                hint="builder.statCategories.magic.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {magicStats.map((stat) => {
                                 if (
