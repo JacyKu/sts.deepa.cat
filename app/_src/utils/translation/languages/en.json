@@ -702,6 +702,7 @@
     "items.searchForm.maxMasterworkTooltip": "Show masterworkable items at their maximum masterwork variant by default instead of the lowest.",
     "builds.addToFavourites": "Add to favourites",
     "builds.ascension": "Ascension",
+    "builds.copyLink": "Copy link",
     "builds.fallbackName": "Build",
     "builds.hasNotes": "Has notes - hover the card to read them",
     "builds.loginToFavourite": "Log in to favourite",

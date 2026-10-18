@@ -148,6 +148,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
     const itemsFirst = layoutOverride === null ? globalItemsFirst : layoutOverride;
     const { lowRes } = useLowResource();
     const [favBusy, setFavBusy] = React.useState(false);
+    const [copiedLink, setCopiedLink] = React.useState(false);
+    const copiedLinkTimer = React.useRef(null);
     const [expanded, setExpanded] = React.useState(false);
     const [sideOpen, setSideOpen] = React.useState(false);
     const [side, setSide] = React.useState('right');
@@ -172,6 +174,13 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                 Boolean(window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches)
         );
     }, []);
+
+    React.useEffect(
+        () => () => {
+            if (copiedLinkTimer.current) clearTimeout(copiedLinkTimer.current);
+        },
+        []
+    );
 
     React.useEffect(() => {
         let active = true;
@@ -305,6 +314,26 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             .then(() => onToggleFavourite && onToggleFavourite(build.id, !build.myFavourite))
             .catch(() => {})
             .finally(() => setFavBusy(false));
+    }
+
+    // Copy this build's short link (/b/v7/<id>). The card itself is a link, so
+    // the button stops the click from navigating.
+    function copyBuildLink(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const url = window.location.origin + base + build.url;
+        if (!navigator.clipboard) {
+            window.alert(t('builder.errors.clipboardCopyFailed'));
+            return;
+        }
+        navigator.clipboard.writeText(url).then(
+            () => {
+                setCopiedLink(true);
+                if (copiedLinkTimer.current) clearTimeout(copiedLinkTimer.current);
+                copiedLinkTimer.current = setTimeout(() => setCopiedLink(false), 1600);
+            },
+            () => {}
+        );
     }
 
     const displayName = build.name || t('builds.unnamed');
@@ -701,6 +730,38 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                             </svg>
                             <span className={itemsStyles.enchantTooltipText}>
                                 {itemsFirst ? t('builds.showSkillsOnCard') : t('builds.showItemsOnCard')}
+                            </span>
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.copyLinkBtn}${copiedLink ? ` ${styles.copyLinkBtnDone}` : ''}`}
+                        onClick={copyBuildLink}
+                        aria-label={t('builds.copyLink')}
+                    >
+                        <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                            <svg
+                                viewBox="0 0 24 24"
+                                width="15"
+                                height="15"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                {copiedLink ? (
+                                    <path d="M4 12.5l5 5L20 6.5" />
+                                ) : (
+                                    <>
+                                        <rect x="9" y="9" width="11" height="11" rx="1.5" />
+                                        <path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H16" />
+                                    </>
+                                )}
+                            </svg>
+                            <span className={itemsStyles.enchantTooltipText}>
+                                {copiedLink ? t('common.copied') : t('builds.copyLink')}
                             </span>
                         </span>
                     </button>

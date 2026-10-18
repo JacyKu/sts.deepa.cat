@@ -727,6 +727,32 @@
     border-color: var(--accent, #9c59d1);
 }
 
+/* Copy-link button: always visible, grouped with the compare button to the
+   left of the favourite button. */
+.copyLinkBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    order: -1;
+    box-sizing: border-box;
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease;
+}
+
+.copyLinkBtn:hover,
+.copyLinkBtnDone {
+    color: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+}
+
 /* Add-to-comparison button: sits to the LEFT of the favourite button and is
    always visible (unlike the swap button, which stays hover-only below). */
 .compareLayoutBtn {
