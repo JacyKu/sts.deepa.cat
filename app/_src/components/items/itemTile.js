@@ -97,7 +97,7 @@ function ItemTile(data) {
             setCssClass(tokenClass);
             return;
         }
-        const mappedClass = getMappedSpriteClass(spriteMap, item.name);
+        const mappedClass = getMappedSpriteClass(spriteMap, data.name) || getMappedSpriteClass(spriteMap, item.name);
         if (mappedClass) {
             setBaseBackgroundClass('monumenta-items');
             setCssClass(mappedClass);

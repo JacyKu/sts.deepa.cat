@@ -756,6 +756,15 @@ body:has(.spooky-off) .spooky-corners {
     display: none !important;
 }
 
+/* A browser that already confirmed the one-time farewell event keeps the
+   decorations hidden before the first paint; the provider also unmounts them
+   after hydration and clears this attribute once the event is over. */
+html[data-spooky-ended='1'] .spooky-corners,
+html[data-spooky-ended='1'] .spooky-footer-art,
+html[data-spooky-ended='1'] img[src*='/images/scarlet_art/spooky_month/'] {
+    display: none !important;
+}
+
 /* Keep the footer at the bottom of the screen when a page is short: the
    layout column fills the viewport and the content area grows, pushing the
    footer down. Nothing is sticky - long pages scroll normally. */

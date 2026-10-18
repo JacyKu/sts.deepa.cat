@@ -90,7 +90,7 @@ function ChangedEntry({ entry, showDataChanges }) {
     return (
         <div className={styles.changeEntry}>
             <div className={styles.changeEntryHead}>
-                <HistoryIcon item={variant.item} compact />
+                <HistoryIcon item={variant.item} name={variant.key} compact />
                 <span className={styles.changeEntryTitles}>
                     <span className={styles.groupName}>
                         <ItemLink name={entry.name} item={entry.item} />
