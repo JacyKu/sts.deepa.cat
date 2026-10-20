@@ -3,16 +3,20 @@ import { getBuild } from '../../../../../../lib/sts-builds';
 import { getItemData } from '../../../../../_src/utils/itemsData';
 import { skillsPayloadFromToken } from '../../../../../_src/utils/builder/buildSkills';
 
-// Skills of a public build, for the builder's "copy skills" picker:
+// Share links are viewable by link even when the build is not listed.
+export const dynamic = 'force-dynamic';
+
+// Skills of a build, for the builder's "copy skills" picker and the mod's
+// in-game skill picker:
 //   /api/v2/builds/<id>/skills
-// The stored token is decoded here rather than in the browser, so public
-// builds never expose their token. Only PUBLIC builds are served - private
-// or unknown builds return the same 404, so this can't be used to probe
-// which builds exist.
+// The stored token is decoded here rather than in the browser, so the token
+// itself is never exposed. Private builds are not listed in the public
+// database, but their share links are viewable by anyone, so the skill
+// portion is served for any existing id. Unknown ids still return 404.
 export async function GET(request, { params }) {
     const p = await params;
     const row = getBuild(p.id);
-    if (!row || row.is_public !== 1) {
+    if (!row) {
         return NextResponse.json({ error: 'build not found' }, { status: 404 });
     }
 
