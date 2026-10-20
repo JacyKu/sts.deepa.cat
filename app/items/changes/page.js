@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getItemDataVersion, getHistoryVersion } from '../../_src/utils/itemsData';
-import { ApiChangesDataView } from '../../_src/components/siteDataViews';
+import { ApiChangesDataView } from '../../_src/components/apiChangesDataView';
 import ApiChangesSkeleton from '../../_src/components/items/apiChangesSkeleton';
 
 export const metadata = {

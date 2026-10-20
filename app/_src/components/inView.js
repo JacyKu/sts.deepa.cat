@@ -4,6 +4,30 @@ import React from 'react';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
 
+// One IntersectionObserver per rootMargin, shared by every useInView caller
+// (hundreds of cards on the builds page) instead of one observer each, with a
+// per-element callback registry the single observer dispatches into.
+const observers = new Map();
+
+function getObserver(margin) {
+    let entry = observers.get(margin);
+    if (!entry) {
+        const callbacks = new WeakMap();
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    const callback = callbacks.get(entry.target);
+                    if (callback) callback(entry);
+                }
+            },
+            { rootMargin: `${margin}px` }
+        );
+        entry = { observer, callbacks };
+        observers.set(margin, entry);
+    }
+    return entry;
+}
+
 export function useInView(externalRef, { margin = 600 } = {}) {
     const ownRef = React.useRef(null);
     const ref = externalRef || ownRef;
@@ -20,22 +44,24 @@ export function useInView(externalRef, { margin = 600 } = {}) {
             setInView(false);
         }
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const entry = entries[entries.length - 1];
-                if (entry.isIntersecting) {
-                    setMinHeight(0);
-                    setInView(true);
-                } else {
-                    setMinHeight((height) => height || entry.boundingClientRect.height);
-                    setInView(false);
-                }
-            },
-            { rootMargin: `${margin}px` }
-        );
+        const { observer, callbacks } = getObserver(margin);
+        callbacks.set(el, (entry) => {
+            if (entry.isIntersecting) {
+                setMinHeight(0);
+                setInView(true);
+            } else {
+                setMinHeight((height) => height || entry.boundingClientRect.height);
+                setInView(false);
+            }
+        });
         observer.observe(el);
-        return () => observer.disconnect();
+        return () => {
+            callbacks.delete(el);
+            observer.unobserve(el);
+        };
     }, [ref, margin]);
 
-    return { ref, inView, minHeight };
+    // Stable identity so a consumer keyed on the returned object (or passing it
+    // down) does not see a new object on every parent render.
+    return React.useMemo(() => ({ ref, inView, minHeight }), [ref, inView, minHeight]);
 }

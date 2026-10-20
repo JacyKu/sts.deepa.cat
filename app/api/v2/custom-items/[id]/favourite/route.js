@@ -7,13 +7,17 @@ import {
 } from '../../../../../../lib/sts-builds';
 import { getDiscordUser } from '../../../../../../lib/session';
 import { limitRequest } from '../../../../../../lib/rate-limit';
+import { sanctionBlock } from '../../../../../../lib/moderation';
 
 export async function GET(_request, { params }) {
     const { id } = await params;
-    if (!getCustomItem(id)) {
+    const item = getCustomItem(id);
+    const user = await getDiscordUser();
+    // Same visibility rule as the item's own GET: a private item 404s for
+    // everyone but its owner (no existence / favourite-count leak).
+    if (!item || (!item.isPublic && (!user || user.id !== item.userId))) {
         return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
-    const user = await getDiscordUser();
     const state = getCustomItemFavouriteState(id, user ? user.id : null);
     return NextResponse.json({ favourite: state.favourite, count: state.count });
 }
@@ -21,6 +25,8 @@ export async function GET(_request, { params }) {
 export async function POST(request, { params }) {
     const { id } = await params;
     const user = await getDiscordUser();
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }
@@ -43,6 +49,8 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
     const { id } = await params;
     const user = await getDiscordUser();
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

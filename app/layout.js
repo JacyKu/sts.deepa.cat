@@ -6,6 +6,8 @@ import { AnimationsProvider } from './_src/components/animationsContext';
 import { HideLoreProvider } from './_src/components/items/hideLoreContext';
 import { HideObtainmentProvider } from './_src/components/items/hideObtainmentContext';
 import { HideSkinsProvider } from './_src/components/items/hideSkinsContext';
+import { LocationIdsProvider } from './_src/components/items/locationIdsContext';
+import { CharmTradersProvider } from './_src/components/items/charmTradersContext';
 import { MaxMasterworkProvider } from './_src/components/items/maxMasterworkContext';
 import { BuildListProvider } from './_src/components/items/buildListContext';
 import { BuildListEnabledProvider } from './_src/components/items/buildListEnabledContext';
@@ -19,7 +21,7 @@ import Footer from './_src/components/footer';
 import SpookyArt from './_src/components/spookyArt';
 import SpookyCorners from './_src/components/spookyCorners';
 import SpookyThemeProvider from './_src/components/spookyThemeContext';
-import { isSpookyThemeEnabled } from '../lib/sts-builds';
+import { getSpookyThemeState } from '../lib/sts-builds';
 import NotificationsBar from './_src/components/notificationsBar';
 import DevSiteBanner from './_src/components/devSiteBanner';
 import SanctionBanner from './_src/components/sanctionBanner';
@@ -86,14 +88,31 @@ export default async function StsLayout({ children }) {
     const headersList = await headers();
     const host = headersList.get('host') || '';
     const base = host ? '' : '';
+    // Per-request CSP nonce (set by proxy.js) for the inline boot script.
+    const nonce = headersList.get('x-nonce') || undefined;
     // Spooky Month decorations (moderation -> Theme): when off, every piece
-    // of artwork below reverts to the plain site.
-    const spooky = isSpookyThemeEnabled();
+    // of artwork below reverts to the plain site. Switching it off keeps the
+    // art up during a one-day farewell, during which visitors are offered the
+    // "End Halloween?" explosion; after that both the art and the prompt are
+    // gone for good.
+    const spookyState = getSpookyThemeState();
+    const spooky = spookyState.active;
 
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
-                <script dangerouslySetInnerHTML={{ __html: LOOK_BOOT_SCRIPT }} />
+                <script nonce={nonce} dangerouslySetInnerHTML={{ __html: LOOK_BOOT_SCRIPT }} />
+                {spookyState.endedAt && (
+                    // A browser that already confirmed this farewell event
+                    // hides the artwork before the first paint (the provider
+                    // removes the attribute once the event is no longer live).
+                    <script
+                        nonce={nonce}
+                        dangerouslySetInnerHTML={{
+                            __html: `try{if(localStorage.getItem('sts.spookyEndedAt')==='${spookyState.endedAt}')document.documentElement.setAttribute('data-spooky-ended','1')}catch(e){}`,
+                        }}
+                    />
+                )}
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link
@@ -105,13 +124,7 @@ export default async function StsLayout({ children }) {
                 <link rel="stylesheet" href={base + '/spritesheets/_minecraft.css'} />
                 <link rel="stylesheet" href={base + '/spritesheets/_itemsheet.css'} />
                 <link rel="stylesheet" href={base + '/spritesheets/_charmsheet.css'} />
-                <link
-                    rel="stylesheet"
-                    href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css"
-                    integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor"
-                    crossOrigin="anonymous"
-                />
-                <SpookyThemeProvider enabled={spooky}>
+                <SpookyThemeProvider enabled={spooky} ending={spookyState.ending} endedAt={spookyState.endedAt}>
                     <SpookyCorners />
                     <div className="site-content" id="top">
                     <LowResourceProvider>
@@ -120,6 +133,8 @@ export default async function StsLayout({ children }) {
                                 <HideLoreProvider>
                                     <HideObtainmentProvider>
                                         <HideSkinsProvider>
+                                            <LocationIdsProvider>
+                                                    <CharmTradersProvider>
                                             <MaxMasterworkProvider>
                                                 <BuildListProvider>
                                                     <BuildListEnabledProvider>
@@ -153,6 +168,8 @@ export default async function StsLayout({ children }) {
                                                     </BuildListEnabledProvider>
                                                 </BuildListProvider>
                                             </MaxMasterworkProvider>
+                                                    </CharmTradersProvider>
+                                            </LocationIdsProvider>
                                         </HideSkinsProvider>
                                     </HideObtainmentProvider>
                                 </HideLoreProvider>

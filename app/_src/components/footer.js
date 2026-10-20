@@ -3,11 +3,20 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import styles from '../styles/Footer.module.css';
-import LanguageSelector from './languageSelector';
 import { useSpookyTheme } from './spookyThemeContext';
 import { useTranslation } from './useTranslation';
 import pkg from '../../../package.json';
+
+// The language selector pulls in react-select; lazy-load it (ssr:false) so
+// that library stays out of the first-load JS on every route -- the footer is
+// rendered globally. It sits below the fold, so loading after hydration is
+// invisible; the placeholder keeps the footer's layout stable.
+const LanguageSelector = dynamic(() => import('./languageSelector'), {
+    ssr: false,
+    loading: () => <span className={styles.languageSelect} style={{ display: 'inline-block', height: 36 }} />,
+});
 
 function GitHubIcon() {
     return (
@@ -78,14 +87,6 @@ export default function Footer() {
                     </div>
                     <div className={styles.links}>
                         <LanguageSelector className={styles.languageSelect} compact />
-                        <a
-                            className={styles.textLink}
-                            href="https://crowdin.com/project/ohthemisery"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {t('footer.helpTranslate')}
-                        </a>
                         <Link className={styles.textLink} href="/privacy">
                             {t('footer.privacyPolicy')}
                         </Link>
@@ -119,6 +120,31 @@ export default function Footer() {
                             title="CurseForge"
                         >
                             <CurseForgeIcon />
+                        </a>
+                        <a
+                            className={styles.link}
+                            href="https://ko-fi.com/jkitter"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Ko-fi"
+                            title="Ko-fi"
+                        >
+                            <span className={styles.kofiIcon}>
+                                <img
+                                    className={styles.kofiSymbol}
+                                    src="/images/kofi_symbol.webp"
+                                    alt=""
+                                    width="27"
+                                    height="22"
+                                />
+                                <img
+                                    className={styles.kofiMug}
+                                    src="/images/mug.gif"
+                                    alt=""
+                                    fetchPriority="low"
+                                    decoding="async"
+                                />
+                            </span>
                         </a>
                         <a
                             className={styles.link}

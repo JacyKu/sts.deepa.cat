@@ -4,10 +4,14 @@ import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import ConsumableFormatter from '../../utils/items/consumableFormatter';
+import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
 import { renderObfuscated } from './obfuscatedText';
 import TranslatableText from '../translatableText';
 import React from 'react';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
 import { useHideObtainment } from './hideObtainmentContext';
@@ -60,25 +64,14 @@ function ConsumableTile(data) {
     const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { useIds: locationIds } = useLocationIds();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
     let formattedEffects = ConsumableFormatter.formatEffects(item.effects, item.effectColors);
 
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    const spriteMap = useItemSpriteMap();
 
     React.useEffect(() => {
         const mappedClass = getMappedSpriteClass(spriteMap, item.name);
@@ -147,11 +140,11 @@ function ConsumableTile(data) {
             <span>
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
                 <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>
-                    {item.tier ? item.tier : t('items.type.consumable')}
+                    {item.tier ? displayTier(item.tier) : t('items.type.consumable')}
                 </span>
             </span>
             <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
-                {renderObfuscated(item.location)}
+                {renderObfuscated(locationText(item, locationIds))}
             </span>
             {formattedEffects}
             <Enchants item={item}></Enchants>

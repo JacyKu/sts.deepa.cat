@@ -115,6 +115,9 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(_request, { params }) {
     const user = await getDiscordUser();
+    // Banned/suspended accounts may browse but not delete content.
+    const blocked = sanctionBlock(user);
+    if (blocked) return blocked;
     if (!user) {
         return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
     }

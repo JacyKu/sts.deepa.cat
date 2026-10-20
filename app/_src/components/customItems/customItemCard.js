@@ -5,7 +5,8 @@ import Link from 'next/link';
 import styles from '../../styles/CustomItems.module.css';
 import StatFormatter from '../../utils/items/statFormatter';
 import { formatDateString } from '../../utils/dateFormat';
-import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { useTranslation } from '../useTranslation';
 
@@ -13,16 +14,7 @@ import { useTranslation } from '../useTranslation';
 // dropped it, fall back to the item's name mapping / base texture so the
 // card never renders a wrong sheet cell.
 function useIconClass(item) {
-    const [spriteMap, setSpriteMap] = React.useState(null);
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) setSpriteMap(map);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    const spriteMap = useItemSpriteMap();
     if (!item.textureToken) {
         // In-game uploads may have no site sprite: use the vanilla base item.
         if (item.baseItem) return { base: 'minecraft', icon: `minecraft-${getMinecraftTextureKey(item.baseItem)}` };

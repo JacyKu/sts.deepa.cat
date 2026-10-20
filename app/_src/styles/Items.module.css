@@ -32,8 +32,12 @@
     contain: layout style;
 }
 
-.itemTile:hover {
-    z-index: 10;
+/* Enchant tooltips are wider than a card, so on hover the card has to paint
+   above the neighbours that would otherwise cover the tooltip (the builder's
+   stat cards sit right below the equipped items). */
+.itemTile:hover,
+.itemTile:focus-within {
+    z-index: 5;
 }
 
 :global(html[data-theme='light']) .itemTile,
@@ -418,6 +422,31 @@
     color: #545454;
 }
 
+/* Basic charm tiles: the NPC that sells the charm and their coordinates. */
+.charmTraderLine {
+    color: #545454;
+}
+
+.charmTraderCoords {
+    color: #6f6f6f;
+}
+
+.charmTraderCoordsButton {
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+}
+
+.charmTraderCoordsButton:hover {
+    text-decoration: underline;
+}
+
 .fish1,
 .fish2,
 .fish3,
@@ -569,6 +598,14 @@
 
 .enchantTooltip:hover .enchantTooltipText {
     opacity: 1;
+}
+
+.skillCalcTooltip {
+    text-align: left;
+    white-space: pre-line;
+    width: max-content;
+    max-width: min(320px, calc(100vw - 16px));
+    overflow-wrap: anywhere;
 }
 
 /* Author row on custom items database tiles: the regular item tiles are
@@ -1107,6 +1144,24 @@
     color: var(--text-on-accent);
 }
 
+/* The builder's "Detect" button: the copy/save buttons' blue (.shareButton),
+   with the same box as the infusion toggles beside it (42px tall, 8px/12px
+   padding) so the row lines up. Its spacing comes from the wrapper's ms-3,
+   exactly like the other controls in the group. */
+.detectButton {
+    height: 42px;
+    padding: 8px 12px;
+    animation: background-pan 5s linear infinite;
+    background: linear-gradient(to right, #3d3286, #2f4187, #3d3286);
+    background-size: 200%;
+    border: 2px solid rgba(61, 50, 134, 0.95);
+    backdrop-filter: blur(10px);
+    transition:
+        filter 150ms ease,
+        transform 75ms ease;
+    color: var(--text-on-accent);
+}
+
 .publiciseRow {
     display: flex;
     flex-wrap: wrap;
@@ -1601,9 +1656,9 @@
     color: var(--negative, #ce2d27);
 }
 
-/* Portal tooltip for delve infusion options: rendered on document.body so
-   the scrolling dropdown menu never clips it, and stacked above the menu
-   portal (react-select portals its menu with z-index 9999). */
+/* Portal tooltip for delve infusion options: rendered on document.body so the
+   scrolling dropdown menu never clips it, and stacked above the menus (which
+   carry z-index 9999). */
 .infusionTip {
     position: fixed;
     z-index: 10000;
@@ -2030,6 +2085,81 @@ div.builderStatCard {
     accent-color: #4a78fc;
 }
 
+/* Toggle before the potion picker title (turns the preview on/off). */
+.potionEnable {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.potionEnable input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #4a78fc;
+}
+
+/* "Experimental" chip after a builder section title. */
+.experimentalBadge {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border: 1px solid var(--accent, #9c59d1);
+    background: var(--surface-2);
+    color: var(--accent, #9c59d1);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Note under the potion picker: the selection is a browser preview and is not
+   part of the saved build. */
+.potionNote {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.8rem;
+    text-align: center;
+    opacity: 0.85;
+}
+
+/* The stacks/seconds box that lives inside the Scorch, Stamina, Tempo and
+   Reflexes chips. The themed/global input styles set a radius, border, padding
+   and background that a bare class cannot outrank, so this uses a compound
+   selector plus !important: transparent inside the chip, a straight divider on
+   the left, and no spinner arrows eating the width. */
+.checkboxWithLabel input.stackInput {
+    box-sizing: border-box;
+    width: 48px !important;
+    height: 24px !important;
+    /* Bleeds into the chip's 10px right padding so the number sits at the
+       chip's edge instead of floating with space around it. */
+    margin: 0 -10px 0 0 !important;
+    padding: 0 6px !important;
+    border: none !important;
+    border-left: 1px solid var(--glass-border) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--text-1);
+    font-size: 14px;
+    text-align: center;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.checkboxWithLabel input.stackInput::-webkit-outer-spin-button,
+.checkboxWithLabel input.stackInput::-webkit-inner-spin-button {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 .delveToggle:hover {
     border-color: var(--control-border-hover);
     color: var(--text-1);
@@ -2268,6 +2398,14 @@ div.builderStatCard {
     transform: translateY(1px);
 }
 
+.detectButton:hover {
+    filter: brightness(125%);
+}
+
+.detectButton:active {
+    transform: translateY(1px);
+}
+
 @keyframes background-pan {
     from {
         background-position: 0% center;
@@ -2310,6 +2448,20 @@ div.builderStatCard {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+}
+
+/* The controls cluster (region/class/spec + the infusion toggles) wraps onto
+   more than one line on narrower builders, so the container owns the spacing in
+   both directions. That gap is also what separates the toggles from the inputs
+   above them once they wrap, and it only sits *between* items - no leading
+   margin, so a wrapped row lines up with the controls above it. */
+.builderControls {
+    gap: 16px;
+}
+
+/* The same rhythm between the infusion/revelation toggles themselves. */
+.builderToggles {
+    gap: 16px;
 }
 
 .builderGroupToggle {
@@ -2407,10 +2559,8 @@ div.builderStatCard {
         margin-right: 0 !important;
     }
 
-    /* Keep the same 10px rhythm between the controls inside the group body
-       and toggles wrappers. */
-    .builderGroupBody,
-    .builderToggles {
+    /* Keep the same 10px rhythm between the controls inside the group body. */
+    .builderGroupBody {
         gap: 10px;
     }
 }
@@ -2500,6 +2650,15 @@ div.builderStatCard {
 
     .czTrigger {
         font-size: 10px;
+    }
+
+    /* Phones: the skill, spec and ability rows take the whole width of their
+       card. They are flex items in a wrapping row sized to their content, so
+       on a narrow screen they were centred at ~60-75% of the space and the
+       longer skill names had nothing to spare. */
+    .skillRow,
+    .czSkillRow {
+        flex: 1 1 100%;
     }
 }
 
@@ -2605,7 +2764,6 @@ div.builderStatCard {
     }
 
     .builderToggles {
-        gap: 8px;
         width: 100%;
     }
 
@@ -2971,4 +3129,43 @@ div.builderStatCard {
     .setsGroupWide {
         grid-column: auto;
     }
+}
+
+/* Older-revision notice on saved build links. */
+.revisionNotice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    max-width: 1000px;
+    margin: 8px auto;
+    padding: 8px 12px;
+    border: 1px solid var(--control-border, #45456b);
+    border-radius: 4px;
+    background: var(--surface-2, #15151f);
+    color: var(--text-1, #f0f0f0);
+    font-size: 14px;
+    text-align: center;
+}
+
+.revisionNoticeLink {
+    color: var(--accent-line, var(--accent, #4a78fc));
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+/* Spec passives shown in the skill-calculation row: informational, not a toggle. */
+.skillCalcPassive {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 2px 10px;
+    margin: 2px;
+    border: 1px dashed var(--glass-border);
+    background: var(--glass-2);
+    color: var(--text-1);
+    font-size: 14px;
+    cursor: default;
 }

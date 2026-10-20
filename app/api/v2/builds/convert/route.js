@@ -3,6 +3,7 @@ import { decodeBuildParam, encodeBuildParam } from '../../../../_src/utils/build
 import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 import { getItemData } from '../../../../_src/utils/itemsData';
 import { getBuild } from '../../../../../lib/sts-builds';
+import { getDiscordUser } from '../../../../../lib/session';
 
 // Mirrors the client-side import parsing (app/_src/components/builder/
 // buildImportBar.js): accept a bare token, an old ?build=... URL, or a full
@@ -71,7 +72,9 @@ function remoteConvertUrl(link, currentHostname) {
     const hostname = url.hostname.toLowerCase();
     if (!KNOWN_STS_HOSTS.has(hostname)) return null;
     if (hostname === String(currentHostname || '').toLowerCase()) return null;
-    return `https://${url.host}/api/v2/builds/convert?link=${encodeURIComponent(url.pathname + url.search)}`;
+    // Always https on the default port: `url.host` would preserve an arbitrary
+    // port on the allowlisted host.
+    return `https://${hostname}/api/v2/builds/convert?link=${encodeURIComponent(url.pathname + url.search)}`;
 }
 
 export async function GET(request) {
@@ -86,7 +89,11 @@ export async function GET(request) {
     const remote = remoteConvertUrl(link, request.nextUrl.hostname);
     if (remote) {
         try {
-            const res = await fetch(remote, { headers: { accept: 'application/json' } });
+            const res = await fetch(remote, {
+                headers: { accept: 'application/json' },
+                redirect: 'manual',
+                signal: AbortSignal.timeout(8000),
+            });
             const data = await res.json().catch(() => null);
             if (!res.ok || !data || !data.token) {
                 return NextResponse.json(
@@ -119,6 +126,17 @@ export async function GET(request) {
         const row = getBuild(shortId);
         if (!row) {
             return NextResponse.json({ error: 'build not found' }, { status: 404 });
+        }
+        // Private builds are only convertible by their owner (or the browser
+        // that created an anonymous one), matching the card/skills routes.
+        if (row.is_public !== 1) {
+            const user = await getDiscordUser();
+            const creatorToken = request.cookies.get(`sts-build-owner-${shortId}`)?.value || null;
+            const isOwner = Boolean(user && row.user_id && user.id === row.user_id);
+            const isCreator = Boolean(!row.user_id && creatorToken);
+            if (!isOwner && !isCreator) {
+                return NextResponse.json({ error: 'build not found' }, { status: 404 });
+            }
         }
         const tokenVersion = getBuildTokenVersion(row.token);
         const url = tokenVersion ? `/b/v${tokenVersion}/${row.id}` : `/b/${row.id}`;

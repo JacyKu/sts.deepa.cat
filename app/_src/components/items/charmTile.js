@@ -1,5 +1,8 @@
 import styles from '../../styles/Items.module.css';
 import CharmFormatter from '../../utils/items/charmFormatter';
+import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import LoreText from './loreText';
@@ -12,8 +15,11 @@ import { useBuildListEnabled } from './buildListEnabledContext';
 import { useHideObtainment } from './hideObtainmentContext';
 import { useHideLore } from './hideLoreContext';
 import { useItemFavourites } from './itemFavouritesContext';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { locationStyle } from '../../utils/items/locationColor';
+import { CHARM_TRADERS_WIKI, charmTradersFor, wikiHref } from '../../utils/items/charmWiki';
+import { useCharmTraders } from './charmTradersContext';
 import { useTranslation } from '../useTranslation';
 
 function camelCase(str) {
@@ -89,27 +95,39 @@ function CharmTile(data) {
     const t = useTranslation();
     const [cssClass, setCssClass] = React.useState(getCharmSheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-charms');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
     const { lowRes } = useLowResource();
     const { hidden: hideObtainment } = useHideObtainment();
     const { hidden: hideLore } = useHideLore();
+    const { useIds: locationIds } = useLocationIds();
+    const { show: showCharmTraders } = useCharmTraders();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
 
     let formattedCharm = CharmFormatter.formatCharm(item.stats, item.statColors);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    // Sellers only exist for the basic charms the wiki's trader list covers.
+    const charmTraders = showCharmTraders ? charmTradersFor(item) : [];
+    // Which coordinate box was just copied, so it can flash "Copied!".
+    const [copiedCoords, setCopiedCoords] = React.useState(null);
+    const copiedCoordsTimeoutRef = React.useRef(null);
+    React.useEffect(
+        () => () => {
+            if (copiedCoordsTimeoutRef.current) clearTimeout(copiedCoordsTimeoutRef.current);
+        },
+        []
+    );
+    function copyCoords(coords) {
+        if (!navigator.clipboard) return;
+        navigator.clipboard.writeText(coords).then(
+            () => {
+                setCopiedCoords(coords);
+                if (copiedCoordsTimeoutRef.current) clearTimeout(copiedCoordsTimeoutRef.current);
+                copiedCoordsTimeoutRef.current = setTimeout(() => setCopiedCoords(null), 1800);
+            },
+            () => {}
+        );
+    }
 
     React.useEffect(() => {
         // Prefer the explicit mapping generated from the texture pack.
@@ -197,14 +215,7 @@ function CharmTile(data) {
                 style={locationStyle(item)}
                 className={`${styles[camelCase(item.location)]} ${styles[camelCase(item.tier)]} ${styles.name}`}
             >
-                <a
-                    href={`https://monumenta.wiki.gg/wiki/${item.name
-                        .replace(/\(.*\)/g, '')
-                        .trim()
-                        .replaceAll(' ', '_')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                >
+                <a href={wikiHref(item.name, item)} target="_blank" rel="noreferrer">
                     {item.name}
                 </a>
             </span>
@@ -225,14 +236,45 @@ function CharmTile(data) {
             <span>
                 {item.region && <span className={styles.infoText}>{`${item.region} `}</span>}
                 <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>
-                    {item.tier && item.tier != 'Base' ? `${item.tier} ` : ''}
+                    {item.tier && item.tier != 'Base' ? `${displayTier(item.tier)} ` : ''}
                     {t('items.type.charm')}
                 </span>
             </span>
             {item.location && (
                 <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
-                    {renderObfuscated(item.location)}
+                    {renderObfuscated(locationText(item, locationIds))}
                 </span>
+            )}
+            {charmTraders.length > 0 && (
+                <>
+                    <span className={styles.charmTraderLine}>
+                        {t('items.charmTraders.soldBy')}{' '}
+                        {charmTraders.map((trader, index) => (
+                            <React.Fragment key={trader.npc}>
+                                {index > 0 ? ' / ' : ''}
+                                <a href={`${CHARM_TRADERS_WIKI}#${trader.section}`} target="_blank" rel="noreferrer">
+                                    {trader.npc}
+                                </a>
+                            </React.Fragment>
+                        ))}
+                    </span>
+                    <span className={styles.charmTraderCoords}>
+                        {charmTraders.map((trader, index) => (
+                            <React.Fragment key={trader.coords}>
+                                {index > 0 ? ' / ' : ''}
+                                <button
+                                    type="button"
+                                    className={styles.charmTraderCoordsButton}
+                                    onClick={() => copyCoords(trader.coords)}
+                                    title={t('items.charmTraders.copyCoords')}
+                                    aria-label={`${t('items.charmTraders.copyCoords')}: ${trader.coords}`}
+                                >
+                                    {copiedCoords === trader.coords ? t('common.copied') : `[${trader.coords}]`}
+                                </button>
+                            </React.Fragment>
+                        ))}
+                    </span>
+                </>
             )}
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (

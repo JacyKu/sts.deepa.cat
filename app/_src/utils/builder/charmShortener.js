@@ -1,3 +1,19 @@
+// Charm-only view of the item DB (name/power/class precomputed), built once per
+// itemData reference so parsing a token doesn't scan every item for each charm.
+let charmEntriesCache = null;
+function getCharmEntries(itemData) {
+    if (charmEntriesCache && charmEntriesCache.data === itemData) return charmEntriesCache.entries;
+    const entries = [];
+    for (const key of Object.keys(itemData)) {
+        const charm = itemData[key];
+        if (charm.type == 'Charm') {
+            entries.push({ key, name: charm.name, power: charm.power, classLetter: charm.class_name?.[0] });
+        }
+    }
+    charmEntriesCache = { data: itemData, entries };
+    return entries;
+}
+
 class CharmShortener {
     static extractRelevantLetters(charmName, n) {
         let parts = [];
@@ -43,17 +59,17 @@ class CharmShortener {
             }));
 
         let foundCharms = [];
+        const charmEntries = getCharmEntries(itemData);
         charms.forEach((charm) => {
-            let foundCharm = Object.keys(itemData).find(
-                (name) =>
-                    itemData[name].type == 'Charm' &&
-                    itemData[name].name.substring(0, 3) == charm.prefix &&
-                    itemData[name].name.includes(charm.suffix) &&
-                    itemData[name].power == charm.power &&
-                    itemData[name].class_name?.[0] == charm.classLetter
+            const foundCharm = charmEntries.find(
+                (entry) =>
+                    entry.name.substring(0, 3) == charm.prefix &&
+                    entry.name.includes(charm.suffix) &&
+                    entry.power == charm.power &&
+                    entry.classLetter == charm.classLetter
             );
             if (foundCharm) {
-                foundCharms.push(foundCharm);
+                foundCharms.push(foundCharm.key);
             }
         });
         return foundCharms;

@@ -5,7 +5,11 @@ import { renderObfuscated } from './obfuscatedText';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import TranslatableText from '../translatableText';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../../utils/items/spritesheetMap';
+import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
@@ -141,6 +145,7 @@ function MasterworkableItemTile(data) {
     const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { useIds: locationIds } = useLocationIds();
     const { enabled: maxMasterworkDefault } = useMaxMasterwork();
     const { lowRes } = useLowResource();
     const { items: listItems, toggleItem } = useBuildList();
@@ -170,7 +175,7 @@ function MasterworkableItemTile(data) {
     const [activeItem, setActiveItem] = React.useState(computeDefaultItem);
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(activeItem.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
 
     // When the menu toggle flips, reset every tile to the newly applicable
     // default variant.
@@ -193,18 +198,6 @@ function MasterworkableItemTile(data) {
     const star3 = React.useRef();
     const star4 = React.useRef();
     const [starsAnimated, setStarsAnimated] = React.useState(false);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     React.useEffect(() => {
         // Prefer the explicit mapping generated from the texture pack.
@@ -407,7 +400,7 @@ function MasterworkableItemTile(data) {
                     <span>
                         <span className={styles.infoText}>{`${activeItem.region} `}</span>
                         <span className={`${styles[camelCase(activeItem.tier)]} ${styles.gameText}`}>
-                            {activeItem.tier}
+                            {displayTier(activeItem.tier)}
                         </span>
                     </span>
                 </div>
@@ -416,7 +409,7 @@ function MasterworkableItemTile(data) {
                 style={locationStyle(activeItem)}
                 className={`${styles[camelCase(activeItem.location)]} ${styles.gameText}`}
             >
-                {renderObfuscated(activeItem.location)}
+                {renderObfuscated(locationText(activeItem, locationIds))}
             </span>
             {!activeItem.undiscovered ? (
                 <div>

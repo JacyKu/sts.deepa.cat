@@ -1,12 +1,12 @@
 import { Suspense } from 'react';
-import { headers } from 'next/headers';
 import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription, getSetPreviewDescription } from '../_src/utils/buildPreview';
 import { referencedCustomItemExtras, getPublicSkillSet } from '../../lib/sts-builds';
 import { getBuildItemHashes } from '../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../lib/session';
-import { BuilderDataView } from '../_src/components/siteDataViews';
+import { BuilderDataView } from '../_src/components/builderDataView';
 import BuilderSkeleton from '../_src/components/builderSkeleton';
+import BootstrapStyles from '../_src/components/bootstrapStyles';
 
 const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
 
@@ -66,10 +66,10 @@ export async function generateMetadata({ searchParams }) {
     const title = getLinkPreviewTitle(build, itemData, null, skillsData);
     const description = getLinkPreviewDescription(build, itemData, skillsData);
     const imageUrl = '/api/v2/og?build=' + encodeURIComponent(build);
-    const requestHost = (await headers()).get('host') || 'deepa.cat';
 
     return {
-        metadataBase: new URL('https://' + requestHost),
+        // Pinned to the configured public origin (never the request Host).
+        metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
         title,
         description,
         keywords,
@@ -94,9 +94,12 @@ export default async function Page({ searchParams }) {
     const build = sp?.build ? String(sp.build) : null;
     const setId = sp?.set ? String(sp.set) : null;
     return (
-        <Suspense fallback={<BuilderSkeleton />}>
-            <BuilderView build={build} setId={setId} />
-        </Suspense>
+        <>
+            <BootstrapStyles />
+            <Suspense fallback={<BuilderSkeleton />}>
+                <BuilderView build={build} setId={setId} />
+            </Suspense>
+        </>
     );
 }
 

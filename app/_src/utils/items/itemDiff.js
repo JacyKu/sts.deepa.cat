@@ -21,6 +21,14 @@ export function valueKey(value) {
     return String(value);
 }
 
+// A stat counts as changed when its value moved OR its lock flag flipped: a
+// lock-only change (-40% -> 🔒 -40%) has no numeric delta but is still a change.
+function statChanged(old, fresh) {
+    return (
+        valueKey(old.rawValue) !== valueKey(fresh.rawValue) || Boolean(old.locked) !== Boolean(fresh.locked)
+    );
+}
+
 // Every stat of the newer state, with the changed/added/removed ones marked
 // and unchanged ones kept as 'same'. Sorted in the item display order
 // (enchants, curses, attributes, base stats; alphabetical within a group),
@@ -37,7 +45,7 @@ function statLines(beforeItem, afterItem) {
             lines.push({ name, kind: 'added', fresh });
         } else if (old && !fresh) {
             lines.push({ name, kind: 'removed', old });
-        } else if (old && fresh && valueKey(old.rawValue) !== valueKey(fresh.rawValue)) {
+        } else if (old && fresh && statChanged(old, fresh)) {
             const beforeNum = numericValue(old.rawValue);
             const afterNum = numericValue(fresh.rawValue);
             const rawDelta = afterNum - beforeNum;

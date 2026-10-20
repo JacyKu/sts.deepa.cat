@@ -176,13 +176,16 @@ export async function PATCH(request, { params }) {
         // Account-wide anonymity preference is the default unless the request
         // explicitly overrides it per build.
         const anonymous = body.anonymous !== undefined ? Boolean(body.anonymous) : await getAnonymousPreference();
+        // Start both reads early; the profanity gate only needs the item data.
+        const itemDataPromise = getItemData();
+        const skillsPromise = getSkillsData();
         if (isPublic) {
             // Never surface builds whose name/notes carry blocked words.
-            if (hasProfanity({ name: row.name, notes: row.notes, token: row.token, itemData: await getItemData() })) {
+            if (hasProfanity({ name: row.name, notes: row.notes, token: row.token, itemData: await itemDataPromise })) {
                 return NextResponse.json({ error: 'profanity' }, { status: 400 });
             }
         }
-        const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
+        const [itemData, skillsData] = await Promise.all([itemDataPromise, skillsPromise]);
         const summary = computeBuildSummary(row.token, itemData, skillsData);
         const creatorToken = request.cookies.get(`sts-build-owner-${p.id}`)?.value || null;
         const ok = setBuildPublic(p.id, sessionUser.id, creatorToken, {

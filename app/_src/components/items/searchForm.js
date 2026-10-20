@@ -3,6 +3,9 @@ import styles from '../../styles/SearchForm.module.css';
 import SelectWithTriggers from './selectWithTriggers';
 import SelectInput from './selectInput';
 import extras from '../../data/extras.json';
+import quests from '../../data/quests.json';
+import { displayTier } from '../../utils/items/tierDisplay';
+import { locationId } from '../../utils/items/locationDisplay';
 import { isSearchCacheEnabled, SEARCH_CACHE_DATA_KEY } from '../../utils/cachePrefs';
 import { loadSkills } from '../../utils/siteDataClient';
 import { useTranslation } from '../useTranslation';
@@ -45,7 +48,11 @@ function getSearchOptions(itemData) {
         });
     // Remove the Charm tier since there is a checkbox for it.
     delete uniqueTiers.Charm;
-    Object.keys(uniqueTiers).forEach((tierName) => tiers.push(tierName));
+    // Display names only: the option value stays the raw tier, so filtering
+    // keeps matching itemData[..].tier. Sorted by the label the user sees,
+    // since the option order is the array order.
+    Object.keys(uniqueTiers).forEach((tierName) => tiers.push({ value: tierName, label: displayTier(tierName) }));
+    tiers.sort((a, b) => a.label.localeCompare(b.label));
     let charmNames = Object.keys(itemData).filter((item) => itemData[item].type == 'Charm');
     let uniqueCharmAttributes = {};
     for (let charmName of charmNames) {
@@ -80,23 +87,43 @@ function getSearchOptions(itemData) {
         formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
         effects.push(formatted);
     });
+    // Location name -> registry id, so every option lists the id in parentheses
+    // ("Salazar's Folly (lime)") regardless of the location-id display setting.
+    // The id comes from the item's own field when it has one, otherwise from the
+    // vendored registry (data/locations.json); locations the registry does not
+    // list (the region names, and event locations like Tenyears) show the name
+    // alone.
     let uniqueLocations = {};
-    Object.keys(itemData)
-        .map((item) => itemData[item].location)
-        .filter((locationName) => locationName != undefined)
-        .forEach((locationName) => {
-            uniqueLocations[locationName] = 1;
-        });
-    Object.keys(uniqueLocations).forEach((locationName) =>
+    Object.keys(itemData).forEach((item) => {
+        const { location } = itemData[item];
+        if (location == undefined) return;
+        const id = locationId(itemData[item]);
+        if (!(location in uniqueLocations) || (!uniqueLocations[location] && id)) {
+            uniqueLocations[location] = id || null;
+        }
+    });
+    Object.keys(uniqueLocations).forEach((locationName) => {
+        const id = uniqueLocations[locationName];
+        const suffix = id ? ` (${id})` : '';
         // The Twisted location's redacted half scrambles like the game's
         // <obfuscated> text, in the menu and the selected value alike; the
         // value stays the raw string so filtering is unaffected.
         locations.push(
             /[A-Za-z]?x{4,}/.test(locationName)
-                ? { value: locationName, label: renderObfuscated(locationName) }
-                : locationName
-        )
-    );
+                ? {
+                      value: locationName,
+                      label: (
+                          <>
+                              {renderObfuscated(locationName)}
+                              {suffix}
+                          </>
+                      ),
+                  }
+                : id
+                  ? { value: locationName, label: `${locationName}${suffix}` }
+                  : locationName
+        );
+    });
     let uniquePowers = {};
     Object.keys(itemData)
         .filter((item) => itemData[item].type == 'Charm')
@@ -125,9 +152,21 @@ function getSearchOptions(itemData) {
             uniquePois[poiName] = 1;
         });
     Object.keys(uniquePois).forEach((poiName) => pois.push(poiName));
+    // Confirmed quest names (data/quests.json, refreshed by
+    // scripts/update-quests.mjs). Only codes the wiki confirms are listed - the
+    // free-text Quest ID filter still covers everything else.
+    const questOptions = [
+        ...(quests.quests || []).map(({ code, name }) => ({ value: code, label: name })),
+        ...Object.entries(quests.manual || {}).map(([code, entry]) => ({
+            value: code,
+            label: typeof entry === 'string' ? entry : entry && entry.name,
+        })),
+    ]
+        .filter((option) => option.value && option.label)
+        .sort((a, b) => a.label.localeCompare(b.label));
     searchOptionsCache = {
         data: itemData,
-        options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers },
+        options: { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers, questOptions },
     };
     return searchOptionsCache.options;
 }
@@ -445,7 +484,7 @@ export default function SearchForm({ update, itemData }) {
         event.preventDefault();
     }
 
-    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers } =
+    const { sortableStats, tiers, locations, pois, charmStats, baseItems, effects, charmPowers, questOptions } =
         getSearchOptions(itemData);
 
     function addFilter() {
@@ -540,6 +579,14 @@ export default function SearchForm({ update, itemData }) {
                 sortableStats={baseItems}
                 value={selected.baseItemSelect ?? null}
                 onChange={(opt) => onValueChange('baseItemSelect', opt ? opt.value : null)}
+            />
+        )),
+        new SearchCategory('Quest', 'items.searchForm.quest', ({ uniqueKey, selected, onValueChange }) => (
+            <SelectInput
+                name={`questSelect-${uniqueKey}`}
+                sortableStats={questOptions}
+                value={selected.questSelect ?? null}
+                onChange={(opt) => onValueChange('questSelect', opt ? opt.value : null)}
             />
         )),
         new SearchCategory('Quest ID', 'items.searchForm.questId', ({ uniqueKey, selected, onValueChange }) => (

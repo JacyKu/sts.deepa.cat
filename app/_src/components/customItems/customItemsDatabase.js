@@ -170,8 +170,7 @@ export default function CustomItemsDatabase() {
                         value={sortOptions.find((o) => o.value === sort) || null}
                         onChange={(opt) => setSort(opt ? opt.value : 'top')}
                         isSearchable={false}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
+                        menuPosition="absolute"
                         theme={selectTheme}
                         styles={selectStyles}
                     />

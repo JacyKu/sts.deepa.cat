@@ -30,7 +30,8 @@ export function BuilderLayoutProvider({ children }) {
             return next;
         });
     }, []);
-    return <BuilderLayoutContext.Provider value={{ newLayout, toggle }}>{children}</BuilderLayoutContext.Provider>;
+    const value = React.useMemo(() => ({ newLayout, toggle }), [newLayout, toggle]);
+    return <BuilderLayoutContext.Provider value={value}>{children}</BuilderLayoutContext.Provider>;
 }
 
 export function useBuilderLayout() {

@@ -5,10 +5,18 @@ const { compressToEncodedURIComponent, decompressFromEncodedURIComponent } = LZS
 const LEGACY_COMPRESSED_PREFIX = 'z:';
 const BINARY_V1_PREFIX = 'v1_';
 
+// Bound a token before it reaches lz-string: stored tokens cap at 2048 bytes
+// and decompression amplifies, so an unbounded read/convert input is a CPU/
+// memory amplifier. Legit tokens are well under this.
+const MAX_TOKEN_LENGTH = 8192;
+
 // The build token generation this codec currently produces. Short links are
-// versioned against this (/b/v7/<id>) so older decoder versions can be kept
+// versioned against this (/b/v8/<id>) so older decoder versions can be kept
 // around and the link routing stays honest about what a token contains.
-export const CURRENT_TOKEN_VERSION = 7;
+// v8 keeps the v7 binary layout; the bump only marks tokens written from now
+// on, and v7 tokens remain readable (and are re-written as v8 on the next
+// save).
+export const CURRENT_TOKEN_VERSION = 8;
 
 // Reads the version byte out of a binary token (v1_<base64url>), or null for
 // legacy formats. Used to version short links and to validate that a token
@@ -173,15 +181,25 @@ export function normalizeBuildParam(build) {
 
 export function decodeBuildName(build) {
     const normalized = normalizeBuildParam(build);
-    if (!normalized) return null;
+    if (!normalized || normalized.length > MAX_TOKEN_LENGTH) return null;
     // Token names are client-supplied and legacy/hand-made tokens can carry
     // arbitrarily long names; stored names cap at 50 (lib/sts-builds.js).
     const cap = (name) => (name ? String(name).slice(0, 50) : null);
+    // Percent-decoding a name part can throw on raw "%" sequences (hand-made
+    // or very old tokens that were never encoded) - keep the value as it is
+    // instead so special characters never crash a page.
+    const decodeName = (value) => {
+        try {
+            return decodeURIComponent(value);
+        } catch (e) {
+            return value;
+        }
+    };
 
     // Legacy formats: try to read name=... from the string directly.
     if (isLegacyBuildString(normalized)) {
         const part = normalized.split('&').find((p) => p.startsWith('name='));
-        return part ? cap(decodeURIComponent(part.slice('name='.length))) : null;
+        return part ? cap(decodeName(part.slice('name='.length))) : null;
     }
 
     if (normalized.startsWith(LEGACY_COMPRESSED_PREFIX)) {
@@ -189,7 +207,7 @@ export function decodeBuildName(build) {
         const decompressed = decompressFromEncodedURIComponent(payload);
         if (!decompressed) return null;
         const part = decompressed.split('&').find((p) => p.startsWith('name='));
-        return part ? cap(decodeURIComponent(part.slice('name='.length))) : null;
+        return part ? cap(decodeName(part.slice('name='.length))) : null;
     }
 
     if (normalized.startsWith(BINARY_V1_PREFIX)) {
@@ -215,7 +233,7 @@ export function decodeBuildName(build) {
 
 export function decodeBuildParam(build, itemData) {
     const normalized = normalizeBuildParam(build);
-    if (!normalized) return null;
+    if (!normalized || normalized.length > MAX_TOKEN_LENGTH) return null;
 
     // Already legacy.
     if (isLegacyBuildString(normalized)) {
@@ -238,7 +256,15 @@ export function decodeBuildParam(build, itemData) {
         if (bytes.length < 1 + 6 * 4) return null;
 
         const version = bytes[0];
-        if (version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7)
+        if (
+            version !== 2 &&
+            version !== 3 &&
+            version !== 4 &&
+            version !== 5 &&
+            version !== 6 &&
+            version !== 7 &&
+            version !== 8
+        )
             return null;
 
         const readU32 = (off) =>
@@ -299,7 +325,7 @@ export function decodeBuildParam(build, itemData) {
 
             // Extra stat inputs. v6+ encodes health as a varint (no upper cap,
             // minimum 1); older tokens keep 7 single bytes (health 0-255).
-            // v7 shares the v6 layout.
+            // v7 and v8 share the v6 layout.
             const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspicacity', 'region'];
             const STAT_DEFAULTS = [100, 0, 0, 0, 0, 0, 3];
             if (version >= 6) {

@@ -1,7 +1,7 @@
 import React from 'react';
 import styles from '../styles/Items.module.css';
 import { useLanguageContext } from '../components/languageContext';
-import SupportedLanguages from '../utils/translation/languages';
+import { getLanguageTable } from '../utils/translation/languages';
 
 function formatTitle(str) {
     if (!str) return '';
@@ -25,7 +25,7 @@ function formatTitle(str) {
 export default function TranslatableEnchant({ title, className, contentClassName, style, children }) {
     const { lang } = useLanguageContext();
     const key = `items.enchant.${formatTitle(title)}`;
-    const description = SupportedLanguages[lang][key];
+    const description = getLanguageTable(lang)[key];
     const tooltipClass = description ? styles.enchantTooltip : '';
     // The optional content wrapper lets callers de-emphasise the text (e.g.
     // unchanged diff lines) without fading the tooltip along with it.

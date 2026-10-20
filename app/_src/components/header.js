@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
-import Select from 'react-select';
 import TranslatableText from './translatableText';
 import { useTranslation } from './useTranslation';
 import LoreToggle from './items/loreToggle';
@@ -13,8 +12,12 @@ import MaxMasterworkToggle from './items/maxMasterworkToggle';
 import ItemHistoryToggle from './items/itemHistoryToggle';
 import BuildListToggle from './items/buildListToggle';
 import AnimationsToggle from './items/animationsToggle';
+import CardItemsFirstToggle from './cardItemsFirstToggle';
+import LocationIdsToggle from './locationIdsToggle';
+import CharmTradersToggle from './charmTradersToggle';
 import styles from '../styles/Header.module.css';
 import itemsStyles from '../styles/Items.module.css';
+import searchStyles from '../styles/SearchForm.module.css';
 import Link from 'next/link';
 import { getStsBase } from '../utils/base';
 import { useLowResource } from './lowResourceContext';
@@ -55,17 +58,29 @@ const tooltipStyle = { display: 'inline-flex', alignItems: 'center', gap: 5 };
 function useMenuPortal(open, { fullWidthOnMobile = false } = {}) {
     const [anchor, setAnchor] = React.useState(null);
     const ref = React.useRef(null);
+    const panelRef = React.useRef(null);
     React.useLayoutEffect(() => {
         if (!open) return undefined;
         const measure = () => {
             const rect = ref.current ? ref.current.getBoundingClientRect() : null;
             if (!rect) return;
             const top = rect.bottom + 10;
-            if (fullWidthOnMobile && window.innerWidth <= 700) {
-                setAnchor({ top, left: 12, right: 12 });
-            } else {
-                setAnchor({ top, right: Math.max(8, window.innerWidth - rect.right) });
-            }
+            const available = Math.max(0, window.innerHeight - top - 12);
+            // Only make the panel a scroll container when its content actually
+            // does not fit: the toggles' tooltips are absolutely positioned and
+            // widen the scrollable area, which would let the menu itself be
+            // dragged sideways on a normal window.
+            const panel = panelRef.current;
+            const scroll = Boolean(panel && panel.scrollHeight > available);
+            const placement =
+                fullWidthOnMobile && window.innerWidth <= 700
+                    ? { left: 12, right: 12 }
+                    : { right: Math.max(8, window.innerWidth - rect.right) };
+            setAnchor(
+                scroll
+                    ? { top, ...placement, maxHeight: available, scroll: true }
+                    : { top, ...placement, scroll: false }
+            );
         };
         measure();
         window.addEventListener('resize', measure);
@@ -77,12 +92,15 @@ function useMenuPortal(open, { fullWidthOnMobile = false } = {}) {
     }, [open, fullWidthOnMobile]);
     return {
         ref,
+        panelRef,
+        scroll: Boolean(anchor && anchor.scroll),
         style: anchor
             ? {
                   position: 'fixed',
                   top: anchor.top,
                   ...(anchor.left !== undefined ? { left: anchor.left } : {}),
                   right: anchor.right,
+                  ...(anchor.scroll ? { maxHeight: anchor.maxHeight } : {}),
                   zIndex: 61,
               }
             : undefined,
@@ -246,51 +264,6 @@ export const FONT_STACKS = {
     default:
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
 };
-
-const selectTheme = (theme) => ({
-    ...theme,
-    borderRadius: 0,
-    colors: {
-        ...theme.colors,
-        primary: 'var(--text-1)',
-        primary25: 'var(--surface-2)',
-        neutral0: 'var(--glass-menu)',
-        neutral5: 'var(--glass-2)',
-        neutral10: 'var(--glass-2)',
-        neutral20: 'var(--control-border)',
-        neutral30: 'var(--control-border-hover)',
-        neutral60: 'var(--text-2)',
-        neutral80: 'var(--text-1)',
-    },
-});
-
-const selectStyles = {
-    container: (base) => ({ ...base, width: '100%' }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    menu: (base) => ({ ...base, zIndex: 9999 }),
-};
-
-// The themed react-select used by the header/settings and the account
-// page's Settings card (theme, font, glass controls).
-export function HeaderSelect({ options, value, onChange, instanceId, className, formatOptionLabel }) {
-    return (
-        <div className={className}>
-            <Select
-                instanceId={instanceId}
-                name={instanceId}
-                options={options}
-                value={options.find((opt) => opt.value === value)}
-                onChange={onChange}
-                formatOptionLabel={formatOptionLabel}
-                isSearchable={false}
-                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                menuPosition="fixed"
-                theme={selectTheme}
-                styles={selectStyles}
-            />
-        </div>
-    );
-}
 
 // The STS nav links, rendered in the center of the shared SiteNav top bar.
 // On small screens the inline links collapse into a hamburger menu (the top
@@ -656,7 +629,13 @@ export default function Header() {
                     createPortal(
                         <>
                             <div className={styles.menuBackdrop} onClick={closeMenu} />
-                            <div className={`${styles.menuPanel} ${styles.menuOpen}`} style={gearMenuPortal.style}>
+                            <div
+                                ref={gearMenuPortal.panelRef}
+                                className={`${styles.menuPanel} ${styles.menuOpen}${
+                                    gearMenuPortal.scroll ? ` ${styles.menuScroll}` : ''
+                                }`}
+                                style={gearMenuPortal.style}
+                            >
                                 {session.user && (
                                     <label className={`${styles.toggle} ${styles.loreToggle}`}>
                                         <input
@@ -695,6 +674,9 @@ export default function Header() {
                                 <MaxMasterworkToggle className={styles.loreToggle} />
                                 <ItemHistoryToggle className={styles.loreToggle} />
                                 <BuildListToggle className={styles.loreToggle} />
+                                <CardItemsFirstToggle className={`${searchStyles.toggleLabel} ${styles.loreToggle}`} />
+                                <LocationIdsToggle className={`${searchStyles.toggleLabel} ${styles.loreToggle}`} />
+                                <CharmTradersToggle className={`${searchStyles.toggleLabel} ${styles.loreToggle}`} />
                                 {session.user && session.user.isModerator && (
                                     <Link className={styles.navButton} href="/moderation" onClick={closeMenu}>
                                         {t('moderation.title')}

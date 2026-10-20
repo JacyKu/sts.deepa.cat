@@ -12,10 +12,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
     max-width: 700px;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
 
 .rowWrap {
@@ -26,7 +26,7 @@
 .toolbar {
     width: 100%;
     max-width: 560px;
-    margin: 4px auto;
+    margin: 0 auto 8px;
 }
 
 .addBtn {
@@ -51,7 +51,7 @@
 .sortControl {
     width: 100%;
     max-width: 560px;
-    margin: 8px auto 6px;
+    margin: 8px auto;
 }
 
 .addBtn:hover {
@@ -69,7 +69,7 @@
     max-width: 560px;
     height: 42px;
     padding: 0 12px;
-    margin: 4px auto 0;
+    margin: 0 auto 8px;
     background: var(--glass-1);
     border: 2px solid var(--glass-border);
     color: var(--text-1);
@@ -723,6 +723,32 @@
 }
 
 .swapLayoutBtn:hover {
+    color: var(--accent, #9c59d1);
+    border-color: var(--accent, #9c59d1);
+}
+
+/* Copy-link button: always visible, grouped with the compare button to the
+   left of the favourite button. */
+.copyLinkBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    order: -1;
+    box-sizing: border-box;
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    border: 2px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+        color 150ms ease,
+        border-color 150ms ease;
+}
+
+.copyLinkBtn:hover,
+.copyLinkBtnDone {
     color: var(--accent, #9c59d1);
     border-color: var(--accent, #9c59d1);
 }

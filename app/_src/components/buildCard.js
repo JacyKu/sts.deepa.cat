@@ -7,7 +7,11 @@ import TranslatableText from './translatableText';
 import styles from '../styles/Database.module.css';
 import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
-import { loadItemSpriteMap, getMappedSpriteClass } from '../utils/items/spritesheetMap';
+import { getMappedSpriteClass } from '../utils/items/spritesheetMap';
+import { displayTier } from '../utils/items/tierDisplay';
+import { locationText } from '../utils/items/locationDisplay';
+import { useLocationIds } from './items/locationIdsContext';
+import { useItemSpriteMap } from './useItemSpriteMap';
 import { getMinecraftTextureKey } from '../utils/items/minecraftFallback';
 import { loadSkills, loadCz } from '../utils/siteDataClient';
 import { useCardItemsFirst } from './items/cardItemsFirstContext';
@@ -137,16 +141,19 @@ function loadBuildDetails() {
 function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compareActive, children }) {
     const t = useTranslation();
     const { itemsFirst: globalItemsFirst } = useCardItemsFirst();
+    const { useIds: locationIds } = useLocationIds();
     // The card's swap button overrides the global setting for this card only;
     // null follows the global default set on the settings page.
     const [layoutOverride, setLayoutOverride] = React.useState(null);
     const itemsFirst = layoutOverride === null ? globalItemsFirst : layoutOverride;
     const { lowRes } = useLowResource();
     const [favBusy, setFavBusy] = React.useState(false);
+    const [copiedLink, setCopiedLink] = React.useState(false);
+    const copiedLinkTimer = React.useRef(null);
     const [expanded, setExpanded] = React.useState(false);
     const [sideOpen, setSideOpen] = React.useState(false);
     const [side, setSide] = React.useState('right');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
     const [openItem, setOpenItem] = React.useState(null);
     const [detail, setDetail] = React.useState(null);
     const [buildDetails, setBuildDetails] = React.useState(null);
@@ -168,15 +175,12 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
         );
     }, []);
 
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) setSpriteMap(map);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    React.useEffect(
+        () => () => {
+            if (copiedLinkTimer.current) clearTimeout(copiedLinkTimer.current);
+        },
+        []
+    );
 
     React.useEffect(() => {
         let active = true;
@@ -310,6 +314,26 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             .then(() => onToggleFavourite && onToggleFavourite(build.id, !build.myFavourite))
             .catch(() => {})
             .finally(() => setFavBusy(false));
+    }
+
+    // Copy this build's short link (/b/v<version>/<id>). The card itself is a link, so
+    // the button stops the click from navigating.
+    function copyBuildLink(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const url = window.location.origin + base + build.url;
+        if (!navigator.clipboard) {
+            window.alert(t('builder.errors.clipboardCopyFailed'));
+            return;
+        }
+        navigator.clipboard.writeText(url).then(
+            () => {
+                setCopiedLink(true);
+                if (copiedLinkTimer.current) clearTimeout(copiedLinkTimer.current);
+                copiedLinkTimer.current = setTimeout(() => setCopiedLink(false), 1600);
+            },
+            () => {}
+        );
     }
 
     const displayName = build.name || t('builds.unnamed');
@@ -512,9 +536,9 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                         )}
                         <div className={styles.itemDetailInfo}>
                             {detail.region ? `${detail.region} ` : ''}
-                            {detail.tier || ''}
+                            {displayTier(detail.tier) || ''}
                         </div>
-                        <div className={styles.itemDetailInfo}>{detail.location || ''}</div>
+                        <div className={styles.itemDetailInfo}>{locationText(detail, locationIds)}</div>
                     </div>
                 )}
             </div>
@@ -706,6 +730,38 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                             </svg>
                             <span className={itemsStyles.enchantTooltipText}>
                                 {itemsFirst ? t('builds.showSkillsOnCard') : t('builds.showItemsOnCard')}
+                            </span>
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.copyLinkBtn}${copiedLink ? ` ${styles.copyLinkBtnDone}` : ''}`}
+                        onClick={copyBuildLink}
+                        aria-label={t('builds.copyLink')}
+                    >
+                        <span className={itemsStyles.enchantTooltip} style={chipTooltipStyle}>
+                            <svg
+                                viewBox="0 0 24 24"
+                                width="15"
+                                height="15"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                {copiedLink ? (
+                                    <path d="M4 12.5l5 5L20 6.5" />
+                                ) : (
+                                    <>
+                                        <rect x="9" y="9" width="11" height="11" rx="1.5" />
+                                        <path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H16" />
+                                    </>
+                                )}
+                            </svg>
+                            <span className={itemsStyles.enchantTooltipText}>
+                                {copiedLink ? t('common.copied') : t('builds.copyLink')}
                             </span>
                         </span>
                     </button>

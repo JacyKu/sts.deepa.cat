@@ -99,6 +99,47 @@
     transform: translateY(1px);
 }
 
+/* Ko-fi button: the symbol is swapped for the mug GIF on hover. The GIF frame
+   is 600x600 with the mug ~0.7615 the size of the symbol's mug, so sizing it to
+   142.3% of the symbol box (1.771x its height) keeps the mug the same size and
+   lined up when it swaps. */
+.kofiIcon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 27.4px;
+    height: 22px;
+}
+
+.kofiSymbol {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.kofiMug {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 142.3%;
+    /* Override Tailwind preflight's img { max-width: 100% }. */
+    max-width: none;
+    height: auto;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+}
+
+.link:hover .kofiSymbol {
+    opacity: 0;
+}
+
+.link:hover .kofiMug {
+    opacity: 1;
+}
+
 .overlay {
     position: fixed;
     inset: 0;

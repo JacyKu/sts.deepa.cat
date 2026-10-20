@@ -22,7 +22,8 @@ export function HideObtainmentProvider({ children }) {
             return next;
         });
     }, []);
-    return <HideObtainmentContext.Provider value={{ hidden, toggle }}>{children}</HideObtainmentContext.Provider>;
+    const value = React.useMemo(() => ({ hidden, toggle }), [hidden, toggle]);
+    return <HideObtainmentContext.Provider value={value}>{children}</HideObtainmentContext.Provider>;
 }
 
 export function useHideObtainment() {

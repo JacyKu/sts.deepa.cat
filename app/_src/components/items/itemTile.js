@@ -3,10 +3,14 @@ import LoreText from './loreText';
 import ItemHistoryPanel from './itemHistoryPanel';
 import TileAuthor from './tileAuthor';
 import { renderObfuscated } from './obfuscatedText';
+import { displayTier } from '../../utils/items/tierDisplay';
+import { locationText } from '../../utils/items/locationDisplay';
+import { useLocationIds } from './locationIdsContext';
 import styles from '../../styles/Items.module.css';
 import TranslatableText from '../translatableText';
 import React from 'react';
-import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 import { locationStyle } from '../../utils/items/locationColor';
 import { useHideLore } from './hideLoreContext';
@@ -64,31 +68,20 @@ function ItemTile(data) {
     const t = useTranslation();
     const { hidden: hideLore } = useHideLore();
     const { hidden: hideObtainment } = useHideObtainment();
+    const { useIds: locationIds } = useLocationIds();
     const { lowRes } = useLowResource();
     const { items: listItems, toggleItem } = useBuildList();
     const { enabled: buildListEnabled } = useBuildListEnabled();
     const { favouriteSet, authenticated, enabled, toggle: toggleFavourite } = useItemFavourites();
     const [cssClass, setCssClass] = React.useState(getItemsheetClass(item.name));
     const [baseBackgroundClass, setBaseBackgroundClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
+    const spriteMap = useItemSpriteMap();
 
     // If the item name has accented characters, they are actually not present in the item's name property,
     // but they are present in the item's key. In that case, set the name to the key.
     if (doesNameContainNonASCII(data.name)) {
         item.name = data.name;
     }
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) {
-                setSpriteMap(map);
-            }
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     React.useEffect(() => {
         // Custom items carry their chosen texture directly; regular items go
@@ -104,7 +97,7 @@ function ItemTile(data) {
             setCssClass(tokenClass);
             return;
         }
-        const mappedClass = getMappedSpriteClass(spriteMap, item.name);
+        const mappedClass = getMappedSpriteClass(spriteMap, data.name) || getMappedSpriteClass(spriteMap, item.name);
         if (mappedClass) {
             setBaseBackgroundClass('monumenta-items');
             setCssClass(mappedClass);
@@ -207,10 +200,10 @@ function ItemTile(data) {
             <Enchants item={item}></Enchants>
             <span>
                 <span className={styles.infoText}>{`${item.region ? item.region : ''} `}</span>
-                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>{item.tier}</span>
+                <span className={`${styles[camelCase(item.tier)]} ${styles.gameText}`}>{displayTier(item.tier)}</span>
             </span>
             <span style={locationStyle(item)} className={`${styles[camelCase(item.location)]} ${styles.gameText}`}>
-                {renderObfuscated(item.location)}
+                {renderObfuscated(locationText(item, locationIds))}
             </span>
             {item.lore ? <LoreText text={item.lore} className={styles.infoText} questOnly={hideLore} /> : ''}
             {!hideObtainment && (

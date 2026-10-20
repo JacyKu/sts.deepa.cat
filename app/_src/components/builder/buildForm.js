@@ -6,6 +6,7 @@ import CheckboxWithLabel from '../items/checkboxWithLabel';
 import ItemTile from '../items/itemTile';
 import MasterworkableItemTile from '../items/masterworkableItemTile';
 import CharmTile from '../items/charmTile';
+import ConsumableTile from '../items/consumableTile';
 import BuildImportBar from './buildImportBar';
 import SavedSetsPanel from './savedSetsPanel';
 import BuilderHeader from '../items/builderHeader';
@@ -32,12 +33,37 @@ import {
 } from '../../utils/builder/buildUrlCodec';
 import { skillsPayloadFromToken } from '../../utils/builder/buildSkills';
 import { readImportedBuildState } from '../../utils/builder/importedBuildState';
+import { detectBuild } from '../../utils/builder/detectBuild';
 import { DELVE_INFUSIONS } from '../../data/delveInfusions';
 import { BASIC_INFUSIONS, BASIC_INFUSION_MAX_LEVEL, BASIC_INFUSION_LEVEL_LABELS } from '../../data/basicInfusions';
 import { isBuildsCacheEnabled, DRAFT_DATA_KEY, ORDER_PREFIX as ORDER_PREFIX_KEY } from '../../utils/cachePrefs';
 import { getInfusionInputMode } from '../../utils/infusionPrefs';
+import {
+    getHiddenStatCards as getHiddenStatCardsPreference,
+    setHiddenStatCards as setHiddenStatCardsPreference,
+} from '../../utils/statCardPrefs';
 import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
+import { computePotionEffects } from '../../utils/builder/potionEffects';
+import RevisionNotice from '../revisionNotice';
+import {
+    aggregateSkillEffects,
+    buildSkillCalcEntries,
+    isSkillCalcLearned,
+    mergeBuffEffects,
+    resolveSkillCalcEntry,
+    skillCalcEntries,
+    skillCalcLevel,
+} from '../../utils/builder/skillEffects';
+import { getEnabledSkillCalcs, setEnabledSkillCalcs } from '../../utils/skillCalcPrefs';
+import {
+    builderPotionsValue,
+    getBuilderPotions,
+    isBuilderPotionsEnabled,
+    setBuilderPotions,
+    setBuilderPotionsEnabled,
+} from '../../utils/builderPotionPrefs';
+import charmSelectorStyles from '../../styles/CharmSelector.module.css';
 
 // Whether the viewport is desktop-width (>= 992px). The experimental
 // "New Layout" only applies on desktop; mobile always keeps the standard
@@ -52,6 +78,20 @@ function useIsDesktop() {
         return () => mq.removeEventListener('change', update);
     }, []);
     return isDesktop;
+}
+
+// Stat card heading with a hover explanation of the card's contents. Reuses the
+// site's item-tooltip styling so it looks like the other hints.
+function StatCardTitle({ identifier, hint }) {
+    const t = useTranslation();
+    return (
+        <h5 className="text-center fw-bold mb-1">
+            <span className={styles.enchantTooltip}>
+                <TranslatableText identifier={identifier} />
+                <span className={styles.enchantTooltipText}>{t(hint)}</span>
+            </span>
+        </h5>
+    );
 }
 
 const infusionSelectTheme = (theme) => ({
@@ -97,6 +137,49 @@ const levelSelectStyles = {
     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
     menu: (base) => ({ ...base, zIndex: 9999 }),
 };
+
+// The delve/basic infusion selects render each option with a portal tooltip.
+// These factories live at module scope; the component memoizes their results
+// (keyed on setTip / the infusion list) so react-select keeps a stable
+// component identity across renders instead of remounting every option - which
+// closed the menu and lost scroll while hovering.
+function makeInfusionOption(infusions, setTip) {
+    return function InfusionOption(props) {
+        const info = infusions.find((i) => i.name === props.data.value);
+        return (
+            <components.Option {...props}>
+                <span
+                    className={styles.enchantTooltip}
+                    onMouseEnter={(e) => {
+                        if (!info || !info.effect) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
+                    }}
+                    onMouseLeave={() => setTip(null)}
+                >
+                    {props.children}
+                </span>
+            </components.Option>
+        );
+    };
+}
+
+function makeInfusionValueLabel(infusions) {
+    return function InfusionValueLabel(opt) {
+        const info = infusions.find((i) => i.name === opt.value);
+        return (
+            <span className={styles.enchantTooltip}>
+                {opt.label}
+                {info && info.effect && (
+                    <span className={styles.enchantTooltipText}>
+                        <span style={{ fontWeight: 600 }}>{info.name}</span>
+                        <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
+                    </span>
+                )}
+            </span>
+        );
+    };
+}
 
 const emptyBuild = {
     mainhand: 'None',
@@ -268,6 +351,9 @@ const enabledBoxes = {
     trivium: false,
     stamina: false,
     technique: false,
+    // Scorch scales every Inferno damage tick; no item carries it in the data
+    // yet, so its chip is always offered and the stack count is manual.
+    scorch: false,
     abyssal: false,
     fractal: false,
     skyseeker: false,
@@ -345,12 +431,90 @@ const extraStats = {
     attackSpeedMultipliers: [],
 };
 
+const skillCalcState = { entries: [] };
+
 const itemTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
 
 // Extra stat inputs that are part of the build (shared in the link under their full names).
 const STAT_KEYS = ['health', 'tenacity', 'vitality', 'vigor', 'focus', 'perspicacity', 'region'];
 
 const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor: '0', focus: '0', perspicacity: '0' };
+
+// Situationals whose effect depends on how many stacks are up / where in their
+// window the moment sits: their toggle gains a small number box beside it (see
+// stats.js for the maths). The defaults are each situational at full effect:
+// full Scorch and Stamina stacks, full Tempo, just-triggered Reflexes.
+const STACK_INPUTS = {
+    scorch: { name: 'scorchStacks', label: 'Scorch stacks', hintKey: 'builder.misc.scorchStacksHint', min: 0, max: 15, step: 1 },
+    stamina: { name: 'staminaStacks', label: 'Stamina stacks', hintKey: 'builder.misc.staminaStacksHint', min: 0, max: 4, step: 1 },
+    tempo: { name: 'tempoSeconds', label: 'Tempo (s)', hintKey: 'builder.misc.tempoSecondsHint', min: 0, max: 4, step: 1 },
+    reflexes: { name: 'reflexesSeconds', label: 'Reflexes (s)', hintKey: 'builder.misc.reflexesSecondsHint', min: 0, max: 1, step: 0.1 },
+};
+const DEFAULT_STACK_INPUTS = { scorchStacks: '15', staminaStacks: '4', tempoSeconds: '4', reflexesSeconds: '0' };
+// The inputs (and the form fields) are keyed by state name, the definition map
+// by situational, so the caps are looked up by state name.
+const STACK_INPUT_BY_STATE = Object.fromEntries(Object.values(STACK_INPUTS).map((input) => [input.name, input]));
+
+function skillStackMax(entry, level, charmTotals) {
+    const base = level >= 2 && entry.stacks.maxLv2 !== undefined ? entry.stacks.maxLv2 : entry.stacks.max;
+    const key = entry.charmMaxStats && entry.charmMaxStats.max;
+    const charmMax = key ? Number(charmTotals && charmTotals[key] && charmTotals[key].value) || 0 : 0;
+    return base + charmMax;
+}
+
+function formatSkillCalcEffects(stats) {
+    const lines = [];
+    const value = (raw) => (Number(raw) ? String(Number(Number(raw).toFixed(2))) : '');
+    const pct = (raw, label) => {
+        const shown = value(raw);
+        if (shown) lines.push(`${Number(raw) > 0 ? '+' : ''}${shown}% ${label}`);
+    };
+    const flat = (raw, label) => {
+        const shown = value(raw);
+        if (shown) lines.push(`${Number(raw) > 0 ? '+' : ''}${shown} ${label}`);
+    };
+    pct(stats.allDamagePercent, 'Damage');
+    pct(stats.meleeDamagePercent, 'Melee Damage');
+    pct(stats.projectileDamagePercent, 'Projectile Damage');
+    pct(stats.magicDamagePercent, 'Magic Damage');
+    pct(stats.classAllDamagePercent, 'Class Damage');
+    pct(stats.speedPercent, 'Speed');
+    pct(stats.attackSpeedPercent, 'Attack Speed');
+    pct(stats.resistancePercent, 'Resistance');
+    pct(stats.ailmentResistancePercent, 'Ailment Resistance');
+    pct(stats.knockbackPercent, 'Knockback Resistance');
+    pct(stats.healingPercent, 'Healing');
+    pct(stats.healthPercent, 'Max Health');
+    pct(stats.toughnessHealthPercent, 'Max Health (Toughness)');
+    pct(stats.toughnessHealingPercent, 'Healing (Toughness)');
+    pct(stats.frenzySpeedPercent, 'Speed (Frenzy)');
+    pct(stats.frenzyBonusDamagePercent, 'Melee Damage (Frenzy)');
+    pct(stats.weaponMasterySpeedPercent, 'Speed (Weapon Mastery)');
+    flat(stats.flatMeleeDamage, 'Melee Damage');
+    flat(stats.critFlatDamage, 'Critical Damage');
+    return lines.join(', ');
+}
+
+function skillCalcTooltipText(entry, resolved, { level, enhanced, simple }) {
+    const lines = [`${entry.label} (Lv ${level}${enhanced ? ', Enhanced' : ''})`];
+    if (entry.condition) lines.push(`Condition: ${entry.condition}`);
+    if (entry.summary) {
+        lines.push(`Applies: ${entry.summary}`);
+    } else {
+        const applies = formatSkillCalcEffects(resolved.stats);
+        if (applies) lines.push(`Applies: ${applies}`);
+    }
+    if (resolved.stacks) {
+        const per = formatSkillCalcEffects(resolved.stacks.perStack);
+        if (per) lines.push(`Per stack: ${per}`);
+        lines.push(`Stacks: ${entry.stacks.label} (0–${resolved.stacks.max})`);
+    }
+    if (simple) {
+        lines.push('');
+        lines.push(simple);
+    }
+    return lines.join('\n');
+}
 
 // The stats normal (basic) infusions feed, in display order, and the shared
 // budget for both entry paths (6 items x level IV).
@@ -469,6 +633,7 @@ function getRelevantItems(types, itemData, favourites = new Set()) {
 const STATS_CACHE_MAX = 8;
 const statsCache = new Map(); // signature -> { itemData, stats }
 function recalcBuild(data, itemData) {
+    const skillEffects = aggregateSkillEffects(skillCalcState.entries, data);
     const signature = JSON.stringify({
         region: data.region ?? null,
         items: [
@@ -483,6 +648,14 @@ function recalcBuild(data, itemData) {
             (slot) => data[`delveInfusion-${slot}`] ?? null
         ),
         revelation: data.revelation ?? null,
+        // Stack/uptime situationals (Scorch/Stamina stacks, Tempo and Reflexes
+        // seconds) are calculation inputs like any other.
+        stackSituationals: [
+            data.scorchStacks ?? null,
+            data.staminaStacks ?? null,
+            data.tempoSeconds ?? null,
+            data.reflexesSeconds ?? null,
+        ],
         // The delve/basic infusion toggles only decide whether the picks
         // count, so they are part of the calculation's inputs too.
         delveEnabled: data.delveEnabled ?? null,
@@ -498,6 +671,10 @@ function recalcBuild(data, itemData) {
         // Understanding's amplifier is applied per item, so the counts are
         // part of the calculation's inputs.
         counts: data.basicInfusionCounts ?? null,
+        // Selected potion/food buffs (preview-only, see potionEffects.js).
+        potions: data.potions ?? null,
+        // Enabled skill/spec calculations for the current class/spec.
+        sk: skillEffects,
         eb: enabledBoxes,
         es: extraStats,
         eca: enabledClassAbilityBuffs,
@@ -508,7 +685,14 @@ function recalcBuild(data, itemData) {
         statsCache.set(signature, hit);
         return hit.stats;
     }
-    const tempStats = new Stats(itemData, data, enabledBoxes, extraStats, enabledClassAbilityBuffs);
+    const tempStats = new Stats(
+        itemData,
+        data,
+        enabledBoxes,
+        extraStats,
+        enabledClassAbilityBuffs,
+        mergeBuffEffects(computePotionEffects(data.potions, itemData), skillEffects)
+    );
     statsCache.set(signature, { itemData, stats: tempStats });
     if (statsCache.size > STATS_CACHE_MAX) {
         statsCache.delete(statsCache.keys().next().value);
@@ -612,18 +796,37 @@ function formatSituationalName(situ) {
     return ret;
 }
 
-function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, classAbilityContext) {
+function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, stackInputs, onStackChange, t) {
     let tempDef = [];
     let tempFlatDmg = [];
     let tempPercentDmg = [];
     let tempInfusions = [];
-    // Class-ability conditional toggles (e.g. Warrior's Frenzy): visible while
-    // the ability has points, ticked to count its triggered effect.
-    let tempClass = [];
+
+    // The chips whose effect depends on stacks/uptime carry a small number box
+    // beside their toggle (see STACK_INPUTS). Hovering the box shows that
+    // chip's hint, which says what the number means and how far it goes.
+    const stackBox = (situ) => {
+        const input = STACK_INPUTS[situ];
+        if (!input) return null;
+        return (
+            <input
+                type="number"
+                className={styles.stackInput}
+                name={input.name}
+                min={input.min}
+                max={input.max}
+                step={input.step}
+                value={stackInputs[input.name]}
+                onChange={(event) => onStackChange(input.name, event.target.value)}
+                aria-label={input.label}
+                title={t(input.hintKey)}
+            />
+        );
+    };
 
     situationalDefenses.forEach(function (situ) {
         if (!itemsToDisplay.situationals) return;
-        if (itemsToDisplay.situationals[situ].level) {
+        if (itemsToDisplay.situationals[situ]?.level) {
             tempDef.push(
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
@@ -631,14 +834,16 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                         enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
-                    />
+                    >
+                        {stackBox(situ)}
+                    </CheckboxWithLabel>
                 </div>
             );
         }
     });
     situationalFlatDamage.forEach(function (situ) {
         if (!itemsToDisplay.situationals) return;
-        if (itemsToDisplay.situationals[situ].level) {
+        if (itemsToDisplay.situationals[situ]?.level) {
             tempFlatDmg.push(
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
@@ -653,7 +858,7 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
     });
     situationalPercentDamage.forEach(function (situ) {
         if (!itemsToDisplay.situationals) return;
-        if (itemsToDisplay.situationals[situ].level) {
+        if (itemsToDisplay.situationals[situ]?.level) {
             tempPercentDmg.push(
                 <div className="col-auto" key={'situationalbox-' + situ}>
                     <CheckboxWithLabel
@@ -661,11 +866,29 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
                         enchantName={situ}
                         checked={enabledBoxes[situ]}
                         onChange={checkboxChanged}
-                    />
+                    >
+                        {stackBox(situ)}
+                    </CheckboxWithLabel>
                 </div>
             );
         }
     });
+    // Scorch scales every Inferno damage tick, so it is offered whenever the
+    // build has Inferno - not on a Scorch stat, which no item carries yet.
+    if (itemsToDisplay.infernoDmgPerTick) {
+        tempPercentDmg.push(
+            <div className="col-auto" key="situationalbox-scorch">
+                <CheckboxWithLabel
+                    name={formatSituationalName('scorch')}
+                    enchantName={'scorch'}
+                    checked={enabledBoxes.scorch}
+                    onChange={checkboxChanged}
+                >
+                    {stackBox('scorch')}
+                </CheckboxWithLabel>
+            </div>
+        );
+    }
     if (itemsToDisplay.retaliation) {
         ['normal', 'elite', 'boss'].forEach((type) => {
             tempPercentDmg.push(
@@ -701,37 +924,6 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
             );
         });
     }
-    // Warrior Frenzy: on-kill attack-speed buff. Only counts while the box is
-    // ticked (its magnitude depends on the Frenzy skill level); the skill's
-    // Enhancement (next-attack damage) has its own toggle.
-    if (classAbilityContext && classAbilityContext.frenzyLevel > 0) {
-        const frenzyLabel = classAbilityContext.frenzyLevel >= 2 ? 'Frenzy (Lv 2)' : 'Frenzy';
-        tempClass.push(
-            <div className="col-auto" key={'classabilitybox-frenzy'}>
-                <CheckboxWithLabel
-                    name={frenzyLabel}
-                    inputName="frenzy"
-                    enchantName="frenzy"
-                    checked={enabledBoxes.frenzy}
-                    onChange={checkboxChanged}
-                />
-            </div>
-        );
-        if (classAbilityContext.frenzyEnhanced) {
-            tempClass.push(
-                <div className="col-auto" key={'classabilitybox-frenzy-enhancement'}>
-                    <CheckboxWithLabel
-                        name="Frenzy (Enhancement)"
-                        inputName="frenzy_enhancement"
-                        enchantName="frenzy"
-                        checked={enabledBoxes.frenzy_enhancement}
-                        onChange={checkboxChanged}
-                    />
-                </div>
-            );
-        }
-    }
-
     let temp = [];
     temp.push(...tempDef);
     if (tempDef.length > 0 && tempFlatDmg.length > 0) {
@@ -746,10 +938,6 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         temp.push(<span key="spacer3" style={{ width: '10px', padding: '0px' }}></span>);
     }
     temp.push(...tempInfusions);
-    if (temp.length > 0 && tempClass.length > 0) {
-        temp.push(<span key="spacer-class" style={{ width: '10px', padding: '0px' }}></span>);
-    }
-    temp.push(...tempClass);
     if (temp.length == 0) {
         temp.push(
             <div className="col-auto" key="builder.info.noSituationals">
@@ -923,6 +1111,7 @@ export default function BuildForm({
     canEditNotes,
     buildId,
     revision,
+    revisionNotice,
     canPublicise,
     isPublic,
     isAnonymous,
@@ -940,6 +1129,15 @@ export default function BuildForm({
         { value: 'dd', label: t('builder.regions.darkestDepths') },
         { value: 'cz', label: t('builder.regions.celestialZenith') },
     ];
+    // Hover title for a stat row: the exact value the engine computed (the
+    // stats cache keeps it in fullValues) while the row renders the 2 dp one.
+    // Trimmed at 6 dp so floating-point noise (0.30000000000000004) stays out.
+    const statFullTitle = (identifier, type, value, percent) => {
+        const raw = itemsToDisplay.fullValues && itemsToDisplay.fullValues[type];
+        const full = raw === undefined ? Number(value) : Number(raw);
+        if (!Number.isFinite(full)) return undefined;
+        return `${t(identifier)}: ${Number(full.toFixed(6))}${percent ? '%' : ''}`;
+    };
     const [stats, setStats] = React.useState({});
     const [charms, setCharms] = React.useState([]);
     const { favouriteSet } = useItemFavourites();
@@ -948,6 +1146,14 @@ export default function BuildForm({
     const [skillsData, setSkillsData] = React.useState(null);
     const [skillPoints, setSkillPoints] = React.useState({});
     const [saveState, setSaveState] = React.useState(null); // 'saving' | 'copied' | 'error' | 'duplicate'
+    // Which copy button just put a link on the clipboard ('discord' | 'link'),
+    // so only that one shows "Copied" for a moment.
+    const [copyState, setCopyState] = React.useState(null);
+    const copyTimeoutRef = React.useRef(null);
+    // Set by "Copy to new build": the page is a replica detached from the saved
+    // row, so its first save must insert a new build rather than fold onto the
+    // identical row it was copied from.
+    const [replica, setReplica] = React.useState(false);
     const [savedAnonymous, setSavedAnonymous] = React.useState(false);
     // The DB row this build was opened from / saved to; edits update it in
     // place instead of spawning a new link.
@@ -956,6 +1162,7 @@ export default function BuildForm({
     // draft made against an older revision is ignored - opening a link always
     // shows the latest saved build, never locally cached older edits.
     const [buildRevision, setBuildRevision] = React.useState(Number(revision) || 1);
+    const [showRevisionNotice, setShowRevisionNotice] = React.useState(Boolean(revisionNotice));
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const [notesDraft, setNotesDraft] = React.useState(notes || '');
     const [notesSaveState, setNotesSaveState] = React.useState(null); // 'saving' | 'saved' | 'error'
@@ -976,6 +1183,8 @@ export default function BuildForm({
     // below runs after the restore's state updates have rendered).
     const currentSnapshotRef = React.useRef(null);
     const [statInputs, setStatInputs] = React.useState(DEFAULT_STAT_INPUTS);
+    const [stackInputs, setStackInputs] = React.useState(DEFAULT_STACK_INPUTS);
+    const [skillStackInputs, setSkillStackInputs] = React.useState({});
     const [regionValue, setRegionValue] = React.useState(3);
     const [regionSelectKey, setRegionSelectKey] = React.useState(0);
     const [enhancements, setEnhancements] = React.useState({}); // buff key -> true
@@ -1003,6 +1212,27 @@ export default function BuildForm({
     const DELVE_POINT_MAX_PER_SLOT = 4;
     const [delvePoints, setDelvePoints] = React.useState({});
     const [revelation, setRevelation] = React.useState(false);
+    // Potions/food picked for the stat preview (like the extra multipliers),
+    // kept per browser rather than in the build token. The picker clears after
+    // each add; the picks render as item cards below it. The toggle before the
+    // title turns the preview off without clearing the picks.
+    const [potions, setPotions] = React.useState([]);
+    const [potionsEnabled, setPotionsEnabledState] = React.useState(true);
+    React.useEffect(() => {
+        // Loaded after mount so the server render has no selection; the list
+        // and the enabled flag are applied by the restore calculation (which
+        // reads the stored preferences).
+        const stored = getBuilderPotions();
+        if (stored.length > 0) setPotions(stored);
+        setPotionsEnabledState(isBuilderPotionsEnabled());
+    }, []);
+
+    // Skill/spec calculation toggles: every calculation starts off and the row
+    // below the stat toggles stores the switched-on ones per browser. The ref
+    // is read by refreshClassBuffs, which runs before state updates flush.
+    const enabledSkillCalcsRef = React.useRef(null);
+    if (enabledSkillCalcsRef.current === null) enabledSkillCalcsRef.current = getEnabledSkillCalcs();
+    const [enabledSkillCalcs, setEnabledSkillCalcsState] = React.useState(enabledSkillCalcsRef.current);
     const [charmSelectKey, setCharmSelectKey] = React.useState(0);
     const [multiplierListKey, setMultiplierListKey] = React.useState(0);
     // The Extra Multipliers section is collapsed behind a toggle by default;
@@ -1017,6 +1247,23 @@ export default function BuildForm({
     // so an absolutely-positioned tooltip inside it would be clipped. This
     // one renders on document.body, always on top.
     const [tip, setTip] = React.useState(null); // { left, top, info }
+    // Stable react-select components/label renderers for the infusion selects
+    // (see makeInfusionOption / makeInfusionValueLabel). setTip is a stable
+    // setState, so these only rebuild if it ever changes.
+    const delveOptionComponent = React.useMemo(() => makeInfusionOption(DELVE_INFUSIONS, setTip), [setTip]);
+    const basicOptionComponent = React.useMemo(() => makeInfusionOption(BASIC_INFUSIONS, setTip), [setTip]);
+    const delveSelectComponents = React.useMemo(() => ({ Option: delveOptionComponent }), [delveOptionComponent]);
+    const basicSelectComponents = React.useMemo(() => ({ Option: basicOptionComponent }), [basicOptionComponent]);
+    const delveFormatLabel = React.useMemo(() => makeInfusionValueLabel(DELVE_INFUSIONS), []);
+    const basicFormatLabel = React.useMemo(() => makeInfusionValueLabel(BASIC_INFUSIONS), []);
+    const delveFormatOptionLabel = React.useCallback(
+        (opt, { context }) => (context === 'value' ? delveFormatLabel(opt) : opt.label),
+        [delveFormatLabel]
+    );
+    const basicFormatOptionLabel = React.useCallback(
+        (opt, { context }) => (context === 'value' ? basicFormatLabel(opt) : opt.label),
+        [basicFormatLabel]
+    );
     // Saved skill/delve sets modal ("copy skills from a build" + apply saved
     // sets); opened by the "Skill sets" button under the import bar.
     const [setsOpen, setSetsOpen] = React.useState(false);
@@ -1387,42 +1634,6 @@ export default function BuildForm({
             value: i.name,
             label: i.name,
         }));
-        // Menu options get a portal tooltip with the infusion's effect (the
-        // menu scrolls, so an in-menu tooltip would be clipped at its edges).
-        const InfusionOption = (props) => {
-            const info = DELVE_INFUSIONS.find((i) => i.name === props.data.value);
-            return (
-                <components.Option {...props}>
-                    <span
-                        className={styles.enchantTooltip}
-                        onMouseEnter={(e) => {
-                            if (!info || !info.effect) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
-                        }}
-                        onMouseLeave={() => setTip(null)}
-                    >
-                        {props.children}
-                    </span>
-                </components.Option>
-            );
-        };
-        // The selected value in the control shows the same info as a plain
-        // enchant-style tooltip (the control doesn't scroll, so no portal).
-        const formatValueLabel = (opt) => {
-            const info = DELVE_INFUSIONS.find((i) => i.name === opt.value);
-            return (
-                <span className={styles.enchantTooltip}>
-                    {opt.label}
-                    {info && info.effect && (
-                        <span className={styles.enchantTooltipText}>
-                            <span style={{ fontWeight: 600 }}>{info.name}</span>
-                            <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
-                        </span>
-                    )}
-                </span>
-            );
-        };
         // The level picker mirrors the basic infusion one: I-IV, one per slot.
         const levelOpts = BASIC_INFUSION_LEVEL_LABELS.slice(0, DELVE_POINT_MAX_PER_SLOT).map((label, i) => ({
             value: i + 1,
@@ -1442,12 +1653,11 @@ export default function BuildForm({
                     onChange={(opt) => delveChanged(slot, opt)}
                     onMenuClose={() => setTip(null)}
                     placeholder={t('builder.infusions.placeholder')}
-                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                    menuPosition="fixed"
+                    menuPosition="absolute"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
-                    components={{ Option: InfusionOption }}
-                    formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
+                    components={delveSelectComponents}
+                    formatOptionLabel={delveFormatOptionLabel}
                 />
                 {cur && (
                     <Select
@@ -1457,8 +1667,7 @@ export default function BuildForm({
                         options={levelOpts}
                         value={levelOpts.find((o) => o.value === currentLevel) || levelOpts[levelOpts.length - 1]}
                         onChange={(opt) => setDelvePoints((prev) => ({ ...prev, [slot]: opt.value }))}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
+                        menuPosition="absolute"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
                         aria-label={`${cur} ${t('builder.infusions.level')}`}
@@ -1690,40 +1899,6 @@ export default function BuildForm({
             value: i + 1,
             label,
         }));
-        // Menu options get a portal tooltip with the infusion's effect (the
-        // menu scrolls, so an in-menu tooltip would be clipped at its edges).
-        const InfusionOption = (props) => {
-            const info = BASIC_INFUSIONS.find((i) => i.name === props.data.value);
-            return (
-                <components.Option {...props}>
-                    <span
-                        className={styles.enchantTooltip}
-                        onMouseEnter={(e) => {
-                            if (!info || !info.effect) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setTip({ left: rect.left + rect.width / 2, top: rect.top - 6, info });
-                        }}
-                        onMouseLeave={() => setTip(null)}
-                    >
-                        {props.children}
-                    </span>
-                </components.Option>
-            );
-        };
-        const formatValueLabel = (opt) => {
-            const info = BASIC_INFUSIONS.find((i) => i.name === opt.value);
-            return (
-                <span className={styles.enchantTooltip}>
-                    {opt.label}
-                    {info && info.effect && (
-                        <span className={styles.enchantTooltipText}>
-                            <span style={{ fontWeight: 600 }}>{info.name}</span>
-                            <span style={{ display: 'block', marginTop: 3 }}>{info.effect}</span>
-                        </span>
-                    )}
-                </span>
-            );
-        };
         return (
             <div className={styles.delveSlotRow}>
                 <Select
@@ -1737,12 +1912,11 @@ export default function BuildForm({
                     onChange={(opt) => basicChanged(slot, opt)}
                     onMenuClose={() => setTip(null)}
                     placeholder={t('builder.infusions.placeholder')}
-                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                    menuPosition="fixed"
+                    menuPosition="absolute"
                     theme={infusionSelectTheme}
                     styles={infusionSelectStyles}
-                    components={{ Option: InfusionOption }}
-                    formatOptionLabel={(opt, { context }) => (context === 'value' ? formatValueLabel(opt) : opt.label)}
+                    components={basicSelectComponents}
+                    formatOptionLabel={basicFormatOptionLabel}
                 />
                 {cur && (
                     <Select
@@ -1752,8 +1926,7 @@ export default function BuildForm({
                         options={levelOpts}
                         value={levelOpts.find((o) => o.value === cur.level) || levelOpts[levelOpts.length - 1]}
                         onChange={(opt) => changeBasicLevel(slot, opt.value)}
-                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                        menuPosition="fixed"
+                        menuPosition="absolute"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
                         aria-label={`${cur.name} ${t('builder.infusions.level')}`}
@@ -1832,6 +2005,13 @@ export default function BuildForm({
         if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
         setResetConfirm(false);
         resetForm();
+        // Reset only clears the page: a saved build is left exactly as it is,
+        // and the address bar moves off its link so a reload cannot reopen it.
+        setOwnsBuild(false);
+        setPublicState({ isPublic: false, anonymous: false });
+        setReplica(false);
+        savedSnapshotRef.current = null;
+        window.history.replaceState(null, '', getStsBase() + '/builder');
     }
 
     // Memoized: returning a fresh [] on every render made every memo that
@@ -1849,11 +2029,40 @@ export default function BuildForm({
         return (cls?.specs || []).map((s) => ({ value: s.specName, label: s.specName }));
     }, [skillsData, gameClass]);
 
+    // Hover descriptions for the class and spec selectors, mirroring the
+    // styled tooltips used by the builder's other controls.
+    const classPassiveTooltip = React.useMemo(() => {
+        if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none') return null;
+        const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
+        const passive = cls && cls.classPassive;
+        return passive ? cleanDescription((passive.descriptions || []).join('\n')) : null;
+    }, [skillsData, gameClass]);
+
+    const specPassiveTooltip = React.useMemo(() => {
+        if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return null;
+        const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
+        const specData = cls?.specs?.find((s) => s.specName == spec);
+        return specData?.specPassive ? cleanDescription((specData.specPassive.descriptions || []).join('\n')) : null;
+    }, [skillsData, gameClass, spec]);
+
     const currentSpecSkills = React.useMemo(() => {
         if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return [];
         const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
         const specData = cls?.specs?.find((s) => s.specName == spec);
         return specData ? specData.specSkills || [] : [];
+    }, [skillsData, gameClass, spec]);
+
+    const specPassiveInfo = React.useMemo(() => {
+        if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return null;
+        const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
+        const specData = cls?.specs?.find((s) => s.specName == spec);
+        const passive = specData?.specPassive;
+        if (!passive) return null;
+        return {
+            name: passive.name || passive.displayName || spec,
+            description: cleanDescription((passive.descriptions || []).join('\n')),
+            entry: skillCalcEntries(gameClass, spec).find((entry) => entry.passive) || null,
+        };
     }, [skillsData, gameClass, spec]);
 
     // Stable name lists for the charm selector: it memoizes its option list
@@ -1865,7 +2074,17 @@ export default function BuildForm({
 
     // Rebuild the class-ability buff flags from skill points, spec skill
     // points, and the enhancement checkboxes. The stat engine reads these.
-    function refreshClassBuffs(nextSkillPoints, nextSpecPoints, nextEnhancements) {
+    // Also recomputes the experimental skill/spec calculation effects for the
+    // class/spec being applied (callers changing them pass the new value, since
+    // the state setters have not re-rendered yet).
+    function refreshClassBuffs(
+        nextSkillPoints,
+        nextSpecPoints,
+        nextEnhancements,
+        nextClass = gameClass,
+        nextSpec = spec,
+        nextCharmNames = null
+    ) {
         Object.keys(enabledClassAbilityBuffs).forEach((key) => {
             enabledClassAbilityBuffs[key] = false;
         });
@@ -1891,6 +2110,30 @@ export default function BuildForm({
                 enabledClassAbilityBuffs[`${buffKey}_enhancement`] = true;
             }
         }
+
+        // Skill/spec calculation toggles: every calculation is opt-in. Entries
+        // the stat engine already models keep their buff flags only while their
+        // toggle is on; the rest contribute the computed effect object below.
+        const enabled = enabledSkillCalcsRef.current || [];
+        for (const entry of skillCalcEntries(nextClass, nextSpec)) {
+            if (!entry.flagPrefix || enabled.includes(entry.id)) continue;
+            for (const key of Object.keys(enabledClassAbilityBuffs)) {
+                if (key === entry.flagPrefix || key.startsWith(`${entry.flagPrefix}_`)) {
+                    enabledClassAbilityBuffs[key] = false;
+                }
+            }
+        }
+        const charmNames = nextCharmNames || charms.map((charm) => charm.name);
+        const charmTotals = itemData ? computeCharmTotals(itemData, charmNames) : {};
+        skillCalcState.entries = buildSkillCalcEntries({
+            gameClass: nextClass,
+            spec: nextSpec,
+            skillPoints: nextSkillPoints,
+            specSkillPoints: nextSpecPoints,
+            enhancements: nextEnhancements,
+            enabled,
+            charmTotals,
+        });
     }
 
     function recalcBuildStats(statOverrides) {
@@ -1963,7 +2206,7 @@ export default function BuildForm({
         const specName = newValue ? newValue.value : null;
         setSpec(specName);
         setSpecSkillPoints({});
-        refreshClassBuffs(skillPoints, {}, enhancements);
+        refreshClassBuffs(skillPoints, {}, enhancements, gameClass, specName);
         recalcBuildStats();
     }
 
@@ -2097,7 +2340,20 @@ export default function BuildForm({
         const params = new URLSearchParams(decoded);
         params.delete('name');
         params.delete('health');
-        return params.toString();
+        // Spec skill points live under `ssk`; older saved tokens also listed
+        // them under `sk`, so drop the duplicates (the form only writes `ssk`).
+        const sk = params.get('sk');
+        const ssk = params.get('ssk');
+        if (sk && ssk) {
+            const specIds = new Set(ssk.split(',').map((entry) => entry.split(':')[0]));
+            const classEntries = sk.split(',').filter((entry) => !specIds.has(entry.split(':')[0]));
+            if (classEntries.length > 0) params.set('sk', classEntries.join(','));
+            else params.delete('sk');
+        }
+        // Canonical key order: saved tokens were written in different orders
+        // over time, which must not read as an edit.
+        const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b));
+        return new URLSearchParams(entries).toString();
     }
 
     function currentBuildSnapshot() {
@@ -2150,25 +2406,85 @@ export default function BuildForm({
         return JSON.stringify(currentBuildSnapshot()) !== JSON.stringify(savedBuildSnapshot());
     }
 
-    function saveBuildToServer(forking = false) {
+    // "Unsaved" means there is nothing saved yet, or the form no longer matches
+    // the build it was opened from. The save button and both copy buttons read
+    // this, so they always agree on which state the page is in.
+    function hasUnsavedEdits() {
+        return !activeBuildId || buildDiffersFromSaved();
+    }
+
+    // Link to the saved build at its current revision.
+    function shareLink() {
+        const version = getBuildTokenVersion(makeBuildString()) ?? '';
+        return window.location.origin + getStsBase() + `/b/v${version}/${activeBuildId}?v=${buildRevision}`;
+    }
+
+    // Name shown for the link in the Discord message.
+    function discordLinkLabel() {
+        const classLabel = gameClass != 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : null;
+        const regionLabel =
+            czOpen && regionValue === 2
+                ? t('builder.regions.darkestDepths')
+                : czOpen && regionValue === 3
+                  ? t('builder.regions.celestialZenith')
+                  : `R${regionValue}`;
+        return buildNameRef.current && buildNameRef.current != 'Monumenta Builder'
+            ? buildNameRef.current
+            : classLabel
+              ? `${regionLabel} ${spec || classLabel} ${t('builder.misc.build')}`
+              : 'Monumenta Builder';
+    }
+
+    // Momentary "Copied" on the button that was used.
+    function flashCopied(which) {
+        setCopyState(which);
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = setTimeout(() => setCopyState(null), 3000);
+    }
+
+    function copyToClipboard(text, which) {
+        if (!navigator.clipboard) {
+            window.alert(t('builder.errors.clipboardCopyFailed'));
+            return;
+        }
+        navigator.clipboard.writeText(text).then(
+            () => flashCopied(which),
+            () => window.alert(t('builder.errors.clipboardCopyFailed'))
+        );
+    }
+
+    // Break the link to the saved build: the page becomes an unsaved replica, so
+    // saving creates a new build and the original is left exactly as it was. The
+    // address bar moves off the saved link too, so a reload cannot reopen it.
+    function detachFromSaved() {
+        setShowRevisionNotice(false);
+        setActiveBuildId(null);
+        setBuildRevision(1);
+        setOwnsBuild(false);
+        setPublicState({ isPublic: false, anonymous: false });
+        setReplica(true);
+        savedSnapshotRef.current = null;
+        window.history.replaceState(null, '', getStsBase() + '/builder');
+    }
+
+    // `forking` saves onto a new row instead of the one that was loaded (used
+    // when this build isn't ours, or when the edits must not overwrite it).
+    // `asCopy` is the explicit "Save as new copy" button: the server is told to
+    // always create a fresh row and to number the name when the account
+    // already uses it, instead of folding the save onto an identical build.
+    function saveBuildToServer(forking = false, asCopy = false, attach = true) {
         const token = makeBuildString();
         const tokenVersion = getBuildTokenVersion(token) ?? '';
         // Someone else's saved build: an unchanged copy shares the original
         // link, so the embed credits the build's author. Once the form differs
-        // from what was loaded, the edits must fork onto a new link or they
-        // would never be shareable. Saving the current edits as a copy is what
-        // "Save as new copy" does too.
-        if (activeBuildId && !forking && !ownsBuild) {
-            if (buildDiffersFromSaved()) return saveBuildToServer(true);
+        // from what was loaded, try updating in place first - the creator
+        // cookie of an anonymous build authorizes that - and fork on a 403
+        // (which is what happens for someone else's build).
+        if (activeBuildId && !forking && !ownsBuild && !buildDiffersFromSaved()) {
             const storedVersion = getBuildTokenVersion(build) ?? tokenVersion;
             const link =
                 window.location.origin + getStsBase() + `/b/v${storedVersion}/${activeBuildId}` + `?v=${buildRevision}`;
-            setSaveState('copied');
             setSavedAnonymous(false);
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(link).catch(() => {});
-            }
-            setTimeout(() => setSaveState(null), 4000);
             return Promise.resolve(link);
         }
         const payload = {
@@ -2178,6 +2494,9 @@ export default function BuildForm({
             revelation,
             name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
             notes: notesDraft.trim() ? notesDraft : null,
+            // Ask for a fresh row even though this state already has one (the
+            // build being copied): the name comes back numbered if needed.
+            ...(asCopy ? { copy: true } : {}),
         };
         // Signed-in users can publicise / post anonymously straight from the
         // save button; the flags ride along with the save.
@@ -2189,8 +2508,9 @@ export default function BuildForm({
         let duplicateHit = false;
 
         // The account's own build is updated in place; an explicit fork (or an
-        // unsaved build) POSTs a fresh snapshot link instead.
-        if (activeBuildId && !forking && loggedIn) {
+        // unsaved build) POSTs a fresh snapshot link instead. Anonymous builds
+        // are authorized by the creator cookie; a 403 forks (see above).
+        if (activeBuildId && !forking) {
             setSaveState('saving');
             setSavedAnonymous(false);
             return fetch(`/api/v2/builds/${activeBuildId}`, {
@@ -2207,7 +2527,7 @@ export default function BuildForm({
                     // 403 = this build belongs to someone else (or an
                     // anonymous build we didn't create): fork it into a new
                     // build instead of overwriting theirs.
-                    if (r.status === 403) return saveBuildToServer(true);
+                    if (r.status === 403) return saveBuildToServer(true, false, attach);
                     if (r.status === 400) {
                         const data = await r.json().catch(() => null);
                         if (data && data.error === 'profanity') {
@@ -2228,40 +2548,39 @@ export default function BuildForm({
                 })
                 .then((result) => {
                     if (typeof result === 'string') return result; // fork already completed
-                    // The row got saved to (or claimed onto) the signed-in
-                    // account: reveal the publicise/anonymity options.
-                    if (result.savedToAccount) setOwnsBuild(true);
-                    // The server may have appended " (2)" to a duplicate name.
-                    if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
-                    // Re-baseline: the next Copy/Save compares against this
-                    // save, not against the state the page was loaded with.
-                    savedSnapshotRef.current = currentBuildSnapshot();
-                    // Track the new revision so the draft saved next belongs to
-                    // the row's current revision (older drafts are ignored).
-                    if (result.version) setBuildRevision(result.version);
-                    // The server returns the build's revision (?v=), which
-                    // only changes when the build is updated.
                     const link =
                         window.location.origin +
                         getStsBase() +
                         `/b/v${tokenVersion}/${activeBuildId}` +
                         (result.version ? `?v=${result.version}` : '');
-                    // Reflect the new revision in the address bar too, so a
-                    // reload or a link copied from it serves the updated embed
-                    // instead of the cached one.
-                    window.history.replaceState(
-                        null,
-                        '',
-                        getStsBase() +
-                            `/b/v${tokenVersion}/${activeBuildId}` +
-                            (result.version ? `?v=${result.version}` : '')
-                    );
-                    setSaveState('copied');
-                    setSavedAnonymous(false);
-                    if (navigator.clipboard) {
-                        navigator.clipboard.writeText(link).catch(() => {});
+                    if (attach) {
+                        setShowRevisionNotice(false);
+                        // The row got saved to (or claimed onto) the signed-in
+                        // account: reveal the publicise/anonymity options.
+                        if (result.savedToAccount) setOwnsBuild(true);
+                        // The server may have appended " (2)" to a duplicate name.
+                        if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
+                        // Re-baseline: the next Copy/Save compares against this
+                        // save, not against the state the page was loaded with.
+                        savedSnapshotRef.current = currentBuildSnapshot();
+                        // Track the new revision so the draft saved next belongs
+                        // to the row's current revision (older drafts are ignored).
+                        if (result.version) setBuildRevision(result.version);
+                        // Reflect the new revision in the address bar too, so a
+                        // reload or a link copied from it serves the updated embed
+                        // instead of the cached one.
+                        window.history.replaceState(
+                            null,
+                            '',
+                            getStsBase() +
+                                `/b/v${tokenVersion}/${activeBuildId}` +
+                                (result.version ? `?v=${result.version}` : '')
+                        );
+                        setSavedAnonymous(false);
                     }
-                    setTimeout(() => setSaveState(null), 4000);
+                    // The save button's label follows hasUnsavedEdits(), which is
+                    // false again now - it reads "Saved" on its own.
+                    setSaveState(null);
                     return link;
                 })
                 .catch(() => {
@@ -2303,32 +2622,35 @@ export default function BuildForm({
                 // The server returns the build's revision (?v=), which only
                 // changes when the build is updated.
                 const link = window.location.origin + getStsBase() + d.url + (d.version ? `?v=${d.version}` : '');
-                // Remember the row so later edits update it instead of forking.
-                setActiveBuildId(d.id);
-                if (d.version) setBuildRevision(d.version);
-                if (d.savedToAccount) setOwnsBuild(true);
-                // The server may have appended " (2)" to a duplicate name.
-                if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
-                // Re-baseline: the next Copy/Save compares against this save,
-                // not against the state the page was loaded with.
-                savedSnapshotRef.current = currentBuildSnapshot();
-                // Move the address bar onto the build itself: a reload (or
-                // sharing the tab) keeps you on the saved build. replaceState,
-                // not pushState, so Back doesn't return to the blank builder.
-                // The revision (?v=) rides along so the embed serves the fresh
-                // image instead of a cached older one.
-                window.history.replaceState(null, '', getStsBase() + d.url + (d.version ? `?v=${d.version}` : ''));
-                setSaveState('copied');
-                if (d.savedToAccount) {
-                    setSavedAnonymous(false);
-                } else {
-                    setSavedAnonymous(true);
-                    setTimeout(() => setSavedAnonymous(false), 7000);
+                if (attach) {
+                    setShowRevisionNotice(false);
+                    // Remember the row so later edits update it instead of forking.
+                    setActiveBuildId(d.id);
+                    if (d.version) setBuildRevision(d.version);
+                    if (d.savedToAccount) setOwnsBuild(true);
+                    // The replica got its own build; from here on it is that build.
+                    setReplica(false);
+                    // The server may have appended " (2)" to a duplicate name.
+                    if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
+                    // Re-baseline: the next Copy/Save compares against this save,
+                    // not against the state the page was loaded with.
+                    savedSnapshotRef.current = currentBuildSnapshot();
+                    // Move the address bar onto the build itself: a reload (or
+                    // sharing the tab) keeps you on the saved build. replaceState,
+                    // not pushState, so Back doesn't return to the blank builder.
+                    // The revision (?v=) rides along so the embed serves the fresh
+                    // image instead of a cached older one.
+                    window.history.replaceState(null, '', getStsBase() + d.url + (d.version ? `?v=${d.version}` : ''));
+                    if (d.savedToAccount) {
+                        setSavedAnonymous(false);
+                    } else {
+                        setSavedAnonymous(true);
+                        setTimeout(() => setSavedAnonymous(false), 7000);
+                    }
                 }
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(link).catch(() => {});
-                }
-                setTimeout(() => setSaveState(null), 4000);
+                // The save button's label follows hasUnsavedEdits(), which is
+                // false again now - it reads "Saved" on its own.
+                setSaveState(null);
                 return link;
             })
             .catch(() => {
@@ -2340,42 +2662,39 @@ export default function BuildForm({
             });
     }
 
-    function copyBuildDiscord(event) {
-        saveBuildToServer()
+    // Copy actions always hand out a real revision link. A saved, unchanged
+    // build reuses its existing link; anything else saves a revision first but
+    // does not attach it as the builder's current build (so the page stays
+    // unsaved and the Save button still persists it later).
+    function linkForCopy() {
+        if (activeBuildId && !hasUnsavedEdits()) return Promise.resolve(shareLink());
+        return saveBuildToServer(false, false, false);
+    }
+
+    // Discord renders markdown, so the link goes out as its label.
+    function copyBuildDiscord() {
+        linkForCopy()
             .then((link) => {
-                event.target.value = t('common.copied');
-                event.target.classList.add('fw-bold');
-                setTimeout(() => {
-                    event.target.value = t('builder.buttons.copyLinkForDiscord');
-                    event.target.classList.remove('fw-bold');
-                }, 3000);
-                if (!navigator.clipboard) {
-                    window.alert(t('builder.errors.clipboardCopyFailed'));
-                    return;
-                }
-                const classLabel = gameClass != 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : null;
-                const regionLabel =
-                    czOpen && regionValue === 2
-                        ? t('builder.regions.darkestDepths')
-                        : czOpen && regionValue === 3
-                          ? t('builder.regions.celestialZenith')
-                          : `R${regionValue}`;
-                const tempBuildName =
-                    buildNameRef.current && buildNameRef.current != 'Monumenta Builder'
-                        ? buildNameRef.current
-                        : classLabel
-                          ? `${regionLabel} ${spec || classLabel} ${t('builder.misc.build')}`
-                          : 'Monumenta Builder';
-                navigator.clipboard.writeText(`[${tempBuildName}](${link})`).then(
-                    function () {
-                        console.log('Copying to clipboard was successful!');
-                    },
-                    function (err) {
-                        console.error('Could not copy text: ', err);
-                    }
-                );
+                if (link) copyToClipboard(`[${discordLinkLabel()}](${link})`, 'discord');
             })
             .catch(() => {});
+    }
+
+    // The plain link, for anywhere else.
+    function copyShareLink() {
+        linkForCopy()
+            .then((link) => {
+                if (link) copyToClipboard(link, 'link');
+            })
+            .catch(() => {});
+    }
+
+    // "Copy to new build": detach the page from the saved row it came from. Its
+    // next save inserts a new build (see detachFromSaved), so this is the way to
+    // duplicate a build without touching the original.
+    function copyToNewBuild() {
+        detachFromSaved();
+        setSaveState(null);
     }
 
     function saveNotes() {
@@ -2480,9 +2799,15 @@ export default function BuildForm({
         if (!loadToken) {
             // Fresh builder (no build link, no draft): compute the empty build's
             // base stats right away so the stat cards are populated before any
-            // edit instead of showing empty cards.
+            // edit instead of showing empty cards. Potions are a browser
+            // preference, so they come from storage rather than the form, and
+            // any skill calculations from a previous build are cleared.
+            skillCalcState.entries = [];
             applyStatsUpdateNow(
-                Object.fromEntries(new FormData(formRef.current).entries()),
+                {
+                    ...Object.fromEntries(new FormData(formRef.current).entries()),
+                    potions: builderPotionsValue(),
+                },
                 itemData,
                 setStats,
                 update
@@ -2514,6 +2839,7 @@ export default function BuildForm({
                 label: removeMasterworkFromName(itemNames[type]),
             });
         });
+        let loadedCharmNames = null;
         let charmString = buildParts.find((str) => str.includes('charm='));
         if (charmString) {
             // decodeURIComponent: decodeURI leaves %2C (comma) encoded since it's a reserved char
@@ -2529,6 +2855,7 @@ export default function BuildForm({
                 }
             });
 
+            loadedCharmNames = cappedList;
             setCharms(cappedList.map((name) => itemData[name]));
         }
 
@@ -2629,7 +2956,14 @@ export default function BuildForm({
             setSpecSkillPoints(loadedSpecPoints);
         }
 
-        refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements);
+        refreshClassBuffs(
+            loadedSkillPoints,
+            loadedSpecPoints,
+            loadedEnhancements,
+            loadedClass,
+            loadedSpec,
+            loadedCharmNames
+        );
         // extra stat inputs (health/tenacity/vitality/vigor/focus/perspicacity/region)
         const statValues = {};
         for (const key of STAT_KEYS) {
@@ -2694,11 +3028,15 @@ export default function BuildForm({
             effSavedState && effSavedState.globalInfusions && typeof effSavedState.globalInfusions === 'object'
                 ? effSavedState.globalInfusions
                 : null;
+        // Saved states that carry no per-slot picks at all (mod uploads and
+        // older rows) have nothing to derive the totals from, so fall back to
+        // the token totals instead of dropping them.
+        const hadBasicState = Object.keys(loadedBasic).length > 0;
         const wantedBasic = basicInfusionTotals(loadedBasic);
         for (const key of BASIC_INFUSION_STAT_KEYS) {
             // A saved state without the field predates the global boxes, so
             // its token totals were the per-slot sums (nothing extra to place).
-            const source = storedGlobals ? storedGlobals[key] : effSavedState ? 0 : statValues[key];
+            const source = storedGlobals ? storedGlobals[key] : hadBasicState ? 0 : statValues[key];
             const value = Math.max(0, Math.min(BASIC_INFUSION_LEVEL_CAP, Math.floor(Number(source) || 0)));
             if (value > 0) wantedBasic[key] = value;
         }
@@ -2746,6 +3084,8 @@ export default function BuildForm({
                 ...(Object.keys(delveEntries).length > 0 ? { delveEnabled: '1' } : {}),
                 ...(hasBasicInfusions ? { infusionsEnabled: '1' } : {}),
                 ...(loadedRevelation ? { revelation: '1' } : {}),
+                // Potions are a browser preference, not part of the build.
+                potions: builderPotionsValue(),
             },
             itemData,
             setStats,
@@ -2761,11 +3101,11 @@ export default function BuildForm({
             setCharms([]);
             setCzAbilities({});
             setCzOpen(false);
-            refreshClassBuffs({}, {}, {});
+            refreshClassBuffs({}, {}, {}, loadedClass, loadedSpec);
         } else if (loadedRegion < 3) {
             setEnhancements({});
             setCharms([]);
-            refreshClassBuffs(skillPoints, specSkillPoints, {});
+            refreshClassBuffs(skillPoints, specSkillPoints, {}, loadedClass, loadedSpec);
         }
         if (loadedRegion === 2) {
             const prismaticOnly = Object.keys(nextCz).filter((name) =>
@@ -2790,11 +3130,17 @@ export default function BuildForm({
     // or a shared-set import is unsaved content, so those keep the props
     // fallback (any save then forks); the baseline only decides whether
     // sharing an untouched other-user build can reuse its original link.
+    const [, bumpSaveBaseline] = React.useState(0);
     React.useLayoutEffect(() => {
         if (!parentLoaded || !build || effectiveDraft || sharedSet) return undefined;
         savedSnapshotRef.current = null;
         const timer = setTimeout(() => {
             if (currentSnapshotRef.current) savedSnapshotRef.current = currentSnapshotRef.current();
+            // The restore can normalise token-only state (basic infusions get
+            // placed onto items), so the labels/disabled state computed on the
+            // previous render may still claim the build is unsaved. Re-render
+            // once against the new baseline.
+            bumpSaveBaseline((value) => value + 1);
         }, 300);
         return () => clearTimeout(timer);
     }, [parentLoaded, build, effectiveDraft, sharedSet]);
@@ -3025,6 +3371,7 @@ export default function BuildForm({
     };
 
     function resetForm(event) {
+        setShowRevisionNotice(false);
         for (let ref in itemRefs) {
             itemRefs[ref].current.setValue({ value: 'None', label: 'None' });
         }
@@ -3033,7 +3380,7 @@ export default function BuildForm({
         setSpec(null);
         setSpecSkillPoints({});
         setEnhancements({});
-        refreshClassBuffs({}, {}, {});
+        refreshClassBuffs({}, {}, {}, 'none', null);
         setStatInputs(DEFAULT_STAT_INPUTS);
         setRegionValue(3);
         setRegionSelectKey((k) => k + 1);
@@ -3055,7 +3402,10 @@ export default function BuildForm({
             extraStats[key] = [];
         }
         setMultiplierListKey((k) => k + 1);
-        applyStatsUpdate(emptyBuild, itemData, setStats, update);
+        // Potions are a preview like the multipliers, so reset clears them too.
+        setPotions([]);
+        setBuilderPotions([]);
+        applyStatsUpdate({ ...emptyBuild, potions: '[]' }, itemData, setStats, update);
     }
 
     function receiveMasterworkUpdate(newActiveItem, itemType) {
@@ -3183,6 +3533,42 @@ export default function BuildForm({
         return encodeBuildParam(legacy);
     }
 
+    // Stack/uptime situational inputs (Scorch/Stamina stacks, Tempo/Reflexes
+    // seconds). The visible inputs carry their own `name`, so the value is
+    // already in the form; the state keeps it across recalcs, and the recalc is
+    // deferred one frame so it reads the updated DOM value.
+    //
+    // Values are capped as they are typed (the HTML max attribute does not stop
+    // typing): a stray 99 for a 15-stack chip would otherwise sit in the box
+    // while the maths quietly used 15. Partial input ("", "0.") passes through
+    // so decimals can still be typed.
+    function changeStackInput(name, value) {
+        const range = STACK_INPUT_BY_STATE[name];
+        let next = value;
+        if (range && value !== '' && !/[.,]$/.test(value)) {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) {
+                const capped = Math.min(range.max, Math.max(range.min, parsed));
+                if (capped !== parsed) next = String(capped);
+            }
+        }
+        setStackInputs((prev) => ({ ...prev, [name]: next }));
+        scheduleStatsRecalc();
+    }
+
+    function changeSkillStack(id, max, value) {
+        let next = value;
+        if (value !== '' && !/[.,]$/.test(value)) {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) {
+                const capped = Math.min(max, Math.max(0, parsed));
+                if (capped !== parsed) next = String(capped);
+            }
+        }
+        setSkillStackInputs((prev) => ({ ...prev, [id]: next }));
+        scheduleStatsRecalc();
+    }
+
     function checkboxChanged(event) {
         // Checkbox names come in lowercase, with words separated by spaces.
         // Replace every space so multi-word situationals (e.g. "curse of the
@@ -3236,6 +3622,102 @@ export default function BuildForm({
         multipliersChanged(newMultipliers, 'attackSpeedMultipliers');
     }
 
+    // --- Potions (stat preview only, stored per browser) ---
+    // Pickable consumables (potions, elixirs and buff food), in name order.
+    const potionNames = React.useMemo(() => {
+        if (!itemData) return [];
+        const names = [];
+        for (const key of Object.keys(itemData)) {
+            const item = itemData[key];
+            if (!item || item.type !== 'Consumable' || !Array.isArray(item.effects) || item.effects.length === 0)
+                continue;
+            names.push(key);
+        }
+        return names.sort((a, b) => String(itemData[a].name || a).localeCompare(String(itemData[b].name || b)));
+    }, [itemData]);
+    const selectedPotionItems = React.useMemo(
+        () => potions.map((name) => itemData && itemData[name]).filter(Boolean),
+        [potions, itemData]
+    );
+
+    // The picker is an "add" control: it clears after every pick, and the
+    // selected potions render as their own item cards (like charms).
+    function potionPicked(option) {
+        const name = option && option.value;
+        if (name && name !== 'None') addPotion(name);
+    }
+
+    function addPotion(name) {
+        if (!itemData || !itemData[name] || potions.includes(name)) return;
+        const next = [...potions, name];
+        setPotions(next);
+        setBuilderPotions(next);
+        // Apply right away: the hidden form field has not re-rendered yet.
+        recalcBuildStats({ potions: JSON.stringify(next) });
+    }
+
+    function removePotion(name) {
+        const next = potions.filter((potion) => potion !== name);
+        setPotions(next);
+        setBuilderPotions(next);
+        recalcBuildStats({ potions: JSON.stringify(next) });
+    }
+
+    // Turn the preview on/off without touching the picks; remembered per
+    // browser like the selection itself.
+    function togglePotionsEnabled(enabled) {
+        setPotionsEnabledState(enabled);
+        setBuilderPotionsEnabled(enabled);
+        recalcBuildStats({ potions: enabled ? JSON.stringify(potions) : '[]' });
+    }
+
+    // --- Experimental skill/spec calculations ---
+    // Entries for the row below the stat toggles: calculations for skills that
+    // have at least one point (and for the current spec's passives).
+    const skillCalcRow = React.useMemo(
+        () =>
+            skillCalcEntries(gameClass, spec)
+                .map((entry) => ({
+                    entry,
+                    learned: isSkillCalcLearned(entry, skillPoints, specSkillPoints),
+                }))
+                .filter(({ entry, learned }) => learned && !entry.passive),
+        [gameClass, spec, skillPoints, specSkillPoints]
+    );
+
+    function toggleSkillCalc(id) {
+        const current = enabledSkillCalcsRef.current || [];
+        const next = current.includes(id) ? current.filter((value) => value !== id) : [...current, id];
+        enabledSkillCalcsRef.current = next;
+        setEnabledSkillCalcsState(next);
+        setEnabledSkillCalcs(next);
+        refreshClassBuffs(skillPoints, specSkillPoints, enhancements);
+        recalcBuildStats();
+    }
+
+    // Ability descriptions appended to each calculation toggle's tooltip.
+    const skillCalcTooltips = React.useMemo(() => {
+        const map = new Map();
+        let passive = null;
+        if (!skillsData) return { map, passive };
+        const cls = (skillsData.classes || []).find(
+            (c) => (c.className || '').toLowerCase() === gameClass
+        );
+        if (!cls) return { map, passive };
+        const add = (skill) => {
+            const text =
+                skill.simpleDescription || cleanDescription((skill.descriptions || []).join('\n'));
+            if (text) map.set(skill.scoreboardId, text);
+        };
+        (cls.skills || []).forEach(add);
+        const specData = spec ? (cls.specs || []).find((s) => s.specName === spec) : null;
+        (specData?.specSkills || []).forEach(add);
+        if (specData?.specPassive) {
+            passive = cleanDescription((specData.specPassive.descriptions || []).join('\n')) || null;
+        }
+        return { map, passive };
+    }, [skillsData, gameClass, spec]);
+
     function updateCharms(charmNames) {
         // Dedupe by resolved key so a charm can never appear twice (the
         // selector add-entry guard also blocks it; this covers loaded lists).
@@ -3249,6 +3731,15 @@ export default function BuildForm({
             })
             .filter(Boolean);
         setCharms(charmData);
+        refreshClassBuffs(
+            skillPoints,
+            specSkillPoints,
+            enhancements,
+            gameClass,
+            spec,
+            charmData.map((charm) => charm.name)
+        );
+        recalcBuildStats();
     }
 
     // Drag-to-reorder the equipped charms. Charm order lives in the build
@@ -3307,9 +3798,35 @@ export default function BuildForm({
     // the equipped charms. Stat cards carry a CSS `order` (grid/flex order
     // property), so dragging swaps entries in statCardOrder and the layout
     // follows. The order is a per-session preference (it resets on load).
-    const STAT_CARD_KEYS = ['misc', 'health', 'dr', 'drhn', 'ehp', 'melee', 'projectile', 'magic'];
+    const STAT_CARD_KEYS = ['misc', 'health', 'dr', 'drhn', 'ehp', 'ehpr', 'melee', 'projectile', 'magic'];
+    // Card key -> title translation, for the show/hide toggle row.
+    const STAT_CARD_LABELS = {
+        misc: 'builder.statCategories.misc',
+        health: 'builder.statCategories.health',
+        dr: 'builder.statCategories.damageReduction',
+        drhn: 'builder.statCategories.damageReductionHealthNormalized',
+        ehp: 'builder.statCategories.effectiveHealth',
+        ehpr: 'builder.statCategories.effectiveHealthRegen',
+        melee: 'builder.statCategories.melee',
+        projectile: 'builder.statCategories.projectile',
+        magic: 'builder.statCategories.magic',
+    };
     const [statCardOrder, setStatCardOrder] = React.useState([...STAT_CARD_KEYS]);
+    // Hidden stat cards (per browser, all shown by default). Loaded after mount
+    // so the server render matches.
+    const [hiddenStatCards, setHiddenStatCards] = React.useState([]);
+    React.useEffect(() => {
+        setHiddenStatCards(getHiddenStatCardsPreference());
+    }, []);
     const statCardDragRef = React.useRef(null);
+
+    function toggleStatCardVisibility(key) {
+        const next = hiddenStatCards.includes(key)
+            ? hiddenStatCards.filter((hidden) => hidden !== key)
+            : [...hiddenStatCards, key];
+        setHiddenStatCards(next);
+        setHiddenStatCardsPreference(next);
+    }
 
     function startStatCardDrag(key, e) {
         if (e.dataTransfer) {
@@ -3350,7 +3867,12 @@ export default function BuildForm({
     }
 
     function statCardOrderStyle(key) {
-        return { order: statCardOrder.indexOf(key) };
+        return {
+            order: statCardOrder.indexOf(key),
+            // Hidden cards stay mounted (their stats keep updating) but are
+            // removed from the layout.
+            display: hiddenStatCards.includes(key) ? 'none' : undefined,
+        };
     }
 
     function itemChanged(newValue, actionMeta) {
@@ -3377,9 +3899,25 @@ export default function BuildForm({
         setSpec(null);
         setSpecSkillPoints({});
         setEnhancements({});
-        refreshClassBuffs({}, {}, {});
+        refreshClassBuffs({}, {}, {}, newClass, null);
         const itemNames = Object.fromEntries(new FormData(formRef.current).entries());
         applyStatsUpdate(itemNames, itemData, setStats, update);
+    }
+
+    // Fill the region, class and specialization from what is equipped: the
+    // region from the items' own region, the class and spec from the charms
+    // (their class_name, and the skills their stats belong to). Applied in
+    // this order because picking a region or class clears the spec. Anything
+    // it cannot work out is left alone.
+    function detectFromGear() {
+        const detected = detectBuild({
+            items: stats ? Object.values(stats.fullItemData || {}) : [],
+            charms,
+            skillsData,
+        });
+        if (detected.region) regionChanged({ value: detected.region });
+        if (detected.className) classChanged({ value: detected.className });
+        if (detected.specName) specChanged({ value: detected.specName });
     }
 
     const miscStats = [
@@ -3388,7 +3926,7 @@ export default function BuildForm({
         { type: 'speedPercent', name: 'builder.stats.misc.speed', percent: true },
         { type: 'knockbackRes', name: 'builder.stats.misc.kbResistance', percent: true },
         { type: 'thorns', name: 'builder.stats.misc.thorns', percent: false },
-        { type: 'fireTickDamage', name: 'builder.stats.misc.fireTickDamage', percent: false },
+        { type: 'infernoDmgPerTick', name: 'builder.stats.misc.infernoDmgPerTick', percent: false },
         { type: 'spellCooldownPercent', name: 'builder.stats.magic.spellCooldownPercent', percent: true },
     ];
     const healthStats = [
@@ -3427,6 +3965,16 @@ export default function BuildForm({
         { type: 'fireEHP', name: 'builder.stats.dr-ehp.fire', percent: false },
         { type: 'fallEHP', name: 'builder.stats.dr-ehp.fall', percent: false },
         { type: 'ailmentEHP', name: 'builder.stats.dr-ehp.ailment', percent: false },
+    ];
+
+    const EHPRStats = [
+        { type: 'meleeEHPR', name: 'builder.stats.dr-ehp.melee', percent: false },
+        { type: 'projectileEHPR', name: 'builder.stats.dr-ehp.projectile', percent: false },
+        { type: 'magicEHPR', name: 'builder.stats.dr-ehp.magic', percent: false },
+        { type: 'blastEHPR', name: 'builder.stats.dr-ehp.blast', percent: false },
+        { type: 'fireEHPR', name: 'builder.stats.dr-ehp.fire', percent: false },
+        { type: 'fallEHPR', name: 'builder.stats.dr-ehp.fall', percent: false },
+        { type: 'ailmentEHPR', name: 'builder.stats.dr-ehp.ailment', percent: false },
     ];
     const meleeStats = [
         { type: 'attackSpeedPercent', name: 'builder.stats.melee.attackSpeedPercent', percent: true },
@@ -3716,6 +4264,69 @@ export default function BuildForm({
         </>
     );
 
+    // Potion picker + the picked potions as full item cards (their effects are
+    // printed on the card, like the items page). The picker clears after each
+    // add; the × on a card removes it.
+    const potionsSection = (
+        <>
+            <div className="row mb-1">
+                <div className="col-12">
+                    <div className={`${charmSelectorStyles.listSelectorContainer} p-1`}>
+                        <p className={`${charmSelectorStyles.name} m-0 mb-1`}>
+                            <label className={styles.potionEnable}>
+                                <input
+                                    type="checkbox"
+                                    checked={potionsEnabled}
+                                    onChange={(e) => togglePotionsEnabled(e.target.checked)}
+                                    aria-label={t('builder.potions.enable')}
+                                />
+                            </label>
+                            <TranslatableText identifier="builder.potions.select"></TranslatableText>
+                            <span className={styles.experimentalBadge}>{t('items.changes.experimental')}</span>
+                        </p>
+                        <div className={`${charmSelectorStyles.listSelectorInputs} justify-content-center`}>
+                            {potionsEnabled && (
+                                <span className={charmSelectorStyles.entryInput}>
+                                    <SelectInput
+                                        name="potionPicker"
+                                        value={null}
+                                        onChange={potionPicked}
+                                        sortableStats={potionNames}
+                                    />
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {potionsEnabled && (
+                <>
+                    <div className="row justify-content-center mb-1">
+                        {selectedPotionItems.map((item) => (
+                            <div className={`col-auto ${styles.builderCol}`} key={item.name}>
+                                <div className={styles.charmCardWrap}>
+                                    <ConsumableTile item={item} />
+                                    <button
+                                        type="button"
+                                        className={styles.charmRemoveButton}
+                                        onClick={() => removePotion(item.name)}
+                                        aria-label={`${t('common.remove')} ${item.name}`}
+                                        title={t('builder.potions.remove')}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <p className={`${styles.potionNote} mb-1`}>
+                        <TranslatableText identifier="builder.potions.notSaved"></TranslatableText>
+                    </p>
+                </>
+            )}
+        </>
+    );
+
     // Collapsible charm stat summary (stays with the charm section).
     const charmStatsSection = (
         <>
@@ -3767,10 +4378,14 @@ export default function BuildForm({
                     identifier="builder.misc.situationals"
                     className="text-center mb-1"
                 ></TranslatableText>
-                {generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveOpen ? delveInfusions : null, {
-                    frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
-                    frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
-                })}
+                {generateSituationalCheckboxes(
+                    itemsToDisplay,
+                    checkboxChanged,
+                    delveOpen ? delveInfusions : null,
+                    stackInputs,
+                    changeStackInput,
+                    t
+                )}
             </div>
             <div className="d-flex justify-content-center flex-wrap align-items-start mb-1">
                 <HealthControls
@@ -3827,6 +4442,9 @@ export default function BuildForm({
                     name="basicInfusionCounts"
                     value={JSON.stringify(basicInfusionCounts(basicInfusions))}
                 />
+                {/* Selected potion/food buffs; the stat calculation and its
+                    cache signature read this like the other inputs. */}
+                <input type="hidden" name="potions" value={potionsEnabled ? JSON.stringify(potions) : '[]'} />
             </div>
             <div className="row pt-1">
                 <span className="text-center text-danger fs-2 fw-bold">
@@ -3846,6 +4464,7 @@ export default function BuildForm({
                     )}
                 </span>
             </div>
+            {potionsSection}
             <div className="row mb-1 justify-content-center">
                 <div className="col-auto">
                     <label className={`${styles.delveToggle} ${multipliersOpen ? styles.delveToggleActive : ''}`}>
@@ -3987,8 +4606,47 @@ export default function BuildForm({
         gameClass && gameClass !== 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : '';
     const regionClassSummary = [selectedRegionLabel, selectedClassLabel, spec].filter(Boolean).join(' · ');
 
+    const specPassiveChip = specPassiveInfo
+        ? (() => {
+              const entry = specPassiveInfo.entry;
+              const resolved = entry ? resolveSkillCalcEntry(entry, 1, false, charmTotals) : null;
+              const lines = [specPassiveInfo.name, t('builder.skillCalcs.passiveActive')];
+              if (entry && entry.condition) lines.push(`Condition: ${entry.condition}`);
+              if (resolved) {
+                  const applies = formatSkillCalcEffects(resolved.stats);
+                  if (applies) lines.push(`Applies: ${applies}`);
+                  if (resolved.stacks) {
+                      const per = formatSkillCalcEffects(resolved.stacks.perStack);
+                      if (per) lines.push(`Per stack: ${per}`);
+                      lines.push(`Stacks: ${entry.stacks.label} (0-${resolved.stacks.max})`);
+                  }
+              }
+              if (specPassiveInfo.description) {
+                  lines.push('');
+                  lines.push(specPassiveInfo.description);
+              }
+              return (
+                  <div className="col-auto" key={`spec-passive-${spec}`}>
+                      <span className={styles.enchantTooltip}>
+                          <span className={styles.skillCalcPassive}>{specPassiveInfo.name}</span>
+                          <span className={`${styles.enchantTooltipText} ${styles.skillCalcTooltip}`}>
+                              {lines.join('\n')}
+                          </span>
+                      </span>
+                  </div>
+              );
+          })()
+        : null;
+
     return (
         <form ref={formRef} onSubmit={sendUpdate} onReset={resetForm} id="buildForm">
+            {showRevisionNotice && revisionNotice && (
+                <RevisionNotice
+                    requested={revisionNotice.requested}
+                    current={revisionNotice.current}
+                    href={revisionNotice.href}
+                />
+            )}
             {showRedX && <img src="/images/redx.png" className={styles.redXOverlay} alt="" />}
             {/* Top row: region/class/spec + infusion toggles | title |
                 import/skill sets. On phones the two control clusters fold
@@ -4030,8 +4688,7 @@ export default function BuildForm({
                                                   ? { value: 3, label: t('builder.regions.celestialZenith') }
                                                   : regions.find((r) => r.value === regionValue)
                                         }
-                                        menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                        menuPosition="fixed"
+                                        menuPosition="absolute"
                                         theme={(theme) => ({
                                             ...theme,
                                             borderRadius: 0,
@@ -4079,8 +4736,7 @@ export default function BuildForm({
                                             }
                                             onChange={(opt) => setCzSelectedTree(opt.value)}
                                             isSearchable={false}
-                                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                            menuPosition="fixed"
+                                            menuPosition="absolute"
                                             theme={(theme) => ({
                                                 ...theme,
                                                 borderRadius: 0,
@@ -4115,25 +4771,30 @@ export default function BuildForm({
                                 </div>
                             ) : (
                                 <div>
-                                    <SelectInput
-                                        name="class"
-                                        floatingLabel={t('builder.misc.class')}
-                                        noneOption={true}
-                                        widthToOptions
-                                        sortableStats={classes}
-                                        value={
-                                            gameClass != 'none'
-                                                ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1)
-                                                : 'None'
-                                        }
-                                        onChange={classChanged}
-                                    />
+                                    <div className={styles.enchantTooltip}>
+                                        <SelectInput
+                                            name="class"
+                                            floatingLabel={t('builder.misc.class')}
+                                            noneOption={true}
+                                            widthToOptions
+                                            sortableStats={classes}
+                                            value={
+                                                gameClass != 'none'
+                                                    ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1)
+                                                    : 'None'
+                                            }
+                                            onChange={classChanged}
+                                        />
+                                        {classPassiveTooltip && (
+                                            <span className={styles.enchantTooltipText}>{classPassiveTooltip}</span>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                             {gameClass == 'none' || regionValue === 1 ? (
                                 ''
                             ) : (
-                                <div className="ms-3">
+                                <div className={`ms-3 ${styles.enchantTooltip}`}>
                                     <SelectInput
                                         name="spec"
                                         floatingLabel={t('database.filters.spec')}
@@ -4142,12 +4803,25 @@ export default function BuildForm({
                                         value={spec || 'None'}
                                         onChange={specChanged}
                                     />
+                                    {specPassiveTooltip && (
+                                        <span className={styles.enchantTooltipText}>{specPassiveTooltip}</span>
+                                    )}
                                 </div>
                             )}
+                            <div className="ms-3 d-flex align-items-center">
+                                <button
+                                    type="button"
+                                    className={styles.detectButton}
+                                    onClick={detectFromGear}
+                                    title={t('builder.misc.detectHint')}
+                                >
+                                    {t('builder.misc.detect')}
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div className={styles.builderToggles}>
-                        <label className={`${styles.delveToggle} ${delveOpen ? styles.delveToggleActive : ''} ms-3`}>
+                        <label className={`${styles.delveToggle} ${delveOpen ? styles.delveToggleActive : ''}`}>
                             <input
                                 type="checkbox"
                                 checked={delveOpen}
@@ -4162,7 +4836,7 @@ export default function BuildForm({
                             />
                             {t('builder.misc.delveInfusions')}
                         </label>
-                        <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''} ms-3`}>
+                        <label className={`${styles.delveToggle} ${basicOpen ? styles.delveToggleActive : ''}`}>
                             <input
                                 type="checkbox"
                                 checked={basicOpen}
@@ -4174,7 +4848,7 @@ export default function BuildForm({
                             />
                             {t('builder.misc.infusions')}
                         </label>
-                        <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''} ms-3`}>
+                        <label className={`${styles.delveToggle} ${revelation ? styles.delveToggleActive : ''}`}>
                             <input
                                 type="checkbox"
                                 name="revelation"
@@ -4315,7 +4989,6 @@ export default function BuildForm({
                                             <div
                                                 key={skill.scoreboardId}
                                                 className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}${over ? ` ${styles.skillDragOver}` : ''}`}
-                                                title={tooltip}
                                                 onDragOver={(e) =>
                                                     classOrderContainer &&
                                                     skillDragOver(
@@ -4353,46 +5026,64 @@ export default function BuildForm({
                                                         e.currentTarget.style.display = 'none';
                                                     }}
                                                 />
-                                                <span className={styles.skillName}>{skill.displayName}</span>
+                                                <span className={styles.skillName}>
+                                                    <span className={styles.enchantTooltip}>
+                                                        {skill.displayName}
+                                                        {tooltip && (
+                                                            <span className={styles.enchantTooltipText}>{tooltip}</span>
+                                                        )}
+                                                    </span>
+                                                </span>
                                                 <span className={styles.skillPoints}>
                                                     {points}/{maxPoints}
                                                 </span>
                                                 <div className={styles.skillChecks}>
-                                                    {Array.from({ length: maxPoints }).map((_, i) => (
-                                                        <input
-                                                            key={i}
-                                                            type="checkbox"
-                                                            checked={points > i}
-                                                            onChange={() => skillPointClicked(skill.scoreboardId, i)}
-                                                            aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
-                                                            title={[cleanDescription((skill.descriptions || [])[i])]
-                                                                .filter(Boolean)
-                                                                .join('\n\n')}
-                                                        />
-                                                    ))}
+                                                    {Array.from({ length: maxPoints }).map((_, i) => {
+                                                        const pointInfo = cleanDescription(
+                                                            (skill.descriptions || [])[i]
+                                                        );
+                                                        return (
+                                                            <span key={i} className={styles.enchantTooltip}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={points > i}
+                                                                    onChange={() =>
+                                                                        skillPointClicked(skill.scoreboardId, i)
+                                                                    }
+                                                                    aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
+                                                                />
+                                                                {pointInfo && (
+                                                                    <span className={styles.enchantTooltipText}>
+                                                                        {pointInfo}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        );
+                                                    })}
                                                 </div>
                                                 {regionValue >= 3 && (
-                                                    <input
-                                                        type="checkbox"
-                                                        className={styles.skillEnhance}
-                                                        checked={enhanced && !enhanceDisabled}
-                                                        disabled={enhanceDisabled}
-                                                        onChange={(e) =>
-                                                            enhancementToggled(skill.scoreboardId, e.target.checked)
-                                                        }
-                                                        aria-label={`${skill.displayName} ${t('builder.skills.enhancement')}`}
-                                                        title={
-                                                            points < 1
+                                                    <span className={styles.enchantTooltip}>
+                                                        <input
+                                                            type="checkbox"
+                                                            className={styles.skillEnhance}
+                                                            checked={enhanced && !enhanceDisabled}
+                                                            disabled={enhanceDisabled}
+                                                            onChange={(e) =>
+                                                                enhancementToggled(
+                                                                    skill.scoreboardId,
+                                                                    e.target.checked
+                                                                )
+                                                            }
+                                                            aria-label={`${skill.displayName} ${t('builder.skills.enhancement')}`}
+                                                        />
+                                                        <span className={styles.enchantTooltipText}>
+                                                            {points < 1
                                                                 ? `${skill.displayName} ${t('builder.skills.enhancementTitle')}\n${t('builder.skills.enhancementRequiresPoint')}`
-                                                                : [
-                                                                      cleanDescription(
-                                                                          (skill.descriptions || [])[maxPoints]
-                                                                      ),
-                                                                  ]
-                                                                      .filter(Boolean)
-                                                                      .join('\n\n')
-                                                        }
-                                                    />
+                                                                : cleanDescription(
+                                                                      (skill.descriptions || [])[maxPoints]
+                                                                  ) || ''}
+                                                        </span>
+                                                    </span>
                                                 )}
                                             </div>
                                         );
@@ -4411,7 +5102,12 @@ export default function BuildForm({
                         <div className={styles.skillsSection}>
                             <div className={styles.skillsHeader}>
                                 <span className={styles.skillsTitle}>
-                                    {spec} {t('database.filters.spec')}
+                                    <span className={styles.enchantTooltip}>
+                                        {spec} {t('database.filters.spec')}
+                                        {specPassiveTooltip && (
+                                            <span className={styles.enchantTooltipText}>{specPassiveTooltip}</span>
+                                        )}
+                                    </span>
                                 </span>
                                 <span className={styles.skillTotal}>
                                     {Object.values(specSkillPoints).reduce((sum, pts) => sum + pts, 0)} /{' '}
@@ -4440,7 +5136,6 @@ export default function BuildForm({
                                         <div
                                             key={skill.scoreboardId}
                                             className={`${styles.skillRow} ${dragging ? styles.skillDragging : ''}${over ? ` ${styles.skillDragOver}` : ''}`}
-                                            title={tooltip}
                                             onDragOver={(e) =>
                                                 specOrderContainer &&
                                                 skillDragOver(
@@ -4478,23 +5173,38 @@ export default function BuildForm({
                                                     e.currentTarget.style.display = 'none';
                                                 }}
                                             />
-                                            <span className={styles.skillName}>{skill.displayName}</span>
+                                            <span className={styles.skillName}>
+                                                <span className={styles.enchantTooltip}>
+                                                    {skill.displayName}
+                                                    {tooltip && (
+                                                        <span className={styles.enchantTooltipText}>{tooltip}</span>
+                                                    )}
+                                                </span>
+                                            </span>
                                             <span className={styles.skillPoints}>
                                                 {points}/{maxPoints}
                                             </span>
                                             <div className={styles.skillChecks}>
-                                                {Array.from({ length: maxPoints }).map((_, i) => (
-                                                    <input
-                                                        key={i}
-                                                        type="checkbox"
-                                                        checked={points > i}
-                                                        onChange={() => specSkillPointClicked(skill.scoreboardId, i)}
-                                                        aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
-                                                        title={[cleanDescription((skill.descriptions || [])[i])]
-                                                            .filter(Boolean)
-                                                            .join('\n\n')}
-                                                    />
-                                                ))}
+                                                {Array.from({ length: maxPoints }).map((_, i) => {
+                                                    const pointInfo = cleanDescription((skill.descriptions || [])[i]);
+                                                    return (
+                                                        <span key={i} className={styles.enchantTooltip}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={points > i}
+                                                                onChange={() =>
+                                                                    specSkillPointClicked(skill.scoreboardId, i)
+                                                                }
+                                                                aria-label={`${skill.displayName} ${t('builder.skills.point')} ${i + 1}`}
+                                                            />
+                                                            {pointInfo && (
+                                                                <span className={styles.enchantTooltipText}>
+                                                                    {pointInfo}
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
@@ -4653,7 +5363,27 @@ export default function BuildForm({
                         disabled={!buildContentReady}
                         title={buildContentReady ? '' : t('builder.buttons.shareDisabled')}
                     >
-                        <TranslatableText identifier="builder.buttons.copyLinkForDiscord"></TranslatableText>
+                        {copyState === 'discord'
+                            ? t('common.copied')
+                            : hasUnsavedEdits()
+                              ? t('builder.buttons.copyNewLinkForDiscord')
+                              : t('builder.buttons.copyLinkForDiscord')}
+                    </button>
+                </div>
+                <div className="col-4 col-md-3 col-lg-2 text-center">
+                    <button
+                        type="button"
+                        className={styles.shareButton}
+                        id="copyLink"
+                        onClick={copyShareLink}
+                        disabled={!buildContentReady}
+                        title={buildContentReady ? '' : t('builder.buttons.shareDisabled')}
+                    >
+                        {copyState === 'link'
+                            ? t('common.copied')
+                            : hasUnsavedEdits()
+                              ? t('builder.buttons.copyNewLink')
+                              : t('builder.buttons.copyLink')}
                     </button>
                 </div>
                 <div className="col-4 col-md-3 col-lg-2 text-center">
@@ -4661,15 +5391,21 @@ export default function BuildForm({
                         type="button"
                         className={styles.shareButton}
                         id="saveBuild"
-                        onClick={() => saveBuildToServer()}
-                        disabled={!buildContentReady || saveState === 'saving'}
-                        title={buildContentReady ? '' : t('builder.buttons.saveDisabled')}
+                        onClick={() => saveBuildToServer(false, replica)}
+                        disabled={!buildContentReady || saveState === 'saving' || !hasUnsavedEdits()}
+                        title={
+                            !buildContentReady
+                                ? t('builder.buttons.saveDisabled')
+                                : hasUnsavedEdits()
+                                  ? t('builder.buttons.saveHint')
+                                  : t('builder.buttons.savedHint')
+                        }
                     >
                         {saveState === 'saving'
                             ? t('builder.buttons.saving')
-                            : saveState === 'copied'
-                              ? t('common.copied')
-                              : t('builder.buttons.copySave')}
+                            : hasUnsavedEdits()
+                              ? t('builder.buttons.unsaved')
+                              : t('builder.buttons.saved')}
                     </button>
                 </div>
                 {activeBuildId && (
@@ -4677,16 +5413,12 @@ export default function BuildForm({
                         <button
                             type="button"
                             className={styles.shareButton}
-                            id="saveAsNewCopy"
-                            onClick={() => saveBuildToServer(true)}
-                            disabled={!buildContentReady || saveState === 'saving'}
-                            title={
-                                buildContentReady
-                                    ? t('builder.buttons.saveAsNewCopyTitle')
-                                    : t('builder.buttons.copyDisabled')
-                            }
+                            id="copyToNewBuild"
+                            onClick={copyToNewBuild}
+                            disabled={saveState === 'saving'}
+                            title={t('builder.buttons.copyToNewBuildTitle')}
                         >
-                            {t('builder.buttons.saveAsNewCopy')}
+                            {t('builder.buttons.copyToNewBuild')}
                         </button>
                     </div>
                 )}
@@ -4697,6 +5429,7 @@ export default function BuildForm({
                         value={resetConfirm ? t('common.confirm') : t('common.reset')}
                         onClick={handleResetClick}
                         aria-label={t('builder.buttons.resetBuild')}
+                        title={t('builder.buttons.resetHint')}
                     />
                 </div>
             </div>
@@ -4705,13 +5438,14 @@ export default function BuildForm({
                     ? t(ownsBuild ? 'builder.status.editingSaved' : 'builder.status.viewingSaved')
                     : t('builder.status.unsaved')}
             </p>
-            {loggedIn === true && (!activeBuildId || canPublicise || ownsBuild) && (
+            {loggedIn === true && activeBuildId && (canPublicise || ownsBuild) && (
                 <div className={`${styles.publiciseRow} mb-1`}>
                     <button
                         type="button"
                         className={`${styles.publiciseBtn}${publicState.isPublic ? ` ${styles.publiciseOn}` : ''}`}
                         onClick={togglePublic}
                         disabled={publiciseState === 'saving'}
+                        title={t(publicState.isPublic ? 'database.unpublishHint' : 'database.publiciseHint')}
                     >
                         {publicState.isPublic ? (
                             <TranslatableText identifier="database.unpublish" />
@@ -4801,6 +5535,85 @@ export default function BuildForm({
                             {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
                         </>
                     )}
+                    <div className="row justify-content-center pt-1 mb-1 g-1">
+                        <TranslatableText
+                            identifier="builder.misc.statCards"
+                            className="text-center mb-1"
+                        ></TranslatableText>
+                        {STAT_CARD_KEYS.map((key) => {
+                            const visible = !hiddenStatCards.includes(key);
+                            return (
+                                <div className="col-auto" key={`${key}-${visible ? 'on' : 'off'}`}>
+                                    <CheckboxWithLabel
+                                        inputName={key}
+                                        name={
+                                            key === 'drhn'
+                                                ? `${t(STAT_CARD_LABELS[key])} ${t(STAT_CARD_LABELS[key] + '.sub')}`
+                                                : t(STAT_CARD_LABELS[key])
+                                        }
+                                        checked={visible}
+                                        onChange={() => toggleStatCardVisibility(key)}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {(skillCalcRow.length > 0 || specPassiveInfo) && (
+                        <div className="row justify-content-center pt-1 mb-1 g-1">
+                            <span className="text-center mb-1">
+                                <TranslatableText identifier="builder.skillCalcs.title"></TranslatableText>{' '}
+                                <span className={styles.experimentalBadge}>{t('items.changes.experimental')}</span>
+                            </span>
+                            {skillCalcRow.map(({ entry }) => {
+                                const enabled = enabledSkillCalcs.includes(entry.id);
+                                const level = skillCalcLevel(entry, skillPoints, specSkillPoints);
+                                const enhanced = Boolean(enhancements[entry.id]);
+                                const max = entry.stacks ? skillStackMax(entry, level, charmTotals) : 0;
+                                const resolved = resolveSkillCalcEntry(entry, level, enhanced, charmTotals);
+                                const simple = skillCalcTooltips.map.get(entry.id);
+                                const tooltip = skillCalcTooltipText(entry, resolved, {
+                                    level,
+                                    enhanced,
+                                    simple,
+                                });
+                                const stackValue =
+                                    skillStackInputs[entry.id] === undefined ? String(max) : skillStackInputs[entry.id];
+                                return (
+                                    <div className="col-auto" key={`${entry.id}-${enabled ? 'on' : 'off'}`}>
+                                        <span className={styles.enchantTooltip}>
+                                            <CheckboxWithLabel
+                                                inputName={`skillCalc-${entry.id}`}
+                                                name={entry.label}
+                                                checked={enabled}
+                                                onChange={() => toggleSkillCalc(entry.id)}
+                                            >
+                                                {enabled && entry.stacks && (
+                                                    <input
+                                                        type="number"
+                                                        className={styles.stackInput}
+                                                        name={entry.stacks.name}
+                                                        min={0}
+                                                        max={max}
+                                                        step={1}
+                                                        value={stackValue}
+                                                        onChange={(event) =>
+                                                            changeSkillStack(entry.id, max, event.target.value)
+                                                        }
+                                                        aria-label={entry.stacks.label}
+                                                        title={`${entry.stacks.label} (0–${max})`}
+                                                    />
+                                                )}
+                                            </CheckboxWithLabel>
+                                            <span className={`${styles.enchantTooltipText} ${styles.skillCalcTooltip}`}>
+                                                {tooltip}
+                                            </span>
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {specPassiveChip}
+                        </div>
+                    )}
                     <div
                         className={
                             splitLayout
@@ -4816,14 +5629,23 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('misc')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.misc"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.misc"
+                                hint="builder.statCategories.misc.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {miscStats.map((stat) =>
                                 itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4846,14 +5668,28 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('health')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.health"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.health"
+                                hint="builder.statCategories.health.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
-                            {healthStats.map((stat) =>
-                                itemsToDisplay[stat.type] !== undefined ? (
+                            {healthStats.map((stat) => {
+                                // Life Drain only applies while the enchant is
+                                // equipped; hide its rows otherwise.
+                                const hideLifeDrain =
+                                    (stat.type === 'lifeDrainOnCrit' || stat.type === 'lifeDrainOnCritPercent') &&
+                                    !(Number(itemsToDisplay.lifeDrainOnCrit) > 0);
+                                return itemsToDisplay[stat.type] !== undefined && !hideLifeDrain ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4865,8 +5701,8 @@ export default function BuildForm({
                                     </div>
                                 ) : (
                                     ''
-                                )
-                            )}
+                                );
+                            })}
                         </div>
                         <div
                             className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
@@ -4876,16 +5712,25 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('dr')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.damageReduction"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.damageReduction"
+                                hint="builder.statCategories.damageReduction.hint"
+                            />
                             <h6 className="text-center fw-bold">
                                 <TranslatableText identifier="builder.statCategories.damageReduction.sub"></TranslatableText>
                             </h6>
                             {DRStats.map((stat) =>
                                 itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4908,16 +5753,25 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('drhn')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.damageReductionHealthNormalized"
+                                hint="builder.statCategories.damageReductionHealthNormalized.hint"
+                            />
                             <h6 className="text-center fw-bold">
                                 <TranslatableText identifier="builder.statCategories.damageReductionHealthNormalized.sub"></TranslatableText>
                             </h6>
                             {healthNormalizedDRStats.map((stat) =>
                                 itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -4940,9 +5794,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('ehp')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.effectiveHealth"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.effectiveHealth"
+                                hint="builder.statCategories.effectiveHealth.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {(() => {
                                 const unstableEHPTypes = ['meleeEHP', 'projectileEHP', 'magicEHP', 'blastEHP'];
@@ -4951,6 +5806,12 @@ export default function BuildForm({
                                     return itemsToDisplay[stat.type] !== undefined ? (
                                         <div key={stat.type}>
                                             <p
+                                                title={statFullTitle(
+                                                    stat.name,
+                                                    stat.type,
+                                                    itemsToDisplay[stat.type],
+                                                    stat.percent
+                                                )}
                                                 className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}
                                             >
                                                 <b>
@@ -4968,11 +5829,104 @@ export default function BuildForm({
                                 });
                                 if (itemsToDisplay.instability) {
                                     let avg = 0;
-                                    unstableEHPTypes.forEach((t) => (avg += Number(itemsToDisplay[t])));
+                                    let avgFull = 0;
+                                    unstableEHPTypes.forEach((t) => {
+                                        avg += Number(itemsToDisplay[t]);
+                                        const raw = itemsToDisplay.fullValues && itemsToDisplay.fullValues[t];
+                                        avgFull += raw === undefined ? Number(itemsToDisplay[t]) : Number(raw);
+                                    });
                                     avg /= 4;
+                                    avgFull /= 4;
                                     temp.unshift(
                                         <div key={'unstableEHP'}>
-                                            <p className={`${styles.statRow} mb-0 mt-1`}>
+                                            <p
+                                                className={`${styles.statRow} mb-0 mt-1`}
+                                                title={statFullTitle(
+                                                    'builder.stats.dr-ehp.unstable',
+                                                    'unstableEHP',
+                                                    avgFull,
+                                                    false
+                                                )}
+                                            >
+                                                <b>
+                                                    <TranslatableText
+                                                        identifier={'builder.stats.dr-ehp.unstable'}
+                                                    ></TranslatableText>
+                                                    :{' '}
+                                                </b>
+                                                <span className={styles.monoValue}>{avg.toFixed(2)}</span>
+                                            </p>
+                                        </div>
+                                    );
+                                }
+                                return temp;
+                            })()}
+                        </div>
+                        <div
+                            className={`${styles.builderStatCard} ${styles.builderStatCol} ${splitLayout ? styles.statCell : 'col-auto'} text-center mx-2 my-1 py-2`}
+                            draggable
+                            onDragStart={(e) => startStatCardDrag('ehpr', e)}
+                            onDragOver={(e) => statCardDragOver('ehpr', e)}
+                            onDragEnd={endStatCardDrag}
+                            style={statCardOrderStyle('ehpr')}
+                        >
+                            <StatCardTitle
+                                identifier="builder.statCategories.effectiveHealthRegen"
+                                hint="builder.statCategories.effectiveHealthRegen.hint"
+                            />
+                            <h6 className="text-center fw-bold">
+                                <TranslatableText identifier="builder.stats.health.regenPerSecond"></TranslatableText>:{' '}
+                                {itemsToDisplay.regenPerSec}
+                            </h6>
+                            {(() => {
+                                const unstableEHPRTypes = ['meleeEHPR', 'projectileEHPR', 'magicEHPR', 'blastEHPR'];
+                                let temp = EHPRStats.map((stat) => {
+                                    let condition = itemsToDisplay.instability && unstableEHPRTypes.includes(stat.type);
+                                    return itemsToDisplay[stat.type] !== undefined ? (
+                                        <div key={stat.type}>
+                                            <p
+                                                title={statFullTitle(
+                                                    stat.name,
+                                                    stat.type,
+                                                    itemsToDisplay[stat.type],
+                                                    stat.percent
+                                                )}
+                                                className={`${styles.statRow} mb-0 mt-1 ${condition ? styles.grayedout : ''}`}
+                                            >
+                                                <b>
+                                                    <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
+                                                </b>
+                                                <span className={styles.monoValue}>
+                                                    {itemsToDisplay[stat.type]}
+                                                    {stat.percent ? '%' : ''}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        ''
+                                    );
+                                });
+                                if (itemsToDisplay.instability) {
+                                    let avg = 0;
+                                    let avgFull = 0;
+                                    unstableEHPRTypes.forEach((t) => {
+                                        avg += Number(itemsToDisplay[t]);
+                                        const raw = itemsToDisplay.fullValues && itemsToDisplay.fullValues[t];
+                                        avgFull += raw === undefined ? Number(itemsToDisplay[t]) : Number(raw);
+                                    });
+                                    avg /= 4;
+                                    avgFull /= 4;
+                                    temp.unshift(
+                                        <div key={'unstableEHPR'}>
+                                            <p
+                                                className={`${styles.statRow} mb-0 mt-1`}
+                                                title={statFullTitle(
+                                                    'builder.stats.dr-ehp.unstable',
+                                                    'unstableEHPR',
+                                                    avgFull,
+                                                    false
+                                                )}
+                                            >
                                                 <b>
                                                     <TranslatableText
                                                         identifier={'builder.stats.dr-ehp.unstable'}
@@ -4995,9 +5949,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('melee')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.melee"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.melee"
+                                hint="builder.statCategories.melee.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {meleeStats.map((stat) => {
                                 if (
@@ -5007,7 +5962,15 @@ export default function BuildForm({
                                     return '';
                                 return itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -5030,9 +5993,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('projectile')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.projectile"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.projectile"
+                                hint="builder.statCategories.projectile.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {projectileStats.map((stat) => {
                                 if (
@@ -5042,7 +6006,15 @@ export default function BuildForm({
                                     return '';
                                 return itemsToDisplay[stat.type] !== undefined ? (
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>
@@ -5065,9 +6037,10 @@ export default function BuildForm({
                             onDragEnd={endStatCardDrag}
                             style={statCardOrderStyle('magic')}
                         >
-                            <h5 className="text-center fw-bold mb-1">
-                                <TranslatableText identifier="builder.statCategories.magic"></TranslatableText>
-                            </h5>
+                            <StatCardTitle
+                                identifier="builder.statCategories.magic"
+                                hint="builder.statCategories.magic.hint"
+                            />
                             <h6 className="text-center fw-bold">&nbsp;</h6>
                             {magicStats.map((stat) => {
                                 if (
@@ -5079,7 +6052,15 @@ export default function BuildForm({
                                     (stat.type != 'potionDamage' || itemsToDisplay.spellPowerPercent == '100.00') && // only show potion damage if spell power is 100% (default)
                                     (stat.type != 'spellDamage' || itemsToDisplay.potionDamage == '0.00') ? ( // only show spell damage if potion damage is 0
                                     <div key={stat.type}>
-                                        <p className={`${styles.statRow} mb-0 mt-1`}>
+                                        <p
+                                            className={`${styles.statRow} mb-0 mt-1`}
+                                            title={statFullTitle(
+                                                stat.name,
+                                                stat.type,
+                                                itemsToDisplay[stat.type],
+                                                stat.percent
+                                            )}
+                                        >
                                             <b>
                                                 <TranslatableText identifier={stat.name}></TranslatableText>:{' '}
                                             </b>

@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { useHideSkins } from './items/hideSkinsContext';
 import skinNames from '../data/skins.json';
 import { groupMasterworkItems } from '../utils/itemList';
+import { isGearItem } from '../utils/itemSlots';
+import { isQuestItem, getQuestIds } from '../utils/items/questItems';
 
 // Skin variants confirmed from the Monumenta wiki "Skins" sections.
 const SKIN_NAMES = new Set(skinNames);
@@ -42,21 +44,7 @@ const SKIN_EXCEPTIONS = new Set(['Phantasm', "Refit King's Crown", 'Sacrificial 
 // Quest items carry a "* Quest Item *" lore marker and a "#Q<id>I<index>"
 // code. The id can be decimal (Q154), hex (QAF), carry letter suffixes
 // (Q103n), omit the I separator (Q22801), or be wrapped in <obfuscated> tags.
-const QUEST_ID_RE = /#Q([A-Za-z0-9]+?)(?:I\d+)?(?![A-Za-z0-9])/g;
-
-function isQuestItem(item) {
-    const text = (item.mmlore || []).join('\n') + '\n' + (item.lore || '');
-    return text.includes('* Quest Item *');
-}
-
-function getQuestIds(item) {
-    const text = ((item.mmlore || []).join('\n') + '\n' + (item.lore || '')).replace(/<[^>]+>/g, '');
-    const ids = [];
-    let m;
-    QUEST_ID_RE.lastIndex = 0;
-    while ((m = QUEST_ID_RE.exec(text))) ids.push(m[1]);
-    return ids;
-}
+// Shared with the quest-name lookup and the Quest filter.
 
 function extractFilterValues(data, baseKey) {
     return Object.keys(data)
@@ -181,6 +169,15 @@ function getRelevantItems(data, itemData, hideSkins) {
 
     if (data.searchLore) {
         items = items.filter((name) => itemData[name].lore?.toLowerCase().includes(data.searchLore.toLowerCase()));
+    }
+
+    // Quest filter: the dropdown lists quests confirmed by the wiki mapping
+    // (data/quests.json), so it matches the code exactly. Unconfirmed codes are
+    // still reachable through the free-text Quest ID filter below.
+    const wantedQuests = extractFilterValues(data, 'questSelect');
+    if (wantedQuests.length > 0) {
+        const wanted = new Set(wantedQuests.map((value) => String(value).trim().toLowerCase()));
+        items = items.filter((name) => getQuestIds(itemData[name]).some((id) => wanted.has(id.toLowerCase())));
     }
 
     // Quest ID filter: the query matches a substring of any "#Q<id>I<index>"
@@ -327,16 +324,17 @@ function getRelevantItems(data, itemData, hideSkins) {
         items = items.filter((name) => !isQuestItem(itemData[name]));
     }
 
-    // Quick-hide non-gear items: items with no enchants or stats.
+    // Quick-hide non-gear items: anything that can't be equipped (materials,
+    // consumables, books, ...), dungeon keys, and anything with no stats at all.
     if (data.hideNonGear) {
         items = items.filter((name) => {
-            const stats = itemData[name].stats;
+            const item = itemData[name];
+            if (!isGearItem(item)) return false;
+            const stats = item.stats;
             if (!stats) return false;
-            const values = Object.values(stats);
-            if (values.length === 0) return false;
-            return values.some((v) => {
-                const val = typeof v === 'object' && v !== null && 'value' in v ? v.value : v;
-                return typeof val === 'number' ? val !== 0 : Boolean(val);
+            return Object.values(stats).some((value) => {
+                const v = getStatValue(value);
+                return typeof v === 'number' ? v !== 0 : Boolean(v);
             });
         });
     }

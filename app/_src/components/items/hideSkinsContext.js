@@ -22,7 +22,8 @@ export function HideSkinsProvider({ children }) {
             return next;
         });
     }, []);
-    return <HideSkinsContext.Provider value={{ hidden, toggle }}>{children}</HideSkinsContext.Provider>;
+    const value = React.useMemo(() => ({ hidden, toggle }), [hidden, toggle]);
+    return <HideSkinsContext.Provider value={value}>{children}</HideSkinsContext.Provider>;
 }
 
 export function useHideSkins() {

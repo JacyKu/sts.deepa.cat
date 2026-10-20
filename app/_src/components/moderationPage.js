@@ -254,11 +254,16 @@ function UsersPanel({ t, moderatorId }) {
 // ---------------------------------------------------------------------------
 
 function BuildsPanel({ t }) {
+    // Mirrors MOD_BUILD_NAME_MAX on the server: moderators can exceed the
+    // normal 50-character build-name limit.
+    const MOD_NAME_LIMIT = 1000;
     const [query, setQuery] = React.useState('');
     const [builds, setBuilds] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [busy, setBusy] = React.useState(false);
     const [confirmId, setConfirmId] = React.useState(null);
+    const [renamingId, setRenamingId] = React.useState(null);
+    const [nameDraft, setNameDraft] = React.useState('');
 
     const load = React.useCallback(
         (q) => {
@@ -301,6 +306,43 @@ function BuildsPanel({ t }) {
             });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             setConfirmId(null);
+            load(query);
+        } catch (e) {
+            setError(t('moderation.error'));
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    function startRename(row) {
+        setRenamingId(row.id);
+        setNameDraft(row.name || '');
+        setError(null);
+    }
+
+    function cancelRename() {
+        if (busy) return;
+        setRenamingId(null);
+        setNameDraft('');
+    }
+
+    async function rename(row) {
+        const name = nameDraft.trim();
+        if (!name) {
+            setError(t('moderation.builds.nameRequired'));
+            return;
+        }
+        setBusy(true);
+        setError(null);
+        try {
+            const response = await fetch(`/api/v2/moderation/builds/${encodeURIComponent(row.id)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            setRenamingId(null);
+            setNameDraft('');
             load(query);
         } catch (e) {
             setError(t('moderation.error'));
@@ -358,6 +400,14 @@ function BuildsPanel({ t }) {
                                 <button
                                     type="button"
                                     className={styles.button}
+                                    onClick={() => (renamingId === row.id ? cancelRename() : startRename(row))}
+                                    disabled={busy}
+                                >
+                                    {renamingId === row.id ? t('common.cancel') : t('moderation.builds.rename')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.button}
                                     onClick={() => togglePublic(row)}
                                     disabled={busy}
                                 >
@@ -385,6 +435,48 @@ function BuildsPanel({ t }) {
                                     </button>
                                 )}
                             </div>
+                            {renamingId === row.id && (
+                                <div className={styles.renameBox}>
+                                    <textarea
+                                        className={`${styles.input} ${styles.textarea}`}
+                                        value={nameDraft}
+                                        onChange={(e) => setNameDraft(e.target.value)}
+                                        placeholder={t('moderation.builds.namePlaceholder')}
+                                        aria-label={t('moderation.builds.namePlaceholder')}
+                                        maxLength={MOD_NAME_LIMIT}
+                                        rows={3}
+                                        spellCheck={false}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                                e.preventDefault();
+                                                rename(row);
+                                            }
+                                        }}
+                                    />
+                                    <div className={styles.renameActions}>
+                                        <span className={styles.renameCount}>
+                                            {nameDraft.length}/{MOD_NAME_LIMIT}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className={styles.button}
+                                            onClick={() => rename(row)}
+                                            disabled={busy || !nameDraft.trim()}
+                                        >
+                                            {t('moderation.builds.saveName')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={styles.button}
+                                            onClick={cancelRename}
+                                            disabled={busy}
+                                        >
+                                            {t('common.cancel')}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ul>

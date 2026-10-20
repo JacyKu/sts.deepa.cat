@@ -3,7 +3,8 @@
 import React from 'react';
 import itemsStyles from '../../styles/Items.module.css';
 import styles from '../../styles/History.module.css';
-import { loadItemSpriteMap, getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { getMappedSpriteClass, isKnownSpriteToken } from '../../utils/items/spritesheetMap';
+import { useItemSpriteMap } from '../useItemSpriteMap';
 import { getMinecraftTextureKey } from '../../utils/items/minecraftFallback';
 
 function camelCase(str, upper) {
@@ -36,20 +37,10 @@ function sheetClassFromName(itemName) {
 // resolution order as the item tiles - texture token, sprite map, legacy name
 // heuristic (while the map loads), then the minecraft texture. `compact`
 // renders a smaller icon for dense lists.
-export default function HistoryIcon({ item, compact = false }) {
+export default function HistoryIcon({ item, name, compact = false }) {
     const [cssClass, setCssClass] = React.useState(item.textureToken ? `monumenta-${item.textureToken}` : null);
     const [baseClass, setBaseClass] = React.useState('monumenta-items');
-    const [spriteMap, setSpriteMap] = React.useState(null);
-
-    React.useEffect(() => {
-        let active = true;
-        loadItemSpriteMap().then((map) => {
-            if (active) setSpriteMap(map);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    const spriteMap = useItemSpriteMap();
 
     React.useEffect(() => {
         if (item.textureToken && (!spriteMap || isKnownSpriteToken(spriteMap, item.textureToken))) {
@@ -58,7 +49,7 @@ export default function HistoryIcon({ item, compact = false }) {
             return;
         }
         if (spriteMap) {
-            const mapped = getMappedSpriteClass(spriteMap, item.name);
+            const mapped = getMappedSpriteClass(spriteMap, name) || getMappedSpriteClass(spriteMap, item.name);
             if (mapped) {
                 setBaseClass('monumenta-items');
                 setCssClass(mapped);
@@ -72,7 +63,7 @@ export default function HistoryIcon({ item, compact = false }) {
         }
         setBaseClass('monumenta-items');
         setCssClass(sheetClassFromName(item.name));
-    }, [item, spriteMap]);
+    }, [item, name, spriteMap]);
 
     return (
         <div className={compact ? styles.compactIcon : `${itemsStyles.imageIcon} ${styles.groupIcon}`}>

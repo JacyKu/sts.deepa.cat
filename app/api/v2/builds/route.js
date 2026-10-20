@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'node:crypto';
 import {
     saveBuild,
     setBuildPublic,
@@ -81,7 +82,13 @@ export async function POST(request) {
     // build keeps its name, while a different build whose name the account
     // already uses gets " (2)", " (3)", ... appended automatically. Other
     // accounts may use the same name.
-    const existingId = findBuildByState(ownerId, state);
+    //
+    // body.copy is the builder's "Save as new copy": an explicit fork, so the
+    // save must neither fold onto the identical row it was copied from nor
+    // exclude that row from the name check (excluding it would let the copy
+    // keep the same name instead of getting " (2)").
+    const copy = Boolean(body.copy);
+    const existingId = copy ? null : findBuildByState(ownerId, state);
     const buildName = body.name ? uniqueBuildName(ownerId, body.name, existingId) : null;
 
     // Daily upload limit: accounts are counted from the database (site and mod
@@ -92,7 +99,10 @@ export async function POST(request) {
             if (limits.buildsPerDay > 0 && countRecentBuilds(user.id) >= limits.buildsPerDay) {
                 return rateLimitResponse({ hint: 'Daily build limit reached. Try again tomorrow.' });
             }
-        } else {
+        } else if (!isBotRequest(request)) {
+            // The bot converts old build links into short links on users'
+            // behalf (shared key): its snapshots are trusted and must not eat
+            // the per-IP anonymous quota.
             const quota = consumeRateLimit(
                 `anon-build:${getClientIp(request)}`,
                 limits.anonymousBuildsPerDay,
@@ -120,6 +130,8 @@ export async function POST(request) {
             // Notes are a signed-in feature: signed-out saves never carry them.
             notes: user ? body.notes || null : null,
             summary,
+            // An explicit copy always inserts a fresh row.
+            forceNew: copy,
         });
     } catch (error) {
         if (isDuplicateNameError(error)) {
@@ -147,7 +159,7 @@ export async function POST(request) {
     const savedRow = getBuild(result.id);
     // Pre-render the embed card so the first Discord crawl is instant.
     warmEmbedImage(result.id, savedRow ? savedRow.revision || 1 : null);
-    return NextResponse.json({
+    const response = NextResponse.json({
         id: result.id,
         isNew: result.isNew,
         savedToAccount: Boolean(user),
@@ -159,4 +171,33 @@ export async function POST(request) {
         version: savedRow ? savedRow.revision || 1 : null,
         url: tokenVersion ? `/b/v${tokenVersion}/${result.id}` : `/b/${result.id}`,
     });
+    // Anonymous saves carry an ownership token (logged-in saves are owned via
+    // the session). Remember it so the creator can later edit, publicise and
+    // re-import the build (matches the owner/creator checks in builds/[id]
+    // and the convert endpoint).
+    if (result.creatorToken) {
+        response.cookies.set(`sts-build-owner-${result.id}`, result.creatorToken, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365,
+        });
+    }
+    return response;
+}
+
+// The bot authenticates with the shared key (same value as its STS_BOT_API_KEY).
+function isBotRequest(request) {
+    const expected = process.env.STS_BOT_API_KEY;
+    if (!expected) return false;
+    const auth = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    return auth.length > 0 && timingSafeEqualStr(auth, expected);
+}
+
+function timingSafeEqualStr(a, b) {
+    const left = Buffer.from(String(a));
+    const right = Buffer.from(String(b));
+    if (left.length !== right.length) return false;
+    return crypto.timingSafeEqual(left, right);
 }

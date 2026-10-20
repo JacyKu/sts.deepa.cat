@@ -1,12 +1,12 @@
 {
   "name": "sts",
-  "version": "1.2.0",
-  "sts_version": "1.2.0",
+  "version": "1.3.0",
+  "sts_version": "1.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start -p 6678",
+    "start": "next start -H 127.0.0.1 -p 6678",
     "update:items": "node scripts/update-items.mjs",
     "update:classes": "node scripts/update-classes.mjs",
     "update:spritesheet": "node scripts/spritesheetmaker/import-mod-dump.js",
@@ -31,12 +31,12 @@
     "cookies-next": "^6.1.1",
     "iron-session": "^8.0.0",
     "lz-string": "^1.5.0",
-    "next": "^16.2.0",
+    "next": "^16.3.8",
     "omggif": "^1.0.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-select": "^5.10.2",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

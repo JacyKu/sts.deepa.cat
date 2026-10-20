@@ -190,6 +190,22 @@
     display: flex;
 }
 
+/* Only applied when the menu is taller than the window. overflow-x: clip keeps
+   the panel from being dragged sideways (the toggles' absolutely positioned
+   tooltips widen its scroll area); older browsers fall back to hidden, which
+   still hides any scrollbar. */
+.menuScroll {
+    overflow-x: hidden;
+    overflow-x: clip;
+    overflow-y: auto;
+}
+
+/* On short screens the panel scrolls (see useMenuPortal); keep each row at its
+   natural height instead of letting the flex column squash the toggles. */
+.menuPanel > * {
+    flex: 0 0 auto;
+}
+
 .menuPanel .fontSelect,
 .menuPanel .themeSelect {
     width: 100%;
@@ -236,9 +252,11 @@
 
     /* The nav panel is portaled and anchored full-width on phones (see
        useMenuPortal); keep it scrollable so short landscape screens stay
-       usable. */
+       usable. Sideways scrolling stays off: the toggles' absolutely positioned
+       tooltips would otherwise widen the panel's scroll area. */
     .menuPanel {
         max-height: calc(100vh - 96px);
+        overflow-x: hidden;
         overflow-y: auto;
     }
 }

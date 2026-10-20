@@ -1,12 +1,12 @@
 import { Suspense } from 'react';
-import { headers } from 'next/headers';
 import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../../_src/utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../../_src/utils/buildPreview';
 import { referencedCustomItemExtras } from '../../../lib/sts-builds';
 import { getBuildItemHashes } from '../../_src/utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
-import { BuilderDataView } from '../../_src/components/siteDataViews';
+import { BuilderDataView } from '../../_src/components/builderDataView';
 import BuilderSkeleton from '../../_src/components/builderSkeleton';
+import BootstrapStyles from '../../_src/components/bootstrapStyles';
 
 const keywords = 'Monumenta, Minecraft, MMORPG, Items, Builder';
 
@@ -37,10 +37,10 @@ export async function generateMetadata({ params }) {
     const title = getLinkPreviewTitle(build, itemData, null, skillsData);
     const description = getLinkPreviewDescription(build, itemData, skillsData);
     const imageUrl = '/api/v2/og?build=' + encodeURIComponent(build);
-    const requestHost = (await headers()).get('host') || 'deepa.cat';
 
     return {
-        metadataBase: new URL('https://' + requestHost),
+        // Pinned to the configured public origin (never the request Host).
+        metadataBase: new URL(process.env.STS_PUBLIC_BASE_URL || 'https://sts.deepa.cat'),
         title,
         description,
         keywords,
@@ -64,9 +64,12 @@ export default async function Page({ params }) {
     const p = await params;
     const build = p?.build ? String(p.build).replace(/,/g, '/') : null;
     return (
-        <Suspense fallback={<BuilderSkeleton />}>
-            <BuilderView build={build} />
-        </Suspense>
+        <>
+            <BootstrapStyles />
+            <Suspense fallback={<BuilderSkeleton />}>
+                <BuilderView build={build} />
+            </Suspense>
+        </>
     );
 }
 

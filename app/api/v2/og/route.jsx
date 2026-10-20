@@ -6,7 +6,8 @@ import sharp from 'sharp';
 import { getItemData, getSkillsData, getItemDataVersion, getSkillsVersion } from '../../../_src/utils/itemsData';
 import { getLinkPreviewData, getEffectiveBuildName, getSetPreviewData } from '../../../_src/utils/buildPreview';
 import { getMinecraftTextureKey } from '../../../_src/utils/items/minecraftFallback';
-import { getBuild, getPublicSkillSet } from '../../../../lib/sts-builds';
+import { displayTier } from '../../../_src/utils/items/tierDisplay';
+import { getBuild, getBuildRevision, getPublicSkillSet } from '../../../../lib/sts-builds';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,9 @@ let spriteInfoCache = null;
 let faviconCache = null;
 // Discord CDN avatars fetched for the embed author bar, keyed by URL so
 // repeated fetches (Discord re-fetches og images with each preview) stay cheap.
+// Bounded like the card cache: distinct avatars would otherwise grow it
+// forever across the process lifetime.
+const AVATAR_CACHE_LIMIT = 300;
 const avatarCache = new Map();
 
 // Rendered cards, keyed by build id + revision (or the token / set version)
@@ -51,6 +55,13 @@ const avatarCache = new Map();
 // hit moves it to the end, and the oldest entry is evicted past the limit.
 const CARD_CACHE_LIMIT = 150;
 const cardCache = new Map();
+
+// Finished 64x64 sprite crops (PNG data URLs), keyed by sheet + position. Cards
+// share items heavily, so a repeated item skips sharp entirely; the limit only
+// has to cover the working set of a few hundred distinct items. Data URLs are
+// a couple of KB each, so this stays small.
+const SPRITE_CACHE_LIMIT = 600;
+const spriteDataCache = new Map();
 
 async function respondCached(key, immutable, render) {
     const headers = {
@@ -113,7 +124,12 @@ function resolveAuthorAvatarUrl(userId, avatar, origin) {
 }
 
 async function getAvatarDataUrl(url) {
-    if (avatarCache.has(url)) return avatarCache.get(url);
+    if (avatarCache.has(url)) {
+        const hit = avatarCache.get(url);
+        avatarCache.delete(url);
+        avatarCache.set(url, hit); // LRU: refresh recency
+        return hit;
+    }
     let dataUrl = null;
     try {
         // Redirects are not followed: an allowlisted host could otherwise
@@ -131,6 +147,7 @@ async function getAvatarDataUrl(url) {
         dataUrl = null;
     }
     avatarCache.set(url, dataUrl);
+    if (avatarCache.size > AVATAR_CACHE_LIMIT) avatarCache.delete(avatarCache.keys().next().value);
     return dataUrl;
 }
 
@@ -188,49 +205,97 @@ function findSpriteKey(map, itemKey, itemName) {
     return null;
 }
 
-async function cropSprite(sheet, pos) {
+// The spritesheets are large (the item sheet is 16366x1648), and sharp decodes
+// the whole sheet for every crop. Decoding is the expensive half of a render,
+// so the raw pixels are memoised per request in `decodedSheets`: the six
+// equipment slots all ask for the same sheet, and the first one to get there
+// decodes it while the others await that same promise. That also cuts the peak
+// memory of a card by the same factor, since the slots no longer decode the
+// sheet concurrently. The map is created per render, so no multi-hundred-MB
+// buffer outlives the request.
+function decodeSheet(sheet, sheetId, decodedSheets) {
+    let pending = decodedSheets.get(sheetId);
+    if (!pending) {
+        pending = sharp(sheet, { limitInputPixels: false }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        // Clear a failed decode so a later slot (or render) can retry.
+        pending.catch(() => decodedSheets.delete(sheetId));
+        decodedSheets.set(sheetId, pending);
+    }
+    return pending;
+}
+
+async function cropSprite(sheetId, sheet, pos, decodedSheets) {
+    const key = `${sheetId}:${pos.x}:${pos.y}`;
+    const cached = spriteDataCache.get(key);
+    if (cached !== undefined) {
+        spriteDataCache.delete(key);
+        spriteDataCache.set(key, cached); // LRU: refresh recency
+        return cached;
+    }
+    let dataUrl = null;
     try {
-        const buf = await sharp(sheet, { limitInputPixels: false })
+        const { data, info } = await decodeSheet(sheet, sheetId, decodedSheets);
+        const buf = await sharp(data, {
+            raw: { width: info.width, height: info.height, channels: info.channels },
+            limitInputPixels: false,
+        })
             .extract({ left: pos.x, top: pos.y, width: 64, height: 64 })
             .png()
             .toBuffer();
-        return `data:image/png;base64,${buf.toString('base64')}`;
+        dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
     } catch (e) {
-        return null;
+        dataUrl = null;
     }
+    spriteDataCache.set(key, dataUrl);
+    if (spriteDataCache.size > SPRITE_CACHE_LIMIT) spriteDataCache.delete(spriteDataCache.keys().next().value);
+    return dataUrl;
+}
+
+// Animated items come from the prerendered GIFs only (the same files the
+// texture endpoint and the bot serve): their first frame is the strip start,
+// identical to the animated sheet's cell. `animated: true` would load the
+// whole frame stack as one tall canvas, so it is left off to extract a single
+// 64x64 page. The frame is cached like any other crop.
+async function animatedSpriteDataUrl(spriteKey) {
+    const key = `gif:${spriteKey}`;
+    const cached = spriteDataCache.get(key);
+    if (cached !== undefined) {
+        spriteDataCache.delete(key);
+        spriteDataCache.set(key, cached);
+        return cached;
+    }
+    let dataUrl = null;
+    try {
+        const pre = path.join(process.cwd(), 'public', 'spritesheets', 'textures', `${spriteKey}.gif`);
+        const gif = await fs.readFile(pre);
+        const frame = await sharp(gif, { page: 0 }).png().toBuffer();
+        dataUrl = `data:image/png;base64,${frame.toString('base64')}`;
+    } catch (e) {
+        dataUrl = null;
+    }
+    spriteDataCache.set(key, dataUrl);
+    if (spriteDataCache.size > SPRITE_CACHE_LIMIT) spriteDataCache.delete(spriteDataCache.keys().next().value);
+    return dataUrl;
 }
 
 async function itemSpriteDataUrl(
     { map, positions, animTokens, sheet, mcPositions, mcSheet },
     itemKey,
     itemName,
-    baseItem
+    baseItem,
+    decodedSheets
 ) {
     const spriteKey = findSpriteKey(map, itemKey, itemName);
     const pos = spriteKey && positions[spriteKey];
     if (pos) {
-        // Animated items come from the prerendered GIFs only (the same files
-        // the texture endpoint and the bot serve): their first frame is the
-        // strip start, identical to the animated sheet's cell. `animated:
-        // true` would load the whole frame stack as one tall canvas, so it is
-        // left off to extract a single 64x64 page.
-        if (animTokens.has(spriteKey)) {
-            try {
-                const pre = path.join(process.cwd(), 'public', 'spritesheets', 'textures', `${spriteKey}.gif`);
-                const gif = await fs.readFile(pre);
-                const frame = await sharp(gif, { page: 0 }).png().toBuffer();
-                return `data:image/png;base64,${frame.toString('base64')}`;
-            } catch (e) {
-                return null;
-            }
-        }
-        return cropSprite(sheet, pos);
+        if (animTokens.has(spriteKey)) return animatedSpriteDataUrl(spriteKey);
+        return cropSprite('items', sheet, pos, decodedSheets);
     }
     // Fall back to the vanilla Minecraft texture for the item's base material.
     if (baseItem) {
         const mcKey = getMinecraftTextureKey(baseItem);
         const mcPos = mcPositions[mcKey];
-        if (mcPos) return cropSprite(mcSheet, mcPos);
+        if (mcPos) return cropSprite('minecraft', mcSheet, mcPos, decodedSheets);
     }
     return null;
 }
@@ -269,7 +334,14 @@ function EquipmentGrid({ itemLines, size = 56 }) {
                             {img ? (
                                 <img src={img} width={size} height={size} style={{ imageRendering: 'pixelated' }} />
                             ) : (
-                                <div style={{ width: size, height: size, border: `1px solid ${BORDER}` }} />
+                                <div
+                                    style={{
+                                        width: size,
+                                        height: size,
+                                        border: `1px solid ${BORDER}`,
+                                        borderRadius: 8,
+                                    }}
+                                />
                             )}
                             <div style={{ display: 'flex', flexDirection: 'column', marginLeft: 10 }}>
                                 <div style={{ fontSize: 11, letterSpacing: 1.5, color: DIM, fontWeight: 700 }}>
@@ -296,7 +368,7 @@ function EquipmentGrid({ itemLines, size = 56 }) {
                                     {name && tier && masterwork != null && (
                                         <>
                                             <MasterworkStars tier={tier} masterwork={masterwork} />
-                                            <div style={{ color: DIM, fontSize: 12, marginLeft: 7 }}>{tier}</div>
+                                            <div style={{ color: DIM, fontSize: 12, marginLeft: 7 }}>{displayTier(tier)}</div>
                                         </>
                                     )}
                                 </div>
@@ -324,6 +396,7 @@ function SkillChips({ skills, color, enhancedIds }) {
                             alignItems: 'center',
                             gap: 4,
                             border: `1px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: '2px 7px',
                             fontSize: 13,
@@ -401,6 +474,7 @@ function InfusionPanel({ infusions, points }) {
                             alignItems: 'center',
                             gap: 6,
                             border: `1px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: '2px 7px',
                             fontSize: 13,
@@ -515,6 +589,7 @@ async function setCardResponse(setId, origin) {
                             display: 'flex',
                             alignItems: 'center',
                             border: `1px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: '2px 7px',
                             fontSize: 13,
@@ -538,6 +613,7 @@ async function setCardResponse(setId, origin) {
                                     display: 'flex',
                                     alignItems: 'center',
                                     border: `2px solid ${CZ_COLOR}`,
+                                    borderRadius: 8,
                                     background: PANEL,
                                     padding: '3px 8px',
                                     fontSize: 13,
@@ -617,9 +693,18 @@ export async function GET(request) {
     } else if (buildId) {
         const row = getBuild(buildId);
         if (row) {
-            token = row.token;
-            savedState = row.parsedState;
-            cacheKey = `id:${row.id}:${row.revision || 1}`;
+            // ?v=<revision> renders that stored revision (old shared links);
+            // the current revision (or an unknown one) renders the live row.
+            const currentRevision = Number(row.revision) || 1;
+            const requestedRevision = Number(searchParams.get('v'));
+            const revisionRow =
+                Number.isInteger(requestedRevision) && requestedRevision > 0 && requestedRevision !== currentRevision
+                    ? getBuildRevision(row.id, requestedRevision)
+                    : null;
+            const shown = revisionRow || row;
+            token = shown.token;
+            savedState = shown.parsedState;
+            cacheKey = `id:${row.id}:${revisionRow ? requestedRevision : currentRevision}`;
             cacheImmutable = true;
             if (row.is_public === 1 && row.anonymous !== 1 && row.author_name) {
                 author = { name: row.author_name };
@@ -665,6 +750,9 @@ export async function GET(request) {
         const hasInfusions = Object.values((savedState && savedState.infusions) || {}).some((v) => v && v !== 'None');
 
         const spriteInfo = await getSpriteInfo();
+        // Per-render sheet decode memo (see decodeSheet): the equipment slots
+        // below all crop from the same sheets.
+        const decodedSheets = new Map();
         const avatarDataUrl = author?.avatarUrl ? await getAvatarDataUrl(author.avatarUrl) : null;
         const itemLines = data
             ? await Promise.all(
@@ -676,7 +764,7 @@ export async function GET(request) {
                       const rawName = item?.name || key;
                       const ex = Boolean(rawName?.startsWith('EX '));
                       const name = ex ? rawName.replace(/^EX\s+/, '') : rawName;
-                      const img = await itemSpriteDataUrl(spriteInfo, key, rawName, item?.base_item);
+                      const img = await itemSpriteDataUrl(spriteInfo, key, rawName, item?.base_item, decodedSheets);
                       return {
                           label,
                           name,
@@ -720,7 +808,9 @@ export async function GET(request) {
                     ...fontStyle,
                 }}
             >
-                <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{title}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{title}</div>
+                </div>
 
                 {hasBuildInfo && (
                     <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -756,6 +846,7 @@ export async function GET(request) {
                                         alignItems: 'center',
                                         gap: 6,
                                         border: `2px solid ${CZ_COLOR}`,
+                                        borderRadius: 8,
                                         background: PANEL,
                                         padding: '3px 8px',
                                     }}
@@ -772,6 +863,7 @@ export async function GET(request) {
                         style={{
                             flex: 1,
                             border: `2px solid ${BORDER}`,
+                            borderRadius: 8,
                             background: PANEL,
                             padding: 14,
                             display: 'flex',
@@ -788,6 +880,7 @@ export async function GET(request) {
                             style={{
                                 width: 330,
                                 border: `2px solid ${BORDER}`,
+                                borderRadius: 8,
                                 background: PANEL,
                                 padding: 14,
                                 display: 'flex',
