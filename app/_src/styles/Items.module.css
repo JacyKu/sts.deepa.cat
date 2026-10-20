@@ -3169,14 +3169,3 @@ div.builderStatCard {
     font-size: 14px;
     cursor: default;
 }
-
-.skillCalcPassiveTag {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: var(--accent, #3d3286);
-    color: #fff;
-}
