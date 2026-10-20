@@ -6,8 +6,8 @@
 // type do not stack in game: only the strongest strength of each type counts.
 //
 // Only effects the stat cards actually model are mapped; cosmetic/utility ones
-// (Night Vision, Water Breath, Haste, experience, ...) and instant heals are
-// left out.
+// (Night Vision, Water Breath, experience, ...) and instant heals are left out.
+// Haste/Mining Fatigue are mapped to attack speed, which is their Java effect.
 const DAMAGE_TYPES = {
     MeleeDamage: 'meleeDamagePercent',
     ProjectileDamage: 'projectileDamagePercent',
@@ -78,10 +78,14 @@ export function computePotionEffects(rawPotions, itemData) {
 
     const value = (type) => strongest.get(type) || 0;
 
-    // Additive percentages (the same pools gear stats use).
+    // Additive percentages (the same pools gear stats use). Haste and Mining
+    // Fatigue are vanilla levels, each worth 10% attack speed; the custom
+    // AttackSpeed / NegativeAttackSpeed effects are already fractions.
     effects.healthPercent = 100 * (value('MaxHealthIncrease') - value('MaxHealthDecrease'));
     effects.speedPercent = 100 * (value('Speed') - value('Slow'));
-    effects.attackSpeedPercent = 100 * (value('AttackSpeed') - value('NegativeAttackSpeed'));
+    effects.attackSpeedPercent =
+        100 * (value('AttackSpeed') - value('NegativeAttackSpeed')) +
+        10 * (value('Haste') - value('MiningFatigue'));
     // Item knockback resistance is a [0, 1] attribute that the builder turns
     // into a percentage by multiplying by 10.
     effects.knockbackRes = 10 * (value('KnockbackResist') - value('NegativeKnockbackResist'));
