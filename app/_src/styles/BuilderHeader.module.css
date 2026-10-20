@@ -45,6 +45,11 @@
     font-size: 1.5rem;
     margin-top: 0 !important;
     margin-bottom: 0 !important;
+    /* Moderators can use very long names; wrap instead of stretching the
+       builder header off-screen. */
+    max-width: min(100%, 1100px);
+    overflow-wrap: anywhere;
+    line-height: 1.2;
 }
 
 .builderHeaderEditIcon {

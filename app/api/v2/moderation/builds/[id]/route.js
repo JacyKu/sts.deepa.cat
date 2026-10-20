@@ -2,15 +2,18 @@ import { NextResponse } from 'next/server';
 import {
     getBuild,
     deleteBuildAsModerator,
+    renameBuildAsModerator,
     setBuildPublicAsModerator,
     preferredAuthorAvatar,
     getStsUserProfile,
+    MOD_BUILD_NAME_MAX,
 } from '../../../../../../lib/sts-builds';
 import { computeBuildSummary, hasProfanity } from '../../../../../../lib/public-builds';
 import { getItemData, getSkillsData } from '../../../../../_src/utils/itemsData';
 import { requireModerator } from '../../../../../../lib/moderation';
 
 // Moderator-only build actions:
+//   PATCH  { name }     -> rename (no normal 50-character cap)
 //   PATCH  { isPublic } -> force the build public/private
 //   DELETE              -> remove the build (and its favourite rows)
 export const dynamic = 'force-dynamic';
@@ -24,6 +27,19 @@ export async function PATCH(request, { params }) {
         return NextResponse.json({ error: 'build not found' }, { status: 404 });
     }
     const body = await request.json().catch(() => null);
+
+    // Rename: moderators can go past the normal limit (event/fun builds).
+    if (body && typeof body.name === 'string') {
+        if (body.name.length > MOD_BUILD_NAME_MAX) {
+            return NextResponse.json({ error: 'name too long' }, { status: 400 });
+        }
+        const renamed = renameBuildAsModerator(id, body.name);
+        if (!renamed) {
+            return NextResponse.json({ error: 'invalid name' }, { status: 400 });
+        }
+        return NextResponse.json({ ok: true, ...renamed });
+    }
+
     if (!body || typeof body.isPublic !== 'boolean') {
         return NextResponse.json({ error: 'isPublic is required' }, { status: 400 });
     }

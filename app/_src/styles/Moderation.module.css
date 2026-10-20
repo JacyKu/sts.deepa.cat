@@ -165,6 +165,7 @@
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
+    overflow-wrap: anywhere;
 }
 
 .rowMeta {
@@ -194,6 +195,30 @@
     gap: 0.4rem;
     flex-shrink: 0;
     flex-wrap: wrap;
+}
+
+/* Moderator rename: a full-width editor under the build row. Names can be
+   much longer than the normal limit, so the textarea gets room and the
+   counter sits at the right of the actions. */
+.renameBox {
+    flex: 1 1 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.renameActions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.renameCount {
+    margin-left: auto;
+    color: var(--text-2);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .badge {
