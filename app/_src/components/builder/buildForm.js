@@ -2455,7 +2455,7 @@ export default function BuildForm({
     // `asCopy` is the explicit "Save as new copy" button: the server is told to
     // always create a fresh row and to number the name when the account
     // already uses it, instead of folding the save onto an identical build.
-    function saveBuildToServer(forking = false, asCopy = false) {
+    function saveBuildToServer(forking = false, asCopy = false, attach = true) {
         const token = makeBuildString();
         const tokenVersion = getBuildTokenVersion(token) ?? '';
         // Someone else's saved build: an unchanged copy shares the original
@@ -2510,7 +2510,7 @@ export default function BuildForm({
                     // 403 = this build belongs to someone else (or an
                     // anonymous build we didn't create): fork it into a new
                     // build instead of overwriting theirs.
-                    if (r.status === 403) return saveBuildToServer(true);
+                    if (r.status === 403) return saveBuildToServer(true, false, attach);
                     if (r.status === 400) {
                         const data = await r.json().catch(() => null);
                         if (data && data.error === 'profanity') {
@@ -2531,35 +2531,35 @@ export default function BuildForm({
                 })
                 .then((result) => {
                     if (typeof result === 'string') return result; // fork already completed
-                    // The row got saved to (or claimed onto) the signed-in
-                    // account: reveal the publicise/anonymity options.
-                    if (result.savedToAccount) setOwnsBuild(true);
-                    // The server may have appended " (2)" to a duplicate name.
-                    if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
-                    // Re-baseline: the next Copy/Save compares against this
-                    // save, not against the state the page was loaded with.
-                    savedSnapshotRef.current = currentBuildSnapshot();
-                    // Track the new revision so the draft saved next belongs to
-                    // the row's current revision (older drafts are ignored).
-                    if (result.version) setBuildRevision(result.version);
-                    // The server returns the build's revision (?v=), which
-                    // only changes when the build is updated.
                     const link =
                         window.location.origin +
                         getStsBase() +
                         `/b/v${tokenVersion}/${activeBuildId}` +
                         (result.version ? `?v=${result.version}` : '');
-                    // Reflect the new revision in the address bar too, so a
-                    // reload or a link copied from it serves the updated embed
-                    // instead of the cached one.
-                    window.history.replaceState(
-                        null,
-                        '',
-                        getStsBase() +
-                            `/b/v${tokenVersion}/${activeBuildId}` +
-                            (result.version ? `?v=${result.version}` : '')
-                    );
-                    setSavedAnonymous(false);
+                    if (attach) {
+                        // The row got saved to (or claimed onto) the signed-in
+                        // account: reveal the publicise/anonymity options.
+                        if (result.savedToAccount) setOwnsBuild(true);
+                        // The server may have appended " (2)" to a duplicate name.
+                        if (result.name && result.name !== buildNameRef.current) applyBuildName(result.name);
+                        // Re-baseline: the next Copy/Save compares against this
+                        // save, not against the state the page was loaded with.
+                        savedSnapshotRef.current = currentBuildSnapshot();
+                        // Track the new revision so the draft saved next belongs
+                        // to the row's current revision (older drafts are ignored).
+                        if (result.version) setBuildRevision(result.version);
+                        // Reflect the new revision in the address bar too, so a
+                        // reload or a link copied from it serves the updated embed
+                        // instead of the cached one.
+                        window.history.replaceState(
+                            null,
+                            '',
+                            getStsBase() +
+                                `/b/v${tokenVersion}/${activeBuildId}` +
+                                (result.version ? `?v=${result.version}` : '')
+                        );
+                        setSavedAnonymous(false);
+                    }
                     // The save button's label follows hasUnsavedEdits(), which is
                     // false again now - it reads "Saved" on its own.
                     setSaveState(null);
@@ -2604,32 +2604,34 @@ export default function BuildForm({
                 // The server returns the build's revision (?v=), which only
                 // changes when the build is updated.
                 const link = window.location.origin + getStsBase() + d.url + (d.version ? `?v=${d.version}` : '');
-                // Remember the row so later edits update it instead of forking.
-                setActiveBuildId(d.id);
-                if (d.version) setBuildRevision(d.version);
-                if (d.savedToAccount) setOwnsBuild(true);
-                // The replica got its own build; from here on it is that build.
-                setReplica(false);
-                // The server may have appended " (2)" to a duplicate name.
-                if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
-                // Re-baseline: the next Copy/Save compares against this save,
-                // not against the state the page was loaded with.
-                savedSnapshotRef.current = currentBuildSnapshot();
-                // Move the address bar onto the build itself: a reload (or
-                // sharing the tab) keeps you on the saved build. replaceState,
-                // not pushState, so Back doesn't return to the blank builder.
-                // The revision (?v=) rides along so the embed serves the fresh
-                // image instead of a cached older one.
-                window.history.replaceState(null, '', getStsBase() + d.url + (d.version ? `?v=${d.version}` : ''));
+                if (attach) {
+                    // Remember the row so later edits update it instead of forking.
+                    setActiveBuildId(d.id);
+                    if (d.version) setBuildRevision(d.version);
+                    if (d.savedToAccount) setOwnsBuild(true);
+                    // The replica got its own build; from here on it is that build.
+                    setReplica(false);
+                    // The server may have appended " (2)" to a duplicate name.
+                    if (d.name && d.name !== buildNameRef.current) applyBuildName(d.name);
+                    // Re-baseline: the next Copy/Save compares against this save,
+                    // not against the state the page was loaded with.
+                    savedSnapshotRef.current = currentBuildSnapshot();
+                    // Move the address bar onto the build itself: a reload (or
+                    // sharing the tab) keeps you on the saved build. replaceState,
+                    // not pushState, so Back doesn't return to the blank builder.
+                    // The revision (?v=) rides along so the embed serves the fresh
+                    // image instead of a cached older one.
+                    window.history.replaceState(null, '', getStsBase() + d.url + (d.version ? `?v=${d.version}` : ''));
+                    if (d.savedToAccount) {
+                        setSavedAnonymous(false);
+                    } else {
+                        setSavedAnonymous(true);
+                        setTimeout(() => setSavedAnonymous(false), 7000);
+                    }
+                }
                 // The save button's label follows hasUnsavedEdits(), which is
                 // false again now - it reads "Saved" on its own.
                 setSaveState(null);
-                if (d.savedToAccount) {
-                    setSavedAnonymous(false);
-                } else {
-                    setSavedAnonymous(true);
-                    setTimeout(() => setSavedAnonymous(false), 7000);
-                }
                 return link;
             })
             .catch(() => {
@@ -2641,13 +2643,13 @@ export default function BuildForm({
             });
     }
 
-    // Copy actions always hand out a real short link. A saved, unchanged build
-    // reuses its existing link; anything else goes through the save endpoint
-    // first, so the server creates/bumps the revision and returns the /b/ link
-    // for that new revision.
+    // Copy actions always hand out a real revision link. A saved, unchanged
+    // build reuses its existing link; anything else saves a revision first but
+    // does not attach it as the builder's current build (so the page stays
+    // unsaved and the Save button still persists it later).
     function linkForCopy() {
         if (activeBuildId && !hasUnsavedEdits()) return Promise.resolve(shareLink());
-        return saveBuildToServer();
+        return saveBuildToServer(false, false, false);
     }
 
     // Discord renders markdown, so the link goes out as its label.
