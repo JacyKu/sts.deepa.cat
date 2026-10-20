@@ -46,10 +46,13 @@ import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 import { computePotionEffects } from '../../utils/builder/potionEffects';
 import {
-    computeSkillEffects,
+    aggregateSkillEffects,
+    buildSkillCalcEntries,
     isSkillCalcLearned,
     mergeBuffEffects,
+    resolveSkillCalcEntry,
     skillCalcEntries,
+    skillCalcLevel,
 } from '../../utils/builder/skillEffects';
 import { getEnabledSkillCalcs, setEnabledSkillCalcs } from '../../utils/skillCalcPrefs';
 import {
@@ -427,10 +430,7 @@ const extraStats = {
     attackSpeedMultipliers: [],
 };
 
-// Skill/spec calculation effects for the current class, spec, skill points and
-// toggles. Rebuilt by refreshClassBuffs and read by recalcBuild (like the
-// mutable enabledBoxes/extraStats objects).
-const skillCalcState = { effects: null };
+const skillCalcState = { entries: [] };
 
 const itemTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
 
@@ -453,6 +453,67 @@ const DEFAULT_STACK_INPUTS = { scorchStacks: '15', staminaStacks: '4', tempoSeco
 // The inputs (and the form fields) are keyed by state name, the definition map
 // by situational, so the caps are looked up by state name.
 const STACK_INPUT_BY_STATE = Object.fromEntries(Object.values(STACK_INPUTS).map((input) => [input.name, input]));
+
+function skillStackMax(entry, level, charmTotals) {
+    const base = level >= 2 && entry.stacks.maxLv2 !== undefined ? entry.stacks.maxLv2 : entry.stacks.max;
+    const key = entry.charmMaxStats && entry.charmMaxStats.max;
+    const charmMax = key ? Number(charmTotals && charmTotals[key] && charmTotals[key].value) || 0 : 0;
+    return base + charmMax;
+}
+
+function formatSkillCalcEffects(stats) {
+    const lines = [];
+    const value = (raw) => (Number(raw) ? String(Number(Number(raw).toFixed(2))) : '');
+    const pct = (raw, label) => {
+        const shown = value(raw);
+        if (shown) lines.push(`${Number(raw) > 0 ? '+' : ''}${shown}% ${label}`);
+    };
+    const flat = (raw, label) => {
+        const shown = value(raw);
+        if (shown) lines.push(`${Number(raw) > 0 ? '+' : ''}${shown} ${label}`);
+    };
+    pct(stats.allDamagePercent, 'Damage');
+    pct(stats.meleeDamagePercent, 'Melee Damage');
+    pct(stats.projectileDamagePercent, 'Projectile Damage');
+    pct(stats.magicDamagePercent, 'Magic Damage');
+    pct(stats.classAllDamagePercent, 'Class Damage');
+    pct(stats.speedPercent, 'Speed');
+    pct(stats.attackSpeedPercent, 'Attack Speed');
+    pct(stats.resistancePercent, 'Resistance');
+    pct(stats.ailmentResistancePercent, 'Ailment Resistance');
+    pct(stats.knockbackPercent, 'Knockback Resistance');
+    pct(stats.healingPercent, 'Healing');
+    pct(stats.healthPercent, 'Max Health');
+    pct(stats.toughnessHealthPercent, 'Max Health (Toughness)');
+    pct(stats.toughnessHealingPercent, 'Healing (Toughness)');
+    pct(stats.frenzySpeedPercent, 'Speed (Frenzy)');
+    pct(stats.frenzyBonusDamagePercent, 'Melee Damage (Frenzy)');
+    pct(stats.weaponMasterySpeedPercent, 'Speed (Weapon Mastery)');
+    flat(stats.flatMeleeDamage, 'Melee Damage');
+    flat(stats.critFlatDamage, 'Critical Damage');
+    return lines.join(', ');
+}
+
+function skillCalcTooltipText(entry, resolved, { level, enhanced, simple }) {
+    const lines = [`${entry.label} (Lv ${level}${enhanced ? ', Enhanced' : ''})`];
+    if (entry.condition) lines.push(`Condition: ${entry.condition}`);
+    if (entry.summary) {
+        lines.push(`Applies: ${entry.summary}`);
+    } else {
+        const applies = formatSkillCalcEffects(resolved.stats);
+        if (applies) lines.push(`Applies: ${applies}`);
+    }
+    if (resolved.stacks) {
+        const per = formatSkillCalcEffects(resolved.stacks.perStack);
+        if (per) lines.push(`Per stack: ${per}`);
+        lines.push(`Stacks: ${entry.stacks.label} (0–${resolved.stacks.max})`);
+    }
+    if (simple) {
+        lines.push('');
+        lines.push(simple);
+    }
+    return lines.join('\n');
+}
 
 // The stats normal (basic) infusions feed, in display order, and the shared
 // budget for both entry paths (6 items x level IV).
@@ -571,6 +632,7 @@ function getRelevantItems(types, itemData, favourites = new Set()) {
 const STATS_CACHE_MAX = 8;
 const statsCache = new Map(); // signature -> { itemData, stats }
 function recalcBuild(data, itemData) {
+    const skillEffects = aggregateSkillEffects(skillCalcState.entries, data);
     const signature = JSON.stringify({
         region: data.region ?? null,
         items: [
@@ -611,7 +673,7 @@ function recalcBuild(data, itemData) {
         // Selected potion/food buffs (preview-only, see potionEffects.js).
         potions: data.potions ?? null,
         // Enabled skill/spec calculations for the current class/spec.
-        sk: skillCalcState.effects,
+        sk: skillEffects,
         eb: enabledBoxes,
         es: extraStats,
         eca: enabledClassAbilityBuffs,
@@ -628,7 +690,7 @@ function recalcBuild(data, itemData) {
         enabledBoxes,
         extraStats,
         enabledClassAbilityBuffs,
-        mergeBuffEffects(computePotionEffects(data.potions, itemData), skillCalcState.effects)
+        mergeBuffEffects(computePotionEffects(data.potions, itemData), skillEffects)
     );
     statsCache.set(signature, { itemData, stats: tempStats });
     if (statsCache.size > STATS_CACHE_MAX) {
@@ -733,14 +795,11 @@ function formatSituationalName(situ) {
     return ret;
 }
 
-function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, classAbilityContext, stackInputs, onStackChange, t) {
+function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInfusions, stackInputs, onStackChange, t) {
     let tempDef = [];
     let tempFlatDmg = [];
     let tempPercentDmg = [];
     let tempInfusions = [];
-    // Class-ability conditional toggles (e.g. Warrior's Frenzy): visible while
-    // the ability has points, ticked to count its triggered effect.
-    let tempClass = [];
 
     // The chips whose effect depends on stacks/uptime carry a small number box
     // beside their toggle (see STACK_INPUTS). Hovering the box shows that
@@ -864,37 +923,6 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
             );
         });
     }
-    // Warrior Frenzy: on-kill attack-speed buff. Only counts while the box is
-    // ticked (its magnitude depends on the Frenzy skill level); the skill's
-    // Enhancement (next-attack damage) has its own toggle.
-    if (classAbilityContext && classAbilityContext.frenzyLevel > 0) {
-        const frenzyLabel = classAbilityContext.frenzyLevel >= 2 ? 'Frenzy (Lv 2)' : 'Frenzy';
-        tempClass.push(
-            <div className="col-auto" key={'classabilitybox-frenzy'}>
-                <CheckboxWithLabel
-                    name={frenzyLabel}
-                    inputName="frenzy"
-                    enchantName="frenzy"
-                    checked={enabledBoxes.frenzy}
-                    onChange={checkboxChanged}
-                />
-            </div>
-        );
-        if (classAbilityContext.frenzyEnhanced) {
-            tempClass.push(
-                <div className="col-auto" key={'classabilitybox-frenzy-enhancement'}>
-                    <CheckboxWithLabel
-                        name="Frenzy (Enhancement)"
-                        inputName="frenzy_enhancement"
-                        enchantName="frenzy"
-                        checked={enabledBoxes.frenzy_enhancement}
-                        onChange={checkboxChanged}
-                    />
-                </div>
-            );
-        }
-    }
-
     let temp = [];
     temp.push(...tempDef);
     if (tempDef.length > 0 && tempFlatDmg.length > 0) {
@@ -909,10 +937,6 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
         temp.push(<span key="spacer3" style={{ width: '10px', padding: '0px' }}></span>);
     }
     temp.push(...tempInfusions);
-    if (temp.length > 0 && tempClass.length > 0) {
-        temp.push(<span key="spacer-class" style={{ width: '10px', padding: '0px' }}></span>);
-    }
-    temp.push(...tempClass);
     if (temp.length == 0) {
         temp.push(
             <div className="col-auto" key="builder.info.noSituationals">
@@ -1157,6 +1181,7 @@ export default function BuildForm({
     const currentSnapshotRef = React.useRef(null);
     const [statInputs, setStatInputs] = React.useState(DEFAULT_STAT_INPUTS);
     const [stackInputs, setStackInputs] = React.useState(DEFAULT_STACK_INPUTS);
+    const [skillStackInputs, setSkillStackInputs] = React.useState({});
     const [regionValue, setRegionValue] = React.useState(3);
     const [regionSelectKey, setRegionSelectKey] = React.useState(0);
     const [enhancements, setEnhancements] = React.useState({}); // buff key -> true
@@ -2036,7 +2061,14 @@ export default function BuildForm({
     // Also recomputes the experimental skill/spec calculation effects for the
     // class/spec being applied (callers changing them pass the new value, since
     // the state setters have not re-rendered yet).
-    function refreshClassBuffs(nextSkillPoints, nextSpecPoints, nextEnhancements, nextClass = gameClass, nextSpec = spec) {
+    function refreshClassBuffs(
+        nextSkillPoints,
+        nextSpecPoints,
+        nextEnhancements,
+        nextClass = gameClass,
+        nextSpec = spec,
+        nextCharmNames = null
+    ) {
         Object.keys(enabledClassAbilityBuffs).forEach((key) => {
             enabledClassAbilityBuffs[key] = false;
         });
@@ -2075,13 +2107,16 @@ export default function BuildForm({
                 }
             }
         }
-        skillCalcState.effects = computeSkillEffects({
+        const charmNames = nextCharmNames || charms.map((charm) => charm.name);
+        const charmTotals = itemData ? computeCharmTotals(itemData, charmNames) : {};
+        skillCalcState.entries = buildSkillCalcEntries({
             gameClass: nextClass,
             spec: nextSpec,
             skillPoints: nextSkillPoints,
             specSkillPoints: nextSpecPoints,
             enhancements: nextEnhancements,
             enabled,
+            charmTotals,
         });
     }
 
@@ -2746,7 +2781,7 @@ export default function BuildForm({
             // edit instead of showing empty cards. Potions are a browser
             // preference, so they come from storage rather than the form, and
             // any skill calculations from a previous build are cleared.
-            skillCalcState.effects = null;
+            skillCalcState.entries = [];
             applyStatsUpdateNow(
                 {
                     ...Object.fromEntries(new FormData(formRef.current).entries()),
@@ -2783,6 +2818,7 @@ export default function BuildForm({
                 label: removeMasterworkFromName(itemNames[type]),
             });
         });
+        let loadedCharmNames = null;
         let charmString = buildParts.find((str) => str.includes('charm='));
         if (charmString) {
             // decodeURIComponent: decodeURI leaves %2C (comma) encoded since it's a reserved char
@@ -2798,6 +2834,7 @@ export default function BuildForm({
                 }
             });
 
+            loadedCharmNames = cappedList;
             setCharms(cappedList.map((name) => itemData[name]));
         }
 
@@ -2898,7 +2935,14 @@ export default function BuildForm({
             setSpecSkillPoints(loadedSpecPoints);
         }
 
-        refreshClassBuffs(loadedSkillPoints, loadedSpecPoints, loadedEnhancements, loadedClass, loadedSpec);
+        refreshClassBuffs(
+            loadedSkillPoints,
+            loadedSpecPoints,
+            loadedEnhancements,
+            loadedClass,
+            loadedSpec,
+            loadedCharmNames
+        );
         // extra stat inputs (health/tenacity/vitality/vigor/focus/perspicacity/region)
         const statValues = {};
         for (const key of STAT_KEYS) {
@@ -3490,6 +3534,19 @@ export default function BuildForm({
         scheduleStatsRecalc();
     }
 
+    function changeSkillStack(id, max, value) {
+        let next = value;
+        if (value !== '' && !/[.,]$/.test(value)) {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) {
+                const capped = Math.min(max, Math.max(0, parsed));
+                if (capped !== parsed) next = String(capped);
+            }
+        }
+        setSkillStackInputs((prev) => ({ ...prev, [id]: next }));
+        scheduleStatsRecalc();
+    }
+
     function checkboxChanged(event) {
         // Checkbox names come in lowercase, with words separated by spaces.
         // Replace every space so multi-word situationals (e.g. "curse of the
@@ -3593,14 +3650,16 @@ export default function BuildForm({
     }
 
     // --- Experimental skill/spec calculations ---
-    // Entries for the row below the stat toggles: every calculation for the
-    // current class and spec; skills without points are shown disabled.
+    // Entries for the row below the stat toggles: calculations for skills that
+    // have at least one point (and for the current spec's passives).
     const skillCalcRow = React.useMemo(
         () =>
-            skillCalcEntries(gameClass, spec).map((entry) => ({
-                entry,
-                learned: isSkillCalcLearned(entry, skillPoints, specSkillPoints),
-            })),
+            skillCalcEntries(gameClass, spec)
+                .map((entry) => ({
+                    entry,
+                    learned: isSkillCalcLearned(entry, skillPoints, specSkillPoints),
+                }))
+                .filter(({ learned }) => learned),
         [gameClass, spec, skillPoints, specSkillPoints]
     );
 
@@ -3614,8 +3673,7 @@ export default function BuildForm({
         recalcBuildStats();
     }
 
-    // Hover descriptions for the calculation toggles, mirroring the native
-    // tooltips on the builder's skill and spec rows.
+    // Ability descriptions appended to each calculation toggle's tooltip.
     const skillCalcTooltips = React.useMemo(() => {
         const map = new Map();
         let passive = null;
@@ -3651,6 +3709,15 @@ export default function BuildForm({
             })
             .filter(Boolean);
         setCharms(charmData);
+        refreshClassBuffs(
+            skillPoints,
+            specSkillPoints,
+            enhancements,
+            gameClass,
+            spec,
+            charmData.map((charm) => charm.name)
+        );
+        recalcBuildStats();
     }
 
     // Drag-to-reorder the equipped charms. Charm order lives in the build
@@ -4293,10 +4360,6 @@ export default function BuildForm({
                     itemsToDisplay,
                     checkboxChanged,
                     delveOpen ? delveInfusions : null,
-                    {
-                        frenzyLevel: gameClass === 'warrior' ? skillPoints.Frenzy || 0 : 0,
-                        frenzyEnhanced: gameClass === 'warrior' && Boolean(enhancements.Frenzy),
-                    },
                     stackInputs,
                     changeStackInput,
                     t
@@ -4379,6 +4442,7 @@ export default function BuildForm({
                     )}
                 </span>
             </div>
+            {potionsSection}
             <div className="row mb-1 justify-content-center">
                 <div className="col-auto">
                     <label className={`${styles.delveToggle} ${multipliersOpen ? styles.delveToggleActive : ''}`}>
@@ -5408,7 +5472,6 @@ export default function BuildForm({
                             {itemTiles}
                             {regionValue >= 3 && charmsSection}
                             {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
-                            {potionsSection}
                         </>
                     )}
                     <div className="row justify-content-center pt-1 mb-1 g-1">
@@ -5440,24 +5503,52 @@ export default function BuildForm({
                                 <TranslatableText identifier="builder.skillCalcs.title"></TranslatableText>{' '}
                                 <span className={styles.experimentalBadge}>{t('items.changes.experimental')}</span>
                             </span>
-                            {skillCalcRow.map(({ entry, learned }) => {
+                            {skillCalcRow.map(({ entry }) => {
                                 const enabled = enabledSkillCalcs.includes(entry.id);
-                                const tooltip = entry.passive
+                                const level = skillCalcLevel(entry, skillPoints, specSkillPoints);
+                                const enhanced = entry.passive ? false : Boolean(enhancements[entry.id]);
+                                const max = entry.stacks ? skillStackMax(entry, level, charmTotals) : 0;
+                                const resolved = resolveSkillCalcEntry(entry, level, enhanced, charmTotals);
+                                const simple = entry.passive
                                     ? skillCalcTooltips.passive
                                     : skillCalcTooltips.map.get(entry.id);
+                                const tooltip = skillCalcTooltipText(entry, resolved, {
+                                    level,
+                                    enhanced,
+                                    simple,
+                                });
+                                const stackValue =
+                                    skillStackInputs[entry.id] === undefined ? String(max) : skillStackInputs[entry.id];
                                 return (
-                                    <div
-                                        className="col-auto"
-                                        key={`${entry.id}-${learned ? 'learned' : 'unlearned'}-${enabled ? 'on' : 'off'}`}
-                                        title={tooltip || undefined}
-                                    >
-                                        <CheckboxWithLabel
-                                            inputName={`skillCalc-${entry.id}`}
-                                            name={entry.label}
-                                            checked={enabled && learned}
-                                            disabled={!learned}
-                                            onChange={() => toggleSkillCalc(entry.id)}
-                                        />
+                                    <div className="col-auto" key={`${entry.id}-${enabled ? 'on' : 'off'}`}>
+                                        <span className={styles.enchantTooltip}>
+                                            <CheckboxWithLabel
+                                                inputName={`skillCalc-${entry.id}`}
+                                                name={entry.label}
+                                                checked={enabled}
+                                                onChange={() => toggleSkillCalc(entry.id)}
+                                            >
+                                                {enabled && entry.stacks && (
+                                                    <input
+                                                        type="number"
+                                                        className={styles.stackInput}
+                                                        name={entry.stacks.name}
+                                                        min={0}
+                                                        max={max}
+                                                        step={1}
+                                                        value={stackValue}
+                                                        onChange={(event) =>
+                                                            changeSkillStack(entry.id, max, event.target.value)
+                                                        }
+                                                        aria-label={entry.stacks.label}
+                                                        title={`${entry.stacks.label} (0–${max})`}
+                                                    />
+                                                )}
+                                            </CheckboxWithLabel>
+                                            <span className={`${styles.enchantTooltipText} ${styles.skillCalcTooltip}`}>
+                                                {tooltip}
+                                            </span>
+                                        </span>
                                     </div>
                                 );
                             })}
@@ -5931,7 +6022,6 @@ export default function BuildForm({
                 <>
                     {regionValue >= 3 && charmsSection}
                     {regionValue >= 3 && Object.keys(charmTotals).length > 0 && charmStatsSection}
-                    {potionsSection}
                 </>
             )}
             {tailSections}

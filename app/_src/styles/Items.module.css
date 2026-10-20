@@ -600,6 +600,14 @@
     opacity: 1;
 }
 
+.skillCalcTooltip {
+    text-align: left;
+    white-space: pre-line;
+    width: max-content;
+    max-width: min(320px, calc(100vw - 16px));
+    overflow-wrap: anywhere;
+}
+
 /* Author row on custom items database tiles: the regular item tiles are
    authorless, so it only renders when the item carries one. margin-top: auto
    keeps it pinned to the bottom of the flex-column tile. */

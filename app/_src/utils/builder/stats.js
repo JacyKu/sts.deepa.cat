@@ -296,6 +296,7 @@ class Stats {
 
         if (this.enabledClassAbilityBuffs.celestial_blessing) {
             let bonus = this.enabledClassAbilityBuffs.celestial_blessing_lv2 ? 30 : 20;
+            bonus += Number(this.buffEffects && this.buffEffects.classAllDamagePercent) || 0;
             this.classAttackDamagePercent.add(bonus);
             this.classProjectileDamagePercent.add(bonus);
             this.classMagicDamagePercent.add(bonus);
@@ -308,6 +309,7 @@ class Stats {
             if (this.enabledBoxes[specialist])
                 attackDamageBase += this.sumEnchantmentStat(this.itemStats.mainhand, specialist, 2);
         });
+        attackDamageBase += Number(this.buffEffects && this.buffEffects.flatMeleeDamage) || 0;
 
         // gear damage
         this.attackDamagePercent.add(this.damageInfusionsMultiplier * Number(this.vigor));
@@ -321,20 +323,16 @@ class Stats {
         this.attackDamagePercent.add(retaliationSit);
         this.attackDamagePercent.add(this.getDelveGearDamagePct());
 
-        // class damage
+        // gear damage (Weapon Mastery is a normal damage boost, not class damage)
         if (this.enabledClassAbilityBuffs.weapon_mastery) {
-            let mainhandType = this.fullItemData.mainhand.type;
-            if (this.fullItemData.mainhand.type == 'Axe') {
-                this.classAttackDamagePercent.add(this.enabledClassAbilityBuffs.weapon_mastery_lv2 ? 10 : 5);
-                // Enhancement raises the axe damage boost from +5% to +15% total.
-                if (this.enabledClassAbilityBuffs.weapon_mastery_enhancement)
-                    this.classAttackDamagePercent.add(this.enabledClassAbilityBuffs.weapon_mastery_lv2 ? 5 : 10);
-            } else if (this.fullItemData.mainhand.base_item?.match(/Sword/i)) {
+            const mainhand = this.fullItemData.mainhand || {};
+            const lv2 = this.enabledClassAbilityBuffs.weapon_mastery_lv2;
+            const enhanced = this.enabledClassAbilityBuffs.weapon_mastery_enhancement;
+            if (mainhand.type == 'Axe') {
+                this.attackDamagePercent.add((lv2 ? 10 : 5) + (enhanced ? 10 : 0));
+            } else if (mainhand.base_item?.match(/Sword/i)) {
                 // sword wands are still swords but count as wands in item type -LC
-                this.classAttackDamagePercent.add(this.enabledClassAbilityBuffs.weapon_mastery_lv2 ? 10 : 0);
-                // Enhancement grants +10% sword damage (0% -> 10% at any level).
-                if (this.enabledClassAbilityBuffs.weapon_mastery_enhancement)
-                    this.classAttackDamagePercent.add(this.enabledClassAbilityBuffs.weapon_mastery_lv2 ? 0 : 10);
+                this.attackDamagePercent.add((lv2 ? 10 : 0) + (enhanced ? 10 : 0));
             }
         }
         if (this.enabledClassAbilityBuffs.versatile) {
@@ -356,11 +354,12 @@ class Stats {
         // flat damage
         // im absolutely not adding the ice aspect flat damage for blazes lmao
         if (this.enabledClassAbilityBuffs.weapon_mastery) {
-            let mainhandType = this.fullItemData.mainhand.type;
-            if (mainhandType == 'Axe') {
-                flatAttackDamage += this.enabledClassAbilityBuffs.weapon_mastery_lv2 ? 4 : 2;
-            } else if (mainhandType == 'Mainhand Sword') {
-                flatAttackDamage += this.enabledClassAbilityBuffs.weapon_mastery_lv2 ? 1 : 0;
+            const mainhand = this.fullItemData.mainhand || {};
+            const lv2 = this.enabledClassAbilityBuffs.weapon_mastery_lv2;
+            if (mainhand.type == 'Axe') {
+                flatAttackDamage += lv2 ? 4 : 2;
+            } else if (mainhand.base_item?.match(/Sword/i)) {
+                flatAttackDamage += lv2 ? 1 : 0;
             }
         }
 
@@ -453,11 +452,11 @@ class Stats {
             this.magicDamagePercent.add(firstStrikeSit);
         }
 
-        // class damage
+        // damage (normal magic damage)
         if (this.enabledClassAbilityBuffs.taboo_lv2) {
-            this.classMagicDamagePercent.add(this.enabledClassAbilityBuffs.taboo_burst ? 80 : 40);
+            this.magicDamagePercent.add(this.enabledClassAbilityBuffs.taboo_burst ? 80 : 40);
         } else if (this.enabledClassAbilityBuffs.taboo_lv1) {
-            this.classMagicDamagePercent.add(30);
+            this.magicDamagePercent.add(30);
         }
 
         // flat damage
@@ -871,6 +870,12 @@ class Stats {
             delveCommonMultiplier * delveOrbitalMultiplier,
             potionTaken('ailment')
         );
+        // Toughness: +20%/+40% ailment resistance.
+        if (this.enabledClassAbilityBuffs.toughness_lv1) {
+            const toughnessAilment = this.enabledClassAbilityBuffs.toughness_lv2 ? 0.4 : 0.2;
+            ailmentDamage.base *= 1 - toughnessAilment;
+            ailmentDamage.secondwind *= 1 - toughnessAilment;
+        }
 
         let reductions = {
             melee: {
@@ -952,6 +957,7 @@ class Stats {
         if (this.enabledClassAbilityBuffs.toughness_lv1) {
             let toughnessBonus = this.enabledClassAbilityBuffs.toughness_lv2 ? 20 : 10;
             if (this.enabledClassAbilityBuffs.toughness_enhancement) toughnessBonus += 5;
+            toughnessBonus += Number(this.buffEffects && this.buffEffects.toughnessHealthPercent) || 0;
             toughnessMultiplier = 1 + toughnessBonus / 100;
         }
         // Calculate final health. Max health is hard-stopped at 1 point: flat
@@ -968,17 +974,18 @@ class Stats {
         );
         // Current health (percentage of max health based on player input)
         this.currentHealth = this.healthFinal * this.currentHealthPercent.val;
-        // Frenzy (Warrior): on-kill buff, counted only while its situational
-        // toggle is ticked. +30% attack speed (lv1), +40% attack speed and
-        // +20% movement speed (lv2). The Enhancement (+20% melee on the next
-        // attack) is its own toggle. Applied before the speed conversion
-        // below, which turns speedPercent into a display string.
-        if (this.enabledBoxes.frenzy && this.enabledClassAbilityBuffs.frenzy) {
+        // Frenzy (Warrior): +30% attack speed (lv1), +40% attack speed and
+        // +20% movement speed (lv2). The Enhancement adds +20% melee damage.
+        if (this.enabledClassAbilityBuffs.frenzy) {
             const lv2 = this.enabledClassAbilityBuffs.frenzy_lv2;
             this.attackSpeedPercent.add(lv2 ? 40 : 30);
-            if (lv2) this.speedPercent.add(20);
-            if (this.enabledBoxes.frenzy_enhancement && this.enabledClassAbilityBuffs.frenzy_enhancement) {
-                this.classAttackDamagePercent.add(20);
+            if (lv2) {
+                this.speedPercent.add(20 + (Number(this.buffEffects && this.buffEffects.frenzySpeedPercent) || 0));
+            }
+            if (this.enabledClassAbilityBuffs.frenzy_enhancement) {
+                this.attackDamagePercent.add(
+                    20 + (Number(this.buffEffects && this.buffEffects.frenzyBonusDamagePercent) || 0)
+                );
             }
         }
         // Fix speed percentage to account for base speed
@@ -988,10 +995,9 @@ class Stats {
                 .mul(this.speedFlat / 0.1, false)
                 .mul(this.currentHealthPercent.perc <= 50 ? 1 - 0.1 * this.crippling : 1, false)
                 .mul(this.enabledClassAbilityBuffs.totemic_empowerment ? 1.1 : 1, false)
-                .mul(this.enabledClassAbilityBuffs.celestial_blessing ? 1.2 : 1, false)
                 .mul(
                     this.enabledClassAbilityBuffs.weapon_mastery_enhancement && this.fullItemData.mainhand.type == 'Axe'
-                        ? 1.15
+                        ? 1 + (15 + (Number(this.buffEffects && this.buffEffects.weaponMasterySpeedPercent) || 0)) / 100
                         : 1,
                     false
                 )
@@ -1014,6 +1020,17 @@ class Stats {
         // Skill/spec calculations can scale healing (Spiritualism, Dark Pact).
         if (this.buffEffects && this.buffEffects.healingMultiplier !== 1) {
             this.healingRate.mul(this.buffEffects.healingMultiplier, false);
+        }
+        // Toughness Enhancement: +20% healing while below 50% HP.
+        if (
+            this.enabledClassAbilityBuffs.toughness_lv1 &&
+            this.enabledClassAbilityBuffs.toughness_enhancement &&
+            this.currentHealthPercent.perc <= 50
+        ) {
+            this.healingRate.mul(
+                1 + (20 + (Number(this.buffEffects && this.buffEffects.toughnessHealingPercent) || 0)) / 100,
+                false
+            );
         }
         let effHealingNonRounded = new Percentage((20 / this.healthFinal) * this.healingRate.val, false);
         if (this.enabledClassAbilityBuffs.taboo) effHealingNonRounded.mul(50);
