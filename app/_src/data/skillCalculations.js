@@ -227,8 +227,24 @@ export const SPEC_CALCULATIONS = {
             id: 'Unwavering',
             label: 'Unwavering',
             passive: true,
-            effects: { knockbackPercent: 40 },
-            condition: 'Five heretics within 8 blocks (+8% each).',
+            stacks: {
+                name: 'skillStack-Unwavering',
+                label: 'Heretics',
+                hint: 'Heretics within 8 blocks (max 5)',
+                max: 5,
+                perStack: { knockbackPercent: 8 },
+            },
+            condition: 'Per Heretic within 8 blocks (max 5).',
+        },
+    ],
+    'Cleric:Seraph': [
+        {
+            id: 'Rejuvenation',
+            label: 'Rejuvenation',
+            passive: true,
+            // 5% max HP every 3s while under 50% HP.
+            effects: { lowHealthRegenPercent: 5 / 3 },
+            condition: 'While below 50% HP (uses the Current Health slider).',
         },
     ],
     'Rogue:Swordsage': [
@@ -245,8 +261,14 @@ export const SPEC_CALCULATIONS = {
             id: 'Elusive',
             label: 'Elusive',
             passive: true,
-            effects: { resistancePercent: 10 },
-            condition: 'Four stacks at +2.5% Resistance each.',
+            stacks: {
+                name: 'skillStack-Elusive',
+                label: 'Abilities used',
+                hint: 'Abilities used (max 4 stacks), against the next hit taken',
+                max: 4,
+                perStack: { resistancePercent: 2.5 },
+            },
+            condition: 'Per ability used (max 4), against the next hit taken.',
         },
     ],
     'Scout:Hunter': [
@@ -277,6 +299,13 @@ export const SPEC_CALCULATIONS = {
     ],
     'Warrior:Guardian': [
         {
+            id: 'Endurance',
+            label: 'Endurance',
+            passive: true,
+            // Shield stun duration only; no builder stat.
+            condition: 'Reduces the duration shields are stunned by 25%.',
+        },
+        {
             id: 'Challenge',
             label: 'Challenge',
             specSkill: true,
@@ -290,6 +319,23 @@ export const SPEC_CALCULATIONS = {
             },
             charmStackStats: { meleeDamagePercent: 'challenge_melee_damage_amplifier_per_mob_percent' },
             condition: 'Per taunted mob (max 4), for 10s.',
+        },
+    ],
+    'Warrior:Berserker': [
+        {
+            id: 'Bloodlust',
+            label: 'Bloodlust',
+            passive: true,
+            stacks: {
+                name: 'skillStack-Bloodlust',
+                label: 'Bloodlust stacks',
+                hint: 'Bloodlust stacks (max 10)',
+                max: 10,
+                // Bloodlust is a resource: its stacks are spent by Glorious
+                // Battle, Meteor Slam and Rampage and do not change passive stats.
+                perStack: {},
+            },
+            condition: 'Spent by Glorious Battle, Meteor Slam and Rampage; no passive stat.',
         },
     ],
 };

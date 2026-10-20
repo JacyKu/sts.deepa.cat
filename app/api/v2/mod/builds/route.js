@@ -112,6 +112,12 @@ export async function POST(request) {
     const state = {
         token: storedToken,
         infusions,
+        points:
+            body?.points && typeof body.points === 'object'
+                ? body.points
+                : existingState && existingState.points && typeof existingState.points === 'object'
+                  ? existingState.points
+                  : {},
         // Site-only settings the mod doesn't normally send ride along on a
         // re-export. The mod cannot detect an item's Revelation infusion, so
         // when it uploads delve infusions it states its assumption (on) and

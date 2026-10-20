@@ -3,8 +3,9 @@ import Percentage from './percentage';
 const types = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
 
 // Delve infusions (from https://monumenta.wiki.gg/wiki/Delve_Infusions and
-// com.playmonumenta.plugins.itemstats.infusions.*). All are calculated at level
-// IV (max), or level V when Revelation is enabled. Per-level values:
+// com.playmonumenta.plugins.itemstats.infusions.*). Each selected infusion uses
+// its own level (I-IV); Revelation adds one level to it, capped at V. Per-level
+// values:
 const DELVE_GEAR_DAMAGE_PCT_PER_LEVEL = {
     Vengeful: 2,
     Execution: 1.5,
@@ -98,20 +99,29 @@ class Stats {
                     : undefined;
         });
 
-        // Delve infusions, read from the hidden delveInfusion-<slot> form fields.
-        // All are assumed at level IV; the Revelation checkbox raises them to level V.
-        // The builder's "Delve Infusions" toggle (delveEnabled) turns every
-        // delve effect off without dropping the picks; both flags default to
-        // on for consumers that don't carry them (saved builds, compare page).
+        // Delve infusions, read from the hidden delveInfusion-<slot> and
+        // delveLevel-<slot> form fields. Levels are per item (I-IV); Revelation
+        // adds one level to every selected infusion, capped at V. The builder's
+        // "Delve Infusions" toggle (delveEnabled) turns every delve effect off
+        // without dropping the picks; both flags default to on for consumers
+        // that don't carry them (saved builds, compare page).
         const delveEnabled = formData.delveEnabled !== '0';
         const infusionsEnabled = formData.infusionsEnabled !== '0';
+        const revelationBonus = formData.revelation === '1' ? 1 : 0;
         this.delveInfusions = {};
+        this.delveInfusionLevels = {};
         types.forEach((type) => {
             const name = formData[`delveInfusion-${type}`];
-            if (name && name !== 'None') this.delveInfusions[type] = name;
+            if (name && name !== 'None') {
+                this.delveInfusions[type] = name;
+                const rawLevel = Number(formData[`delveLevel-${type}`]);
+                const baseLevel = Number.isFinite(rawLevel) && rawLevel > 0 ? Math.min(5, Math.floor(rawLevel)) : 4;
+                const level = Math.min(5, baseLevel + revelationBonus);
+                this.delveInfusionLevels[name] = Math.max(this.delveInfusionLevels[name] || 0, level);
+            }
         });
         this.delveInfusionNames = Object.values(this.delveInfusions);
-        this.delveLevel = formData.revelation === '1' ? 5 : 4;
+        this.getDelveLevel = (name) => this.delveInfusionLevels[name] || 0;
         // An infusion's stat effect only counts while its situational checkbox
         // is ticked (mirrors the infusion's in-game condition).
         this.hasDelveInfusion = (name) =>
@@ -176,7 +186,7 @@ class Stats {
                 counts = null;
             }
             if (counts) {
-                const bonus = 0.2 * this.delveLevel;
+                const bonus = 0.2 * this.getDelveLevel('Understanding');
                 for (const key of ['tenacity', 'vitality', 'vigor', 'focus', 'perspicacity']) {
                     const items = Number(counts[key]) || 0;
                     if (items > 0) this[key] = Number(this[key] || 0) + bonus * items;
@@ -226,7 +236,7 @@ class Stats {
 
         // Grace: MULTIPLY_SCALAR_1 on the attack speed attribute (1.5% per level).
         if (this.hasDelveInfusion('Grace'))
-            this.extraAttackSpeedMultiplier *= 1 + DELVE_ATTACK_SPEED_PER_LEVEL * this.delveLevel;
+            this.extraAttackSpeedMultiplier *= 1 + DELVE_ATTACK_SPEED_PER_LEVEL * this.getDelveLevel('Grace');
 
         this.setDefaultValues();
         this.sumAllStats();
@@ -377,7 +387,7 @@ class Stats {
         // (1.25% * level) more damage. Counted while its situational chip is
         // ticked, like the other infusions.
         if (this.hasDelveInfusion('Decapitation'))
-            attackDamageCrit *= 1 + DELVE_DECAPITATION_PER_LEVEL * this.delveLevel;
+            attackDamageCrit *= 1 + DELVE_DECAPITATION_PER_LEVEL * this.getDelveLevel('Decapitation');
         // Skill calculations that add flat damage to critical hits (By My
         // Blade).
         attackDamageCrit += Number(this.buffEffects && this.buffEffects.critFlatDamage) || 0;
@@ -466,7 +476,7 @@ class Stats {
         this.spellCooldownPercent = this.spellCooldownPercent.mul(Math.pow(1.05, this.ineptitude), false);
         // Epoch: class ability cooldowns reduced by 1% per level.
         if (this.hasDelveInfusion('Epoch'))
-            this.spellCooldownPercent.mul(1 - DELVE_COOLDOWN_PER_LEVEL * this.delveLevel, false);
+            this.spellCooldownPercent.mul(1 - DELVE_COOLDOWN_PER_LEVEL * this.getDelveLevel('Epoch'), false);
         // Potion cooldown buffs scale the same multiplier (a negative value is
         // a cooldown increase).
         if (this.buffEffects && this.buffEffects.cooldownReduction) {
@@ -779,14 +789,14 @@ class Stats {
         // fall/true/unscalable); Pennate only applies to fall damage.
         let delveCommonMultiplier = 1;
         if (this.hasDelveInfusion('Carapace'))
-            delveCommonMultiplier *= 1 - DELVE_CARAPACE_DR_PER_LEVEL * this.delveLevel;
+            delveCommonMultiplier *= 1 - DELVE_CARAPACE_DR_PER_LEVEL * this.getDelveLevel('Carapace');
         if (this.hasDelveInfusion('Fueled'))
-            delveCommonMultiplier *= 1 - DELVE_FUELED_DR_PER_LEVEL * 4 * this.delveLevel;
+            delveCommonMultiplier *= 1 - DELVE_FUELED_DR_PER_LEVEL * 4 * this.getDelveLevel('Fueled');
         const delveOrbitalMultiplier = this.hasDelveInfusion('Orbital')
-            ? 1 - DELVE_ORBITAL_DR_PER_LEVEL * this.delveLevel
+            ? 1 - DELVE_ORBITAL_DR_PER_LEVEL * this.getDelveLevel('Orbital')
             : 1;
         const delvePennateMultiplier = this.hasDelveInfusion('Pennate')
-            ? 1 - DELVE_PENNATE_FALL_PER_LEVEL * this.delveLevel
+            ? 1 - DELVE_PENNATE_FALL_PER_LEVEL * this.getDelveLevel('Pennate')
             : 1;
 
         // Potion/food resistances multiply the incoming damage of each type.
@@ -939,7 +949,7 @@ class Stats {
         let total = 0;
         for (const name of this.delveInfusionNames) {
             if (!this.hasDelveInfusion(name)) continue;
-            total += (DELVE_GEAR_DAMAGE_PCT_PER_LEVEL[name] || 0) * this.delveLevel;
+            total += (DELVE_GEAR_DAMAGE_PCT_PER_LEVEL[name] || 0) * this.getDelveLevel(name);
         }
         return total;
     }
@@ -950,7 +960,7 @@ class Stats {
         */
         // Nutriment: extra healing multiplier (1.5% per level).
         if (this.hasDelveInfusion('Nutriment'))
-            this.healingRate.mul(1 + DELVE_HEALING_PER_LEVEL * this.delveLevel, false);
+            this.healingRate.mul(1 + DELVE_HEALING_PER_LEVEL * this.getDelveLevel('Nutriment'), false);
         // Warrior Toughness: +10%/+20% max health, +5% more when enhanced.
         // It is a separate multiplicative source (like class damage), not part of the additive gear hp% pool.
         let toughnessMultiplier = 1;
@@ -975,10 +985,16 @@ class Stats {
         // Current health (percentage of max health based on player input)
         this.currentHealth = this.healthFinal * this.currentHealthPercent.val;
         // Frenzy (Warrior): +30% attack speed (lv1), +40% attack speed and
-        // +20% movement speed (lv2). The Enhancement adds +20% melee damage.
+        // +20% movement speed (lv2). The game applies it as a
+        // MULTIPLY_SCALAR_1 attack speed modifier, so it multiplies gear and
+        // potion attack speed instead of adding to it. The Enhancement adds
+        // +20% melee damage.
         if (this.enabledClassAbilityBuffs.frenzy) {
             const lv2 = this.enabledClassAbilityBuffs.frenzy_lv2;
-            this.attackSpeedPercent.add(lv2 ? 40 : 30);
+            // The Frenzy charm stat is part of the same MULTIPLY_SCALAR_1
+            // modifier, so add it to the 30/40 before multiplying.
+            const charmAttackSpeed = Number(this.buffEffects && this.buffEffects.attackSpeedPercent) || 0;
+            this.attackSpeedPercent.mul(1 + ((lv2 ? 40 : 30) + charmAttackSpeed) / 100, false);
             if (lv2) {
                 this.speedPercent.add(20 + (Number(this.buffEffects && this.buffEffects.frenzySpeedPercent) || 0));
             }
@@ -1004,18 +1020,24 @@ class Stats {
                 .mul(this.extraSpeedMultiplier, false)
                 // Expedite: (0.75% * level * 3 stacks) movement speed while damaging with abilities.
                 .mul(
-                    this.hasDelveInfusion('Expedite') ? 1 + DELVE_EXPEDITE_SPEED_PER_LEVEL * 3 * this.delveLevel : 1,
+                    this.hasDelveInfusion('Expedite')
+                        ? 1 + DELVE_EXPEDITE_SPEED_PER_LEVEL * 3 * this.getDelveLevel('Expedite')
+                        : 1,
                     false
                 )
                 // Ardor: (2% * level) speed after mining a spawner outside of water.
-                .mul(this.hasDelveInfusion('Ardor') ? 1 + DELVE_ARDOR_SPEED_PER_LEVEL * this.delveLevel : 1, false)
+                .mul(
+                    this.hasDelveInfusion('Ardor') ? 1 + DELVE_ARDOR_SPEED_PER_LEVEL * this.getDelveLevel('Ardor') : 1,
+                    false
+                )
         );
 
         // Fix knockback resistance to be percentage and cap at 100
         if (this.enabledClassAbilityBuffs.formidable) this.knockbackRes += 2;
         if (this.enabledClassAbilityBuffs.taboo) this.knockbackRes += 5;
         // Unyielding: additive (8% * level) knockback resistance.
-        if (this.hasDelveInfusion('Unyielding')) this.knockbackRes += DELVE_KB_PER_LEVEL * this.delveLevel;
+        if (this.hasDelveInfusion('Unyielding'))
+            this.knockbackRes += DELVE_KB_PER_LEVEL * this.getDelveLevel('Unyielding');
         this.knockbackRes = this.knockbackRes > 10 ? 100 : this.knockbackRes * 10;
         // Skill/spec calculations can scale healing (Spiritualism, Dark Pact).
         if (this.buffEffects && this.buffEffects.healingMultiplier !== 1) {
@@ -1044,7 +1066,16 @@ class Stats {
         }
         if (this.enabledClassAbilityBuffs.taboo_burst) regenPerSecNonRounded -= 0.07 * this.healthFinal;
         // Soothing: regenerates (0.04 * level) health per second.
-        if (this.hasDelveInfusion('Soothing')) regenPerSecNonRounded += DELVE_REGEN_PER_LEVEL * this.delveLevel;
+        if (this.hasDelveInfusion('Soothing'))
+            regenPerSecNonRounded += DELVE_REGEN_PER_LEVEL * this.getDelveLevel('Soothing');
+        // Rejuvenation (Cleric Seraph): heal 5% max HP every 3s while below 50% HP.
+        if (
+            this.currentHealthPercent.perc < 50 &&
+            this.buffEffects &&
+            this.buffEffects.lowHealthRegenPercent
+        ) {
+            regenPerSecNonRounded += (Number(this.buffEffects.lowHealthRegenPercent) / 100) * this.healthFinal;
+        }
         this.regenPerSec = this.round('regenPerSec', regenPerSecNonRounded);
         this.regenPerSecPercent = this.roundPerc(
             'regenPerSecPercent',

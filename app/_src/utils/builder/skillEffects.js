@@ -32,6 +32,7 @@ function emptyEffects() {
         attackSpeedPercent: 0,
         knockbackRes: 0,
         regenLevels: 0,
+        lowHealthRegenPercent: 0,
         meleeDamagePercent: 0,
         projectileDamagePercent: 0,
         magicDamagePercent: 0,
@@ -56,6 +57,7 @@ function emptyEntryEffects() {
         attackSpeedPercent: 0,
         knockbackPercent: 0,
         regenLevels: 0,
+        lowHealthRegenPercent: 0,
         meleeDamagePercent: 0,
         projectileDamagePercent: 0,
         magicDamagePercent: 0,
@@ -95,6 +97,7 @@ function addStats(target, stats) {
     target.attackSpeedPercent += num(stats.attackSpeedPercent);
     target.knockbackPercent += num(stats.knockbackPercent);
     target.regenLevels += num(stats.regenLevels);
+    target.lowHealthRegenPercent += num(stats.lowHealthRegenPercent);
     target.meleeDamagePercent += all + num(stats.meleeDamagePercent);
     target.projectileDamagePercent += all + num(stats.projectileDamagePercent);
     target.magicDamagePercent += all + num(stats.magicDamagePercent);
@@ -118,6 +121,7 @@ function applyEntryEffects(target, entry) {
     target.attackSpeedPercent += entry.attackSpeedPercent;
     target.knockbackRes += entry.knockbackPercent / 10;
     target.regenLevels += entry.regenLevels;
+    target.lowHealthRegenPercent += entry.lowHealthRegenPercent;
     target.meleeDamagePercent += entry.meleeDamagePercent;
     target.projectileDamagePercent += entry.projectileDamagePercent;
     target.magicDamagePercent += entry.magicDamagePercent;
@@ -273,6 +277,7 @@ export function mergeBuffEffects(first, second) {
         'attackSpeedPercent',
         'knockbackRes',
         'regenLevels',
+        'lowHealthRegenPercent',
         'meleeDamagePercent',
         'projectileDamagePercent',
         'magicDamagePercent',

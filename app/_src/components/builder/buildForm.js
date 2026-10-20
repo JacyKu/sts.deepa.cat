@@ -484,6 +484,10 @@ function formatSkillCalcEffects(stats) {
     pct(stats.ailmentResistancePercent, 'Ailment Resistance');
     pct(stats.knockbackPercent, 'Knockback Resistance');
     pct(stats.healingPercent, 'Healing');
+    const lowHealthRegen = Number(stats.lowHealthRegenPercent) || 0;
+    if (lowHealthRegen) {
+        lines.push(`+${value(lowHealthRegen * 3)}% Max HP every 3s below 50% HP`);
+    }
     pct(stats.healthPercent, 'Max Health');
     pct(stats.toughnessHealthPercent, 'Max Health (Toughness)');
     pct(stats.toughnessHealingPercent, 'Healing (Toughness)');
@@ -646,6 +650,9 @@ function recalcBuild(data, itemData) {
         ],
         infusions: ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'].map(
             (slot) => data[`delveInfusion-${slot}`] ?? null
+        ),
+        delveLevels: ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'].map(
+            (slot) => data[`delveLevel-${slot}`] ?? null
         ),
         revelation: data.revelation ?? null,
         // Stack/uptime situationals (Scorch/Stamina stacks, Tempo and Reflexes
@@ -1196,7 +1203,7 @@ export default function BuildForm({
     const [czSelectedTree, setCzSelectedTree] = React.useState(CZ_MAIN_TREES[0]);
     const [charmStatsOpen, setCharmStatsOpen] = React.useState(false);
     const [delveOpen, setDelveOpen] = React.useState(false);
-    const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (always level IV)
+    const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (levels live in delvePoints)
     // Basic (normal) infusions: one per item, levels I-IV (Tenacity, Vitality,
     // Vigor, Focus, Perspicacity, Acumen - see data/basicInfusions.js).
     const [basicOpen, setBasicOpen] = React.useState(false);
@@ -1594,12 +1601,13 @@ export default function BuildForm({
         });
         // Newly picked infusions default to level IV (4 points); clearing the
         // infusion drops its points too.
+        let nextLevel = null;
         if (option) {
-            const defaultPoints = Math.min(
+            nextLevel = Math.min(
                 DELVE_POINT_MAX_PER_SLOT,
                 Math.max(delvePoints[slot] ?? 0, DELVE_POINT_DEFAULT)
             );
-            setDelvePoints((prev) => ({ ...prev, [slot]: defaultPoints }));
+            setDelvePoints((prev) => ({ ...prev, [slot]: nextLevel }));
         } else {
             setDelvePoints((prev) => {
                 const next = { ...prev };
@@ -1613,8 +1621,39 @@ export default function BuildForm({
         for (let i = 0; i < entries.length; i++) {
             if (entries[i][0] == `delveInfusion-${slot}`) entries[i][1] = option ? option.value : 'None';
         }
+        // The level select is mounted only while an infusion is picked; keep its
+        // form entry in step with the points state so the first calculation uses
+        // the level shown in the UI.
+        if (nextLevel !== null) {
+            let foundLevel = false;
+            for (const entry of entries) {
+                if (entry[0] === `delveLevel-${slot}`) {
+                    entry[1] = String(nextLevel);
+                    foundLevel = true;
+                }
+            }
+            if (!foundLevel) entries.push([`delveLevel-${slot}`, String(nextLevel)]);
+        } else {
+            entries = entries.filter(([key]) => key !== `delveLevel-${slot}`);
+        }
         const itemNames = Object.fromEntries(entries);
         applyStatsUpdate(itemNames, itemData, setStats, update);
+    }
+
+    function delveLevelChanged(slot, level) {
+        setDelvePoints((prev) => ({ ...prev, [slot]: level }));
+        // The level Select's form value is not committed yet; patch it into the
+        // snapshot before recalculating so lower levels take effect immediately.
+        const entries = Array.from(new FormData(formRef.current).entries());
+        let found = false;
+        for (const entry of entries) {
+            if (entry[0] === `delveLevel-${slot}`) {
+                entry[1] = String(level);
+                found = true;
+            }
+        }
+        if (!found) entries.push([`delveLevel-${slot}`, String(level)]);
+        applyStatsUpdate(Object.fromEntries(entries), itemData, setStats, update);
     }
 
     function delveSlotSelects(slot) {
@@ -1666,7 +1705,7 @@ export default function BuildForm({
                         isSearchable={false}
                         options={levelOpts}
                         value={levelOpts.find((o) => o.value === currentLevel) || levelOpts[levelOpts.length - 1]}
-                        onChange={(opt) => setDelvePoints((prev) => ({ ...prev, [slot]: opt.value }))}
+                        onChange={(opt) => delveLevelChanged(slot, opt.value)}
                         menuPosition="absolute"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
@@ -2364,6 +2403,7 @@ export default function BuildForm({
         return {
             token: tokenForCompare(decoded),
             infusions: sortedEntries(delveInfusions),
+            points: sortedEntries(delvePoints),
             basicInfusions: sortedEntries(basicInfusions),
             revelation: Boolean(revelation),
             name: buildNameRef.current || 'Monumenta Builder',
@@ -2385,9 +2425,18 @@ export default function BuildForm({
                 name = null;
             }
         }
+        // Older build rows carry no delve levels; they load at the default IV,
+        // so the baseline must use the same defaults or old builds look edited.
+        const savedPoints = {};
+        for (const [slot, infusion] of Object.entries(saved.infusions || {})) {
+            if (!infusion || infusion === 'None') continue;
+            const raw = saved.points && saved.points[slot];
+            savedPoints[slot] = Math.max(1, Math.min(4, Math.floor(Number(raw) || 4)));
+        }
         return {
             token: tokenForCompare(decoded),
             infusions: sortedEntries(saved.infusions),
+            points: sortedEntries(savedPoints),
             basicInfusions: sortedEntries(saved.basicInfusions),
             revelation: Boolean(saved.revelation),
             name: name || 'Monumenta Builder',
@@ -2490,6 +2539,7 @@ export default function BuildForm({
         const payload = {
             token,
             infusions: delveInfusions,
+            points: delvePoints,
             basicInfusions,
             revelation,
             name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
@@ -2517,7 +2567,7 @@ export default function BuildForm({
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    state: { token, infusions: delveInfusions, basicInfusions, revelation },
+                    state: { token, infusions: delveInfusions, points: delvePoints, basicInfusions, revelation },
                     name: payload.name,
                     notes: payload.notes,
                     ...(loggedIn ? { publicise: publicState.isPublic, anonymous: publicState.anonymous } : {}),
@@ -2991,6 +3041,7 @@ export default function BuildForm({
         // DB copy so unsaved infusion edits are not dropped.
         const effSavedState = effDraft || savedState || importedState;
         const loadedDelve = {};
+        const loadedDelvePoints = {};
         if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
             for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
                 // Any infusion is valid in any region.
@@ -2998,9 +3049,19 @@ export default function BuildForm({
                 if (ok) loadedDelve[slot] = infusion;
             }
             if (Object.keys(loadedDelve).length > 0) {
+                const savedPoints =
+                    effSavedState.points && typeof effSavedState.points === 'object' ? effSavedState.points : {};
+                for (const slot of Object.keys(loadedDelve)) {
+                    loadedDelvePoints[slot] = Math.max(
+                        1,
+                        Math.min(
+                            DELVE_POINT_MAX_PER_SLOT,
+                            Math.floor(Number(savedPoints[slot]) || DELVE_POINT_DEFAULT)
+                        )
+                    );
+                }
                 setDelveInfusions(loadedDelve);
-                // Restored infusions default to level IV (4 points) each.
-                setDelvePoints(Object.fromEntries(Object.keys(loadedDelve).map((slot) => [slot, DELVE_POINT_DEFAULT])));
+                setDelvePoints(loadedDelvePoints);
                 setDelveOpen(true);
             }
         }
@@ -3074,6 +3135,7 @@ export default function BuildForm({
         const delveEntries = {};
         for (const [slot, infusion] of Object.entries(loadedDelve)) {
             delveEntries[`delveInfusion-${slot}`] = infusion;
+            delveEntries[`delveLevel-${slot}`] = String(loadedDelvePoints[slot] ?? DELVE_POINT_DEFAULT);
         }
 
         applyStatsUpdateNow(
@@ -3278,6 +3340,7 @@ export default function BuildForm({
                 JSON.stringify({
                     token: makeBuildString(),
                     infusions: delveInfusions,
+                    points: delvePoints,
                     basicInfusions,
                     revelation,
                     name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
@@ -3323,6 +3386,7 @@ export default function BuildForm({
         statInputs,
         regionValue,
         delveInfusions,
+        delvePoints,
         basicInfusions,
         revelation,
         notesDraft,
@@ -4610,6 +4674,12 @@ export default function BuildForm({
         ? (() => {
               const entry = specPassiveInfo.entry;
               const resolved = entry ? resolveSkillCalcEntry(entry, 1, false, charmTotals) : null;
+              const stackValue =
+                  entry && resolved?.stacks
+                      ? skillStackInputs[entry.id] === undefined
+                          ? String(resolved.stacks.max)
+                          : skillStackInputs[entry.id]
+                      : '';
               const lines = [specPassiveInfo.name, t('builder.skillCalcs.passiveActive')];
               if (entry && entry.condition) lines.push(`Condition: ${entry.condition}`);
               if (resolved) {
@@ -4628,7 +4698,25 @@ export default function BuildForm({
               return (
                   <div className="col-auto" key={`spec-passive-${spec}`}>
                       <span className={styles.enchantTooltip}>
-                          <span className={styles.skillCalcPassive}>{specPassiveInfo.name}</span>
+                          <span className={styles.skillCalcPassive}>
+                              {specPassiveInfo.name}
+                              {entry && resolved?.stacks && (
+                                  <input
+                                      type="number"
+                                      className={styles.stackInput}
+                                      name={resolved.stacks.name}
+                                      min={0}
+                                      max={resolved.stacks.max}
+                                      step={1}
+                                      value={stackValue}
+                                      onChange={(event) =>
+                                          changeSkillStack(entry.id, resolved.stacks.max, event.target.value)
+                                      }
+                                      aria-label={resolved.stacks.label}
+                                      title={`${resolved.stacks.label} (0–${resolved.stacks.max})`}
+                                  />
+                              )}
+                          </span>
                           <span className={`${styles.enchantTooltipText} ${styles.skillCalcTooltip}`}>
                               {lines.join('\n')}
                           </span>

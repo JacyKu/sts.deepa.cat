@@ -43,7 +43,7 @@ export async function PATCH(request, { params }) {
     const body = await request.json().catch(() => null);
 
     // Editing a saved build keeps the same link: the state (token + infusions
-    // + revelation) is written in place. Only the owner of an owned row, or
+    // + levels + revelation) is written in place. Only the owner of an owned row, or
     // the creator (cookie) of an anonymous row, may do this - anyone else
     // gets a 403 so the client forks into a new build instead of overwriting
     // someone else's.
@@ -69,6 +69,7 @@ export async function PATCH(request, { params }) {
             state: {
                 token: storedToken,
                 infusions: body.state.infusions && typeof body.state.infusions === 'object' ? body.state.infusions : {},
+                points: body.state.points && typeof body.state.points === 'object' ? body.state.points : {},
                 revelation: Boolean(body.state.revelation),
                 basicInfusions:
                     body.state.basicInfusions && typeof body.state.basicInfusions === 'object'

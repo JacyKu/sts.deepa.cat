@@ -149,6 +149,9 @@ export async function GET(request) {
             infusions: saved.infusions && typeof saved.infusions === 'object' ? saved.infusions : {},
             revelation: Boolean(saved.revelation),
         };
+        if (saved.points && typeof saved.points === 'object') {
+            state.points = saved.points;
+        }
         if (saved.basicInfusions && typeof saved.basicInfusions === 'object') {
             state.basicInfusions = saved.basicInfusions;
         }
