@@ -4628,9 +4628,7 @@ export default function BuildForm({
               return (
                   <div className="col-auto" key={`spec-passive-${spec}`}>
                       <span className={styles.enchantTooltip}>
-                          <span className={styles.skillCalcPassive}>
-                              {specPassiveInfo.name}
-                          </span>
+                          <span className={styles.skillCalcPassive}>{specPassiveInfo.name}</span>
                           <span className={`${styles.enchantTooltipText} ${styles.skillCalcTooltip}`}>
                               {lines.join('\n')}
                           </span>
