@@ -6,7 +6,7 @@ import {
     mergeReferencedCustomItems,
     referencedCustomItemExtras,
 } from '../../../lib/sts-builds';
-import { getBuildItemHashes } from '../utils/builder/buildUrlCodec';
+import { getBuildItemHashes, getBuildTokenVersion } from '../utils/builder/buildUrlCodec';
 import { getDiscordUser } from '../../../lib/session';
 import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
@@ -101,6 +101,8 @@ export async function BuildLinkPageView(id, revision = null) {
               notes: snapshot.notes,
           }
         : row;
+    const tokenVersion = getBuildTokenVersion(row.token);
+    const latestHref = base + '/b/' + (tokenVersion ? `v${tokenVersion}/${row.id}` : row.id) + '?v=' + currentRevision;
 
     const hashes = getBuildItemHashes(shownRow.token);
     // All of these are independent; fetch them together instead of awaiting
@@ -142,6 +144,7 @@ export async function BuildLinkPageView(id, revision = null) {
                 canEditNotes={snapshot ? false : isOwner || isCreator}
                 buildId={row.id}
                 revision={snapshot ? requested : currentRevision}
+                revisionNotice={snapshot ? { requested, current: currentRevision, href: latestHref } : null}
                 canPublicise={snapshot ? false : isOwner || isCreator}
                 isPublic={row.is_public === 1}
                 isAnonymous={row.anonymous === 1}

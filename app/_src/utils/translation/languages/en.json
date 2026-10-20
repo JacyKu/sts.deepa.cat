@@ -708,6 +708,8 @@
     "builds.addToFavourites": "Add to favourites",
     "builds.ascension": "Ascension",
     "builds.copyLink": "Copy link",
+    "builds.olderRevisionNotice": "You are viewing an older revision (v{requested}) of this build. The latest revision is v{current}.",
+    "builds.viewLatestRevision": "View latest revision",
     "builds.fallbackName": "Build",
     "builds.hasNotes": "Has notes - hover the card to read them",
     "builds.loginToFavourite": "Log in to favourite",

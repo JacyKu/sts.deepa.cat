@@ -13,6 +13,7 @@ export default function BuilderPage({
     canEditNotes,
     buildId,
     revision,
+    revisionNotice,
     canPublicise,
     isPublic,
     isAnonymous,
@@ -47,6 +48,7 @@ export default function BuilderPage({
                     canEditNotes={canEditNotes}
                     buildId={buildId}
                     revision={revision}
+                    revisionNotice={revisionNotice}
                     canPublicise={canPublicise}
                     isPublic={isPublic}
                     isAnonymous={isAnonymous}

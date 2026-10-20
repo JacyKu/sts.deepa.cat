@@ -3130,3 +3130,27 @@ div.builderStatCard {
         grid-column: auto;
     }
 }
+
+/* Older-revision notice on saved build links. */
+.revisionNotice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    max-width: 1000px;
+    margin: 8px auto;
+    padding: 8px 12px;
+    border: 1px solid var(--control-border, #45456b);
+    border-radius: 4px;
+    background: var(--surface-2, #15151f);
+    color: var(--text-1, #f0f0f0);
+    font-size: 14px;
+    text-align: center;
+}
+
+.revisionNoticeLink {
+    color: var(--accent-line, var(--accent, #4a78fc));
+    text-decoration: underline;
+    white-space: nowrap;
+}

@@ -45,6 +45,7 @@ import {
 import { loadSkills, loadCz } from '../../utils/siteDataClient';
 import { useBuilderLayout } from '../builderLayoutContext';
 import { computePotionEffects } from '../../utils/builder/potionEffects';
+import RevisionNotice from '../revisionNotice';
 import {
     aggregateSkillEffects,
     buildSkillCalcEntries,
@@ -1110,6 +1111,7 @@ export default function BuildForm({
     canEditNotes,
     buildId,
     revision,
+    revisionNotice,
     canPublicise,
     isPublic,
     isAnonymous,
@@ -1160,6 +1162,7 @@ export default function BuildForm({
     // draft made against an older revision is ignored - opening a link always
     // shows the latest saved build, never locally cached older edits.
     const [buildRevision, setBuildRevision] = React.useState(Number(revision) || 1);
+    const [showRevisionNotice, setShowRevisionNotice] = React.useState(Boolean(revisionNotice));
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const [notesDraft, setNotesDraft] = React.useState(notes || '');
     const [notesSaveState, setNotesSaveState] = React.useState(null); // 'saving' | 'saved' | 'error'
@@ -2441,6 +2444,7 @@ export default function BuildForm({
     // saving creates a new build and the original is left exactly as it was. The
     // address bar moves off the saved link too, so a reload cannot reopen it.
     function detachFromSaved() {
+        setShowRevisionNotice(false);
         setActiveBuildId(null);
         setBuildRevision(1);
         setOwnsBuild(false);
@@ -2537,6 +2541,7 @@ export default function BuildForm({
                         `/b/v${tokenVersion}/${activeBuildId}` +
                         (result.version ? `?v=${result.version}` : '');
                     if (attach) {
+                        setShowRevisionNotice(false);
                         // The row got saved to (or claimed onto) the signed-in
                         // account: reveal the publicise/anonymity options.
                         if (result.savedToAccount) setOwnsBuild(true);
@@ -2605,6 +2610,7 @@ export default function BuildForm({
                 // changes when the build is updated.
                 const link = window.location.origin + getStsBase() + d.url + (d.version ? `?v=${d.version}` : '');
                 if (attach) {
+                    setShowRevisionNotice(false);
                     // Remember the row so later edits update it instead of forking.
                     setActiveBuildId(d.id);
                     if (d.version) setBuildRevision(d.version);
@@ -3352,6 +3358,7 @@ export default function BuildForm({
     };
 
     function resetForm(event) {
+        setShowRevisionNotice(false);
         for (let ref in itemRefs) {
             itemRefs[ref].current.setValue({ value: 'None', label: 'None' });
         }
@@ -4588,6 +4595,13 @@ export default function BuildForm({
 
     return (
         <form ref={formRef} onSubmit={sendUpdate} onReset={resetForm} id="buildForm">
+            {showRevisionNotice && revisionNotice && (
+                <RevisionNotice
+                    requested={revisionNotice.requested}
+                    current={revisionNotice.current}
+                    href={revisionNotice.href}
+                />
+            )}
             {showRedX && <img src="/images/redx.png" className={styles.redXOverlay} alt="" />}
             {/* Top row: region/class/spec + infusion toggles | title |
                 import/skill sets. On phones the two control clusters fold
