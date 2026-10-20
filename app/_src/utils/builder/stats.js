@@ -1074,7 +1074,14 @@ class Stats {
             this.buffEffects &&
             this.buffEffects.lowHealthRegenPercent
         ) {
-            regenPerSecNonRounded += (Number(this.buffEffects.lowHealthRegenPercent) / 100) * this.healthFinal;
+            // Healing received modifiers (AntiHeal / Heal potions, Dark Pact,
+            // etc.) scale this heal like every other healing event.
+            const healingMultiplier =
+                this.buffEffects.healingMultiplier === undefined
+                    ? 1
+                    : Math.max(0, Number(this.buffEffects.healingMultiplier) || 0);
+            regenPerSecNonRounded +=
+                (Number(this.buffEffects.lowHealthRegenPercent) / 100) * this.healthFinal * healingMultiplier;
         }
         this.regenPerSec = this.round('regenPerSec', regenPerSecNonRounded);
         this.regenPerSecPercent = this.roundPerc(

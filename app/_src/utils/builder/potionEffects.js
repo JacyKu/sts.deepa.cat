@@ -41,6 +41,8 @@ function emptyEffects() {
         projectileDamagePercent: 0,
         magicDamagePercent: 0,
         cooldownReduction: 0,
+        // Healing received multiplier (PercentHeal effects: Heal/AntiHeal).
+        healingMultiplier: 1,
         // Multipliers on incoming damage, per damage type ("all" applies to
         // every type before the type-specific one).
         damageTaken: { all: 1, melee: 1, projectile: 1, magic: 1, blast: 1, fire: 1, fall: 1 },
@@ -85,6 +87,10 @@ export function computePotionEffects(rawPotions, itemData) {
     effects.knockbackRes = 10 * (value('KnockbackResist') - value('NegativeKnockbackResist'));
     effects.regenLevels = value('Regeneration');
     effects.cooldownReduction = value('AbilityCooldownDecrease') - value('AbilityCooldownIncrease');
+    // Heal and AntiHeal both create a PercentHeal effect in game, which scales
+    // every healing event by (1 + amount). Negative AntiHeal is clamped at zero
+    // so a 100% anti-heal consumable stops healing instead of going negative.
+    effects.healingMultiplier = Math.max(0, (1 + value('Heal')) * (1 - value('AntiHeal')));
 
     // "damage" is the generic damage buff (Strength): it raises all three
     // damage cards. The type-specific buffs add on top.
