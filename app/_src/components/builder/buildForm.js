@@ -2052,6 +2052,19 @@ export default function BuildForm({
         return specData ? specData.specSkills || [] : [];
     }, [skillsData, gameClass, spec]);
 
+    const specPassiveInfo = React.useMemo(() => {
+        if (!skillsData || !Array.isArray(skillsData.classes) || gameClass == 'none' || !spec) return null;
+        const cls = skillsData.classes.find((c) => (c.className || '').toLowerCase() == gameClass);
+        const specData = cls?.specs?.find((s) => s.specName == spec);
+        const passive = specData?.specPassive;
+        if (!passive) return null;
+        return {
+            name: passive.name || passive.displayName || spec,
+            description: cleanDescription((passive.descriptions || []).join('\n')),
+            entry: skillCalcEntries(gameClass, spec).find((entry) => entry.passive) || null,
+        };
+    }, [skillsData, gameClass, spec]);
+
     // Stable name lists for the charm selector: it memoizes its option list
     // against these props, so freshly mapped arrays on every render made it
     // rebuild the whole charm list over and over.
@@ -3668,7 +3681,7 @@ export default function BuildForm({
                     entry,
                     learned: isSkillCalcLearned(entry, skillPoints, specSkillPoints),
                 }))
-                .filter(({ learned }) => learned),
+                .filter(({ entry, learned }) => learned && !entry.passive),
         [gameClass, spec, skillPoints, specSkillPoints]
     );
 
@@ -4593,6 +4606,41 @@ export default function BuildForm({
         gameClass && gameClass !== 'none' ? gameClass.charAt(0).toUpperCase() + gameClass.slice(1) : '';
     const regionClassSummary = [selectedRegionLabel, selectedClassLabel, spec].filter(Boolean).join(' · ');
 
+    const specPassiveChip = specPassiveInfo
+        ? (() => {
+              const entry = specPassiveInfo.entry;
+              const resolved = entry ? resolveSkillCalcEntry(entry, 1, false, charmTotals) : null;
+              const lines = [specPassiveInfo.name, t('builder.skillCalcs.passiveActive')];
+              if (entry && entry.condition) lines.push(`Condition: ${entry.condition}`);
+              if (resolved) {
+                  const applies = formatSkillCalcEffects(resolved.stats);
+                  if (applies) lines.push(`Applies: ${applies}`);
+                  if (resolved.stacks) {
+                      const per = formatSkillCalcEffects(resolved.stacks.perStack);
+                      if (per) lines.push(`Per stack: ${per}`);
+                      lines.push(`Stacks: ${entry.stacks.label} (0-${resolved.stacks.max})`);
+                  }
+              }
+              if (specPassiveInfo.description) {
+                  lines.push('');
+                  lines.push(specPassiveInfo.description);
+              }
+              return (
+                  <div className="col-auto" key={`spec-passive-${spec}`}>
+                      <span className={styles.enchantTooltip}>
+                          <span className={styles.skillCalcPassive}>
+                              <span className={styles.skillCalcPassiveTag}>{t('builder.skillCalcs.passive')}</span>
+                              {specPassiveInfo.name}
+                          </span>
+                          <span className={`${styles.enchantTooltipText} ${styles.skillCalcTooltip}`}>
+                              {lines.join('\n')}
+                          </span>
+                      </span>
+                  </div>
+              );
+          })()
+        : null;
+
     return (
         <form ref={formRef} onSubmit={sendUpdate} onReset={resetForm} id="buildForm">
             {showRevisionNotice && revisionNotice && (
@@ -5513,7 +5561,7 @@ export default function BuildForm({
                             );
                         })}
                     </div>
-                    {skillCalcRow.length > 0 && (
+                    {(skillCalcRow.length > 0 || specPassiveInfo) && (
                         <div className="row justify-content-center pt-1 mb-1 g-1">
                             <span className="text-center mb-1">
                                 <TranslatableText identifier="builder.skillCalcs.title"></TranslatableText>{' '}
@@ -5522,12 +5570,10 @@ export default function BuildForm({
                             {skillCalcRow.map(({ entry }) => {
                                 const enabled = enabledSkillCalcs.includes(entry.id);
                                 const level = skillCalcLevel(entry, skillPoints, specSkillPoints);
-                                const enhanced = entry.passive ? false : Boolean(enhancements[entry.id]);
+                                const enhanced = Boolean(enhancements[entry.id]);
                                 const max = entry.stacks ? skillStackMax(entry, level, charmTotals) : 0;
                                 const resolved = resolveSkillCalcEntry(entry, level, enhanced, charmTotals);
-                                const simple = entry.passive
-                                    ? skillCalcTooltips.passive
-                                    : skillCalcTooltips.map.get(entry.id);
+                                const simple = skillCalcTooltips.map.get(entry.id);
                                 const tooltip = skillCalcTooltipText(entry, resolved, {
                                     level,
                                     enhanced,
@@ -5568,6 +5614,7 @@ export default function BuildForm({
                                     </div>
                                 );
                             })}
+                            {specPassiveChip}
                         </div>
                     )}
                     <div

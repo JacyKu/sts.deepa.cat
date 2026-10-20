@@ -531,6 +531,8 @@
     "builder.potions.select": "Select Potions",
     "builder.potions.notSaved": "Potion selections are not saved with the build.",
     "builder.skillCalcs.title": "Skill & Spec Calculations",
+    "builder.skillCalcs.passive": "Passive",
+    "builder.skillCalcs.passiveActive": "Always active.",
     "builder.regions.celestialZenith": "Celestial Zenith",
     "builder.regions.darkestDepths": "Darkest Depths",
     "builder.regions.isles": "Isles",

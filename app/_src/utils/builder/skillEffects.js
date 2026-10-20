@@ -210,7 +210,7 @@ export function buildSkillCalcEntries({
     const enabledSet = new Set(enabled || []);
     const entries = [];
     for (const entry of skillCalcEntries(gameClass, spec)) {
-        if (!enabledSet.has(entry.id)) continue;
+        if (!entry.passive && !enabledSet.has(entry.id)) continue;
         if (!isSkillCalcLearned(entry, skillPoints, specSkillPoints)) continue;
         const level = skillCalcLevel(entry, skillPoints, specSkillPoints);
         const enhanced = entry.passive ? false : Boolean(enhancements && enhancements[entry.id]);
