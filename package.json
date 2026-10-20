@@ -22,6 +22,9 @@
     "backup:db": "node scripts/backup-db.mjs create",
     "backup:db:list": "node scripts/backup-db.mjs list --remote",
     "backup:db:prune": "node scripts/backup-db.mjs prune --remote",
+    "backup:data": "node scripts/backup-data.mjs create",
+    "backup:data:list": "node scripts/backup-data.mjs list --remote",
+    "backup:data:prune": "node scripts/backup-data.mjs prune --remote",
     "restore:db": "node scripts/backup-db.mjs restore"
   },
   "dependencies": {
