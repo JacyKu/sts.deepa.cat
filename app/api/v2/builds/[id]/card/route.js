@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { getBuild } from '../../../../../../lib/sts-builds';
 import { getBuildTokenVersion } from '../../../../../_src/utils/builder/buildUrlCodec';
+import { stripSeahorseShortcode } from '../../../../../_src/utils/buildEmoji';
 
 // Public build card (used by the Discord bot):
 //   /api/v2/builds/<id>/card
@@ -55,7 +56,7 @@ export async function GET(request, { params }) {
     const tokenVersion = getBuildTokenVersion(row.token) ?? '';
     return NextResponse.json({
         id: row.id,
-        name: row.name,
+        name: stripSeahorseShortcode(row.name),
         authorName: row.anonymous === 1 ? null : row.author_name,
         authorAvatar: row.anonymous === 1 ? null : row.author_avatar,
         class: row.class_name,

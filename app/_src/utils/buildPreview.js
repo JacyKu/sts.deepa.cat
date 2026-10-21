@@ -1,6 +1,7 @@
 // Link-preview helpers for the builder (used for og:/twitter: metadata server-side).
 import { decodeBuildParam } from './builder/buildUrlCodec';
 import CharmShortener from './builder/charmShortener';
+import { stripSeahorseShortcode } from './buildEmoji';
 
 function parseCharmPreview(charmValue, itemData) {
     if (!charmValue || charmValue === 'None') return { totalPower: 0, items: [] };
@@ -262,7 +263,7 @@ export function getEffectiveBuildName(data, buildName) {
 
 export function getLinkPreviewTitle(build, itemData, buildName, skillsData) {
     const data = getLinkPreviewData(build, itemData, skillsData);
-    const name = getEffectiveBuildName(data, buildName);
+    const name = stripSeahorseShortcode(getEffectiveBuildName(data, buildName));
     return (name ? name + ' - ' : '') + 'Monumenta Builder';
 }
 

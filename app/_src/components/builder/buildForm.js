@@ -10,6 +10,7 @@ import ConsumableTile from '../items/consumableTile';
 import BuildImportBar from './buildImportBar';
 import SavedSetsPanel from './savedSetsPanel';
 import BuilderHeader from '../items/builderHeader';
+import BuildEmojiText from '../buildEmojiText';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import { getStsBase } from '../../utils/base';
@@ -1566,6 +1567,40 @@ export default function BuildForm({
                 }
             } catch (e) {
                 parsed = null;
+            }
+        }
+        if (!parsed) return t('builder.sets.couldNotReadBuild');
+        return applySkillPayload(parsed);
+    }
+
+    // Copy skills from a pasted build link or raw v1_ token. Short links are
+    // resolved through the same skills endpoint as the build cards; private
+    // links work because anyone with the link can view the build.
+    async function copyBuildLinkSkills(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return t('builder.sets.empty');
+        const tokenMatch = raw.match(/v1_[A-Za-z0-9_-]+/);
+        let parsed = tokenMatch ? skillsPayloadFromToken(tokenMatch[0], itemData) : null;
+        if (!parsed && raw.includes('cl=')) {
+            parsed = skillsPayloadFromToken(raw, itemData);
+        }
+        if (!parsed) {
+            const shortMatch = raw.match(/\/b(?:\/v\d+)?\/([A-Za-z0-9]+)/i);
+            const id = shortMatch
+                ? shortMatch[1]
+                : /^[A-Za-z0-9]{4,64}$/.test(raw) && !raw.startsWith('v1_')
+                  ? raw
+                  : null;
+            if (id) {
+                try {
+                    const res = await fetch(`/api/v2/builds/${encodeURIComponent(id)}/skills`);
+                    if (res.ok) {
+                        const data = await res.json().catch(() => null);
+                        parsed = data && data.payload ? data.payload : null;
+                    }
+                } catch (e) {
+                    parsed = null;
+                }
             }
         }
         if (!parsed) return t('builder.sets.couldNotReadBuild');
@@ -4594,7 +4629,9 @@ export default function BuildForm({
                 <div className="row justify-content-center mt-3">
                     <div className="col-12 col-lg-8 col-xl-6">
                         {canEditNotes === false ? (
-                            <div className={styles.buildNotesBody}>{notes}</div>
+                            <div className={styles.buildNotesBody}>
+                                <BuildEmojiText text={notes} />
+                            </div>
                         ) : (
                             <>
                                 <textarea
@@ -5015,6 +5052,7 @@ export default function BuildForm({
                             applySkillPayload={applySkillPayload}
                             applyDelvePayload={applyDelvePayload}
                             copyBuildSkills={copyBuildSkills}
+                            copyBuildLinkSkills={copyBuildLinkSkills}
                         />
                     </div>
                 </div>
