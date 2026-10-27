@@ -693,13 +693,16 @@ function recalcBuild(data, itemData) {
         statsCache.set(signature, hit);
         return hit.stats;
     }
+    const potionEffects = computePotionEffects(data.potions, itemData);
     const tempStats = new Stats(
         itemData,
         data,
         enabledBoxes,
         extraStats,
         enabledClassAbilityBuffs,
-        mergeBuffEffects(computePotionEffects(data.potions, itemData), skillEffects)
+        mergeBuffEffects(potionEffects, skillEffects),
+        skillEffects,
+        potionEffects
     );
     statsCache.set(signature, { itemData, stats: tempStats });
     if (statsCache.size > STATS_CACHE_MAX) {

@@ -49,7 +49,16 @@ function clampStat(value, min, max, fallback) {
 }
 
 class Stats {
-    constructor(itemData, formData, enabledBoxes, extraStats, enabledClassAbilityBuffs, buffEffects) {
+    constructor(
+        itemData,
+        formData,
+        enabledBoxes,
+        extraStats,
+        enabledClassAbilityBuffs,
+        buffEffects,
+        skillEffects = null,
+        potionEffects = null
+    ) {
         this.region = Number(formData.region);
         if (![1, 2, 3].includes(this.region)) this.region = 3; // guard against non-numeric/absent region (e.g. legacy 'cz'/'dd' links) -LC
         // The defaults reproduce the behaviour before these inputs existed: full
@@ -64,6 +73,11 @@ class Stats {
         // Potion/food buffs and the enabled skill/spec calculations, combined
         // (null when none apply). Preview-only, not part of the saved build.
         this.buffEffects = buffEffects || null;
+        // Skill/spec damage is ability damage: it multiplies the gear damage
+        // pools instead of joining the additive gear percentages. Potion
+        // damage remains part of the gear percentage pools.
+        this.skillEffects = skillEffects || null;
+        this.potionEffects = potionEffects || buffEffects || null;
         this.itemNames = {
             mainhand: formData.mainhand,
             offhand: formData.offhand,
@@ -333,16 +347,16 @@ class Stats {
         this.attackDamagePercent.add(retaliationSit);
         this.attackDamagePercent.add(this.getDelveGearDamagePct());
 
-        // gear damage (Weapon Mastery is a normal damage boost, not class damage)
+        // Weapon Mastery is ability damage, so it belongs in the class pool.
         if (this.enabledClassAbilityBuffs.weapon_mastery) {
             const mainhand = this.fullItemData.mainhand || {};
             const lv2 = this.enabledClassAbilityBuffs.weapon_mastery_lv2;
             const enhanced = this.enabledClassAbilityBuffs.weapon_mastery_enhancement;
             if (mainhand.type == 'Axe') {
-                this.attackDamagePercent.add((lv2 ? 10 : 5) + (enhanced ? 10 : 0));
+                this.classAttackDamagePercent.add((lv2 ? 10 : 5) + (enhanced ? 10 : 0));
             } else if (mainhand.base_item?.match(/Sword/i)) {
                 // sword wands are still swords but count as wands in item type -LC
-                this.attackDamagePercent.add((lv2 ? 10 : 0) + (enhanced ? 10 : 0));
+                this.classAttackDamagePercent.add((lv2 ? 10 : 0) + (enhanced ? 10 : 0));
             }
         }
         if (this.enabledClassAbilityBuffs.versatile) {
@@ -462,11 +476,11 @@ class Stats {
             this.magicDamagePercent.add(firstStrikeSit);
         }
 
-        // damage (normal magic damage)
+        // damage (normal magic damage); Taboo is ability damage.
         if (this.enabledClassAbilityBuffs.taboo_lv2) {
-            this.magicDamagePercent.add(this.enabledClassAbilityBuffs.taboo_burst ? 80 : 40);
+            this.classMagicDamagePercent.add(this.enabledClassAbilityBuffs.taboo_burst ? 80 : 40);
         } else if (this.enabledClassAbilityBuffs.taboo_lv1) {
-            this.magicDamagePercent.add(30);
+            this.classMagicDamagePercent.add(30);
         }
 
         // flat damage
@@ -999,7 +1013,7 @@ class Stats {
                 this.speedPercent.add(20 + (Number(this.buffEffects && this.buffEffects.frenzySpeedPercent) || 0));
             }
             if (this.enabledClassAbilityBuffs.frenzy_enhancement) {
-                this.attackDamagePercent.add(
+                this.classAttackDamagePercent.add(
                     20 + (Number(this.buffEffects && this.buffEffects.frenzyBonusDamagePercent) || 0)
                 );
             }
@@ -1179,15 +1193,26 @@ class Stats {
         // like the item stats above. Knockback resistance uses the same [0, 1]
         // attribute scale as items (multiplied by 10 for display later).
         if (this.buffEffects) {
-            const potions = this.buffEffects;
-            this.healthPercent.add(potions.healthPercent);
-            this.speedPercent.add(potions.speedPercent);
-            this.attackSpeedPercent.add(potions.attackSpeedPercent);
-            this.knockbackRes += potions.knockbackRes;
-            this.baseRegenLevel += potions.regenLevels;
+            const buffs = this.buffEffects;
+            this.healthPercent.add(buffs.healthPercent);
+            this.speedPercent.add(buffs.speedPercent);
+            this.attackSpeedPercent.add(buffs.attackSpeedPercent);
+            this.knockbackRes += buffs.knockbackRes;
+            this.baseRegenLevel += buffs.regenLevels;
+        }
+        if (this.potionEffects) {
+            const potions = this.potionEffects;
             this.attackDamagePercent.add(potions.meleeDamagePercent);
             this.projectileDamagePercent.add(potions.projectileDamagePercent);
             this.magicDamagePercent.add(potions.magicDamagePercent);
+        }
+        // Skill/spec damage is ability damage, not gear damage. Add it to the
+        // class damage pools so it multiplies the gear result in
+        // calculateOffenseStats instead of increasing the gear percentage.
+        if (this.skillEffects) {
+            this.classAttackDamagePercent.add(this.skillEffects.meleeDamagePercent);
+            this.classProjectileDamagePercent.add(this.skillEffects.projectileDamagePercent);
+            this.classMagicDamagePercent.add(this.skillEffects.magicDamagePercent);
         }
 
         // Scorch: each stack makes each Inferno damage tick deal 3% more. Ticks
