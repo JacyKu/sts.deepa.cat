@@ -1307,9 +1307,12 @@ export default function BuildForm({
     function setBuildNameFiltered(value) {
         const { cleaned, found } = filterBadWords(String(value ?? ''));
         if (found) triggerRedX();
-        // Header commits only update the ref: no state change, no re-render.
+        // The ref is the source of truth, but the Save button compares against
+        // it during render. Bump the name signal so committing an edit updates
+        // the button (and the header) without re-rendering on every keystroke.
         buildNameRef.current = cleaned || 'Monumenta Builder';
-        // The draft must follow the name even though nothing re-rendered:
+        setNameSignal((v) => v + 1);
+        // The draft must follow the name even though nothing else re-rendered:
         // otherwise reopening the build restores the cached older name.
         scheduleDraftSave();
     }

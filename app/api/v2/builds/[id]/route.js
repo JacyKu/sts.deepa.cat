@@ -81,17 +81,21 @@ export async function PATCH(request, { params }) {
                         : {},
             },
         };
-        if (body.name !== undefined && body.name !== null) {
-            const name = typeof body.name === 'string' ? body.name.trim() : '';
-            if (!name) return NextResponse.json({ error: 'invalid name' }, { status: 400 });
-            update.name = name;
+        if (body.name !== undefined) {
+            // null is the builder's default (unnamed) build: clear the stored
+            // display name instead of treating it as "name not supplied".
+            if (body.name === null) {
+                update.name = null;
+            } else {
+                const name = typeof body.name === 'string' ? body.name.trim() : '';
+                if (!name) return NextResponse.json({ error: 'invalid name' }, { status: 400 });
+                update.name = name;
+            }
         }
         if (body.notes !== undefined && body.notes !== null) {
             update.notes = typeof body.notes === 'string' ? body.notes : '';
         }
         const summary = computeBuildSummary(storedToken, summaryData, skillsData);
-        // Public builds refresh their denormalized filter columns on every
-        // save so the database never shows stale data.
         const row = getBuild(p.id);
         const wantsPublic = body.publicise !== undefined ? Boolean(body.publicise) : row && row.is_public === 1;
         // Check the name/notes the build will actually carry: request fields
@@ -116,7 +120,11 @@ export async function PATCH(request, { params }) {
             const wanted = update.name !== undefined ? update.name : row.name;
             if (wanted) update.name = uniqueBuildName(user.id, wanted, p.id);
         }
-        if (row && row.is_public === 1) {
+        // Refresh the denormalized card/filter columns on every save. Private
+        // builds are not listed publicly, but "My Builds" still renders their
+        // class/spec/skills from these columns; leaving them stale made a
+        // renamed class/skill layout disagree with the token until reopening.
+        if (row) {
             update.summary = summary;
         }
         const creatorToken = request.cookies.get(`sts-build-owner-${p.id}`)?.value || null;
