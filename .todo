@@ -225,22 +225,15 @@ generalise all buttons to use same size/height
 [x] sharable skill/infusion sets
 [x] fix heart icon cutting off when using rounded corners
 
-- 64x64 textures dont always scale correctly in embed
-
-
-- model for build design?
-    - could use the monu code for enemies
-
-
 [ ] 13-09-2026
 
 mod stuff:
-        - remove debugging
-        - add infusions as part of the export (can probably read from armor tooltips from /ps)
-        - allow opening sts links from a formatted sign (output link to chat when clicked?)
-        - add command alias (/buildstealer2000 <player>). Starts with /ps and handles rest like normal commands
-        - check if responses get cached in game instead of being retried
-        - make sure the mod generates the new token version (/b/v7)
+        [x] remove debugging
+        [x] add infusions as part of the export (can probably read from armor tooltips from /ps)
+        [x] allow opening sts links from a formatted sign (output link to chat when clicked?)
+        [x] add command alias (/buildstealer2000 <player>). Starts with /ps and handles rest like normal commands
+        [x] check if responses get cached in game instead of being retried
+        [x] make sure the mod generates the new token version (/b/v7)
 
 
 site stuff:
@@ -248,7 +241,7 @@ site stuff:
         [x] unload item cards textures when not in view
         [x] hovering an infusion and selecting it will not remove tooltip
         [x] automate item updates
-        - add moderation page
+        [x] add moderation page
         [x] charm skills should show Elemental Spirit for both Fire and Ice, and not just Fire Elemental Spirit
         [x] check if buildnames are not duplicateable
         [x] option to change header title
@@ -279,7 +272,6 @@ site stuff:
         [x] regular infusions are treated as delve infusions in that you cannot have dupes of it, while regular infusions should allow such
         [x] allow duplicates separate from users but for duplicates per person the name should be appended with a number
         [x] enlarge profile picture on build/item cards
-        - decrease spacing on the topbar
         [x] Decrease the space use by roman numerals
         [x] add option to (un)publicise all builds (max of 20 per) and/or a custom selection of builds
         [x] people with discord connected can upload their own profile picture, up to 3 can get stored (5 including the minecraft and discord avatar) Set a decent upload size, support gifs, and make sure only images can get uploaded
@@ -290,34 +282,222 @@ site stuff:
         [x] class filter should dynamically adjust dropdown of the skills filter to only the ones that are under that class
         [x] verify if all verification checks are done serverside and not on the client to prevent bypassing anything (eg sessions and wether a user has permission to do this or that, build name length etc)
         [x] redo the mobile ui to make it fit better, eg the menu for selecting pages is off center and we should fold options into dropdowns on the builder page (only the ring/class and import/skill set options)
-        - buttons for my builds are different than the other pages
+        [x] buttons for my builds are different in width than the other pages
         [x] update /stsmod link text to /sts link
-        - posting builds anonymously should still link to a discord account to prevent losing access to it but then be sent from the server as anonymous.
-
-        (future update if popular)
-        - add tags
-        - add custom tags (3 per logged in user)
+        [x] posting builds anonymously should still link to a discord account to prevent losing access to it but then be sent from the server as anonymous.
+        [x] make understanding work again
 
         [x] bump api version to 2
-        - improve general performance and responsiveness
         [x] update TOS to include new mod and cloudflare stuff
         [x] remove unrelevant comments that dont apply anymore (stuff like changed this to ... etc)
-        - question if the token system is still the way to go about creating builds internally or if it should be deprecated (import will work and existing builds with tokens can still be used but once saved again will use a different system, if any).
+        [x] question if the token system is still the way to go about creating builds internally or if it should be deprecated (import will work and existing builds with tokens can still be used but once saved again will use a different system, if any).
             It should be faster and easier, if it isn't then we stay with token generated builds
 
-        - create statistics and status page (status.deepa.cat)
+        [x] create a diff for API on update
+        [x] full date per entry, and have the upper category be the month and year? Rather than category per day (since it'd probably only be once a week)
+        [x] add a quick settings toggle to toggle showing api changes per item in api viewer
+        [x] reduce space between timeline on api item history in item cards
 
-        - (maybe) remove Help translate button and functionality and maybe replace with kofi things for deepa and me
+        [x] check if existing builds are a thing before uploading/copying link or else you'll get duplicates
+        [x] readd the number boxes to apply a global infusion level instead of per item
+        [x] using an older link shouldnt open that revision but instead open the latest revision of the build
+        [x] with caching on while changing a name it will keep the cached name when reopening the build
+        [x] border is 1 pixel off on extended notes on build cards
+        [x] Copy from your builds should be copy from other builds
+
+[] 22-09-2026
+site stuff:
+        [x] add ability to update items api from moderation page
+        [x] fix performance issues on builder
+        [x] basic infusions still dont upload
+        [x] sharing a build will still append with a revision and also add the wrong user in the embed
+        [x] round corners arent the same radius everywhere
+        [x] move American fate format to accessibility settings
+
+        [x] Make the infusions type a settings option. Allowing you to do per item, number total above multipliers, or both.
+
+        [x] Add infusion syncing between number total above mult and per item when using both
+
+        [x] When editing per item, the number totals should be updated to match the per item infusions.
+        [x] When editing the number total, the per item infusions should be modified so that its evenly distributed among possible items.
+
+        [x] Ensure you cannot do impossible combos, such as 5+ levels of all 6 different infusions (vigor, focus, perspicacity, tenacity, vitality, acumen). E.g. if you put 5 levels of all 6 infusions, your 6 items would have level 4 of the 6 infusions, and the remaining 1 level of each would have no where to be applied.
+
+        [x] check issue with ethereal ascension not being found
+
+        [x] fix healthbar drag and pride theme selector color leaks on the right side
+        [x] make font selector as wide as the widest font in the dropdown
+
+        [x] add yyyy/mm/dd format
+
+        [x] options for accessibility and site should have same spacing/checkbox size
+        [x] fix padding above the tos and privacy content
+
+        [x] check other links like https://sts.deepa.cat/sts/database?_rsc=NhCFoc2_Ck2NkBTl and https://sts.deepa.cat/sts/compare?_rsc=foPZUDnCRpdwADJb
+        [x] stat cards should appear with their full base stats before changing values
+        [x] tooltips dont show over the api dropdown on api changes page, there is also no background for the tooltips as it usually is
+
+        [x] extended notes has a border inside the build card, on no notes the extended part has about 1-2 pixels less in height than the buildcard itself
+        [x] add option to make items private/public
+        [x] fix magma stats not showing on item card on custom item db
+        [x] show author (if not anonymous) on item card on custom item db
+
+        [x] class changes page like api changes
+        [x] make most recent change first on item card changes
+
+        [x] some items on embed are incorrect
+        [x] changing someone elses shared build doesnt generate a new link to share
+        [x] changing your own build doesnt update revision
+        [x] plus stats on infusion radius on charm stats dropdown shouldnt be red
+        [x] negative infusion damage on charm stats should be red
+
+        [x] toughness as a charm skill doesnt show
+        [x] add ability to import normal sts/dev links from one another
+        [x] update cache on requesting new build on mod
 
 
+[] 06-10-2026
+site stuff:
+        [x] add halloween theme
 
+
+        [x] add search in api changes
+        [x] show full changes in api changes, not just stats (so also item data) (option for preference selection)
+        [x] add a way to change api date
+        [x] match error pages to user set theme
+        [x] add dynamic default text coloring based on theme
+        [x] add experimental skill toggles for calculations on skills/specs
+        [x] api/class update name voting poll/ideas for discord users (to prevent spam) (people can vote on an option/add their own name)
+        [x] make the twisted lxxxxxx name scrambled/obfuscated as it is in minecraft (the lxxxxx part, across the site so also for the filter)
+        [x] judgement of the voidstained can exceed box limits both on item cards and within build cards
+
+
+        [x] Life Drain now scales with weapon attack speed.
+            Scaling Formula: 1.5 * sqrt(level) / (attack speed)^1.5
+
+
+[] 08-10-2026
+
+        [x] add location id to filter in parentheses
+        [x] detect region and class/spec from items/charms used in the builder
+
+        [x] fix the divider having round corners
+        [x] fix spacing between inputs
+        [x] tighten up the non gear items toggle filter
+        [x] check if we can add quest search to filter items from specific quests
+        [x] change display name for Event_currency to Event Currency
+        [x] change Tier filter display to alphabetical/numerical order
+        [x] setting to change item locations into the ID (eg lime, brown etc)
+        [x] bot should use location color for items in embeds as a fallback for no item rarity
+        [x] api changes page doesnt show locked stats and it cant figure out what the change was if the only change was adding/removing a lock (this was -40% -> #-40%)
+        [x] save as new copy doesnt save when the build name is the same (append number automatically)
+        [x] mobile doesnt allow free scrolling on dropdowns (for at least in the builder)
+        [x] other general weird behaviour with dropdowns for any browser on mobile
+        [x] widen the selections for skills/specs/abils to be as wide as it can be for mobile
+        [x] fix the 2 navigation buttons on the landing page for mobile
+        [x] put the art higher on the page and add the new pages to it for mobile
+        [x] add a 4 corner box layout for the pages on desktop
+
+        [x] fix mod not exporting exalted items from armory correctly
+        [x] when abils are viewed, instead of just showing the X it should check if one of the specs are selected (if ones selected it has a diff tooltip to tell)
+        [x] show a 1/2 for abilities and spec viewed
+        [x] allow moving all the buttons too just like exporting/uploading and link account buttons
+        [x] allow naming a build when uploading/exporting from GUI (both armoury and /ps.. commands)
+        [x] normal infusions still dont export from armoury
+        [x] shift + export/upload will skip naming and generate default name
+        [x] assume revelation when uploading with delve infusions
+        [x] recache on running /ps
+
+
+        [x] (maybe) remove Help translate button and functionality and maybe replace with kofi things for deepa and me
+
+
+[] 18-10-2026
+    site stuff:
+
+        [x] fix textures for projectiles
+        [x] add deltarune explosion when halloween ends
+            show user a popup to explode them, once pressed the assets will explode and they wont return until the halloween theme is toggled again
+        [x] add copy button to build cards to copy links
+        [x] add potion effects to builder
+        [x] add hover tooltips for stat cards to explain what they mean
+
+        [x] change page opening of basic charms
+        [x] add stack calculations (keep region in mind as it differs per)
+            Scorch
+            Reflexes (time)
+            Stamina
+
+        [x] armoury export should assume max masterwork
+
+        [x] skills show without having the skills selected
+        [x] potions selection should be moved above the multipliers
+        [x] charms dont affect the skill calculations
+        [x] taboo should give normal magic damage
+        [x] the tooltip formatting should be more readable, align left and make use of wrapping and new lines
+        [x] lvl 1 of clerics illuminate gives the 10% boost that only lvl 2 is supposed to give
+        [x] the tooltips should display what conditional they actually are and what they apply to 
+        [x] dodging speed should only apply at lvl 2, it currently applies at lvl 1
+        [x] skirmisher is only applying the 10% damage boost without the +1 flat base damage from its bonus
+        [x] advancing shadows 2 still only applies 30% instead of 40%
+        [x] scout sharpshooter 2 doesnt increase the max stacks to 30 (30% boost)
+            these stack based ones like sharpshooter could also use the stat toggle counter like stamina
+        [x] add stacks (blocks away) to hunter passive too
+        [x] shaman spiritualism lvl 2 doesnt apply extra 10% healing
+        [x] add stacks to warlocks cursed wound
+        [x] cursed wound lvl 2 does not gain 5% melee damage
+        [x] add warlocks melancholic lament enchantment as a togglable skill, with stack per mob aggroed
+        [x] resolve lvl 2 doesnt gain +2% resistance per stack
+        [x] make phlegmatic resolve use stacks
+        [x] dark pact should set healing to 0, it just halves it currently
+        [x] dark pact should give 50% melee damage at lvl 1, 75 at lvl 2. Currently its always at 25%
+        [x] toughness might be doing something weird to effective healing, unsure
+        [x] frenzy toggle currently does nothing, it should do attack speed on lvl 1 and more on lvl 2. as well as damage on enhance
+        [x] weapon mastery should not give class dmg, lvl 1 it should give damage boost only when holding an axe,  make sure flat works, lvl 2 does swords and more on axe
+        [x] counter strike lvl 2 should do 10% more damage
+        [x] defensive line should do 10% more resistance
+        [x] challenge lvl 2 should do 10% at max and it should use stacks
+
+
+        [x] the specializations passive ability, add it to the ability checkboxe area but dont make it uncheckable or checkable, just there to see and acknowledge
+
+
+        [x] copy new link shouldnt save the build
+
+        [x] opening a build with an old revision should notify the user that there is a newer build (detect automatically)
+        [x] remove passive badge
+        [x] add a backup system for all item/class data (items)
+        [x] anti heal doesnt work for potion calculations
+
+
+        [x] create statistics and status page (status.deepa.cat)
+        [x] u know when an axe dude hits u and ur shielding gets halved
+
+
+        [x] add mixin for replay mod to allow dragging buttons in the gui
+        [x] add skill selection list in skill selection gui for easier skill picking from builds.
 
 bot stuff:
-        - get dev bot working
+        [x] get dev bot working
         - add entire enemy lyrics to status
 
 
-- make a test list before each update to see if anything is broken
+
+
+
+
+        - add gayify option and change the favicon to the pride version
+        - add wawa cat image option with transflag overlay
+
+        - add stats to embed
+            kbr healing rate regen/s are probably all useful
+            life drain even
+            speed too but u alr got that
+        - do something with leaderboard api
+        - check item skin options
+        - change the icon for on server error pages
+        - add mini filters for the builder page
+        - make notifications support markdown
 
 - add actual 3d model of the blobcat on deepa.cat
 - let people select skins for items (need to be signed in with discord) (later update)

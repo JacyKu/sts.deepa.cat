@@ -241,6 +241,21 @@ function formHasEquippedItem(formEl) {
     }
 }
 
+// Legacy tokens escape item names with encodeURIComponent. decodeURI leaves
+// reserved characters such as commas escaped, so decode the value itself
+// before looking it up in itemData.
+function legacyItemName(buildParts, type) {
+    const prefix = `${type[0]}=`;
+    const part = (buildParts || []).find((entry) => entry.startsWith(prefix));
+    if (!part) return undefined;
+    const raw = part.slice(prefix.length);
+    try {
+        return decodeURIComponent(raw);
+    } catch (e) {
+        return raw;
+    }
+}
+
 function resolveItemKey(itemData, displayName) {
     if (itemData[displayName]) return displayName;
     return Object.keys(itemData).find((key) => itemData[key].name === displayName) || null;
@@ -455,6 +470,20 @@ const DEFAULT_STACK_INPUTS = { scorchStacks: '15', staminaStacks: '4', tempoSeco
 // The inputs (and the form fields) are keyed by state name, the definition map
 // by situational, so the caps are looked up by state name.
 const STACK_INPUT_BY_STATE = Object.fromEntries(Object.values(STACK_INPUTS).map((input) => [input.name, input]));
+
+// Number of real point levels in a skill. The API occasionally pads a
+// descriptions array with an empty trailing entry; never turn that into a
+// blank checkbox. Class skills reserve the last description for their
+// enhancement, while spec abilities have no enhancement level.
+function skillLevelCount(skill, hasEnhancement = false) {
+    const descriptions = Array.isArray(skill?.descriptions) ? skill.descriptions : [];
+    let count = descriptions.length;
+    while (count > 0 && !String(descriptions[count - 1] || '').trim()) count--;
+    if (hasEnhancement) count = Math.max(0, count - 1);
+    const explicit = Number(skill?.maxPoints);
+    if (Number.isFinite(explicit) && explicit >= 0) count = Math.min(count, explicit);
+    return count;
+}
 
 function skillStackMax(entry, level, charmTotals) {
     const base = level >= 2 && entry.stacks.maxLv2 !== undefined ? entry.stacks.maxLv2 : entry.stacks.max;
@@ -2919,12 +2948,12 @@ export default function BuildForm({
         if (!decoded) return;
         let buildParts = decodeURI(decoded).split('&');
         let itemNames = {
-            mainhand: buildParts.find((str) => str.includes('m='))?.split('m=')[1],
-            offhand: buildParts.find((str) => str.includes('o='))?.split('o=')[1],
-            helmet: buildParts.find((str) => str.includes('h='))?.split('h=')[1],
-            chestplate: buildParts.find((str) => str.includes('c='))?.split('c=')[1],
-            leggings: buildParts.find((str) => str.includes('l='))?.split('l=')[1],
-            boots: buildParts.find((str) => str.includes('b='))?.split('b=')[1],
+            mainhand: legacyItemName(buildParts, 'mainhand'),
+            offhand: legacyItemName(buildParts, 'offhand'),
+            helmet: legacyItemName(buildParts, 'helmet'),
+            chestplate: legacyItemName(buildParts, 'chestplate'),
+            leggings: legacyItemName(buildParts, 'leggings'),
+            boots: legacyItemName(buildParts, 'boots'),
         };
         Object.keys(itemNames).forEach((type) => {
             if (itemNames[type] === undefined || !Object.keys(itemData).includes(itemNames[type])) {
@@ -3301,7 +3330,7 @@ export default function BuildForm({
             if (decoded) {
                 const buildParts = decodeURI(decoded).split('&');
                 for (const type of Object.keys(itemNames)) {
-                    const value = buildParts.find((str) => str.includes(`${type[0]}=`))?.split(`${type[0]}=`)[1];
+                    const value = legacyItemName(buildParts, type);
                     if (value && itemData[value]) itemNames[type] = value;
                 }
             }
@@ -3597,9 +3626,7 @@ export default function BuildForm({
     function getEquipName(type) {
         if (!decodedBuild) return undefined;
         const allowedTypes = ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'];
-        const name = allowedTypes.includes(type)
-            ? decodedBuildParts.find((str) => str.includes(`${type[0]}=`))?.split(`${type[0]}=`)[1]
-            : 'None';
+        const name = allowedTypes.includes(type) ? legacyItemName(decodedBuildParts, type) : 'None';
         // hasOwnProperty keeps this O(1); Object.keys(itemData) allocated a
         // 6,400-entry array for every slot on every render.
         if (!name || !Object.prototype.hasOwnProperty.call(itemData, name)) {
@@ -5149,11 +5176,14 @@ export default function BuildForm({
                             ) : (
                                 <div className={styles.skillsGrid}>
                                     {classSkillList.map((skill) => {
-                                        const maxPoints = Math.max(0, (skill.descriptions || []).length - 1);
+                                        const maxPoints = skillLevelCount(skill, true);
                                         if (maxPoints === 0) return '';
                                         const points = skillPoints[skill.scoreboardId] || 0;
                                         const enhanced = Boolean(enhancements[skill.scoreboardId]);
                                         const enhanceDisabled = points < 1;
+                                        // Spec abilities are not class skills and never have an
+                                        // enhancement box, even if a stale catalog puts one here.
+                                        const showEnhancement = regionValue >= 3 && skill.enhancement !== false;
                                         const tooltip = [skill.simpleDescription].filter(Boolean).join('\n\n');
                                         const dragging =
                                             dragState &&
@@ -5239,7 +5269,7 @@ export default function BuildForm({
                                                         );
                                                     })}
                                                 </div>
-                                                {regionValue >= 3 && (
+                                                {showEnhancement && (
                                                     <span className={styles.enchantTooltip}>
                                                         <input
                                                             type="checkbox"
@@ -5298,7 +5328,7 @@ export default function BuildForm({
                             </div>
                             <div className={styles.skillsGrid}>
                                 {specSkillList.map((skill) => {
-                                    const maxPoints = Math.max(0, (skill.descriptions || []).length);
+                                    const maxPoints = skillLevelCount(skill);
                                     if (maxPoints === 0) return '';
                                     const points = specSkillPoints[skill.scoreboardId] || 0;
                                     const tooltip = [skill.simpleDescription].filter(Boolean).join('\n\n');
