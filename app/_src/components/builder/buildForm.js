@@ -5149,11 +5149,15 @@ export default function BuildForm({
                             ) : (
                                 <div className={styles.skillsGrid}>
                                     {classSkillList.map((skill) => {
-                                        const maxPoints = Math.max(0, (skill.descriptions || []).length - 1);
+                                        const maxPoints =
+                                            skill.maxPoints ?? Math.max(0, (skill.descriptions || []).length - 1);
                                         if (maxPoints === 0) return '';
                                         const points = skillPoints[skill.scoreboardId] || 0;
                                         const enhanced = Boolean(enhancements[skill.scoreboardId]);
                                         const enhanceDisabled = points < 1;
+                                        // Spec abilities are not class skills and never have an
+                                        // enhancement box, even if a stale catalog puts one here.
+                                        const showEnhancement = regionValue >= 3 && skill.enhancement !== false;
                                         const tooltip = [skill.simpleDescription].filter(Boolean).join('\n\n');
                                         const dragging =
                                             dragState &&
@@ -5239,7 +5243,7 @@ export default function BuildForm({
                                                         );
                                                     })}
                                                 </div>
-                                                {regionValue >= 3 && (
+                                                {showEnhancement && (
                                                     <span className={styles.enchantTooltip}>
                                                         <input
                                                             type="checkbox"
@@ -5298,7 +5302,8 @@ export default function BuildForm({
                             </div>
                             <div className={styles.skillsGrid}>
                                 {specSkillList.map((skill) => {
-                                    const maxPoints = Math.max(0, (skill.descriptions || []).length);
+                                    const maxPoints =
+                                        skill.maxPoints ?? Math.max(0, (skill.descriptions || []).length);
                                     if (maxPoints === 0) return '';
                                     const points = specSkillPoints[skill.scoreboardId] || 0;
                                     const tooltip = [skill.simpleDescription].filter(Boolean).join('\n\n');
