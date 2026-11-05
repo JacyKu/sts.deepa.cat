@@ -1193,6 +1193,9 @@ export default function BuildForm({
     // Always points at the newest currentBuildSnapshot (the deferred baseline
     // below runs after the restore's state updates have rendered).
     const currentSnapshotRef = React.useRef(null);
+    // Token of the last successfully saved build, used to tell a saved draft
+    // from edits made after that save.
+    const savedTokenRef = React.useRef(build || null);
     const [statInputs, setStatInputs] = React.useState(DEFAULT_STAT_INPUTS);
     const [stackInputs, setStackInputs] = React.useState(DEFAULT_STACK_INPUTS);
     const [skillStackInputs, setSkillStackInputs] = React.useState({});
@@ -1351,6 +1354,10 @@ export default function BuildForm({
     const effectiveDraft = React.useMemo(() => {
         if (!draft) return null;
         if (build) {
+            // Only explicitly dirty drafts may override a saved build. A
+            // draft marked as matching the server (or written by an older
+            // version without the flag) must not replay a stale save.
+            if (draft.saved !== false) return null;
             return draft.buildId && draft.buildId === buildId && Number(draft.revision) === Number(buildRevision)
                 ? draft
                 : null;
@@ -2656,6 +2663,10 @@ export default function BuildForm({
                         savedSnapshotRef.current = currentBuildSnapshot();
                         // Track the new revision so the draft saved next belongs
                         // to the row's current revision (older drafts are ignored).
+                        // Re-stamp the draft in the same render batch first: the
+                        // restore effect must not treat this save as a stale
+                        // draft and reload the previous build content.
+                        rememberSavedDraft(token, result.version);
                         if (result.version) setBuildRevision(result.version);
                         // Reflect the new revision in the address bar too, so a
                         // reload or a link copied from it serves the updated embed
@@ -3372,26 +3383,62 @@ export default function BuildForm({
     const draftTimerRef = React.useRef(null);
     const writeDraftRef = React.useRef(null);
 
+    function draftSnapshot(revision = buildRevision, tokenOverride = null) {
+        const token = tokenOverride || makeBuildString();
+        return {
+            token,
+            // Whether this draft is just the last saved build (then the
+            // server is authoritative) or has edits since that save. Compare
+            // the whole snapshot too, because notes and delve state are saved
+            // outside the token.
+            saved:
+                token === savedTokenRef.current &&
+                Boolean(savedSnapshotRef.current) &&
+                JSON.stringify(currentBuildSnapshot()) === JSON.stringify(savedSnapshotRef.current),
+            infusions: delveInfusions,
+            points: delvePoints,
+            basicInfusions,
+            revelation,
+            name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
+            notes: notesDraft.trim() ? notesDraft : null,
+            buildId: activeBuildId || null,
+            revision,
+            savedAt: Date.now(),
+        };
+    }
+
     function writeDraft() {
         try {
             // Skipped when the "Cache builds" setting is off.
             if (!isBuildsCacheEnabled()) return;
-            window.localStorage.setItem(
-                DRAFT_KEY,
-                JSON.stringify({
-                    token: makeBuildString(),
-                    infusions: delveInfusions,
-                    points: delvePoints,
-                    basicInfusions,
-                    revelation,
-                    name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
-                    notes: notesDraft.trim() ? notesDraft : null,
-                    buildId: activeBuildId || null,
-                    revision: buildRevision,
-                    savedAt: Date.now(),
-                })
-            );
+            window.localStorage.setItem(DRAFT_KEY, JSON.stringify(draftSnapshot()));
         } catch (e) {}
+    }
+
+    // A successful PATCH bumps buildRevision. If the draft kept the previous
+    // revision, the stale-draft effect below would clear it, effectiveDraft
+    // would become null, and the restore effect would fall back to the now
+    // outdated `build` prop - visibly undoing the save (e.g. bringing back the
+    // old spec and skill points). Re-stamp the in-memory draft with the saved
+    // revision so the page keeps the state the user just saved.
+    function rememberSavedDraft(savedToken, revision) {
+        if (!isBuildsCacheEnabled()) return;
+        // A debounce scheduled before the save must not overwrite the saved
+        // snapshot with the pre-save revision when it fires afterwards.
+        if (draftTimerRef.current) {
+            clearTimeout(draftTimerRef.current);
+            draftTimerRef.current = null;
+        }
+        savedTokenRef.current = savedToken || null;
+        const next = draftSnapshot(revision || buildRevision, savedToken);
+        try {
+            window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...next, saved: true }));
+        } catch (e) {}
+        // Keep the in-memory draft in step with the new revision so the
+        // revision bump cannot restore the old page prop. It is marked unsaved
+        // here because it is the state currently on screen; the copy written
+        // to localStorage is marked saved so a refresh loads the server token.
+        setDraft({ ...next, saved: false });
     }
 
     // Shared debounce: state changes save through the effect below, while the
