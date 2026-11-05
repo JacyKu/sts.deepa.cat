@@ -93,12 +93,54 @@ export const CLASS_SKILL_CALCULATIONS = {
     ],
     Shaman: [
         {
-            id: 'Spiritualism',
-            label: 'Spiritualism',
-            effects: { healingPercent: 10 },
-            effectsLv2: { healingPercent: 20 },
-            charmStats: { healingPercent: 'spiritualism_base_healing_percent' },
-            condition: 'Always (self healing).',
+            id: 'TotemMastery',
+            label: 'Totem Mastery',
+            passive: true,
+            effects: { resistancePercent: 10 },
+            summary: 'While inside your Totem: +10% Resistance.',
+            condition: "While inside your Totem's 8-block radius (assumed active).",
+        },
+        {
+            id: 'ImmolatingAura',
+            label: 'Immolating Aura',
+            effects: { allDamagePercent: 25 },
+            effectsLv2: { allDamagePercent: 35 },
+            summary: 'Lv 1: +25% ability damage while inside. Lv 2: +35%.',
+            condition: 'While inside your Immolated Totem (10s form).',
+        },
+        {
+            id: 'MendingRemedy',
+            label: 'Mending Remedy',
+            // cooldownReduction is a fraction, matching the potion cooldown
+            // effects (0.3 = 30%).
+            effects: { cooldownReduction: 0.3 },
+            summary: '+30% Cooldown Rate while inside the Mending Totem.',
+            condition: 'While inside your Mending Totem (8s form).',
+        },
+        {
+            id: 'EarthenTremor',
+            label: 'Earthen Tremor',
+            effects: { resistancePercent: 10, knockbackPercent: 60 },
+            effectsLv2: { resistancePercent: 20, knockbackPercent: 60 },
+            summary: 'Lv 1: +10% Resistance, +60% Knockback Resistance. Lv 2: +20% Resistance, +60% Knockback Resistance.',
+            condition: 'While inside your Earthen Totem (8s form).',
+        },
+        {
+            id: 'Invigorate',
+            label: 'Invigorate',
+            effects: { speedPercent: 25, attackSpeedPercent: 10 },
+            summary: 'After swapping Forms: +25% Speed and Haste I (+10% Attack Speed) for up to 6s. Lv 2 also slows nearby enemies.',
+            condition: 'After swapping Totem Forms, for up to 6s.',
+        },
+        {
+            id: 'Attunement',
+            label: 'Attunement',
+            // Bonus magic damage is weapon-damage based and has no matching
+            // percentage stat in the builder; keep it documented rather than
+            // approximating it with a flat magic-damage percentage.
+            summary:
+                'Lv 1: attacks inside your Totem deal +4 + 40% weapon damage as magic. Lv 2: +5 + 60%, and allies gain +20% Healing Rate. Enhancement: critical hits on your Totem shove it, dealing 150% weapon damage and stunning nearby mobs.',
+            condition: 'While inside your Totem.',
         },
     ],
     Warlock: [
@@ -227,8 +269,24 @@ export const SPEC_CALCULATIONS = {
             id: 'Unwavering',
             label: 'Unwavering',
             passive: true,
-            effects: { knockbackPercent: 40 },
-            condition: 'Five heretics within 8 blocks (+8% each).',
+            stacks: {
+                name: 'skillStack-Unwavering',
+                label: 'Heretics',
+                hint: 'Heretics within 8 blocks (max 5)',
+                max: 5,
+                perStack: { knockbackPercent: 8 },
+            },
+            condition: 'Per Heretic within 8 blocks (max 5).',
+        },
+    ],
+    'Cleric:Seraph': [
+        {
+            id: 'Rejuvenation',
+            label: 'Rejuvenation',
+            passive: true,
+            // 5% max HP every 3s while under 50% HP.
+            effects: { lowHealthRegenPercent: 5 / 3 },
+            condition: 'While below 50% HP (uses the Current Health slider).',
         },
     ],
     'Rogue:Swordsage': [
@@ -245,8 +303,14 @@ export const SPEC_CALCULATIONS = {
             id: 'Elusive',
             label: 'Elusive',
             passive: true,
-            effects: { resistancePercent: 10 },
-            condition: 'Four stacks at +2.5% Resistance each.',
+            stacks: {
+                name: 'skillStack-Elusive',
+                label: 'Abilities used',
+                hint: 'Abilities used (max 4 stacks), against the next hit taken',
+                max: 4,
+                perStack: { resistancePercent: 2.5 },
+            },
+            condition: 'Per ability used (max 4), against the next hit taken.',
         },
     ],
     'Scout:Hunter': [
@@ -264,6 +328,56 @@ export const SPEC_CALCULATIONS = {
             condition: 'Per block away from the target (max 25).',
         },
     ],
+    'Shaman:Windweaver': [
+        {
+            id: 'Weathering',
+            label: 'Weathering',
+            passive: true,
+            // Weathered/weakness is a mob debuff; Piercing Winds adds passive
+            // Totem damage. Neither changes the player's displayed stats.
+            summary:
+                'Spells inflict Weathered; critical attacks consume stacks to apply weakness. Piercing Winds adds passive Totem damage.',
+            condition: 'No direct player stat; applies Weathered and weakness to enemies.',
+        },
+        {
+            id: 'Cumulonimbus',
+            label: 'Cumulonimbus',
+            specSkill: true,
+            effects: { cooldownReduction: 0.5 },
+            summary:
+                '+50% Cooldown Rate for up to 6s after passing enemies while gliding. Lv 2 also adds +30% Vulnerability.',
+            condition: 'After gliding through an enemy (2s per enemy, max 6s).',
+        },
+        {
+            id: 'Cyclone',
+            label: 'Cyclone',
+            specSkill: true,
+            effects: { speedPercent: 30 },
+            summary:
+                '+30% Speed for 3s while inside Cyclone. Lv 2 adds form effects (fire damage, healing, or knockback immunity).',
+            condition: 'While inside your Cyclone (8s).',
+        },
+    ],
+    'Shaman:Earthcarver': [
+        {
+            id: 'Artisan',
+            label: 'Artisan',
+            passive: true,
+            // Second Totem / second Totemic Projection charge; no player stat.
+            summary: 'Second Totem and a second Totemic Projection charge.',
+            condition: 'Always while Earthcarver.',
+        },
+        {
+            id: 'MountainsSoul',
+            label: "Mountain's Soul",
+            specSkill: true,
+            effects: { knockbackPercent: 50 },
+            // Absorption has no builder stat; only its knockback resistance is
+            // representable.
+            summary: '+50% Knockback Resistance while you have absorption. Absorption itself is not a displayed stat.',
+            condition: "While you have any absorption from Mountain's Soul (max 4, or 6 at Lv 2).",
+        },
+    ],
     'Warlock:Reaper': [
         {
             id: 'DarkPact',
@@ -276,6 +390,13 @@ export const SPEC_CALCULATIONS = {
         },
     ],
     'Warrior:Guardian': [
+        {
+            id: 'Endurance',
+            label: 'Endurance',
+            passive: true,
+            // Shield stun duration only; no builder stat.
+            condition: 'Reduces the duration shields are stunned by 25%.',
+        },
         {
             id: 'Challenge',
             label: 'Challenge',
@@ -290,6 +411,23 @@ export const SPEC_CALCULATIONS = {
             },
             charmStackStats: { meleeDamagePercent: 'challenge_melee_damage_amplifier_per_mob_percent' },
             condition: 'Per taunted mob (max 4), for 10s.',
+        },
+    ],
+    'Warrior:Berserker': [
+        {
+            id: 'Bloodlust',
+            label: 'Bloodlust',
+            passive: true,
+            stacks: {
+                name: 'skillStack-Bloodlust',
+                label: 'Bloodlust stacks',
+                hint: 'Bloodlust stacks (max 10)',
+                max: 10,
+                // Bloodlust is a resource: its stacks are spent by Glorious
+                // Battle, Meteor Slam and Rampage and do not change passive stats.
+                perStack: {},
+            },
+            condition: 'Spent by Glorious Battle, Meteor Slam and Rampage; no passive stat.',
         },
     ],
 };

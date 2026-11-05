@@ -72,6 +72,7 @@ export async function POST(request) {
     const state = {
         token: storedToken,
         infusions: body.infusions && typeof body.infusions === 'object' ? body.infusions : {},
+        points: body.points && typeof body.points === 'object' ? body.points : {},
         revelation: Boolean(body.revelation),
         basicInfusions: body.basicInfusions && typeof body.basicInfusions === 'object' ? body.basicInfusions : {},
         globalInfusions: body.globalInfusions && typeof body.globalInfusions === 'object' ? body.globalInfusions : {},

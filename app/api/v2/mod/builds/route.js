@@ -112,6 +112,12 @@ export async function POST(request) {
     const state = {
         token: storedToken,
         infusions,
+        points:
+            body?.points && typeof body.points === 'object'
+                ? body.points
+                : existingState && existingState.points && typeof existingState.points === 'object'
+                  ? existingState.points
+                  : {},
         // Site-only settings the mod doesn't normally send ride along on a
         // re-export. The mod cannot detect an item's Revelation infusion, so
         // when it uploads delve infusions it states its assumption (on) and
@@ -219,12 +225,13 @@ export async function POST(request) {
           : null;
     let result;
     if (existingRow) {
-        // Same build, same link: refresh the stored state (and the public
-        // filter columns when the row is public) instead of inserting a copy.
+        // Same build, same link: refresh the stored state and the denormalized
+        // card/filter columns instead of inserting a copy. Private rows need
+        // those columns too: "My Builds" renders their class/skills from them.
         const updated = updateBuildState(existingRow.id, ownerId, null, {
             state,
             name: buildName || undefined,
-            summary: existingRow.is_public === 1 ? summary : undefined,
+            summary,
         });
         result = updated ? { id: existingRow.id, isNew: false } : null;
     } else {

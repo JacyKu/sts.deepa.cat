@@ -10,6 +10,7 @@ import ConsumableTile from '../items/consumableTile';
 import BuildImportBar from './buildImportBar';
 import SavedSetsPanel from './savedSetsPanel';
 import BuilderHeader from '../items/builderHeader';
+import BuildEmojiText from '../buildEmojiText';
 import styles from '../../styles/Items.module.css';
 import React from 'react';
 import { getStsBase } from '../../utils/base';
@@ -484,6 +485,10 @@ function formatSkillCalcEffects(stats) {
     pct(stats.ailmentResistancePercent, 'Ailment Resistance');
     pct(stats.knockbackPercent, 'Knockback Resistance');
     pct(stats.healingPercent, 'Healing');
+    const lowHealthRegen = Number(stats.lowHealthRegenPercent) || 0;
+    if (lowHealthRegen) {
+        lines.push(`+${value(lowHealthRegen * 3)}% Max HP every 3s below 50% HP`);
+    }
     pct(stats.healthPercent, 'Max Health');
     pct(stats.toughnessHealthPercent, 'Max Health (Toughness)');
     pct(stats.toughnessHealingPercent, 'Healing (Toughness)');
@@ -555,7 +560,6 @@ const enabledClassAbilityBuffs = {
     dethroner_elite: false,
     dethroner_boss: false,
     culling: false,
-    totemic_empowerment: false,
     taboo_lv1: false,
     taboo_lv2: false,
     taboo_burst: false,
@@ -647,6 +651,9 @@ function recalcBuild(data, itemData) {
         infusions: ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'].map(
             (slot) => data[`delveInfusion-${slot}`] ?? null
         ),
+        delveLevels: ['mainhand', 'offhand', 'helmet', 'chestplate', 'leggings', 'boots'].map(
+            (slot) => data[`delveLevel-${slot}`] ?? null
+        ),
         revelation: data.revelation ?? null,
         // Stack/uptime situationals (Scorch/Stamina stacks, Tempo and Reflexes
         // seconds) are calculation inputs like any other.
@@ -685,13 +692,16 @@ function recalcBuild(data, itemData) {
         statsCache.set(signature, hit);
         return hit.stats;
     }
+    const potionEffects = computePotionEffects(data.potions, itemData);
     const tempStats = new Stats(
         itemData,
         data,
         enabledBoxes,
         extraStats,
         enabledClassAbilityBuffs,
-        mergeBuffEffects(computePotionEffects(data.potions, itemData), skillEffects)
+        mergeBuffEffects(potionEffects, skillEffects),
+        skillEffects,
+        potionEffects
     );
     statsCache.set(signature, { itemData, stats: tempStats });
     if (statsCache.size > STATS_CACHE_MAX) {
@@ -1182,6 +1192,9 @@ export default function BuildForm({
     // Always points at the newest currentBuildSnapshot (the deferred baseline
     // below runs after the restore's state updates have rendered).
     const currentSnapshotRef = React.useRef(null);
+    // Token of the last successfully saved build, used to tell a saved draft
+    // from edits made after that save.
+    const savedTokenRef = React.useRef(build || null);
     const [statInputs, setStatInputs] = React.useState(DEFAULT_STAT_INPUTS);
     const [stackInputs, setStackInputs] = React.useState(DEFAULT_STACK_INPUTS);
     const [skillStackInputs, setSkillStackInputs] = React.useState({});
@@ -1196,7 +1209,7 @@ export default function BuildForm({
     const [czSelectedTree, setCzSelectedTree] = React.useState(CZ_MAIN_TREES[0]);
     const [charmStatsOpen, setCharmStatsOpen] = React.useState(false);
     const [delveOpen, setDelveOpen] = React.useState(false);
-    const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (always level IV)
+    const [delveInfusions, setDelveInfusions] = React.useState({}); // slot -> infusion name (levels live in delvePoints)
     // Basic (normal) infusions: one per item, levels I-IV (Tenacity, Vitality,
     // Vigor, Focus, Perspicacity, Acumen - see data/basicInfusions.js).
     const [basicOpen, setBasicOpen] = React.useState(false);
@@ -1296,9 +1309,12 @@ export default function BuildForm({
     function setBuildNameFiltered(value) {
         const { cleaned, found } = filterBadWords(String(value ?? ''));
         if (found) triggerRedX();
-        // Header commits only update the ref: no state change, no re-render.
+        // The ref is the source of truth, but the Save button compares against
+        // it during render. Bump the name signal so committing an edit updates
+        // the button (and the header) without re-rendering on every keystroke.
         buildNameRef.current = cleaned || 'Monumenta Builder';
-        // The draft must follow the name even though nothing re-rendered:
+        setNameSignal((v) => v + 1);
+        // The draft must follow the name even though nothing else re-rendered:
         // otherwise reopening the build restores the cached older name.
         scheduleDraftSave();
     }
@@ -1337,6 +1353,10 @@ export default function BuildForm({
     const effectiveDraft = React.useMemo(() => {
         if (!draft) return null;
         if (build) {
+            // Only explicitly dirty drafts may override a saved build. A
+            // draft marked as matching the server (or written by an older
+            // version without the flag) must not replay a stale save.
+            if (draft.saved !== false) return null;
             return draft.buildId && draft.buildId === buildId && Number(draft.revision) === Number(buildRevision)
                 ? draft
                 : null;
@@ -1565,6 +1585,40 @@ export default function BuildForm({
         return applySkillPayload(parsed);
     }
 
+    // Copy skills from a pasted build link or raw v1_ token. Short links are
+    // resolved through the same skills endpoint as the build cards; private
+    // links work because anyone with the link can view the build.
+    async function copyBuildLinkSkills(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return t('builder.sets.empty');
+        const tokenMatch = raw.match(/v1_[A-Za-z0-9_-]+/);
+        let parsed = tokenMatch ? skillsPayloadFromToken(tokenMatch[0], itemData) : null;
+        if (!parsed && raw.includes('cl=')) {
+            parsed = skillsPayloadFromToken(raw, itemData);
+        }
+        if (!parsed) {
+            const shortMatch = raw.match(/\/b(?:\/v\d+)?\/([A-Za-z0-9]+)/i);
+            const id = shortMatch
+                ? shortMatch[1]
+                : /^[A-Za-z0-9]{4,64}$/.test(raw) && !raw.startsWith('v1_')
+                  ? raw
+                  : null;
+            if (id) {
+                try {
+                    const res = await fetch(`/api/v2/builds/${encodeURIComponent(id)}/skills`);
+                    if (res.ok) {
+                        const data = await res.json().catch(() => null);
+                        parsed = data && data.payload ? data.payload : null;
+                    }
+                } catch (e) {
+                    parsed = null;
+                }
+            }
+        }
+        if (!parsed) return t('builder.sets.couldNotReadBuild');
+        return applySkillPayload(parsed);
+    }
+
     async function deleteSavedSet(id) {
         try {
             const res = await fetch(`/api/v2/skill-sets/${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -1594,12 +1648,13 @@ export default function BuildForm({
         });
         // Newly picked infusions default to level IV (4 points); clearing the
         // infusion drops its points too.
+        let nextLevel = null;
         if (option) {
-            const defaultPoints = Math.min(
+            nextLevel = Math.min(
                 DELVE_POINT_MAX_PER_SLOT,
                 Math.max(delvePoints[slot] ?? 0, DELVE_POINT_DEFAULT)
             );
-            setDelvePoints((prev) => ({ ...prev, [slot]: defaultPoints }));
+            setDelvePoints((prev) => ({ ...prev, [slot]: nextLevel }));
         } else {
             setDelvePoints((prev) => {
                 const next = { ...prev };
@@ -1613,8 +1668,39 @@ export default function BuildForm({
         for (let i = 0; i < entries.length; i++) {
             if (entries[i][0] == `delveInfusion-${slot}`) entries[i][1] = option ? option.value : 'None';
         }
+        // The level select is mounted only while an infusion is picked; keep its
+        // form entry in step with the points state so the first calculation uses
+        // the level shown in the UI.
+        if (nextLevel !== null) {
+            let foundLevel = false;
+            for (const entry of entries) {
+                if (entry[0] === `delveLevel-${slot}`) {
+                    entry[1] = String(nextLevel);
+                    foundLevel = true;
+                }
+            }
+            if (!foundLevel) entries.push([`delveLevel-${slot}`, String(nextLevel)]);
+        } else {
+            entries = entries.filter(([key]) => key !== `delveLevel-${slot}`);
+        }
         const itemNames = Object.fromEntries(entries);
         applyStatsUpdate(itemNames, itemData, setStats, update);
+    }
+
+    function delveLevelChanged(slot, level) {
+        setDelvePoints((prev) => ({ ...prev, [slot]: level }));
+        // The level Select's form value is not committed yet; patch it into the
+        // snapshot before recalculating so lower levels take effect immediately.
+        const entries = Array.from(new FormData(formRef.current).entries());
+        let found = false;
+        for (const entry of entries) {
+            if (entry[0] === `delveLevel-${slot}`) {
+                entry[1] = String(level);
+                found = true;
+            }
+        }
+        if (!found) entries.push([`delveLevel-${slot}`, String(level)]);
+        applyStatsUpdate(Object.fromEntries(entries), itemData, setStats, update);
     }
 
     function delveSlotSelects(slot) {
@@ -1666,7 +1752,7 @@ export default function BuildForm({
                         isSearchable={false}
                         options={levelOpts}
                         value={levelOpts.find((o) => o.value === currentLevel) || levelOpts[levelOpts.length - 1]}
-                        onChange={(opt) => setDelvePoints((prev) => ({ ...prev, [slot]: opt.value }))}
+                        onChange={(opt) => delveLevelChanged(slot, opt.value)}
                         menuPosition="absolute"
                         theme={infusionSelectTheme}
                         styles={levelSelectStyles}
@@ -2364,6 +2450,7 @@ export default function BuildForm({
         return {
             token: tokenForCompare(decoded),
             infusions: sortedEntries(delveInfusions),
+            points: sortedEntries(delvePoints),
             basicInfusions: sortedEntries(basicInfusions),
             revelation: Boolean(revelation),
             name: buildNameRef.current || 'Monumenta Builder',
@@ -2385,9 +2472,18 @@ export default function BuildForm({
                 name = null;
             }
         }
+        // Older build rows carry no delve levels; they load at the default IV,
+        // so the baseline must use the same defaults or old builds look edited.
+        const savedPoints = {};
+        for (const [slot, infusion] of Object.entries(saved.infusions || {})) {
+            if (!infusion || infusion === 'None') continue;
+            const raw = saved.points && saved.points[slot];
+            savedPoints[slot] = Math.max(1, Math.min(4, Math.floor(Number(raw) || 4)));
+        }
         return {
             token: tokenForCompare(decoded),
             infusions: sortedEntries(saved.infusions),
+            points: sortedEntries(savedPoints),
             basicInfusions: sortedEntries(saved.basicInfusions),
             revelation: Boolean(saved.revelation),
             name: name || 'Monumenta Builder',
@@ -2490,6 +2586,7 @@ export default function BuildForm({
         const payload = {
             token,
             infusions: delveInfusions,
+            points: delvePoints,
             basicInfusions,
             revelation,
             name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
@@ -2517,7 +2614,7 @@ export default function BuildForm({
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    state: { token, infusions: delveInfusions, basicInfusions, revelation },
+                    state: { token, infusions: delveInfusions, points: delvePoints, basicInfusions, revelation },
                     name: payload.name,
                     notes: payload.notes,
                     ...(loggedIn ? { publicise: publicState.isPublic, anonymous: publicState.anonymous } : {}),
@@ -2565,6 +2662,10 @@ export default function BuildForm({
                         savedSnapshotRef.current = currentBuildSnapshot();
                         // Track the new revision so the draft saved next belongs
                         // to the row's current revision (older drafts are ignored).
+                        // Re-stamp the draft in the same render batch first: the
+                        // restore effect must not treat this save as a stale
+                        // draft and reload the previous build content.
+                        rememberSavedDraft(token, result.version);
                         if (result.version) setBuildRevision(result.version);
                         // Reflect the new revision in the address bar too, so a
                         // reload or a link copied from it serves the updated embed
@@ -2991,6 +3092,7 @@ export default function BuildForm({
         // DB copy so unsaved infusion edits are not dropped.
         const effSavedState = effDraft || savedState || importedState;
         const loadedDelve = {};
+        const loadedDelvePoints = {};
         if (effSavedState && effSavedState.infusions && typeof effSavedState.infusions === 'object') {
             for (const [slot, infusion] of Object.entries(effSavedState.infusions)) {
                 // Any infusion is valid in any region.
@@ -2998,9 +3100,19 @@ export default function BuildForm({
                 if (ok) loadedDelve[slot] = infusion;
             }
             if (Object.keys(loadedDelve).length > 0) {
+                const savedPoints =
+                    effSavedState.points && typeof effSavedState.points === 'object' ? effSavedState.points : {};
+                for (const slot of Object.keys(loadedDelve)) {
+                    loadedDelvePoints[slot] = Math.max(
+                        1,
+                        Math.min(
+                            DELVE_POINT_MAX_PER_SLOT,
+                            Math.floor(Number(savedPoints[slot]) || DELVE_POINT_DEFAULT)
+                        )
+                    );
+                }
                 setDelveInfusions(loadedDelve);
-                // Restored infusions default to level IV (4 points) each.
-                setDelvePoints(Object.fromEntries(Object.keys(loadedDelve).map((slot) => [slot, DELVE_POINT_DEFAULT])));
+                setDelvePoints(loadedDelvePoints);
                 setDelveOpen(true);
             }
         }
@@ -3074,6 +3186,7 @@ export default function BuildForm({
         const delveEntries = {};
         for (const [slot, infusion] of Object.entries(loadedDelve)) {
             delveEntries[`delveInfusion-${slot}`] = infusion;
+            delveEntries[`delveLevel-${slot}`] = String(loadedDelvePoints[slot] ?? DELVE_POINT_DEFAULT);
         }
 
         applyStatsUpdateNow(
@@ -3269,25 +3382,62 @@ export default function BuildForm({
     const draftTimerRef = React.useRef(null);
     const writeDraftRef = React.useRef(null);
 
+    function draftSnapshot(revision = buildRevision, tokenOverride = null) {
+        const token = tokenOverride || makeBuildString();
+        return {
+            token,
+            // Whether this draft is just the last saved build (then the
+            // server is authoritative) or has edits since that save. Compare
+            // the whole snapshot too, because notes and delve state are saved
+            // outside the token.
+            saved:
+                token === savedTokenRef.current &&
+                Boolean(savedSnapshotRef.current) &&
+                JSON.stringify(currentBuildSnapshot()) === JSON.stringify(savedSnapshotRef.current),
+            infusions: delveInfusions,
+            points: delvePoints,
+            basicInfusions,
+            revelation,
+            name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
+            notes: notesDraft.trim() ? notesDraft : null,
+            buildId: activeBuildId || null,
+            revision,
+            savedAt: Date.now(),
+        };
+    }
+
     function writeDraft() {
         try {
             // Skipped when the "Cache builds" setting is off.
             if (!isBuildsCacheEnabled()) return;
-            window.localStorage.setItem(
-                DRAFT_KEY,
-                JSON.stringify({
-                    token: makeBuildString(),
-                    infusions: delveInfusions,
-                    basicInfusions,
-                    revelation,
-                    name: buildNameRef.current !== 'Monumenta Builder' ? buildNameRef.current : null,
-                    notes: notesDraft.trim() ? notesDraft : null,
-                    buildId: activeBuildId || null,
-                    revision: buildRevision,
-                    savedAt: Date.now(),
-                })
-            );
+            window.localStorage.setItem(DRAFT_KEY, JSON.stringify(draftSnapshot()));
         } catch (e) {}
+    }
+
+    // A successful PATCH bumps buildRevision. If the draft kept the previous
+    // revision, the stale-draft effect below would clear it, effectiveDraft
+    // would become null, and the restore effect would fall back to the now
+    // outdated `build` prop - visibly undoing the save (e.g. bringing back the
+    // old spec and skill points). Re-stamp the in-memory draft with the saved
+    // revision so the page keeps the state the user just saved.
+    function rememberSavedDraft(savedToken, revision) {
+        if (!isBuildsCacheEnabled()) return;
+        // A debounce scheduled before the save must not overwrite the saved
+        // snapshot with the pre-save revision when it fires afterwards.
+        if (draftTimerRef.current) {
+            clearTimeout(draftTimerRef.current);
+            draftTimerRef.current = null;
+        }
+        savedTokenRef.current = savedToken || null;
+        const next = draftSnapshot(revision || buildRevision, savedToken);
+        try {
+            window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...next, saved: true }));
+        } catch (e) {}
+        // Keep the in-memory draft in step with the new revision so the
+        // revision bump cannot restore the old page prop. It is marked unsaved
+        // here because it is the state currently on screen; the copy written
+        // to localStorage is marked saved so a refresh loads the server token.
+        setDraft({ ...next, saved: false });
     }
 
     // Shared debounce: state changes save through the effect below, while the
@@ -3323,6 +3473,7 @@ export default function BuildForm({
         statInputs,
         regionValue,
         delveInfusions,
+        delvePoints,
         basicInfusions,
         revelation,
         notesDraft,
@@ -4530,7 +4681,9 @@ export default function BuildForm({
                 <div className="row justify-content-center mt-3">
                     <div className="col-12 col-lg-8 col-xl-6">
                         {canEditNotes === false ? (
-                            <div className={styles.buildNotesBody}>{notes}</div>
+                            <div className={styles.buildNotesBody}>
+                                <BuildEmojiText text={notes} />
+                            </div>
                         ) : (
                             <>
                                 <textarea
@@ -4610,6 +4763,12 @@ export default function BuildForm({
         ? (() => {
               const entry = specPassiveInfo.entry;
               const resolved = entry ? resolveSkillCalcEntry(entry, 1, false, charmTotals) : null;
+              const stackValue =
+                  entry && resolved?.stacks
+                      ? skillStackInputs[entry.id] === undefined
+                          ? String(resolved.stacks.max)
+                          : skillStackInputs[entry.id]
+                      : '';
               const lines = [specPassiveInfo.name, t('builder.skillCalcs.passiveActive')];
               if (entry && entry.condition) lines.push(`Condition: ${entry.condition}`);
               if (resolved) {
@@ -4628,7 +4787,25 @@ export default function BuildForm({
               return (
                   <div className="col-auto" key={`spec-passive-${spec}`}>
                       <span className={styles.enchantTooltip}>
-                          <span className={styles.skillCalcPassive}>{specPassiveInfo.name}</span>
+                          <span className={styles.skillCalcPassive}>
+                              {specPassiveInfo.name}
+                              {entry && resolved?.stacks && (
+                                  <input
+                                      type="number"
+                                      className={styles.stackInput}
+                                      name={resolved.stacks.name}
+                                      min={0}
+                                      max={resolved.stacks.max}
+                                      step={1}
+                                      value={stackValue}
+                                      onChange={(event) =>
+                                          changeSkillStack(entry.id, resolved.stacks.max, event.target.value)
+                                      }
+                                      aria-label={resolved.stacks.label}
+                                      title={`${resolved.stacks.label} (0–${resolved.stacks.max})`}
+                                  />
+                              )}
+                          </span>
                           <span className={`${styles.enchantTooltipText} ${styles.skillCalcTooltip}`}>
                               {lines.join('\n')}
                           </span>
@@ -4927,6 +5104,7 @@ export default function BuildForm({
                             applySkillPayload={applySkillPayload}
                             applyDelvePayload={applyDelvePayload}
                             copyBuildSkills={copyBuildSkills}
+                            copyBuildLinkSkills={copyBuildLinkSkills}
                         />
                     </div>
                 </div>

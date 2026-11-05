@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { getBuild } from '../../../../../../lib/sts-builds';
+import { refreshLiveBuildSummary } from '../../../../../../lib/build-summaries';
 import { getBuildTokenVersion } from '../../../../../_src/utils/builder/buildUrlCodec';
+import { stripSeahorseShortcode } from '../../../../../_src/utils/buildEmoji';
 
 // Public build card (used by the Discord bot):
 //   /api/v2/builds/<id>/card
@@ -16,7 +18,7 @@ import { getBuildTokenVersion } from '../../../../../_src/utils/builder/buildUrl
 // means "the caller's own build".
 export async function GET(request, { params }) {
     const p = await params;
-    const row = getBuild(p.id);
+    const row = await refreshLiveBuildSummary(getBuild(p.id));
     if (!row) {
         return NextResponse.json({ error: 'build not found' }, { status: 404 });
     }
@@ -55,7 +57,7 @@ export async function GET(request, { params }) {
     const tokenVersion = getBuildTokenVersion(row.token) ?? '';
     return NextResponse.json({
         id: row.id,
-        name: row.name,
+        name: stripSeahorseShortcode(row.name),
         authorName: row.anonymous === 1 ? null : row.author_name,
         authorAvatar: row.anonymous === 1 ? null : row.author_avatar,
         class: row.class_name,

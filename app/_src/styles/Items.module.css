@@ -2128,12 +2128,13 @@ div.builderStatCard {
     opacity: 0.85;
 }
 
-/* The stacks/seconds box that lives inside the Scorch, Stamina, Tempo and
-   Reflexes chips. The themed/global input styles set a radius, border, padding
-   and background that a bare class cannot outrank, so this uses a compound
-   selector plus !important: transparent inside the chip, a straight divider on
-   the left, and no spinner arrows eating the width. */
-.checkboxWithLabel input.stackInput {
+/* The stacks/seconds box that lives inside the Scorch, Stamina, Tempo,
+   Reflexes and spec-passive chips. The themed/global input styles set a radius,
+   border, padding and background that a bare class cannot outrank, so this uses
+   a compound selector plus !important: transparent inside the chip, a straight
+   divider on the left, and no spinner arrows eating the width. */
+.checkboxWithLabel input.stackInput,
+.skillCalcPassive input.stackInput {
     box-sizing: border-box;
     width: 48px !important;
     height: 24px !important;
@@ -2151,10 +2152,13 @@ div.builderStatCard {
     text-align: center;
     appearance: textfield;
     -moz-appearance: textfield;
+    cursor: text;
 }
 
 .checkboxWithLabel input.stackInput::-webkit-outer-spin-button,
-.checkboxWithLabel input.stackInput::-webkit-inner-spin-button {
+.checkboxWithLabel input.stackInput::-webkit-inner-spin-button,
+.skillCalcPassive input.stackInput::-webkit-outer-spin-button,
+.skillCalcPassive input.stackInput::-webkit-inner-spin-button {
     appearance: none;
     -webkit-appearance: none;
     margin: 0;

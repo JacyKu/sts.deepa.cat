@@ -1,5 +1,7 @@
 import React from 'react';
 import styles from '../../styles/BuilderHeader.module.css';
+import BuildEmojiText from '../buildEmojiText';
+import { stripSeahorseShortcode } from '../../utils/buildEmoji';
 import { decodeBuildName } from '../../utils/builder/buildUrlCodec';
 import { filterBadWords } from '../../utils/badWords';
 
@@ -20,7 +22,8 @@ function EditIcon({ className, onClick }) {
 }
 
 function setDocumentTitle(name) {
-    document.title = name && name !== 'Monumenta Builder' ? name + ' - Monumenta Builder' : 'Monumenta Builder';
+    const text = stripSeahorseShortcode(name);
+    document.title = text && text !== 'Monumenta Builder' ? text + ' - Monumenta Builder' : 'Monumenta Builder';
 }
 
 // The build name lives in a ref (owned by BuilderPage) so renaming never
@@ -139,7 +142,9 @@ export default function BuilderHeader(data) {
                     </span>
                 </span>
             ) : (
-                <h1 className={styles.builderHeaderText}>{loaded ? text : getPlaceholderBuildName()}</h1>
+                <h1 className={styles.builderHeaderText}>
+                    <BuildEmojiText text={loaded ? text : getPlaceholderBuildName()} />
+                </h1>
             )}
             <EditIcon className={styles.builderHeaderEditIcon} onClick={editButtonClicked} />
         </span>

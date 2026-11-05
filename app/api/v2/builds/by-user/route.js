@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { listBuildsByUser } from '../../../../../lib/sts-builds';
+import { refreshLiveBuildSummaries } from '../../../../../lib/build-summaries';
 import { getBuildTokenVersion } from '../../../../_src/utils/builder/buildUrlCodec';
 
 // Bot-only: the Discord bot lists a linked user's builds.
@@ -28,7 +29,8 @@ export async function GET(request) {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
 
-    const builds = listBuildsByUser(discordId).map((b) => ({
+    const rows = await refreshLiveBuildSummaries(listBuildsByUser(discordId));
+    const builds = rows.map((b) => ({
         id: b.id,
         name: b.name || null,
         class: b.class_name,

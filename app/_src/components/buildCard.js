@@ -4,6 +4,8 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import TranslatableText from './translatableText';
+import BuildEmojiText from './buildEmojiText';
+import { stripSeahorseShortcode } from '../utils/buildEmoji';
 import styles from '../styles/Database.module.css';
 import { formatDateString } from '../utils/dateFormat';
 import itemsStyles from '../styles/Items.module.css';
@@ -685,8 +687,8 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             onClick={onCardClick}
         >
             <div className={styles.cardTop}>
-                <div className={styles.cardTitle} title={displayName}>
-                    {displayName}
+                <div className={styles.cardTitle} title={stripSeahorseShortcode(displayName)}>
+                    <BuildEmojiText text={displayName} />
                 </div>
                 <span className={styles.cardTopBtns}>
                     <button
@@ -950,7 +952,9 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
             {isTouch && expanded && hasNotes && (
                 <div className={styles.mobileNotes}>
                     <div className={styles.cardNotesLabel}>{t('builds.notes')}</div>
-                    <div className={styles.cardNotesBody}>{build.notes}</div>
+                    <div className={styles.cardNotesBody}>
+                        <BuildEmojiText text={build.notes} />
+                    </div>
                 </div>
             )}
 
@@ -971,7 +975,9 @@ function BuildCard({ build, user, base, onToggleFavourite, onAddCompare, compare
                     }${sideOpen ? ` ${styles.cardNotesOpen}` : ''}${sideHasContent ? ` ${styles.cardNotesWide}` : ''}`}
                 >
                     <div className={styles.cardNotesLabel}>{t('builds.notes')}</div>
-                    <div className={styles.cardNotesBody}>{build.notes}</div>
+                    <div className={styles.cardNotesBody}>
+                        <BuildEmojiText text={build.notes} />
+                    </div>
                 </div>
             )}
 

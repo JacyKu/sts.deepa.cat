@@ -10,6 +10,7 @@ import { getBuildItemHashes, getBuildTokenVersion } from '../utils/builder/build
 import { getDiscordUser } from '../../../lib/session';
 import { getItemData, getItemDataVersion, getSkillsData, getSkillsVersion, getCzVersion } from '../utils/itemsData';
 import { getLinkPreviewTitle, getLinkPreviewDescription } from '../utils/buildPreview';
+import { stripSeahorseShortcode } from '../utils/buildEmoji';
 import { sanitizeBuildTokenForDisplay } from '../utils/builder/buildTokenGuard';
 import { BuilderDataView } from './builderDataView';
 import BootstrapStyles from './bootstrapStyles';
@@ -41,7 +42,10 @@ export async function buildLinkMetadata(id, revision = null) {
         : row;
 
     const [itemData, skillsData] = await Promise.all([getItemData(), getSkillsData()]);
-    const title = shown.name || getLinkPreviewTitle(shown.token, itemData, null, skillsData);
+    const title =
+        stripSeahorseShortcode(shown.name) ||
+        getLinkPreviewTitle(shown.token, itemData, null, skillsData) ||
+        'Monumenta Builder';
     const description = getLinkPreviewDescription(shown.token, itemData, skillsData, shown.parsedState?.infusions);
     // The DB-backed image carries the delve infusions, which the token alone can't.
     // The &v cache-buster is the row's revision: it bumps on every real change

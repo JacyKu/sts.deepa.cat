@@ -31,6 +31,7 @@ export default function SavedSetsPanel({
     applySkillPayload,
     applyDelvePayload,
     copyBuildSkills,
+    copyBuildLinkSkills,
 }) {
     const [loggedIn, setLoggedIn] = React.useState(null); // null = checking
     const t = useTranslation();
@@ -41,6 +42,8 @@ export default function SavedSetsPanel({
     const [sets, setSets] = React.useState([]);
     const [myBuilds, setMyBuilds] = React.useState([]);
     const [buildQuery, setBuildQuery] = React.useState('');
+    const [buildLink, setBuildLink] = React.useState('');
+    const [linkBusy, setLinkBusy] = React.useState(false);
     const [copySource, setCopySource] = React.useState('mine'); // 'mine' | 'public'
     const [publicQuery, setPublicQuery] = React.useState('');
     const [publicBuilds, setPublicBuilds] = React.useState(null); // null = loading
@@ -196,6 +199,25 @@ export default function SavedSetsPanel({
             say(false, t('builder.sets.couldNotReadBuild'));
         } finally {
             setBusy(false);
+        }
+    }
+
+    async function handleCopyBuildLink() {
+        const value = buildLink.trim();
+        if (!value || linkBusy || !copyBuildLinkSkills) return;
+        setLinkBusy(true);
+        try {
+            const err = await copyBuildLinkSkills(value);
+            if (err) {
+                say(false, err);
+            } else {
+                say(true, t('builder.sets.buildLinkCopied'));
+                setBuildLink('');
+            }
+        } catch (e) {
+            say(false, t('builder.sets.couldNotReadBuild'));
+        } finally {
+            setLinkBusy(false);
         }
     }
 
@@ -393,6 +415,31 @@ export default function SavedSetsPanel({
                                     ? t('builder.sets.copyFromPublic')
                                     : t('builder.sets.copyFromBuilds')}
                             </h3>
+                            <div className={styles.setsSaveRow}>
+                                <input
+                                    className={styles.setsInput}
+                                    type="text"
+                                    maxLength={2048}
+                                    placeholder={t('builder.sets.buildLinkPlaceholder')}
+                                    value={buildLink}
+                                    onChange={(e) => setBuildLink(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleCopyBuildLink();
+                                        }
+                                    }}
+                                    aria-label={t('builder.sets.buildLinkPlaceholder')}
+                                />
+                                <button
+                                    type="button"
+                                    className={styles.setsBtn}
+                                    disabled={linkBusy || !buildLink.trim()}
+                                    onClick={handleCopyBuildLink}
+                                >
+                                    {linkBusy ? t('common.loading') : t('builder.sets.loadBuildLink')}
+                                </button>
+                            </div>
                             {loggedIn ? copySourceSwitch : null}
                             {activeSource === 'public' ? publicBuildsBody : myBuildsBody}
                         </section>

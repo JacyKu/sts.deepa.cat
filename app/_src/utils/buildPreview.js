@@ -1,6 +1,7 @@
 // Link-preview helpers for the builder (used for og:/twitter: metadata server-side).
 import { decodeBuildParam } from './builder/buildUrlCodec';
 import CharmShortener from './builder/charmShortener';
+import { stripSeahorseShortcode } from './buildEmoji';
 
 function parseCharmPreview(charmValue, itemData) {
     if (!charmValue || charmValue === 'None') return { totalPower: 0, items: [] };
@@ -83,7 +84,7 @@ export function getLinkPreviewData(build, itemData, skillsData) {
             }
         }
 
-        const className = params.get('cl') || null;
+        let className = params.get('cl') || null;
         // The binary token omits stats at their defaults, so a Ring build has
         // no region param at all. Number(null) would be 0, which would break
         // every region check - default to 3 when absent.
@@ -106,7 +107,7 @@ export function getLinkPreviewData(build, itemData, skillsData) {
                 if (id && Number.isInteger(points) && points > 0) skills.push({ id, points });
             }
         }
-        const spec = params.get('sp') || null;
+        let spec = params.get('sp') || null;
         const specSkills = [];
         const sskRaw = params.get('ssk');
         if (sskRaw) {
@@ -133,11 +134,21 @@ export function getLinkPreviewData(build, itemData, skillsData) {
                 if (name) czAbilities.push(name);
             }
         }
-        // resolve display names from the skills data when available
+        // Resolve display names from the current skills data when available.
+        // Tokens store skill ids, so this is also where class updates are
+        // applied: an id the catalog no longer knows (a removed/renamed skill,
+        // or a spec skill left behind by a respec) has no display name and is
+        // dropped instead of being shown under its raw id or an old name.
         if (skillsData && Array.isArray(skillsData.classes)) {
             const classData = className
                 ? skillsData.classes.find((c) => (c.className || '').toLowerCase() == className.toLowerCase())
                 : null;
+            // A class/spec that no longer exists cannot own any skills; clear
+            // the labels too so a removed catalog entry never lingers on a card.
+            if (className && !classData) {
+                className = null;
+                spec = null;
+            }
             for (const skill of skills) {
                 const match = classData ? classData.skills.find((s) => s.scoreboardId == skill.id) : null;
                 if (match) {
@@ -146,6 +157,7 @@ export function getLinkPreviewData(build, itemData, skillsData) {
                 }
             }
             const specData = classData && spec ? classData.specs?.find((s) => s.specName == spec) : null;
+            if (classData && spec && !specData) spec = null;
             for (const skill of specSkills) {
                 const match = specData ? specData.specSkills.find((s) => s.scoreboardId == skill.id) : null;
                 if (match) {
@@ -157,6 +169,12 @@ export function getLinkPreviewData(build, itemData, skillsData) {
                 const id = enhancements[i];
                 const match = classData ? classData.skills.find((s) => s.scoreboardId == id) : null;
                 enhancements[i] = { id, name: match ? match.displayName : id };
+            }
+            for (let i = skills.length - 1; i >= 0; i--) {
+                if (!skills[i].name) skills.splice(i, 1);
+            }
+            for (let i = specSkills.length - 1; i >= 0; i--) {
+                if (!specSkills[i].name) specSkills.splice(i, 1);
             }
         }
 
@@ -262,7 +280,7 @@ export function getEffectiveBuildName(data, buildName) {
 
 export function getLinkPreviewTitle(build, itemData, buildName, skillsData) {
     const data = getLinkPreviewData(build, itemData, skillsData);
-    const name = getEffectiveBuildName(data, buildName);
+    const name = stripSeahorseShortcode(getEffectiveBuildName(data, buildName));
     return (name ? name + ' - ' : '') + 'Monumenta Builder';
 }
 

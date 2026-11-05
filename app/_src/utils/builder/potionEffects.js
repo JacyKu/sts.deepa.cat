@@ -6,8 +6,8 @@
 // type do not stack in game: only the strongest strength of each type counts.
 //
 // Only effects the stat cards actually model are mapped; cosmetic/utility ones
-// (Night Vision, Water Breath, Haste, experience, ...) and instant heals are
-// left out.
+// (Night Vision, Water Breath, experience, ...) and instant heals are left out.
+// Haste/Mining Fatigue are mapped to attack speed, which is their Java effect.
 const DAMAGE_TYPES = {
     MeleeDamage: 'meleeDamagePercent',
     ProjectileDamage: 'projectileDamagePercent',
@@ -41,6 +41,8 @@ function emptyEffects() {
         projectileDamagePercent: 0,
         magicDamagePercent: 0,
         cooldownReduction: 0,
+        // Healing received multiplier (PercentHeal effects: Heal/AntiHeal).
+        healingMultiplier: 1,
         // Multipliers on incoming damage, per damage type ("all" applies to
         // every type before the type-specific one).
         damageTaken: { all: 1, melee: 1, projectile: 1, magic: 1, blast: 1, fire: 1, fall: 1 },
@@ -76,15 +78,23 @@ export function computePotionEffects(rawPotions, itemData) {
 
     const value = (type) => strongest.get(type) || 0;
 
-    // Additive percentages (the same pools gear stats use).
+    // Additive percentages (the same pools gear stats use). Haste and Mining
+    // Fatigue are vanilla levels, each worth 10% attack speed; the custom
+    // AttackSpeed / NegativeAttackSpeed effects are already fractions.
     effects.healthPercent = 100 * (value('MaxHealthIncrease') - value('MaxHealthDecrease'));
     effects.speedPercent = 100 * (value('Speed') - value('Slow'));
-    effects.attackSpeedPercent = 100 * (value('AttackSpeed') - value('NegativeAttackSpeed'));
+    effects.attackSpeedPercent =
+        100 * (value('AttackSpeed') - value('NegativeAttackSpeed')) +
+        10 * (value('Haste') - value('MiningFatigue'));
     // Item knockback resistance is a [0, 1] attribute that the builder turns
     // into a percentage by multiplying by 10.
     effects.knockbackRes = 10 * (value('KnockbackResist') - value('NegativeKnockbackResist'));
     effects.regenLevels = value('Regeneration');
     effects.cooldownReduction = value('AbilityCooldownDecrease') - value('AbilityCooldownIncrease');
+    // Heal and AntiHeal both create a PercentHeal effect in game, which scales
+    // every healing event by (1 + amount). Negative AntiHeal is clamped at zero
+    // so a 100% anti-heal consumable stops healing instead of going negative.
+    effects.healingMultiplier = Math.max(0, (1 + value('Heal')) * (1 - value('AntiHeal')));
 
     // "damage" is the generic damage buff (Strength): it raises all three
     // damage cards. The type-specific buffs add on top.

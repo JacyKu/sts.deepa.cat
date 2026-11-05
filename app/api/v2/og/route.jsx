@@ -40,6 +40,7 @@ const STAR_PATH =
 
 let spriteInfoCache = null;
 let faviconCache = null;
+let seahorseCache;
 // Discord CDN avatars fetched for the embed author bar, keyed by URL so
 // repeated fetches (Discord re-fetches og images with each preview) stay cheap.
 // Bounded like the card cache: distinct avatars would otherwise grow it
@@ -95,6 +96,20 @@ async function getFaviconDataUrl() {
         faviconCache = null;
     }
     return faviconCache;
+}
+
+async function getSeahorseDataUrl() {
+    if (seahorseCache !== undefined) return seahorseCache;
+    try {
+        const buf = await sharp(path.join(process.cwd(), 'public', 'images', 'emojis', 'seahorse.png'))
+            .resize(128, 128, { fit: 'contain' })
+            .png()
+            .toBuffer();
+        seahorseCache = `data:image/png;base64,${buf.toString('base64')}`;
+    } catch (e) {
+        seahorseCache = null;
+    }
+    return seahorseCache;
 }
 
 // Fetch a Discord CDN avatar and re-encode it as a PNG data URL for embedding
@@ -317,6 +332,44 @@ function MasterworkStars({ tier, masterwork }) {
     const max = MAX_MASTERWORK[tier];
     if (!max) return null;
     return <Stars filled={masterwork} max={max} />;
+}
+
+function EmojiTitle({ text, seahorse, fontSize = 30 }) {
+    const value = typeof text === 'string' ? text : '';
+    if (!seahorse || !/:seahorse:/i.test(value)) {
+        return <div style={{ fontSize, fontWeight: 800, color: TEXT, lineHeight: 1.2 }}>{value}</div>;
+    }
+    const parts = value.split(/(:seahorse:)/i);
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 4,
+                fontSize,
+                fontWeight: 800,
+                color: TEXT,
+                lineHeight: 1.2,
+            }}
+        >
+            {parts.map((part, index) =>
+                part.toLowerCase() === ':seahorse:' ? (
+                    <img
+                        key={index}
+                        src={seahorse}
+                        width={fontSize}
+                        height={fontSize}
+                        style={{ width: fontSize, height: fontSize, objectFit: 'contain' }}
+                    />
+                ) : (
+                    <span key={index} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                        {part}
+                    </span>
+                )
+            )}
+        </div>
+    );
 }
 
 function EquipmentGrid({ itemLines, size = 56 }) {
@@ -545,6 +598,7 @@ async function setCardResponse(setId, origin) {
     const humanClass = row.className ? row.className.charAt(0).toUpperCase() + row.className.slice(1) : null;
     const avatarUrl = resolveAuthorAvatarUrl(row.userId, row.authorAvatar, origin);
     const avatarDataUrl = avatarUrl ? await getAvatarDataUrl(avatarUrl) : null;
+    const seahorse = /:seahorse:/i.test(row.name || '') ? await getSeahorseDataUrl() : null;
 
     return new ImageResponse(
         <div
@@ -561,7 +615,7 @@ async function setCardResponse(setId, origin) {
             }}
         >
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{row.name}</div>
+                <EmojiTitle text={row.name} seahorse={seahorse} />
                 <div style={{ fontSize: 12, letterSpacing: 2, color: DIM, fontWeight: 700 }}>
                     {isDelve ? 'INFUSION SET' : 'SKILL SET'}
                 </div>
@@ -738,6 +792,7 @@ export async function GET(request) {
         const fontStyle = { fontFamily: 'sans-serif' };
 
         const title = getEffectiveBuildName(data, null) || 'Monumenta Builder';
+        const seahorse = /:seahorse:/i.test(title) ? await getSeahorseDataUrl() : null;
         const className = data.className || null;
         const spec = data.spec || null;
         const region = data.region;
@@ -809,7 +864,7 @@ export async function GET(request) {
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: 30, fontWeight: 800, color: TEXT }}>{title}</div>
+                    <EmojiTitle text={title} seahorse={seahorse} />
                 </div>
 
                 {hasBuildInfo && (
