@@ -239,13 +239,21 @@ function parseLegacyParts(decoded) {
 }
 
 function partValue(parts, letter) {
-    return (
+    const raw =
         parts
             .find((str) => str.startsWith(`${letter}=`))
             ?.split('=')
             .slice(1)
-            .join('=') || null
-    );
+            .join('=') || null;
+    if (!raw) return null;
+    // Item names are encodeURIComponent-encoded. decodeURI leaves reserved
+    // characters such as commas escaped, which broke names like
+    // "Granzanber, Halberd of Ascension".
+    try {
+        return decodeURIComponent(raw);
+    } catch (e) {
+        return raw;
+    }
 }
 
 function titleCase(str) {
