@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { getBuild } from '../../../../../../lib/sts-builds';
+import { refreshLiveBuildSummary } from '../../../../../../lib/build-summaries';
 import { getBuildTokenVersion } from '../../../../../_src/utils/builder/buildUrlCodec';
 import { stripSeahorseShortcode } from '../../../../../_src/utils/buildEmoji';
 
@@ -17,7 +18,7 @@ import { stripSeahorseShortcode } from '../../../../../_src/utils/buildEmoji';
 // means "the caller's own build".
 export async function GET(request, { params }) {
     const p = await params;
-    const row = getBuild(p.id);
+    const row = await refreshLiveBuildSummary(getBuild(p.id));
     if (!row) {
         return NextResponse.json({ error: 'build not found' }, { status: 404 });
     }

@@ -560,7 +560,6 @@ const enabledClassAbilityBuffs = {
     dethroner_elite: false,
     dethroner_boss: false,
     culling: false,
-    totemic_empowerment: false,
     taboo_lv1: false,
     taboo_lv2: false,
     taboo_burst: false,

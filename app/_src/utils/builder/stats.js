@@ -692,10 +692,6 @@ class Stats {
             bonusResistanceMultiplier *= 0.9;
         }
 
-        if (this.enabledClassAbilityBuffs.totemic_empowerment) {
-            bonusResistanceMultiplier *= 0.9;
-        }
-
         if (this.situationals.earth_aspect.enabled) {
             bonusResistanceMultiplier *= 1 - 0.05 * this.situationals.earth_aspect.level;
         }
@@ -1024,7 +1020,6 @@ class Stats {
             this.speedPercent
                 .mul(this.speedFlat / 0.1, false)
                 .mul(this.currentHealthPercent.perc <= 50 ? 1 - 0.1 * this.crippling : 1, false)
-                .mul(this.enabledClassAbilityBuffs.totemic_empowerment ? 1.1 : 1, false)
                 .mul(
                     this.enabledClassAbilityBuffs.weapon_mastery_enhancement && this.fullItemData.mainhand.type == 'Axe'
                         ? 1 + (15 + (Number(this.buffEffects && this.buffEffects.weaponMasterySpeedPercent) || 0)) / 100
