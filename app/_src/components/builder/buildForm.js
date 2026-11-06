@@ -367,9 +367,10 @@ const enabledBoxes = {
     trivium: false,
     stamina: false,
     technique: false,
-    // Scorch scales every Inferno damage tick; no item carries it in the data
-    // yet, so its chip is always offered and the stack count is manual.
+    // Scorch and Greed are manual stack/stage toggles: neither has a stat in
+    // the item data, so their chips are always offered.
     scorch: false,
+    greed: false,
     abyssal: false,
     fractal: false,
     skyseeker: false,
@@ -462,11 +463,18 @@ const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor
 // full Scorch and Stamina stacks, full Tempo, just-triggered Reflexes.
 const STACK_INPUTS = {
     scorch: { name: 'scorchStacks', label: 'Scorch stacks', hintKey: 'builder.misc.scorchStacksHint', min: 0, max: 15, step: 1 },
+    greed: { name: 'greedStacks', label: 'Greed stage', hintKey: 'builder.misc.greedStacksHint', min: 1, max: 5, step: 1 },
     stamina: { name: 'staminaStacks', label: 'Stamina stacks', hintKey: 'builder.misc.staminaStacksHint', min: 0, max: 4, step: 1 },
     tempo: { name: 'tempoSeconds', label: 'Tempo (s)', hintKey: 'builder.misc.tempoSecondsHint', min: 0, max: 4, step: 1 },
     reflexes: { name: 'reflexesSeconds', label: 'Reflexes (s)', hintKey: 'builder.misc.reflexesSecondsHint', min: 0, max: 1, step: 0.1 },
 };
-const DEFAULT_STACK_INPUTS = { scorchStacks: '15', staminaStacks: '4', tempoSeconds: '4', reflexesSeconds: '0' };
+const DEFAULT_STACK_INPUTS = {
+    scorchStacks: '15',
+    greedStacks: '5',
+    staminaStacks: '4',
+    tempoSeconds: '4',
+    reflexesSeconds: '0',
+};
 // The inputs (and the form fields) are keyed by state name, the definition map
 // by situational, so the caps are looked up by state name.
 const STACK_INPUT_BY_STATE = Object.fromEntries(Object.values(STACK_INPUTS).map((input) => [input.name, input]));
@@ -928,6 +936,19 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
             </div>
         );
     }
+    // Greed has no item stat yet; its stage is entered manually.
+    tempPercentDmg.push(
+        <div className="col-auto" key="situationalbox-greed">
+            <CheckboxWithLabel
+                name={formatSituationalName('greed')}
+                enchantName={'greed'}
+                checked={enabledBoxes.greed}
+                onChange={checkboxChanged}
+            >
+                {stackBox('greed')}
+            </CheckboxWithLabel>
+        </div>
+    );
     if (itemsToDisplay.retaliation) {
         ['normal', 'elite', 'boss'].forEach((type) => {
             tempPercentDmg.push(

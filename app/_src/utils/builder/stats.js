@@ -65,6 +65,8 @@ class Stats {
         // stacks for Stamina, full uptime for Tempo, just-triggered Reflexes and
         // no Scorch.
         this.scorchStacks = clampStat(formData.scorchStacks, 0, SCORCH_MAX_STACKS, 0);
+        // Greed stages 1-5; stage 1 is the first critical hit.
+        this.greedStacks = clampStat(formData.greedStacks, 1, 5, 5);
         this.staminaStacks = clampStat(formData.staminaStacks, 0, STAMINA_MAX_STACKS, STAMINA_MAX_STACKS);
         this.tempoSeconds = clampStat(formData.tempoSeconds, 0, Infinity, TEMPO_FULL_SECONDS);
         this.reflexesSeconds = clampStat(formData.reflexesSeconds, 0, Infinity, 0);
@@ -167,6 +169,7 @@ class Stats {
             regicide: { enabled: enabledBoxes.regicide, level: 0 },
             trivium: { enabled: enabledBoxes.trivium, level: 0 },
             stamina: { enabled: enabledBoxes.stamina, level: 0 },
+            greed: { enabled: enabledBoxes.greed, level: 0 },
             technique: { enabled: enabledBoxes.technique, level: 0 },
             abyssal: { enabled: enabledBoxes.abyssal, level: 0 },
             fractal: { enabled: enabledBoxes.fractal, level: 0 },
@@ -305,6 +308,8 @@ class Stats {
         let staminaSit = this.situationals.stamina.enabled
             ? 10 * this.situationals.stamina.level * (this.staminaStacks / STAMINA_MAX_STACKS)
             : 0;
+        // Greed: +20% melee gear damage per critical stage, 1-5.
+        let greedSit = this.situationals.greed.enabled ? 20 * this.greedStacks : 0;
         let techniqueSit = this.situationals.technique.enabled ? 10 * this.situationals.technique.level : 0;
         let abyssalSit = this.situationals.abyssal.enabled ? 10 * this.situationals.abyssal.level : 0;
         let fractalSit = this.situationals.fractal.enabled ? 10 * this.situationals.fractal.level : 0;
@@ -341,6 +346,7 @@ class Stats {
         this.attackDamagePercent.add(momentumSit);
         this.attackDamagePercent.add(regicideSit);
         this.attackDamagePercent.add(staminaSit);
+        this.attackDamagePercent.add(greedSit);
         this.attackDamagePercent.add(abyssalSit);
         this.attackDamagePercent.add(skyseekerSit);
         this.attackDamagePercent.add(backstabSit);
@@ -696,6 +702,13 @@ class Stats {
             bonusResistanceMultiplier *= 1 - 0.05 * this.situationals.earth_aspect.level;
         }
 
+        // Greed: stage 2+ adds resistance; stage 3+ adds speed.
+        const greedStage = this.situationals.greed.enabled ? this.greedStacks : 0;
+        const greedResistance = [0, 0, 7.5, 12.5, 20, 30][greedStage] || 0;
+        if (greedResistance > 0) {
+            bonusResistanceMultiplier *= 1 - greedResistance / 100;
+        }
+
         // So... situational changes, huh? Fun!
         //
         // Situationals provide enough armor/agi to give additive ehp. The
@@ -1014,6 +1027,11 @@ class Stats {
                 );
             }
         }
+        // Greed: +10% / +15% / +25% Speed at stages 3 / 4 / 5.
+        const greedSpeedStage = this.situationals.greed.enabled ? this.greedStacks : 0;
+        const greedSpeed = [0, 0, 0, 10, 15, 25][greedSpeedStage] || 0;
+        if (greedSpeed > 0) this.speedPercent.add(greedSpeed);
+
         // Fix speed percentage to account for base speed
         this.speedPercent = this.roundPerc(
             'speedPercent',
