@@ -73,8 +73,12 @@ function processItemData(itemData, extras) {
         }
         // Exalted
         if (itemStats.masterwork) {
-            // If an item with the base, non-masterwork name exists, as a key
-            if (itemData[itemStats.name]) {
+            // If an item with the base, non-masterwork name exists, as a key.
+            // Match the item's type too: an unrelated item can share the same
+            // display name (for example the Written Book "Oblivion" and the
+            // Scythe "Oblivion"), and must not turn the other item into EX.
+            const baseItem = itemData[itemStats.name];
+            if (baseItem && baseItem.type === itemStats.type && baseItem.base_item === itemStats.base_item) {
                 // Modify its name to have an "EX" at the start
                 const exName = `EX ${itemStats.name}`;
                 const mwExName = `${exName}-${itemData[item].masterwork}`;
