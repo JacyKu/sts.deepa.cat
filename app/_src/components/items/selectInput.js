@@ -168,7 +168,13 @@ const SelectInput = (data) => {
     // names (e.g. charms keyed by full item keys) can pass favouriteMatch.
     const favouriteMatch = data.favouriteMatch;
     const isFavourite = React.useCallback(
-        (option) => (favouriteMatch ? favouriteMatch(option) : favouriteSet.has(option.label)),
+        (option) => {
+            if (favouriteMatch) return favouriteMatch(option);
+            const label = option && typeof option === 'object' ? option.label : option;
+            // Masterwork tiers are listed as separate options with a tier
+            // suffix, but favourites are stored against the base item name.
+            return favouriteSet.has(String(label ?? '').replace(/\s*\(Masterwork \d+\)$/, ''));
+        },
         [favouriteMatch, favouriteSet]
     );
 

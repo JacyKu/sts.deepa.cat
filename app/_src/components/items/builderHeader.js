@@ -34,6 +34,9 @@ export default function BuilderHeader(data) {
     const [loaded, setLoaded] = React.useState(false);
     const [text, setText] = React.useState('Monumenta Builder');
     const [tempText, setTempText] = React.useState('Monumenta Builder');
+    // The form only re-renders once per edit session, on the first keystroke.
+    // Later keystrokes still update the ref so Save sees the latest name.
+    const typingSignalSent = React.useRef(false);
 
     // Matches the server-side clamp when saving builds.
     const NAME_LIMIT = 50;
@@ -101,7 +104,9 @@ export default function BuilderHeader(data) {
         setTempText(reallyTempText);
         setText(reallyTempText);
         setDocumentTitle(reallyTempText);
-        // Writes the ref (bad-word filtered); does not re-render the form.
+        // Writes the ref (bad-word filtered) and notifies the form one final
+        // time. Reset the typing flag for the next edit session.
+        typingSignalSent.current = false;
         data.setBuildName(reallyTempText);
         setEditing(false);
     }
@@ -110,6 +115,14 @@ export default function BuilderHeader(data) {
         const { cleaned, found } = filterBadWords(e.target.value);
         if (found && data.onFiltered) data.onFiltered();
         setTempText(cleaned);
+        // Save reads the name from the ref. Without this the form still
+        // considers the build clean (and Save disabled) until the input
+        // blurs - which a disabled Save button never does.
+        if (data.setBuildName) {
+            const notify = !typingSignalSent.current;
+            data.setBuildName(cleaned, notify);
+            typingSignalSent.current = true;
+        }
     }
 
     function getPlaceholderBuildName() {

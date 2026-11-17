@@ -367,8 +367,9 @@ const enabledBoxes = {
     trivium: false,
     stamina: false,
     technique: false,
-    // Scorch and Greed are manual stack/stage toggles: neither has a stat in
-    // the item data, so their chips are always offered.
+    // Scorch is a manual stack toggle: it has no stat in the item data, so
+    // its chip is always offered. Greed is derived from the equipped gear's
+    // greed stat like the other enchant situationals.
     scorch: false,
     greed: false,
     abyssal: false,
@@ -431,6 +432,7 @@ const situationalPercentDamage = [
     'trivium',
     'stamina',
     'technique',
+    'greed',
     'abyssal',
     'fractal',
     'skyseeker',
@@ -462,11 +464,46 @@ const DEFAULT_STAT_INPUTS = { health: '100', tenacity: '0', vitality: '0', vigor
 // stats.js for the maths). The defaults are each situational at full effect:
 // full Scorch and Stamina stacks, full Tempo, just-triggered Reflexes.
 const STACK_INPUTS = {
-    scorch: { name: 'scorchStacks', label: 'Scorch stacks', hintKey: 'builder.misc.scorchStacksHint', min: 0, max: 15, step: 1 },
-    greed: { name: 'greedStacks', label: 'Greed stage', hintKey: 'builder.misc.greedStacksHint', min: 1, max: 5, step: 1 },
-    stamina: { name: 'staminaStacks', label: 'Stamina stacks', hintKey: 'builder.misc.staminaStacksHint', min: 0, max: 4, step: 1 },
-    tempo: { name: 'tempoSeconds', label: 'Tempo (s)', hintKey: 'builder.misc.tempoSecondsHint', min: 0, max: 4, step: 1 },
-    reflexes: { name: 'reflexesSeconds', label: 'Reflexes (s)', hintKey: 'builder.misc.reflexesSecondsHint', min: 0, max: 1, step: 0.1 },
+    scorch: {
+        name: 'scorchStacks',
+        label: 'Scorch stacks',
+        hintKey: 'builder.misc.scorchStacksHint',
+        min: 0,
+        max: 15,
+        step: 1,
+    },
+    greed: {
+        name: 'greedStacks',
+        label: 'Greed stage',
+        hintKey: 'builder.misc.greedStacksHint',
+        min: 1,
+        max: 5,
+        step: 1,
+    },
+    stamina: {
+        name: 'staminaStacks',
+        label: 'Stamina stacks',
+        hintKey: 'builder.misc.staminaStacksHint',
+        min: 0,
+        max: 4,
+        step: 1,
+    },
+    tempo: {
+        name: 'tempoSeconds',
+        label: 'Tempo (s)',
+        hintKey: 'builder.misc.tempoSecondsHint',
+        min: 0,
+        max: 4,
+        step: 1,
+    },
+    reflexes: {
+        name: 'reflexesSeconds',
+        label: 'Reflexes (s)',
+        hintKey: 'builder.misc.reflexesSecondsHint',
+        min: 0,
+        max: 1,
+        step: 0.1,
+    },
 };
 const DEFAULT_STACK_INPUTS = {
     scorchStacks: '15',
@@ -630,7 +667,16 @@ function groupMasterwork(items, itemData) {
     }
 
     Object.keys(masterworkItems).forEach((item) => {
-        items.push({ value: `${item}-${masterworkItems[item][0].masterwork}`, label: item });
+        // Keep every tier selectable. Saved builds store the exact key
+        // (for example ...-2), so collapsing a family to its highest tier
+        // leaves lower-tier builds with no matching option.
+        const tiers = masterworkItems[item].slice().sort((a, b) => a.masterwork - b.masterwork);
+        tiers.forEach((tier) => {
+            items.push({
+                value: `${item}-${tier.masterwork}`,
+                label: `${item} (Masterwork ${tier.masterwork})`,
+            });
+        });
     });
 
     return items;
@@ -658,8 +704,10 @@ function getRelevantItems(types, itemData, favourites = new Set()) {
     // sort keeps the original order within each group). Masterwork groups
     // and custom items are {value, label} objects whose label is the item name.
     return [...items].sort((a, b) => {
-        const aName = typeof a == 'object' ? a.label : itemData[a].name;
-        const bName = typeof b == 'object' ? b.label : itemData[b].name;
+        // Masterwork options carry a tier suffix in their label, but
+        // favourites are stored against the base item name.
+        const aName = typeof a == 'object' ? itemData[a.value]?.name || a.label : itemData[a].name;
+        const bName = typeof b == 'object' ? itemData[b.value]?.name || b.label : itemData[b].name;
         return Number(favourites.has(bName)) - Number(favourites.has(aName));
     });
 }
@@ -936,19 +984,8 @@ function generateSituationalCheckboxes(itemsToDisplay, checkboxChanged, delveInf
             </div>
         );
     }
-    // Greed has no item stat yet; its stage is entered manually.
-    tempPercentDmg.push(
-        <div className="col-auto" key="situationalbox-greed">
-            <CheckboxWithLabel
-                name={formatSituationalName('greed')}
-                enchantName={'greed'}
-                checked={enabledBoxes.greed}
-                onChange={checkboxChanged}
-            >
-                {stackBox('greed')}
-            </CheckboxWithLabel>
-        </div>
-    );
+    // Greed's chip is rendered above with the other percent situationals,
+    // only when the equipped gear actually carries the greed stat.
     if (itemsToDisplay.retaliation) {
         ['normal', 'elite', 'boss'].forEach((type) => {
             tempPercentDmg.push(
@@ -1356,14 +1393,14 @@ export default function BuildForm({
         redXTimeoutRef.current = setTimeout(() => setShowRedX(false), 1600);
     }
 
-    function setBuildNameFiltered(value) {
+    function setBuildNameFiltered(value, notify = true) {
         const { cleaned, found } = filterBadWords(String(value ?? ''));
         if (found) triggerRedX();
         // The ref is the source of truth, but the Save button compares against
-        // it during render. Bump the name signal so committing an edit updates
-        // the button (and the header) without re-rendering on every keystroke.
+        // it during render. Notify once per edit session so the button enables
+        // while typing without re-rendering on every keystroke.
         buildNameRef.current = cleaned || 'Monumenta Builder';
-        setNameSignal((v) => v + 1);
+        if (notify) setNameSignal((v) => v + 1);
         // The draft must follow the name even though nothing else re-rendered:
         // otherwise reopening the build restores the cached older name.
         scheduleDraftSave();
@@ -1700,10 +1737,7 @@ export default function BuildForm({
         // infusion drops its points too.
         let nextLevel = null;
         if (option) {
-            nextLevel = Math.min(
-                DELVE_POINT_MAX_PER_SLOT,
-                Math.max(delvePoints[slot] ?? 0, DELVE_POINT_DEFAULT)
-            );
+            nextLevel = Math.min(DELVE_POINT_MAX_PER_SLOT, Math.max(delvePoints[slot] ?? 0, DELVE_POINT_DEFAULT));
             setDelvePoints((prev) => ({ ...prev, [slot]: nextLevel }));
         } else {
             setDelvePoints((prev) => {
@@ -3155,10 +3189,7 @@ export default function BuildForm({
                 for (const slot of Object.keys(loadedDelve)) {
                     loadedDelvePoints[slot] = Math.max(
                         1,
-                        Math.min(
-                            DELVE_POINT_MAX_PER_SLOT,
-                            Math.floor(Number(savedPoints[slot]) || DELVE_POINT_DEFAULT)
-                        )
+                        Math.min(DELVE_POINT_MAX_PER_SLOT, Math.floor(Number(savedPoints[slot]) || DELVE_POINT_DEFAULT))
                     );
                 }
                 setDelveInfusions(loadedDelve);
@@ -3899,13 +3930,10 @@ export default function BuildForm({
         const map = new Map();
         let passive = null;
         if (!skillsData) return { map, passive };
-        const cls = (skillsData.classes || []).find(
-            (c) => (c.className || '').toLowerCase() === gameClass
-        );
+        const cls = (skillsData.classes || []).find((c) => (c.className || '').toLowerCase() === gameClass);
         if (!cls) return { map, passive };
         const add = (skill) => {
-            const text =
-                skill.simpleDescription || cleanDescription((skill.descriptions || []).join('\n'));
+            const text = skill.simpleDescription || cleanDescription((skill.descriptions || []).join('\n'));
             if (text) map.set(skill.scoreboardId, text);
         };
         (cls.skills || []).forEach(add);
@@ -5298,10 +5326,7 @@ export default function BuildForm({
                                                             checked={enhanced && !enhanceDisabled}
                                                             disabled={enhanceDisabled}
                                                             onChange={(e) =>
-                                                                enhancementToggled(
-                                                                    skill.scoreboardId,
-                                                                    e.target.checked
-                                                                )
+                                                                enhancementToggled(skill.scoreboardId, e.target.checked)
                                                             }
                                                             aria-label={`${skill.displayName} ${t('builder.skills.enhancement')}`}
                                                         />
