@@ -667,15 +667,15 @@ function groupMasterwork(items, itemData) {
     }
 
     Object.keys(masterworkItems).forEach((item) => {
-        // Keep every tier selectable. Saved builds store the exact key
-        // (for example ...-2), so collapsing a family to its highest tier
-        // leaves lower-tier builds with no matching option.
-        const tiers = masterworkItems[item].slice().sort((a, b) => a.masterwork - b.masterwork);
-        tiers.forEach((tier) => {
-            items.push({
-                value: `${item}-${tier.masterwork}`,
-                label: `${item} (Masterwork ${tier.masterwork})`,
-            });
+        // One selector entry per item family, defaulting to its highest tier.
+        // The tile's star control can still choose a lower tier; saved builds
+        // restore their exact key through the controlled select.
+        const highest = masterworkItems[item]
+            .slice()
+            .sort((a, b) => Number(b.masterwork) - Number(a.masterwork))[0];
+        items.push({
+            value: `${item}-${highest.masterwork}`,
+            label: item,
         });
     });
 
