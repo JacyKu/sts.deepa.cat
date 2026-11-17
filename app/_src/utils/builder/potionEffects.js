@@ -1,9 +1,11 @@
 // Turns the potion/food buffs the player selects into builder stat inputs.
 //
 // The item data gives each Consumable an `effects` list (EffectType,
-// EffectStrength as a fraction, EffectDuration). The builder shows the stats
-// while the effect is active, so durations are ignored. Effects of the same
-// type do not stack in game: only the strongest strength of each type counts.
+// EffectStrength as a fraction, EffectDuration in ticks). The builder shows
+// the stats while the effect is active, so durations do not limit the buffs.
+// HealOverTime is the exception: its duration determines the heal per second.
+// Effects of the same type do not stack in game: only the strongest strength
+// of each type counts.
 //
 // Only effects the stat cards actually model are mapped; cosmetic/utility ones
 // (Night Vision, Water Breath, experience, ...) and instant heals are left out.
@@ -36,7 +38,13 @@ function emptyEffects() {
         speedPercent: 0,
         attackSpeedPercent: 0,
         knockbackRes: 0,
-        regenLevels: 0,
+        // Vanilla Regeneration is independent of the gear Regeneration
+        // enchantment, so it is kept as its own potion level.
+        regenLevel: 0,
+        // HealOverTime heals strength * max health over its duration. Stored
+        // as a fraction of max health per second so stats.js can apply it
+        // after the final max-health value is known.
+        healOverTimePercentPerSecond: 0,
         meleeDamagePercent: 0,
         projectileDamagePercent: 0,
         magicDamagePercent: 0,
@@ -64,6 +72,7 @@ export function computePotionEffects(rawPotions, itemData) {
     if (!Array.isArray(names) || names.length === 0) return effects;
 
     // Strongest strength per effect type across the selected consumables.
+    // The duration is kept alongside it because HealOverTime needs both.
     const strongest = new Map();
     for (const name of names) {
         const item = itemData[name];
@@ -72,11 +81,17 @@ export function computePotionEffects(rawPotions, itemData) {
             const type = effect && effect.EffectType;
             const strength = Number(effect && effect.EffectStrength);
             if (!type || !Number.isFinite(strength)) continue;
-            if (!strongest.has(type) || strength > strongest.get(type)) strongest.set(type, strength);
+            const current = strongest.get(type);
+            if (!current || strength > current.strength) {
+                strongest.set(type, {
+                    strength,
+                    duration: Number(effect.EffectDuration) || 0,
+                });
+            }
         }
     }
 
-    const value = (type) => strongest.get(type) || 0;
+    const value = (type) => strongest.get(type)?.strength || 0;
 
     // Additive percentages (the same pools gear stats use). Haste and Mining
     // Fatigue are vanilla levels, each worth 10% attack speed; the custom
@@ -84,12 +99,17 @@ export function computePotionEffects(rawPotions, itemData) {
     effects.healthPercent = 100 * (value('MaxHealthIncrease') - value('MaxHealthDecrease'));
     effects.speedPercent = 100 * (value('Speed') - value('Slow'));
     effects.attackSpeedPercent =
-        100 * (value('AttackSpeed') - value('NegativeAttackSpeed')) +
-        10 * (value('Haste') - value('MiningFatigue'));
+        100 * (value('AttackSpeed') - value('NegativeAttackSpeed')) + 10 * (value('Haste') - value('MiningFatigue'));
     // Item knockback resistance is a [0, 1] attribute that the builder turns
     // into a percentage by multiplying by 10.
     effects.knockbackRes = 10 * (value('KnockbackResist') - value('NegativeKnockbackResist'));
-    effects.regenLevels = value('Regeneration');
+    effects.regenLevel = value('Regeneration');
+    const healOverTime = strongest.get('HealOverTime');
+    if (healOverTime && healOverTime.strength > 0 && healOverTime.duration > 0) {
+        // EffectDuration is in ticks (20 per second), and the effect heals
+        // strength * max health over that whole duration.
+        effects.healOverTimePercentPerSecond = (healOverTime.strength * 20) / healOverTime.duration;
+    }
     effects.cooldownReduction = value('AbilityCooldownDecrease') - value('AbilityCooldownIncrease');
     // Heal and AntiHeal both create a PercentHeal effect in game, which scales
     // every healing event by (1 + amount). Negative AntiHeal is clamped at zero

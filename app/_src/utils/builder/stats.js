@@ -1085,6 +1085,27 @@ class Stats {
         if (this.enabledClassAbilityBuffs.taboo) effHealingNonRounded.mul(50);
         this.effHealingRate = this.roundPerc('effHealingRate', effHealingNonRounded);
         let regenPerSecNonRounded = (1 / 3) * Math.sqrt(this.baseRegenLevel) * this.healingRate.val;
+        // Potion/food healing is independent of the gear Regeneration
+        // enchantment. Vanilla Regeneration heals 1 HP every
+        // 50 >> (level - 1) ticks, while HealOverTime heals its strength as a
+        // fraction of max health over its duration.
+        if (this.potionEffects) {
+            const potionRegenLevel = Math.max(0, Math.floor(Number(this.potionEffects.regenLevel) || 0));
+            let potionRegenPerSec = 0;
+            if (potionRegenLevel > 0) {
+                // Minecraft applies Regeneration once every `50 >> amplifier`
+                // ticks (integer shift), so level 3 is 1.667 HP/s rather than
+                // a continuous 1.6.
+                const amplifier = Math.min(30, potionRegenLevel - 1);
+                potionRegenPerSec += 20 / (50 >> amplifier);
+            }
+            const healOverTimePercentPerSecond = Math.max(
+                0,
+                Number(this.potionEffects.healOverTimePercentPerSecond) || 0
+            );
+            potionRegenPerSec += this.healthFinal * healOverTimePercentPerSecond;
+            regenPerSecNonRounded += potionRegenPerSec * this.healingRate.val;
+        }
         // Curse of the Veil: drains level health every 3 seconds (level/3 per
         // second), but only while its situational checkbox is ticked (hostile
         // mob nearby / recently dealt damage).
@@ -1096,11 +1117,7 @@ class Stats {
         if (this.hasDelveInfusion('Soothing'))
             regenPerSecNonRounded += DELVE_REGEN_PER_LEVEL * this.getDelveLevel('Soothing');
         // Rejuvenation (Cleric Seraph): heal 5% max HP every 3s while below 50% HP.
-        if (
-            this.currentHealthPercent.perc < 50 &&
-            this.buffEffects &&
-            this.buffEffects.lowHealthRegenPercent
-        ) {
+        if (this.currentHealthPercent.perc < 50 && this.buffEffects && this.buffEffects.lowHealthRegenPercent) {
             // Healing received modifiers (AntiHeal / Heal potions, Dark Pact,
             // etc.) scale this heal like every other healing event.
             const healingMultiplier =
@@ -1211,7 +1228,7 @@ class Stats {
             this.speedPercent.add(buffs.speedPercent);
             this.attackSpeedPercent.add(buffs.attackSpeedPercent);
             this.knockbackRes += buffs.knockbackRes;
-            this.baseRegenLevel += buffs.regenLevels;
+            this.baseRegenLevel += Number(buffs.regenLevels) || 0;
         }
         if (this.potionEffects) {
             const potions = this.potionEffects;
