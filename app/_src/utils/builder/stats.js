@@ -903,6 +903,15 @@ class Stats {
             delveCommonMultiplier * delveOrbitalMultiplier,
             potionTaken('ailment')
         );
+        // Ailment Protection / Fragility: 0.96^(2 * level) per level, with
+        // fragility using the inverse exponent.
+        const ailmentProtectionMultiplier = Math.pow(
+            0.96,
+            2 * (this.ailmentProt - this.ailmentFragility)
+        );
+        ailmentDamage.base *= ailmentProtectionMultiplier;
+        ailmentDamage.secondwind *= ailmentProtectionMultiplier;
+
         // Toughness: +20%/+40% ailment resistance.
         if (this.enabledClassAbilityBuffs.toughness_lv1) {
             const toughnessAilment = this.enabledClassAbilityBuffs.toughness_lv2 ? 0.4 : 0.2;
@@ -1193,6 +1202,8 @@ class Stats {
                 this.magicFragility += this.sumNumberStat(itemStats, 'magic_fragility');
                 this.blastFragility += this.sumNumberStat(itemStats, 'blast_fragility');
                 this.fireFragility += this.sumNumberStat(itemStats, 'fire_fragility');
+                this.ailmentProt += this.sumNumberStat(itemStats, 'ailment_protection');
+                this.ailmentFragility += this.sumNumberStat(itemStats, 'ailment_fragility');
 
                 this.attackDamagePercent.add(this.sumNumberStat(itemStats, 'attack_damage_percent'));
                 this.attackSpeedPercent.add(this.sumNumberStat(itemStats, 'attack_speed_percent'));
@@ -1296,6 +1307,7 @@ class Stats {
             (this.fireProt = 0),
             (this.fallProt = 0),
             (this.ailmentProt = 0),
+            (this.ailmentFragility = 0),
             (this.meleeFragility = 0),
             (this.projectileFragility = 0),
             (this.magicFragility = 0),
